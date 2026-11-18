@@ -2,63 +2,70 @@
 
 ## Purpose
 
-Turn a Salesforce gift export into clean, standard order lines that later modules can use. This module reads and maps data. It does not route gifts, decide anything about projects, or handle money.
+Turn a source file (or Google Sheet) of transactions into clean, standard transactions and lines that later modules can use, whatever the source calls its columns. This module reads and maps data. It does not route transactions, decide anything about projects, or handle money.
 
-Scope (decided 18 Nov 2026): the **Upload file** (the SF Upload tab of the Salesforce upload sheet) and the **code book** (the SF META tab). Other touchpoint sheets (web, JustGiving, Facebook, centres) are upstream of Salesforce and can become extra data sources later through the same mapping.
+It is **generic** (DECISIONS 26). Field names say what a thing means (Reference, Supporter ID, Fund, Outcome, Group, Commitment). Everything specific to one source system lives in a **preset**. MWF's Salesforce upload is one preset. An organisation with no preset maps its own columns.
+
+## How it fits together
+
+| Layer | What it is | Where |
+|---|---|---|
+| Generic model | Fields, lines, checks. No source names | `fields.ts`, `lines.ts`, `pipeline.ts` |
+| Source presets | One source's column names, how it packs lines, its lookup list layout, its wording | `presets/` (Salesforce in `presets/salesforce.ts`) |
+| Organisation setup | Preset, lines layout, required fields, column mapping, value mapping, custom fields, wording, lookup lists | `setup.ts` |
 
 ## Inputs
 
 | Input | What it is |
 |---|---|
-| Upload file (CSV) | One row per gift, with the designation lines as JSON in `GiftTranxDesignationInfo__c`. This is the only file loaded each time. A template shows the expected columns |
-| Code book (CSV) | Salesforce IDs to names for Designations and Outcome Activities. **Configuration**: loaded once, then saved with the setup (DECISIONS 19) |
+| Upload file (CSV) or Google Sheet tab | The transactions. The only thing loaded each time. A template shows the expected columns |
+| Lookup lists (optional, CSV) | Names for fund and outcome IDs. **Configuration**: loaded once, saved with the setup. Not needed when the file carries names. Accepts a Type, Name, ID list or the source preset's own layout (Salesforce: the SF META tab) |
+
+## Lines layouts
+
+| Layout | Meaning |
+|---|---|
+| `lines-column` | One row per transaction, lines packed in one column that the preset knows how to read |
+| `one-row-per-line` | One row per line. Rows with the same reference are one transaction |
+| `one-line-per-transaction` | One row per transaction with its single line's fields on the row |
 
 ## Outputs
 
 | Output | What it is |
 |---|---|
-| Order lines | One line per designation in a gift, standard fields only, with Designation and Outcome Activity names (built) |
-| Issues list | Things staff should look at, with the file row, never blocking (built) |
-| Saved setup | Column mapping, custom fields and value mapping for one data source, saved as text (built) |
-
-## Build steps
-
-| Step | What | Status |
-|---|---|---|
-| 1 | This README and `docs/DATA-DICTIONARY.md` | Done |
-| 2 | CSV reader and designation line splitter, with tests | Done |
-| 3 | Decode IDs to names using the code book | Done |
-| 4 | Suggest a standard field for each column, incl. the 8 classification fields | Done |
-| 5 | Issue check (missing reference, bad date, unknown ID and more) | Done |
-| 6 | Save and load a setup per source, with manual and calculated fields and value mapping | Done |
-| 7 | Drag and drop mapping page (plain Vite and TypeScript, thin on purpose) | Done |
+| Transactions | Standard fields only, the 8 classification fields always present (blank if no fit) |
+| Lines | Fund and outcome with names filled in, amount, quantity, intention |
+| Issues list | Things staff should look at, with the source row, never blocking |
+| Setup | Saved as text. Mapping, wording, lookups, required fields, layout |
 
 ## Files
 
 | File | Purpose |
 |---|---|
 | `csv.ts` | Parses CSV text into rows and records |
-| `gifts.ts` | Reads a gift export and splits designation JSON into order lines |
-| `standard-fields.ts` | The standard fields (incl. the 8 classification fields), known Salesforce column names, and columns dropped by default |
-| `mapping.ts` | Suggests a field per column, and applies a mapping to a gift |
-| `setup.ts` | The setup for one source: custom fields, value maps, apply, find unmapped values, save and load as text |
-| `issues.ts` | Runs the whole pipeline on a file (`runImport`) and collects the issues list |
-| `codebook.ts` | Reads the code book (SF META) and adds names to order lines |
-| `sheets.ts`, `sheets-api.ts` | Reads a tab of a Google Sheet with a read-only token (link parsing, API calls with an injected `fetch`, plain English errors) |
-| `template.ts`, `field-hints.ts` | The expected Upload file format (table and CSV template) and the extra column names used for auto-matching |
-| `ui/google.ts` | Google sign-in in the browser (read-only permission, token in memory only) |
-| `ui/` | The local page: `index.html`, `main.ts` (events and state), `views.ts` (HTML for each part), `styles.css`. No business rules live here |
-| `csv.test.ts`, `gifts.test.ts`, `codebook.test.ts`, `mapping.test.ts`, `issues.test.ts`, `setup.test.ts`, `template.test.ts`, `sheets.test.ts`, `ui/views.test.ts` | Tests, using only `samples/` (invented data) |
+| `fields.ts`, `field-hints.ts` | The generic fields, other names a column might have, examples |
+| `lines.ts` | The generic line, building lines from rows, filling names from lookup lists |
+| `presets/` | Source presets. `salesforce.ts` holds all Salesforce and MWF specifics |
+| `lookups.ts` | Reads a lookup list |
+| `mapping.ts` | Suggests a field per column, applies a mapping to a row |
+| `setup.ts` | The setup, custom fields, value maps, values still to map, save and load |
+| `pipeline.ts` | `runImport(rows, setup)`: the whole pipeline and the issue checks |
+| `template.ts` | The expected format as a table and a CSV template |
+| `sheets.ts`, `sheets-api.ts` | Reads a tab of a Google Sheet with a read-only token |
+| `ui/` | The local page. `main.ts` events and state, `views.ts` HTML, `sheet-source.ts` Google Sheet, `google.ts` sign-in. No business rules here |
+
+Tests sit next to each file (`*.test.ts`) and use only the invented files in `samples/`.
 
 ## Decisions
 
-- Business rules are pure functions: no database, no screen, no Salesforce calls, so they can be ported to Apex or another stack (DECISIONS 11, 12).
-- Bad data is reported as an issue, never thrown, so one bad gift does not stop a file.
-- Contact details (email, phone, address) are not carried into order lines (CLAUDE.md, Privacy).
-- Calculated fields use a small fixed set of rules (copy, join, starts with, swap values), not free code, so they port to Salesforce and are easy to check.
-- Master values for the 8 classification fields are plain text for now. Full master lists (code, status, parent and so on, DECISIONS 16) come later.
-- The page is a thin layer over the pure functions. The MWF developers can replace it with a CRM screen without touching the rules.
-- Money amounts are kept as exported, for reference only (DECISIONS 3).
+- Business rules are pure functions: no database, no screen, no network, so they can be ported to another stack (DECISIONS 11, 12).
+- Bad data is reported as an issue, never thrown, so one bad row does not stop a file.
+- Contact details (email, phone, address) are never carried into a transaction (CLAUDE.md, Privacy).
+- Money amounts are kept as supplied, for reference only (DECISIONS 3).
+- Calculated fields use a small fixed set of rules (copy, join, starts with, swap values), not free code.
+- Master values for the 8 classification fields are plain text for now. Full master lists (DECISIONS 16) come later.
+- The page is a thin layer over the pure functions, so the developers can replace it with a CRM screen.
+- Required fields are set per organisation. The Salesforce preset requires reference, received date, donor ID, designation and outcome activity.
 
 ## How to see the page
 
@@ -67,11 +74,11 @@ npm install
 npm run dev
 ```
 
-Open the link it prints (http://localhost:5173). First time only: open **Configuration** and pick the code book CSV (export the SF META tab as CSV). It is then kept in this browser along with your setup. Each time after that, just pick the **Upload file** (export the SF Upload tab as CSV), or click **Download template** to see the expected columns. Files are read in the browser only and nothing is sent to a server. The setup and code book are kept in this browser's local storage until you click Forget saved setup. Drag a column onto a field, or tap a column then tap a field. Save setup downloads the setup as a `.json` file, and the "Saved setup" picker loads one back. Never put real exports in this repo.
+Open the link it prints (http://localhost:5173). Pick the **Source type** in Configuration (Salesforce, or Generic file to map your own columns) and the lines layout. Then pick the **Upload file**, or load it from a Google Sheet. Click **Download template** to see the expected columns. If the file carries IDs, pick the lookup lists once. They are kept in this browser with your setup until you click Forget saved setup. Drag a column onto a field, or tap a column then tap a field. Save setup downloads the setup as a `.json` file, and the Saved setup picker loads one back. Files are read in the browser only. Never put real exports in this repo.
 
 ## Loading from a Google Sheet
 
-Paste the sheet link and click **Load from Google Sheet**. Each person signs in with their own Google account, read-only, and sees only sheets shared with them. One-time setup for the client ID: `docs/GOOGLE-SETUP.md`. The same loading logic (`sheets-api.ts`) is what the developers' scheduled job will use with a service account (DECISIONS 20, 22).
+Paste the sheet link and click **Load from Google Sheet**. Each person signs in with their own Google account, read-only, and sees only sheets shared with them. One-time client ID setup: `docs/GOOGLE-SETUP.md`. The same loading logic (`sheets-api.ts`) is what the developers' scheduled job will use with a service account (DECISIONS 20, 22).
 
 ## How to test
 

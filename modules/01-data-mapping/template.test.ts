@@ -1,69 +1,67 @@
 /**
  * template.test.ts
  *
- * What it does: tests template.ts and the auto-matching in mapping.ts. The key promise:
- * a file that follows the template matches every column and imports with no issues.
+ * What it does: tests template.ts. The key promise: a file that follows the template matches every
+ * column and imports with no issues, for a generic source and for the Salesforce preset.
  */
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { buildCodeBook } from "./codebook";
-import { readGiftExport } from "./gifts";
-import { runImport } from "./issues";
-import { suggestMapping } from "./mapping";
+import { parseCsv, toRecords } from "./csv";
+import { readLookups } from "./lookups";
+import { getPreset } from "./presets";
+import { runImport } from "./pipeline";
+import { newSetup } from "./setup";
 import { expectedColumns, templateCsv } from "./template";
 
 const read = (name: string) => readFileSync(new URL(`../../samples/${name}`, import.meta.url), "utf8");
-const { codeBook } = buildCodeBook(read("sf-meta-sample.csv"));
+const TODAY = "2026-11-18";
 
-describe("template", () => {
-  it("lists the required columns first", () => {
+describe("generic template", () => {
+  it("lists the required columns first and includes all 8 classification fields", () => {
     const cols = expectedColumns();
-    expect(cols.slice(0, 4).map((c) => c.field).sort()).toEqual(["designationLines", "donorId", "orderReference", "receivedDate"]);
-    expect(cols.slice(0, 4).every((c) => c.required)).toBe(true);
+    expect(cols.slice(0, 2).map((c) => c.field).sort()).toEqual(["receivedDate", "reference"]);
+    expect(cols.filter((c) => c.group === "classification").map((c) => c.label).sort()).toEqual(
+      ["Channel", "Frequency", "Merchant", "Method", "Mode", "Platform", "Settlement", "Type"],
+    );
   });
 
-  it("includes all 8 classification fields", () => {
-    const names = expectedColumns().filter((c) => c.group === "classification").map((c) => c.label);
-    expect(names.sort()).toEqual(["Channel", "Frequency", "Merchant", "Method", "Mode", "Platform", "Settlement", "Type"]);
-  });
-
-  it("gives a header row and one example row with the same number of cells", () => {
-    const { headers, gifts } = readGiftExport(templateCsv());
-    expect(gifts).toHaveLength(1);
-    expect(headers).toHaveLength(expectedColumns().length);
+  it("uses line columns, not a lines column", () => {
+    const fields = expectedColumns().map((c) => c.field);
+    expect(fields).toContain("lineOutcome");
+    expect(fields).not.toContain("linesData");
   });
 
   it("matches every column of its own template and imports with no issues", () => {
-    const { headers, gifts } = readGiftExport(templateCsv());
-    const mapping = suggestMapping(headers);
-    expect(Object.values(mapping).filter((a) => a.action !== "field")).toEqual([]);
-    expect(runImport(gifts, mapping, codeBook).issues).toEqual([]);
+    const { headers, records } = toRecords(parseCsv(templateCsv()));
+    expect(records).toHaveLength(1);
+    expect(headers).toHaveLength(expectedColumns().length);
+    const setup = newSetup("Template", headers);
+    expect(Object.values(setup.mapping).filter((a) => a.action !== "field")).toEqual([]);
+    expect(runImport(records, setup, { today: TODAY }).issues).toEqual([]);
+  });
+
+  it("uses an organisation's own wording as column names", () => {
+    const cols = expectedColumns({ labels: { supporterId: "Client number" } });
+    expect(cols.find((c) => c.field === "supporterId")?.column).toBe("Client number");
   });
 });
 
-describe("auto-matching by name", () => {
-  it("matches other MWF sheet headers as likely, ignoring case and punctuation", () => {
-    const m = suggestMapping(["PAY METH", "Bank Ref", "Donor ID", "deposit_to", "Number of Instalments"]);
-    expect(m["PAY METH"]).toEqual({ action: "field", field: "method", confidence: "likely" });
-    expect(m["Donor ID"]).toEqual({ action: "field", field: "donorId", confidence: "likely" });
-    expect(m["deposit_to"]).toEqual({ action: "field", field: "settlement", confidence: "likely" });
-    expect(m["Number of Instalments"]).toEqual({ action: "field", field: "instalmentCount", confidence: "likely" });
-    expect(m["Bank Ref"]).toEqual({ action: "unmapped" }); // not guessed
+describe("Salesforce template", () => {
+  const preset = getPreset("salesforce")!;
+
+  it("uses Salesforce column names, requires the lines column and leaves out line-per-row columns", () => {
+    const cols = expectedColumns({ preset });
+    expect(cols.find((c) => c.field === "reference")?.column).toBe("Legacy_Reference_No__c");
+    expect(cols.find((c) => c.field === "linesData")).toMatchObject({ required: true, column: "GiftTranxDesignationInfo__c" });
+    expect(cols.some((c) => c.group === "line")).toBe(false);
   });
 
-  it("drops contact columns under other names", () => {
-    const m = suggestMapping(["E-mail Address", "Post Code", "Mobile", "First Name"]);
-    for (const c of Object.keys(m)) expect(m[c]).toMatchObject({ action: "drop" });
-  });
-
-  it("prefers the exact Salesforce name over a name match", () => {
-    const m = suggestMapping(["Type__c", "Type"]);
-    expect(m["Type__c"]).toEqual({ action: "field", field: "accountType" });
-    expect(m["Type"]).toEqual({ action: "field", field: "type", confidence: "likely" });
-  });
-
-  it("does not guess with partial names", () => {
-    expect(suggestMapping(["Payment Reference Notes"])["Payment Reference Notes"]).toEqual({ action: "unmapped" });
+  it("matches every column of its own template and imports with no issues", () => {
+    const { headers, records } = toRecords(parseCsv(templateCsv({ preset })));
+    const setup = newSetup("Template", headers, "salesforce");
+    setup.lookups = readLookups(read("sf-meta-sample.csv"), preset).lookups;
+    expect(Object.values(setup.mapping).filter((a) => a.action !== "field")).toEqual([]);
+    expect(runImport(records, setup, { today: TODAY }).issues).toEqual([]);
   });
 });

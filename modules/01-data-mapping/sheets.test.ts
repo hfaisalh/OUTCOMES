@@ -7,11 +7,11 @@
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { buildCodeBook } from "./codebook";
-import { parseCsv } from "./csv";
-import { giftsFromTable } from "./gifts";
-import { runImport } from "./issues";
-import { suggestMapping } from "./mapping";
+import { parseCsv, toRecords } from "./csv";
+import { readLookups } from "./lookups";
+import { getPreset } from "./presets";
+import { runImport } from "./pipeline";
+import { newSetup } from "./setup";
 import { parseSheetLink, valuesToTable } from "./sheets";
 import { fetchSheetTable, SheetsError, type FetchLike } from "./sheets-api";
 
@@ -83,10 +83,11 @@ describe("fetchSheetTable", () => {
     const table = parseCsv(read("sf-upload-sample.csv"));
     const g = fakeGoogle({ values: table });
     const { table: fromSheet } = await fetchSheetTable({ fetch: g.f, token: "t", spreadsheetId: ID });
-    const { headers, gifts } = giftsFromTable(fromSheet);
-    const { codeBook } = buildCodeBook(read("sf-meta-sample.csv"));
-    const result = runImport(gifts, suggestMapping(headers), codeBook);
-    expect(result.gifts).toHaveLength(8);
+    const { headers, records } = toRecords(fromSheet);
+    const setup = newSetup("Sheet", headers, "salesforce");
+    setup.lookups = readLookups(read("sf-meta-sample.csv"), getPreset("salesforce")).lookups;
+    const result = runImport(records, setup, { today: "2026-11-18" });
+    expect(result.transactions).toHaveLength(8);
     expect(result.lines).toHaveLength(9);
     expect(result.issues).toHaveLength(3);
   });

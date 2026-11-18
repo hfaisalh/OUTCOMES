@@ -23,7 +23,7 @@ Google's screens change from time to time, so names below may differ a little.
 
 ## Using it
 
-Paste the sheet link, check the tab name (default "SF Upload"), click **Load from Google Sheet**, and sign in the first time. After that it works the same as an Upload file.
+Paste the sheet link, type the tab name (blank means the tab the link points at, or the first tab), click **Load from Google Sheet**, and sign in the first time. After that it works the same as an upload file.
 
 ## Scheduled pick-up (for the developers)
 

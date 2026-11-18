@@ -1,132 +1,111 @@
 # Data dictionary
 
-What each field means. Terms follow Salesforce. Started with Module 1; grows with each module.
+What each field means. Names are generic and say what a thing means (DECISIONS 26). Each organisation can relabel them in its setup. The Salesforce column for each field is in the Salesforce preset (`modules/01-data-mapping/presets/salesforce.ts`).
 
-## Order line (output of Module 1)
+## Vocabulary
 
-| Field | Source in the export | Meaning |
+| Generic term | Meaning | MWF and Salesforce word |
 |---|---|---|
-| `giftReference` | `Legacy_Reference_No__c` | Unique reference of the gift, used for the duplicate check. Example: EVO-707-001 |
-| `lineNumber` | position in the JSON list | 1, 2, 3 within the gift |
-| `amount` | `Amount` | Line total in pounds, for reference only |
-| `unitPrice` | `Unit_Price__c` | Price of one unit |
-| `quantity` | `Quantity__c` | Number of units |
-| `designationId` | `Gift_Designation__c` | Salesforce ID of the Designation (the fund) |
-| `outcomeActivityId` | `Outcome_Activity__c` | Salesforce ID of the Outcome Activity. This is the routing key (DECISIONS 5) |
-| `intention` | `Intention__c` | Donor's intention, for example Sadqah or Zakat |
-| `plateName` | `GiftPlateName__c` | Name on a plaque, if any |
-| `description` | `Description__c` (line) | Free text on the line |
+| Transaction | One thing that was given or paid, with one or more lines | Gift |
+| Line | One part of a transaction: a fund and an outcome with an amount | Gift transaction designation line |
+| Supporter | Whoever gave or paid | Donor |
+| Fund | Where the money goes | Designation |
+| Outcome | What is delivered. The routing key (DECISIONS 5) | Outcome Activity |
+| Group | A centre, branch or region a transaction came through (DECISIONS 8) | Centre, Community Centre |
+| Commitment | A recurring or instalment arrangement | Gift Commitment |
+| Lookup list | Names for fund and outcome IDs, set once | Code book (SF META) |
 
-## Decoded line (order line plus names)
+## Transaction fields
 
 | Field | Meaning |
 |---|---|
-| `designationName` | Name of the Designation, looked up from `designationId`. Empty if the ID is missing or not in the code book |
-| `outcomeActivityName` | Name of the Outcome Activity, looked up from `outcomeActivityId`. Empty if missing or unknown |
+| `reference` | Unique reference of the transaction. A repeat is flagged (DECISIONS 17) |
+| `externalOrderId` | An order number from another system, such as a website |
+| `batch` | The batch the transaction belongs to (DECISIONS 20) |
+| `receivedDate` | When it was received. Required, YYYY-MM-DD. A date in the future is flagged |
+| `transactionDate` | When it was made, if different. YYYY-MM-DD |
+| `totalAmount` | Total, for reference only |
+| `currency`, `legalEntity`, `division`, `campaign`, `representative` | Reporting details |
 
-## Transaction classification fields (DECISIONS 16)
+## Supporter and group
 
-Always present on every gift. Filled from the file where a column fits, otherwise blank. A blank never blocks an import.
-
-| Field | Suggested Salesforce column | Notes |
-|---|---|---|
-| Channel | `Channel__c` | Card Machine, Bank, Website... |
-| Platform | none | Blank unless a source maps one |
-| Merchant | none | Blank unless a source maps one |
-| Type | none | Monetary, Goods and so on. Blank unless a source maps one |
-| Method | `PaymentMethod` | |
-| Mode | none | Contactless, Chip and PIN and so on. Blank unless a source maps one |
-| Frequency | `Donation_Type__c` | Donation, Recurring Donation, Custom Commitment. Master value mapping later turns these into One-off, Recurring and so on. Drives the sponsorship lifecycle |
-| Settlement | `Bank_Account__r.Name` | |
-
-## Columns dropped by default
-
-Contact details (name, email, phone, address), bank and cheque details, and finance-only flags are dropped with a reason shown to staff. Staff can still map them. Dropped and unmapped columns are never copied into a standard gift. The full list is `DEFAULT_DROPS` in `modules/01-data-mapping/standard-fields.ts`.
-
-## Issues (output of the issue check)
-
-Each issue has the file row (header is row 1), the gift reference, an optional line number, a code and a plain message. Issues never block an import.
-
-| Code | Meaning |
+| Field | Meaning |
 |---|---|
-| `missing_reference` | The gift has no order reference |
-| `duplicate_reference` | The reference is already used on an earlier row of the file |
-| `bad_date` | Received date missing or not a real date in YYYY-MM-DD form, or the donation date or a commitment start or end date is filled but not valid |
-| `missing_donor` | No Salesforce donor ID |
-| `amount_mismatch` | The line amounts do not add up to the gift amount |
-| `line_problem` | Designation lines are empty, not valid JSON, or the count does not match |
-| `missing_start_date` | A commitment (a gift with a schedule type or recurring amount) has no start date |
-| `end_before_start` | A commitment's end date is before its start date |
-| `missing_required` | A custom field marked required is blank |
-| `unknown_id` | A Designation or Outcome Activity ID on a line is empty or not in the code book |
+| `supporterId` | The supporter's ID in the source system |
+| `supporterAltId` | An older or other ID |
+| `supporterName` | Display name only. Contact details are never stored |
+| `supporterType` | For example individual, or a group booked on their behalf |
+| `group` | The group the transaction came through. When there is no individual supporter the report goes to the group (DECISIONS 8) |
+
+## Transaction classification (always present, blank if no fit, DECISIONS 16)
+
+Channel, Platform, Merchant, Type, Method, Mode, Frequency, Settlement. Frequency matters most: it drives the lifecycle (renewals, lapses). Raw values in the file are mapped once to master values (for example "Recurring Donation" to "Recurring").
 
 ## Commitments (recurring and instalments)
 
-A gift is a commitment when it has a schedule type or a recurring amount.
+A transaction is a commitment when it has a schedule type or a commitment amount.
 
-| Field | Salesforce column | Meaning |
-|---|---|---|
-| `recurringAmount` | `Recurring_Amount__c` | Amount each period |
-| `startDate` | `EffectiveStartDate` | When the commitment starts. Required |
-| `endDate` | `ExpectedEndDate` | When it ends. **Optional**: some commitments run until stopped. If given, it must be a real date and not before the start |
-| `scheduleType` | `Schedule_Type__c` | Recurring or Custom |
-| `transactionPeriod` | `TransactionPeriod` | For example Monthly |
-| `transactionInterval` | `TransactionInterval` | Every N periods |
-| `transactionDay` | `TransactionDay` | Day of the period |
-| `instalmentCount` | none | Number of instalments. Not in the UK Salesforce upload (checked 18 Nov 2026). A commitment without a count shows **Indefinitely**. A one-off gift keeps it blank. A real count from a source replaces it (DECISIONS 18) |
-| `commitmentType`, `formalCommitmentType` | `Commitment_Type__c`, `Formal_Commitment_Type__c` | Type of commitment |
-
-## Setup (saved per data source)
-
-| Part | Meaning |
+| Field | Meaning |
 |---|---|
-| `sourceName` | Name of the source, for example "UK Salesforce upload" |
-| `mapping` | For each file column: map to a standard field, drop, or leave unmapped |
-| `customFields` | Extra fields. **Manual**: staff fill them in. **Calculated**: a rule fills them |
-| `valueMaps` | Raw file value to master value per field, for example Frequency: "Recurring Donation" to "Recurring" |
+| `commitmentAmount` | Amount each period |
+| `commitmentStart` | When it starts. Required for a commitment |
+| `commitmentEnd` | When it ends. **Optional**: some run until stopped. If given, a real date not before the start |
+| `scheduleType`, `period`, `interval`, `dayOfPeriod` | The schedule, for example Recurring, Monthly, every 1, day 15 |
+| `commitmentType`, `commitmentForm` | Type of commitment, and whether it is written |
+| `instalmentCount` | Number of instalments. Normally set in the product configuration of the platform that took the transaction, so it should come in the export (DECISIONS 18). A commitment without a count shows **Indefinitely**. A one-off keeps it blank |
 
-Custom field settings: key, label, kind (manual or calculated), type (text, number, date), required, default value, privacy (normal or sensitive) and, for calculated fields, one rule.
+## Lines
 
-Calculated rules: **copy** (same as another field), **concat** (join fields, skipping blanks), **starts_with** (for example reference starts with EVO-, then Yes or No), **value_map** (swap listed values, else a fallback).
+Lines arrive in one of three layouts (see the module README). Line fields for the one-row-per-line layouts:
 
-"Unmapped values" are values in the 8 classification fields that are not yet a master value or mapped to one. The mapping screen lists them for staff to map.
-
-## Code book (SF META tab)
-
-| Column | Meaning |
+| Field | Meaning |
 |---|---|
-| `Unique Gift Designation` and the `Id` to its right | Designation name and Salesforce ID |
-| `Unique Outcome Activity Name` and the `Id` to its right | Outcome Activity name and Salesforce ID |
+| `lineFund`, `lineFundId` | Fund name, or its ID to be looked up |
+| `lineOutcome`, `lineOutcomeId` | Outcome name, or its ID to be looked up |
+| `lineAmount`, `lineQuantity`, `lineUnitPrice` | Amount, quantity (default 1), unit price. With no line amount the total is used |
+| `lineIntention`, `lineLabel`, `lineNote` | Intention (for example Sadaqah), a label such as a dedication, a note |
 
-The tab has several columns headed `Id`, so each is read as "the cell to the right of its name column".
+For `lines-column` sources, `linesData` holds the packed lines and `lineCount` the number the source says there are. The preset reads them.
+
+## Issues
+
+Each issue has the source row (header is row 1), the reference, an optional line number, a code and a plain message. Issues never block an import.
+
+| Code | Meaning |
+|---|---|
+| `missing_reference` | No reference |
+| `duplicate_reference` | The reference is already used on an earlier row |
+| `bad_date` | Received date missing (when required) or not a real YYYY-MM-DD date, or another date is filled but not valid |
+| `future_date` | The received date is in the future, probably a typo |
+| `missing_supporter` | No supporter ID (when required) |
+| `amount_mismatch` | Lines do not add up to the total. Only for `lines-column` sources, and skipped when the upload holds only some lines of each transaction |
+| `line_problem` | Lines empty, unreadable, or the line count does not match |
+| `unknown_id` | A fund or outcome ID is not in the lookup list, or a required one is missing |
+| `missing_required` | A required field or required custom field is blank |
+| `missing_start_date`, `end_before_start` | Commitment dates |
+| `inconsistent_rows` | Rows of one transaction (one-row-per-line) disagree on supporter, date, group or currency |
 
 ## Auto-matching of columns
 
-A column is matched in this order: (1) exact Salesforce column name, (2) by name, meaning its name ignoring case, spaces and punctuation equals a field's label, key or a known alias (shown as "by name" so staff can check it), (3) known contact and bank columns are dropped with a reason. Nothing is guessed from partial names. Aliases come from MWF's other touchpoint sheets (web export, gift sheets) and live in `field-hints.ts`.
+A column is matched in this order: (1) the preset's exact column name, if a preset is used, (2) by name, meaning its name ignoring case, spaces and punctuation equals a field's label, key or a known alias (shown as "by name" so staff can check it), (3) known contact and bank columns are dropped with a reason. Nothing is guessed from partial names. Aliases live in `field-hints.ts`.
 
-## Order reference prefixes
+## Setup (saved per data source, per organisation)
+
+| Part | Meaning |
+|---|---|
+| `presetId`, `layout` | The source preset (or none) and how lines are laid out |
+| `requiredFields` | Fields the source must supply, set per organisation |
+| `feedbackItemsOnly` | The upload holds only some lines of each transaction, so totals are not checked |
+| `mapping` | For each source column: map to a field, drop, or leave unmapped |
+| `customFields` | Extra fields. **Manual**: staff fill them in. **Calculated**: a rule fills them (copy, concat, starts_with, value_map) |
+| `valueMaps`, `masterValues` | Raw value to master value per field, and the master values on offer |
+| `labels` | The organisation's own wording for fields |
+| `lookups` | Fund and outcome names by ID |
+
+## MWF reference prefixes
 
 | Prefix | Meaning |
 |---|---|
 | `EVO-` | The donation was taken at an event. Example shape: EVO-707-001 |
 
 Other prefixes are added here as MWF confirms them.
-
-## Gift export columns used so far
-
-| Column | Meaning |
-|---|---|
-| `Legacy_Reference_No__c` | Unique reference of the gift |
-| `GiftTranxDesignationInfo__c` | JSON with a list `allTrnxDesignations`, one entry per line |
-| `Designation Count` | How many lines the gift should have, used as a check |
-
-Full column list and how each is used: `docs/DATA-SOURCES.md`.
-
-## Terms
-
-| Term | Meaning |
-|---|---|
-| Designation | The fund a gift is booked to, for example EVENTS or GENERAL AID |
-| Outcome Activity | What the gift is for, for example "Orphan Sponsorship Where Most Needed" |
-| Gift Commitment | A recurring or custom payment schedule |
-| Issue | Something staff should look at. Issues never block an import |

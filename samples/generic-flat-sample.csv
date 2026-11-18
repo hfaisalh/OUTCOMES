@@ -1,0 +1,8 @@
+Ref,Date,Supporter ID,Supporter name,Branch,Fund,Outcome,Amount,Qty,Intention,Payment method,Frequency,Start date,End date,Email
+R-001,2026-11-01,S-100,Amina K,North,General fund,Orphan sponsorship,40,1,Sadaqah,Card,Recurring,2026-11-01,,amina@example.test
+R-002,2026-11-02,S-101,Omar L,North,Water,Hand pump,300,1,Zakat,Bank,One-off,,,omar@example.test
+R-003,2026-11-03,S-102,Sara M,South,Water,Hand pump,150,1,Zakat,Card,One-off,,,sara@example.test
+R-003,2026-11-03,S-102,Sara M,South,General fund,Orphan sponsorship,50,2,Sadaqah,Card,One-off,,,sara@example.test
+R-004,2026-11-04,S-103,Ali P,South,Water,,75,1,Zakat,Card,One-off,,,ali@example.test
+,2026-11-05,S-104,Noor Q,North,General fund,Orphan sponsorship,20,1,Sadaqah,Cash,One-off,,,noor@example.test
+R-006,06/11/2026,S-106,Hana T,South,Water,Hand pump,100,1,Zakat,Card,One-off,,,hana@example.test

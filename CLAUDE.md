@@ -12,6 +12,10 @@ A fulfilment and donor-feedback system for **Minhaj Welfare Foundation (MWF)**.
 - It does **not** manage money. Finance stays in Salesforce and QuickBooks.
 - It is built to become a **module inside the existing CRM** later. Developers will take it over, so clarity matters more than cleverness.
 
+## White-label and standalone
+
+OUTCOMES is built so other organisations can use it, standalone or inside a CRM (DECISIONS 23 to 26). Every record, setup and setting belongs to an organisation. Source-specific names go in a preset, never in the core. Roles are configuration (DECISIONS 25). Login comes from the CRM where there is one (DECISIONS 24).
+
 ## Who you are working with
 
 Faisal (MWF). Not a developer. Prefers:
@@ -31,7 +35,7 @@ The code will be handed to MWF developers. Every change must follow these:
 4. **Business rules live in pure functions** (no database, no UI) so they can be ported to Salesforce (Apex) or another stack.
 5. **Tests double as examples.** Use invented sample data only (see `samples/`). Never commit real donor data.
 6. **Decisions go in `docs/DECISIONS.md`** with date and reason. Field meanings go in `docs/DATA-DICTIONARY.md`.
-7. Names: use MWF and Salesforce terms (Designation, Outcome Activity, Gift Commitment), not invented ones.
+7. Names: use the generic terms in the core (Transaction, Line, Supporter, Fund, Outcome, Group, Commitment; see `docs/DATA-DICTIONARY.md`). Salesforce and MWF terms (Designation, Outcome Activity, Gift Commitment, Donor, Centre) live only in the Salesforce preset and in MWF's own wording (DECISIONS 26).
 8. Small commits with clear messages. Run tests before every push.
 
 ## Privacy
@@ -47,4 +51,4 @@ The code will be handed to MWF developers. Every change must follow these:
 
 ## Where we are
 
-See `docs/ROADMAP.md`. Current step: **Module 1, data source field mapping**, to be rebuilt cleanly here.
+See `docs/ROADMAP.md`. Module 1 (data sources and field mapping) is rebuilt on the generic model and awaits sign-off. Next: the batch planner and audit (DECISIONS 20, 21), then Module 2.

@@ -18,7 +18,7 @@
       <!-- Read-only Google sign-in. People see only the sheets that are shared with their own Google account. -->
       <div class="pickers">
         <label>Google Sheet link<input type="text" id="sheetlink" size="44" placeholder="https://docs.google.com/spreadsheets/d/..." /></label>
-        <label>Tab name<input type="text" id="sheettab" size="14" value="SF Upload" /></label>
+        <label>Tab name<input type="text" id="sheettab" size="14" placeholder="First tab" /></label>
         <button id="gload" type="button">Load from Google Sheet</button>
         <button id="gsign" type="button">Sign in with Google</button>
       </div>
@@ -28,7 +28,16 @@
         <summary>Configuration (set once)</summary>
         <p id="cfgstatus" class="note"></p>
         <div class="pickers">
-          <label>Code book (CSV)<input type="file" id="meta" accept=".csv" /></label>
+          <label>Source type<select id="preset"></select></label>
+          <label>How lines are laid out<select id="layout">
+            <option value="lines-column">One row per transaction, lines in one column</option>
+            <option value="one-row-per-line">One row per line, rows with the same reference are one transaction</option>
+            <option value="one-line-per-transaction">One row per transaction, one line</option>
+          </select></label>
+          <label class="check"><input type="checkbox" id="feedbackonly" /> The upload holds only some lines of each transaction</label>
+        </div>
+        <div class="pickers">
+          <label>Lookup lists (optional, names for fund and outcome IDs)<input type="file" id="meta" accept=".csv" /></label>
           <label>Saved setup (optional)<input type="file" id="setupfile" accept=".json" /></label>
           <label>Google client ID<input type="text" id="gclient" size="40" placeholder="Only needed once, see docs/GOOGLE-SETUP.md" /></label>
           <button id="forget" type="button">Forget saved setup</button>

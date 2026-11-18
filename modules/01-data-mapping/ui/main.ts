@@ -1,108 +1,106 @@
 /**
  * main.ts
  *
- * What it does: runs the Module 1 page. Reads the chosen CSV files in the browser, keeps the
- * page state, handles drag, tap and click, and redraws the page using views.ts.
- * Rule: the code book is configuration. It is loaded once and saved with the setup in this
- * browser, so each run only needs the Upload file.
+ * What it does: runs the Module 1 page. Reads the chosen CSV file or Google Sheet in the browser,
+ * keeps the page state, handles drag, tap and click, and redraws the page using views.ts.
  * Who calls it: index.html (npm run dev).
- * Depends on: the pure Module 1 logic one folder up, and views.ts. Nothing is uploaded or stored.
+ * Depends on: the pure Module 1 logic one folder up, views.ts and sheet-source.ts.
+ *
+ * Rule: the setup (including the lookup lists) is configuration. It is saved in this browser, so
+ * each run only needs the upload file. Nothing is sent to a server.
  */
 
-import { buildCodeBook } from "../codebook";
-import { giftsFromTable, readGiftExport } from "../gifts";
+import { parseCsv, toRecords, type Table } from "../csv";
+import { readLookups } from "../lookups";
 import { suggestMapping } from "../mapping";
-import { codeBookFromData, codeBookToData, findUnmappedValues, loadSetup, newSetup, runImportWithSetup, saveSetup, type Setup } from "../setup";
-import { parseSheetLink } from "../sheets";
-import { fetchSheetTable, SheetsError } from "../sheets-api";
+import { runImport } from "../pipeline";
+import { getPreset, PRESETS } from "../presets";
+import { findUnmappedValues, loadSetup, newSetup, saveSetup, type Setup } from "../setup";
 import { templateCsv } from "../template";
-import { requestAccessToken, revokeToken, type AccessToken } from "./google";
+import { initSheetSource } from "./sheet-source";
 import { guideView, mappingView, resultsView, valuesView, type Model } from "./views";
 
-const STORAGE_KEY = "outcomes.module1.setup";
-const SHEET_KEY = "outcomes.module1.sheet"; // last sheet link and tab (not secret)
-const CLIENT_KEY = "outcomes.module1.gclient"; // Google client ID (public, not a secret)
+const STORAGE_KEY = "outcomes.module1.setup.v2";
+const STUB_NAME = "Data source"; // name of a setup made before any file was chosen
 
-const model: Model = { headers: [], rawGifts: [], codeBook: null, setup: null, result: null, unmapped: [], sel: null, valueField: "frequency", issueFilter: "all" };
-let pendingSetup: Setup | null = null; // a loaded setup waiting for its gift file
-let sourceGuess = "Data source";
-let token: AccessToken | null = null; // Google access token, memory only, never stored
-const STUB_NAME = "Data source"; // name of a setup made before any Upload file was chosen
+const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+const app = byId("app");
 
-const app = document.getElementById("app") as HTMLElement;
-const statusEl = document.getElementById("status") as HTMLElement;
-
-function status(text: string, bad = false) {
-  statusEl.textContent = text;
-  statusEl.className = "status" + (bad ? " bad" : "");
+function restore(): Setup {
+  try {
+    const text = localStorage.getItem(STORAGE_KEY);
+    const loaded = text ? loadSetup(text).setup : null;
+    if (loaded) return loaded;
+  } catch { /* ignore */ }
+  return newSetup(STUB_NAME, []);
 }
 
-// Rule: a setup from a file may not know every column of this file, so add suggestions for the new ones.
-function ensureHeaders(setup: Setup) {
-  for (const h of model.headers) {
-    if (!(h in setup.mapping)) setup.mapping[h] = suggestMapping([h])[h] ?? { action: "unmapped" };
-  }
+const model: Model = { headers: [], rows: [], setup: restore(), result: null, unmapped: [], sel: null, valueField: "frequency", issueFilter: "all" };
+
+function status(text: string, bad = false) {
+  const el = byId("status");
+  el.textContent = text;
+  el.className = "status" + (bad ? " bad" : "");
+}
+
+// Rule: a setup may not know every column of this file, so add suggestions for the new ones.
+function ensureHeaders() {
+  const preset = getPreset(model.setup.presetId);
+  for (const h of model.headers) if (!(h in model.setup.mapping)) model.setup.mapping[h] = suggestMapping([h], preset)[h] ?? { action: "unmapped" };
 }
 
 // Works out the result for the current setup, then redraws the page.
 function refresh() {
-  const { setup, codeBook, rawGifts } = model;
-  if (setup && codeBook && rawGifts.length > 0) {
-    model.result = runImportWithSetup(rawGifts, setup, codeBook);
-    model.unmapped = findUnmappedValues(model.result.gifts, setup);
+  if (model.headers.length > 0) {
+    model.result = runImport(model.rows, model.setup);
+    model.unmapped = findUnmappedValues(model.result.transactions, model.setup);
   } else {
     model.result = null;
     model.unmapped = [];
   }
-  const parts = [guideView(model), model.setup ? mappingView(model) : "", model.result ? valuesView(model) + resultsView(model) : ""];
-  app.innerHTML = parts.join("");
-  persist();
+  app.innerHTML = [guideView(model), model.headers.length > 0 ? mappingView(model) : "", model.result ? valuesView(model) + resultsView(model) : ""].join("");
+  try { localStorage.setItem(STORAGE_KEY, saveSetup(model.setup)); } catch { /* storage may be blocked, the page still works */ }
   showConfig();
 }
 
-// Section: configuration kept in this browser (setup plus code book). Failure is not fatal.
-function persist() {
-  const setup = model.setup ?? pendingSetup;
-  if (!setup) return;
-  if (model.codeBook) setup.codeBook = codeBookToData(model.codeBook);
-  try { localStorage.setItem(STORAGE_KEY, saveSetup(setup)); } catch { /* storage may be blocked, the page still works */ }
-}
-
+// Section: the Configuration controls show the current setup.
 function showConfig() {
-  const cb = model.codeBook;
-  (document.getElementById("cfgstatus") as HTMLElement).textContent = cb
-    ? `Code book saved in this browser: ${cb.designations.size} designations, ${cb.outcomeActivities.size} outcome activities. Only replace it when it changes in Salesforce.`
-    : "No code book yet. Pick the code book (CSV) once. It is kept in this browser.";
-  (document.getElementById("cfg") as HTMLDetailsElement).open = !cb;
+  const s = model.setup;
+  byId<HTMLSelectElement>("preset").value = s.presetId ?? "";
+  byId<HTMLSelectElement>("layout").value = s.layout;
+  byId<HTMLInputElement>("feedbackonly").checked = s.feedbackItemsOnly;
+  const funds = Object.keys(s.lookups.funds).length;
+  const outcomes = Object.keys(s.lookups.outcomes).length;
+  byId("cfgstatus").textContent = funds + outcomes > 0
+    ? `Lookup lists saved in this browser: ${funds} fund names, ${outcomes} outcome names. Only replace them when they change.`
+    : "No lookup lists yet. They are optional: a file that carries names directly does not need them.";
 }
 
-function restore() {
-  let text: string | null = null;
-  try { text = localStorage.getItem(STORAGE_KEY); } catch { /* ignore */ }
-  if (!text) return;
-  const { setup } = loadSetup(text);
-  if (!setup) return;
-  pendingSetup = setup;
-  if (setup.codeBook) model.codeBook = codeBookFromData(setup.codeBook);
+// Takes a table (from a file or a Google Sheet) and starts the mapping.
+function useTable(table: Table, name: string, from: string) {
+  const { headers, records } = toRecords(table);
+  model.headers = headers;
+  model.rows = records;
+  if (model.setup.sourceName === STUB_NAME) model.setup.sourceName = name;
+  ensureHeaders();
+  status(`Loaded ${records.length} rows and ${headers.length} columns from ${from}.`);
+  refresh();
 }
 
 // Section: moving columns and values. Each change updates the setup, then redraws.
 function setColumn(column: string, target: string) {
-  const mapping = model.setup!.mapping;
+  const mapping = model.setup.mapping;
   if (target === "pool") mapping[column] = { action: "unmapped" };
   else if (target === "drop") mapping[column] = { action: "drop", reason: "Dropped by you" };
   else {
     // Rule: one column per field. A column already on this field goes back to "to decide".
-    for (const [c, a] of Object.entries(mapping)) {
-      if (c !== column && a.action === "field" && a.field === target) mapping[c] = { action: "unmapped" };
-    }
+    for (const [c, a] of Object.entries(mapping)) if (c !== column && a.action === "field" && a.field === target) mapping[c] = { action: "unmapped" };
     mapping[column] = { action: "field", field: target };
   }
 }
 
 function setValue(raw: string, master: string | null) {
-  const maps = model.setup!.valueMaps;
-  const map = (maps[model.valueField] ??= {});
+  const map = (model.setup.valueMaps[model.valueField] ??= {});
   for (const k of Object.keys(map)) if (k.trim().toLowerCase() === raw.trim().toLowerCase()) delete map[k];
   if (master !== null) map[raw] = master;
 }
@@ -125,22 +123,18 @@ function dropOn(el: Element, area: string, value: string): boolean {
   return true;
 }
 
-function saveFile() {
-  const setup = model.setup!;
-  const name = setup.sourceName.trim().replace(/[^A-Za-z0-9]+/g, "-").toLowerCase() || "setup";
+function download(name: string, text: string, type: string) {
   const link = document.createElement("a");
-  link.href = URL.createObjectURL(new Blob([saveSetup(setup)], { type: "application/json" }));
-  link.download = `${name}.setup.json`;
+  link.href = URL.createObjectURL(new Blob([text], { type }));
+  link.download = name;
   link.click();
   URL.revokeObjectURL(link.href);
-  status(`Saved ${link.download} to your downloads.`);
 }
 
 function addMaster() {
-  const input = document.getElementById("newmaster") as HTMLInputElement;
-  const text = input.value.trim();
+  const text = byId<HTMLInputElement>("newmaster").value.trim();
   if (text === "") return status("Type a master value first.", true);
-  const list = (model.setup!.masterValues[model.valueField] ??= []);
+  const list = (model.setup.masterValues[model.valueField] ??= []);
   if (!list.some((v) => v.toLowerCase() === text.toLowerCase())) list.push(text);
   refresh();
 }
@@ -174,7 +168,7 @@ app.addEventListener("click", (e) => {
   const filter = target.closest<HTMLElement>("[data-filter]");
   if (filter) { model.issueFilter = filter.dataset["filter"]!; return refresh(); }
   const act = target.closest<HTMLElement>("[data-act]")?.dataset["act"];
-  if (act === "save") return saveFile();
+  if (act === "save") return download(`${model.setup.sourceName.trim().replace(/[^A-Za-z0-9]+/g, "-").toLowerCase() || "setup"}.setup.json`, saveSetup(model.setup), "application/json");
   if (act === "addmaster") return addMaster();
   const chip = target.closest<HTMLElement>(".chip");
   if (chip) {
@@ -187,130 +181,60 @@ app.addEventListener("click", (e) => {
 });
 app.addEventListener("change", (e) => {
   const t = e.target as HTMLInputElement | HTMLSelectElement;
-  if (t.id === "srcname") model.setup!.sourceName = t.value;
+  if (t.id === "srcname") model.setup.sourceName = t.value;
   if (t.id === "valuefield") { model.valueField = t.value; refresh(); }
 });
 
+// Section: Configuration controls.
+const presetSelect = byId<HTMLSelectElement>("preset");
+presetSelect.innerHTML = `<option value="">Generic file (map your own columns)</option>` + PRESETS.map((p) => `<option value="${p.id}">${p.name}</option>`).join("");
+presetSelect.addEventListener("change", () => {
+  // Choosing another source type starts the mapping again from that source's suggestions. Lookup lists are kept.
+  const fresh = newSetup(model.setup.sourceName, model.headers, presetSelect.value || null);
+  fresh.lookups = model.setup.lookups;
+  model.setup = fresh;
+  refresh();
+});
+byId<HTMLSelectElement>("layout").addEventListener("change", (e) => { model.setup.layout = (e.target as HTMLSelectElement).value as Setup["layout"]; refresh(); });
+byId<HTMLInputElement>("feedbackonly").addEventListener("change", (e) => { model.setup.feedbackItemsOnly = (e.target as HTMLInputElement).checked; refresh(); });
+byId("template").addEventListener("click", () => {
+  const s = model.setup;
+  download("upload-template.csv", templateCsv({ preset: getPreset(s.presetId), layout: s.layout, labels: s.labels, required: s.requiredFields }), "text/csv");
+});
+byId("forget").addEventListener("click", () => {
+  try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+  Object.assign(model, { headers: [], rows: [], setup: newSetup(STUB_NAME, []), result: null, unmapped: [], sel: null });
+  status("Saved setup forgotten.");
+  refresh();
+});
+
 // Section: choosing files.
-// Takes the gifts, from a file or a Google Sheet, and starts the mapping.
-function useGifts(headers: string[], gifts: Record<string, string>[], name: string, from: string) {
-  model.headers = headers;
-  model.rawGifts = gifts;
-  sourceGuess = name;
-  model.setup = pendingSetup ?? newSetup(sourceGuess, headers);
-  if (model.setup.sourceName === STUB_NAME) model.setup.sourceName = sourceGuess;
-  pendingSetup = null;
-  ensureHeaders(model.setup);
-  status(`Loaded ${gifts.length} gifts and ${headers.length} columns from ${from}.` + (model.codeBook ? "" : " Open Configuration and pick the code book once to see values and results."));
-  refresh();
-}
-
-async function onGiftFile(file: File) {
-  const { headers, gifts } = readGiftExport(await file.text());
-  useGifts(headers, gifts, file.name.replace(/\.csv$/i, ""), "the file");
-}
-
-// Section: Google Sheet (read-only sign-in). The token stays in memory and expires in about an hour.
-const clientId = () => {
-  try { return localStorage.getItem(CLIENT_KEY) || import.meta.env.VITE_GOOGLE_CLIENT_ID || ""; } catch { return import.meta.env.VITE_GOOGLE_CLIENT_ID || ""; }
-};
-
-function showSignIn() {
-  (document.getElementById("gsign") as HTMLElement).textContent = token ? "Sign out of Google" : "Sign in with Google";
-}
-
-async function ensureToken(): Promise<string> {
-  if (token && token.expiresAt - 60_000 > Date.now()) return token.value;
-  const id = clientId();
-  if (!id) {
-    (document.getElementById("cfg") as HTMLDetailsElement).open = true;
-    throw new Error("Add your Google client ID in Configuration first (see docs/GOOGLE-SETUP.md).");
-  }
-  token = await requestAccessToken(id);
-  showSignIn();
-  return token.value;
-}
-
-async function loadFromSheet() {
-  const link = (document.getElementById("sheetlink") as HTMLInputElement).value;
-  const tab = (document.getElementById("sheettab") as HTMLInputElement).value;
-  const ref = parseSheetLink(link);
-  if (!ref) return status("Paste the link of the Google Sheet first.", true);
-  try { localStorage.setItem(SHEET_KEY, JSON.stringify({ link, tab })); } catch { /* ignore */ }
-  try {
-    status("Reading the sheet...");
-    const accessToken = await ensureToken();
-    const { table, tabTitle } = await fetchSheetTable({
-      fetch: (url, init) => fetch(url, init),
-      token: accessToken,
-      spreadsheetId: ref.spreadsheetId,
-      ...(tab.trim() !== "" ? { tabName: tab } : ref.gid !== undefined ? { gid: ref.gid } : {}),
-    });
-    const { headers, gifts } = giftsFromTable(table);
-    useGifts(headers, gifts, tabTitle, `the Google Sheet tab "${tabTitle}"`);
-  } catch (err) {
-    if (err instanceof SheetsError && err.status === 401) token = null; // expired: next click signs in again
-    showSignIn();
-    status(err instanceof Error ? err.message : "Could not read the sheet.", true);
-  }
-}
-
-async function onMetaFile(file: File) {
-  const { codeBook, problems } = buildCodeBook(await file.text());
-  model.codeBook = codeBook;
-  if (!model.setup && !pendingSetup) pendingSetup = newSetup(STUB_NAME, []); // keeps the code book until a file is chosen
-  status(problems.length > 0 ? `Code book problems: ${problems.join("; ")}` : `Code book loaded: ${codeBook.designations.size} designations, ${codeBook.outcomeActivities.size} outcome activities.`, problems.length > 0);
-  refresh();
-}
-
-async function onSetupFile(file: File) {
-  const { setup, problems } = loadSetup(await file.text());
-  if (!setup) return status(`That setup can't be used: ${problems.join("; ")}`, true);
-  if (model.headers.length > 0) { ensureHeaders(setup); model.setup = setup; } else pendingSetup = setup;
-  status(`Setup "${setup.sourceName}" loaded.` + (model.headers.length > 0 ? "" : " Now pick the Upload file."));
-  refresh();
-}
-
 const wire = (id: string, handler: (file: File) => Promise<void>) =>
-  document.getElementById(id)?.addEventListener("change", (e) => {
+  byId(id).addEventListener("change", (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (file) handler(file).catch((err: unknown) => status(`Could not read that file: ${String(err)}`, true));
   });
-wire("gifts", onGiftFile);
-wire("meta", onMetaFile);
-wire("setupfile", onSetupFile);
-document.getElementById("template")?.addEventListener("click", () => {
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(new Blob([templateCsv()], { type: "text/csv" }));
-  link.download = "outcomes-upload-template.csv";
-  link.click();
-  URL.revokeObjectURL(link.href);
+wire("gifts", async (file) => useTable(parseCsv(await file.text()), file.name.replace(/\.csv$/i, ""), "the file"));
+wire("meta", async (file) => {
+  const { lookups, problems } = readLookups(await file.text(), getPreset(model.setup.presetId));
+  if (Object.keys(lookups.funds).length + Object.keys(lookups.outcomes).length === 0) return status(`That lookup list can't be used: ${problems.join("; ")}`, true);
+  model.setup.lookups = lookups;
+  status(problems.length > 0 ? `Lookup lists loaded with problems: ${problems.join("; ")}` : "Lookup lists loaded and saved in this browser.", problems.length > 0);
+  refresh();
 });
-document.getElementById("gload")?.addEventListener("click", () => void loadFromSheet());
-document.getElementById("gsign")?.addEventListener("click", () => {
-  if (token) { revokeToken(token); token = null; showSignIn(); return status("Signed out of Google."); }
-  ensureToken().then(() => status("Signed in to Google (read-only)."), (err: unknown) => status(err instanceof Error ? err.message : "Sign-in failed.", true));
-});
-const clientBox = document.getElementById("gclient") as HTMLInputElement;
-clientBox.value = (() => { try { return localStorage.getItem(CLIENT_KEY) ?? ""; } catch { return ""; } })();
-clientBox.addEventListener("change", () => { try { localStorage.setItem(CLIENT_KEY, clientBox.value.trim()); } catch { /* ignore */ } });
-try {
-  const last = JSON.parse(localStorage.getItem(SHEET_KEY) ?? "null") as { link?: string; tab?: string } | null;
-  if (last) {
-    (document.getElementById("sheetlink") as HTMLInputElement).value = last.link ?? "";
-    (document.getElementById("sheettab") as HTMLInputElement).value = last.tab ?? "SF Upload";
-  }
-} catch { /* ignore */ }
-showSignIn();
-
-document.getElementById("forget")?.addEventListener("click", () => {
-  try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
-  Object.assign(model, { headers: [], rawGifts: [], codeBook: null, setup: null, result: null, unmapped: [], sel: null });
-  pendingSetup = null;
-  status("Saved setup forgotten. Pick the code book again, then the Upload file.");
+wire("setupfile", async (file) => {
+  const { setup, problems } = loadSetup(await file.text());
+  if (!setup) return status(`That setup can't be used: ${problems.join("; ")}`, true);
+  model.setup = setup;
+  ensureHeaders();
+  status(`Setup "${setup.sourceName}" loaded.`);
   refresh();
 });
 
-restore();
-status(model.codeBook ? "Pick the Upload file (CSV) to start. The saved code book and setup are ready." : "Open Configuration to pick the code book once, then pick the Upload file (CSV).");
+initSheetSource({
+  status,
+  openConfig: () => { byId<HTMLDetailsElement>("cfg").open = true; },
+  onTable: (table, tabTitle) => useTable(table, tabTitle, `the Google Sheet tab "${tabTitle}"`),
+});
+status("Pick the upload file (CSV), or load it from a Google Sheet. Open Configuration to choose the source type.");
 refresh();

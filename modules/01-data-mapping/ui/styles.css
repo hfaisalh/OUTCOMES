@@ -31,3 +31,4 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 .metric{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 12px}.metric b{display:block;font-size:20px}.metric span{color:var(--muted);font-size:12px}
 details.cfg{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card)}details.cfg summary{cursor:pointer;color:var(--muted)}
 details.card summary{cursor:pointer}code{font:12px ui-monospace,monospace}.pickers button{align-self:flex-end}
+label.check{flex-direction:row!important;align-items:center;gap:6px!important;color:var(--text)!important}
