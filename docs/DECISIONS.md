@@ -29,10 +29,17 @@ Newest at the bottom. Each entry: what, why.
 
 11. **Structured for handover.** See coding standards in `CLAUDE.md`.
 
+## 2026-11-18 (answers from Faisal)
+
+12. **Hosting and Salesforce link.** Developers will build OUTCOMES in the front-end CRM. Its endpoints will feed into Salesforce. So the code needs **API nodes** (a small, separate layer that talks to Salesforce) while business rules stay pure. Salesforce data will sync with OUTCOMES later; for now we work from file uploads.
+
+13. **OUTCOMES sends the donor feedback reports**, not Salesforce. A log can be written back to Salesforce later through the API nodes.
+
+14. **Animal Sacrifice is a Transactional project** (with Water, Rebuild/House, Masjid, Collective marriages).
+
+15. **The OSP Sponsorship System (earlier artifact) is discarded.** Its rules and data are not carried over. OUTCOMES starts fresh.
+
 ## Open questions
 
-- Will MWF developers rebuild inside Salesforce, or run OUTCOMES alongside via API? (Decides data model and language.)
 - Salesforce feedback module is not built yet, so there is no ready report export. For testing we use the "SF Upload" and "SF META" tabs of the UK upload sheet (see `DATA-SOURCES.md`).
-- Who sends donor feedback emails: Salesforce, or OUTCOMES with a log written back to Salesforce?
-- Category list: Sponsorships (Orphan, Hifz, School, College/Uni, Aalim, Homestay), Transactional (Water, Rebuild/House, Masjid, Collective marriages, Animal sacrifice?), Livelihood (Rozgar, Rickshaw), Microfinance (Loans), B2B. Confirm Animal Sacrifice placement.
-- OSP Sponsorship System (earlier artifact): is it in daily use, should its rules win, migrate its data or start fresh?
+- None at the moment.
