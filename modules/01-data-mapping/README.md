@@ -28,8 +28,8 @@ Scope (decided 18 Nov 2026): the **SF Upload** tab and the **SF META** code book
 | 1 | This README and `docs/DATA-DICTIONARY.md` | Done |
 | 2 | CSV reader and designation line splitter, with tests | Done |
 | 3 | Decode IDs to names using the code book | Done |
-| 4 | Suggest a standard field for each column | Next |
-| 5 | Issue check (missing reference, bad date, unknown ID) | |
+| 4 | Suggest a standard field for each column, incl. the 8 classification fields | Done |
+| 5 | Issue check (missing reference, bad date, unknown ID) | Next |
 | 6 | Save and load a setup per source, with manual and calculated fields | |
 | 7 | Drag and drop mapping screen (after the stack is chosen) | |
 
@@ -39,8 +39,10 @@ Scope (decided 18 Nov 2026): the **SF Upload** tab and the **SF META** code book
 |---|---|
 | `csv.ts` | Parses CSV text into rows and records |
 | `gifts.ts` | Reads a gift export and splits designation JSON into order lines |
+| `standard-fields.ts` | The standard fields (incl. the 8 classification fields), known Salesforce column names, and columns dropped by default |
+| `mapping.ts` | Suggests a field per column, and applies a mapping to a gift |
 | `codebook.ts` | Reads the code book (SF META) and adds names to order lines |
-| `csv.test.ts`, `gifts.test.ts`, `codebook.test.ts` | Tests, using only `samples/` (invented data) |
+| `csv.test.ts`, `gifts.test.ts`, `codebook.test.ts`, `mapping.test.ts` | Tests, using only `samples/` (invented data) |
 
 ## Decisions
 
