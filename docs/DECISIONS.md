@@ -48,6 +48,8 @@ Newest at the bottom. Each entry: what, why.
    - Frequency matters most to OUTCOMES (drives sponsorship lifecycle).
    - Source model: "Transaction Configuration Management" note (Channel, Platform, Merchant, Type, Method, Mode, Frequency, Settlement; Platform is the hub for devices, merchants and settlement).
 
+17. **Order reference must be unique per gift.** A repeated reference is a mistake in the source file, not a normal case, so the import flags it as `duplicate_reference` (never blocks). Found on the real UK file (18 Nov 2026): 50 references of the form EVO-999-999 used twice, rows 248 to 360, all Sadqah General Aid. The source sheet owner corrects them. Also found: 82 individual donors with no Salesforce donor ID (flagged as `missing_donor`).
+
 ## Open questions
 
 - Salesforce feedback module is not built yet, so there is no ready report export. For testing we use the "SF Upload" and "SF META" tabs of the UK upload sheet (see `DATA-SOURCES.md`).
