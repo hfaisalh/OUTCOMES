@@ -66,6 +66,14 @@ Each issue has the file row (header is row 1), the gift reference, an optional l
 
 The tab has several columns headed `Id`, so each is read as "the cell to the right of its name column".
 
+## Order reference prefixes
+
+| Prefix | Meaning |
+|---|---|
+| `EVO-` | The donation was taken at an event. Example shape: EVO-707-001 |
+
+Other prefixes are added here as MWF confirms them.
+
 ## Gift export columns used so far
 
 | Column | Meaning |
