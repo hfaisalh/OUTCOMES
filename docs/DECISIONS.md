@@ -54,7 +54,11 @@ Newest at the bottom. Each entry: what, why.
 
 19. **Only the Upload file is loaded each time. The code book is configuration.** The SF META tab changes rarely, so it is loaded once and saved with the setup (in this browser for now). The page calls the daily file the "Upload file". Auto-matching is as wide as is safe (exact Salesforce names, then names and aliases from other MWF sheets, marked "by name"), and a downloadable template shows the exact format that matches everything. Where the setup and code book are stored long term is for the developers (the setup text format stays the same).
 
+20. **Automatic feed by batch.** Admin agents add gifts to the Google Sheet in batches. Each gift carries a batch number (`GiftBatch.Name`, for example GB-000000071). A scheduled job (cron) picks up finished batches that have not been imported yet, runs the saved setup and code book, and sends problems to an exceptions list instead of stopping. Nobody uploads files by hand. Rules: a gift with no batch number is held back; a batch is imported once; a batch edited after import is flagged "changed", not imported again silently. The scheduled job and the Google Sheets connection (read-only) are API nodes for the developers (decision 12). OUTCOMES holds the pure batch planner. Manual Upload file stays for testing and one-off files.
+
 ## Open questions
 
 - Salesforce feedback module is not built yet, so there is no ready report export. For testing we use the "SF Upload" and "SF META" tabs of the UK upload sheet (see `DATA-SOURCES.md`).
-- None at the moment.
+- Who marks a batch Ready (a column on the sheet is simplest), and when is it safe to pick up a batch while several agents add to the same sheet?
+- Is one batch number one upload event, and what should happen to the gifts that currently have no batch number (125 of 525 in the UK file)?
+- How often should the job run?
