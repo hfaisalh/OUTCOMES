@@ -7,12 +7,14 @@
  */
 
 import { resolve } from "node:path";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 
 const repoRoot = import.meta.dirname;
 
 export default defineConfig({
   root: resolve(repoRoot, "modules/01-data-mapping/ui"),
   server: { fs: { allow: [repoRoot] } }, // lets the page import the logic in the parent folder
+  // Tests run from the repo root, not from the page folder.
+  test: { root: repoRoot, include: ["modules/**/*.test.ts"] },
   build: { outDir: resolve(repoRoot, "dist"), emptyOutDir: true },
 });
