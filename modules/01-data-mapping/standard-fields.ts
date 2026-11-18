@@ -11,6 +11,9 @@
  * If nothing in the file fits one, it stays blank. A blank never blocks an import.
  */
 
+// Shown as the number of instalments when a commitment has none.
+export const INDEFINITELY = "Indefinitely";
+
 export type FieldGroup = "gift" | "donor" | "centre" | "commitment" | "classification" | "notes" | "lines";
 
 export interface StandardField {
@@ -56,9 +59,9 @@ export const STANDARD_FIELDS: StandardField[] = [
   { key: "formalCommitmentType", label: "Formal commitment type", group: "commitment", salesforceColumns: ["Formal_Commitment_Type__c"] },
   { key: "transactionInterval", label: "Interval (every N periods)", group: "commitment", salesforceColumns: ["TransactionInterval"] },
   { key: "transactionDay", label: "Day of the period", group: "commitment", salesforceColumns: ["TransactionDay"] },
-  // Rule: the UK Salesforce upload has no column for the number of instalments, so this
-  // field stays blank unless a source maps one, or staff fill it in, or a calculated rule
-  // sets it. Always present so a commitment's length can be recorded.
+  // Rule (DECISIONS 18): the UK Salesforce upload has no column for the number of
+  // instalments. Until the export carries one, a commitment with no count is treated as
+  // running "Indefinitely" (see applyMapping). One-off gifts keep it blank.
   { key: "instalmentCount", label: "Number of instalments", group: "commitment", salesforceColumns: [] },
 
   // Section: staff notes

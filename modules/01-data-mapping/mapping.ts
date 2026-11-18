@@ -10,7 +10,7 @@
  */
 
 import type { RawRecord } from "./csv";
-import { DEFAULT_DROPS, STANDARD_FIELDS } from "./standard-fields";
+import { DEFAULT_DROPS, INDEFINITELY, STANDARD_FIELDS } from "./standard-fields";
 
 // What to do with one file column.
 export type ColumnAction =
@@ -61,6 +61,8 @@ export function suggestMapping(headers: string[]): Mapping {
  * This keeps the 8 classification fields always available (DECISIONS 16).
  * Rule: if two columns feed one field, the first non-empty value wins.
  * Rule: dropped and unmapped columns are not copied, so contact details never get through.
+ * Rule (DECISIONS 18): a commitment (a gift with a schedule type or recurring amount) that has
+ * no number of instalments is set to "Indefinitely". One-off gifts keep it blank.
  */
 export function applyMapping(gift: RawRecord, mapping: Mapping): StandardGift {
   const result: StandardGift = {};
@@ -71,5 +73,8 @@ export function applyMapping(gift: RawRecord, mapping: Mapping): StandardGift {
     const value = (gift[column] ?? "").trim();
     if (value !== "" && result[action.field] === "") result[action.field] = value;
   }
+
+  const isCommitment = result["scheduleType"] !== "" || result["recurringAmount"] !== "";
+  if (isCommitment && result["instalmentCount"] === "") result["instalmentCount"] = INDEFINITELY;
   return result;
 }

@@ -73,6 +73,20 @@ describe("applyMapping", () => {
     expect(Object.values(std)).not.toContain("1 Test Road");
   });
 
+  it("sets a commitment with no instalment count to Indefinitely", () => {
+    expect(applyMapping(gifts[3]!, mapping)["instalmentCount"]).toBe("Indefinitely"); // recurring
+    expect(applyMapping(gifts[5]!, mapping)["instalmentCount"]).toBe("Indefinitely"); // custom commitment
+  });
+
+  it("leaves the instalment count blank on a one-off gift", () => {
+    expect(applyMapping(gifts[0]!, mapping)["instalmentCount"]).toBe("");
+  });
+
+  it("keeps a real instalment count when a source maps one", () => {
+    const m = { ...mapping, Instalments: { action: "field", field: "instalmentCount" } } as const;
+    expect(applyMapping({ ...gifts[5]!, Instalments: "12" }, m)["instalmentCount"]).toBe("12");
+  });
+
   it("takes the first non-empty value when two columns feed one field", () => {
     const m = { A: { action: "field", field: "channel" }, B: { action: "field", field: "channel" } } as const;
     expect(applyMapping({ A: "", B: "Web" }, m)["channel"]).toBe("Web");

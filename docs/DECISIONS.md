@@ -50,6 +50,8 @@ Newest at the bottom. Each entry: what, why.
 
 17. **Order reference must be unique per gift.** A repeated reference is a mistake in the source file, not a normal case, so the import flags it as `duplicate_reference` (never blocks). Found on the real UK file (18 Nov 2026): 50 references of the form EVO-999-999 used twice, rows 248 to 360, all Sadqah General Aid. The source sheet owner corrects them. Also found: 82 individual donors with no Salesforce donor ID (flagged as `missing_donor`).
 
+18. **Instalments come from the source, not from OUTCOMES.** The number of instalments is normally set in the product configuration of the platform that took the donation, and OUTCOMES must not duplicate product configuration. So the Salesforce export needs to carry the count (to be requested). Until it does, a commitment with no count shows **Indefinitely**; one-off gifts stay blank; a real count in a source overrides it. Consequence for Module 2: Project Rules should not hold duration or instalment counts (this narrows the example in decision 4). Revisit when Module 2 starts.
+
 ## Open questions
 
 - Salesforce feedback module is not built yet, so there is no ready report export. For testing we use the "SF Upload" and "SF META" tabs of the UK upload sheet (see `DATA-SOURCES.md`).
