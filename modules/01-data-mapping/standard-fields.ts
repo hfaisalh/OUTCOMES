@@ -53,6 +53,9 @@ export const STANDARD_FIELDS: StandardField[] = [
   { key: "scheduleType", label: "Schedule type", group: "commitment", salesforceColumns: ["Schedule_Type__c"] },
   { key: "transactionPeriod", label: "Period", group: "commitment", salesforceColumns: ["TransactionPeriod"] },
   { key: "commitmentType", label: "Commitment type", group: "commitment", salesforceColumns: ["Commitment_Type__c"] },
+  { key: "formalCommitmentType", label: "Formal commitment type", group: "commitment", salesforceColumns: ["Formal_Commitment_Type__c"] },
+  { key: "transactionInterval", label: "Interval (every N periods)", group: "commitment", salesforceColumns: ["TransactionInterval"] },
+  { key: "transactionDay", label: "Day of the period", group: "commitment", salesforceColumns: ["TransactionDay"] },
 
   // Section: staff notes
   { key: "donorMessage", label: "Donor message", group: "notes", salesforceColumns: ["Donor_Message__c"] },

@@ -59,6 +59,38 @@ describe("runImport on changed data", () => {
     expect(dup).toMatchObject({ row: 3, message: "Order reference EVO-900-001 already used on row 2" });
   });
 
+  describe("commitment dates", () => {
+    // raw[3] is the sample recurring gift (start 2026-11-15, no end date), raw[5] the custom commitment
+    const codes = (r: ReturnType<typeof runImport>) => r.issues.map((i) => i.code);
+
+    it("accepts a commitment with a start date and no end date", () => {
+      expect(runImport([raw[3]!, raw[5]!], mapping, codeBook).issues).toEqual([]);
+    });
+
+    it("accepts a commitment with a valid end date after the start", () => {
+      expect(runImport([{ ...raw[3]!, ExpectedEndDate: "2027-11-15" }], mapping, codeBook).issues).toEqual([]);
+    });
+
+    it("flags a commitment with no start date", () => {
+      expect(codes(runImport([{ ...raw[3]!, EffectiveStartDate: "" }], mapping, codeBook))).toEqual(["missing_start_date"]);
+    });
+
+    it("flags a bad end date", () => {
+      const r = runImport([{ ...raw[3]!, ExpectedEndDate: "next year" }], mapping, codeBook);
+      expect(r.issues[0]).toMatchObject({ code: "bad_date" });
+      expect(r.issues[0]?.message).toMatch(/end date/);
+    });
+
+    it("flags an end date before the start date", () => {
+      const r = runImport([{ ...raw[3]!, ExpectedEndDate: "2026-10-01" }], mapping, codeBook);
+      expect(codes(r)).toEqual(["end_before_start"]);
+    });
+
+    it("does not check commitment dates on a one-off gift", () => {
+      expect(runImport([{ ...raw[0]!, ExpectedEndDate: "garbage" }], mapping, codeBook).issues).toEqual([]);
+    });
+  });
+
   it("flags a missing donor ID", () => {
     const r = runImport([{ ...raw[2]!, DonorId: "" }], mapping, codeBook);
     expect(r.issues.map((i) => i.code)).toContain("missing_donor");

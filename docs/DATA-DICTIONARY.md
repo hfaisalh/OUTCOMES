@@ -51,12 +51,29 @@ Each issue has the file row (header is row 1), the gift reference, an optional l
 |---|---|
 | `missing_reference` | The gift has no order reference |
 | `duplicate_reference` | The reference is already used on an earlier row of the file |
-| `bad_date` | Received date missing or not a real date in YYYY-MM-DD form, or the donation date is filled but not valid |
+| `bad_date` | Received date missing or not a real date in YYYY-MM-DD form, or the donation date or a commitment start or end date is filled but not valid |
 | `missing_donor` | No Salesforce donor ID |
 | `amount_mismatch` | The line amounts do not add up to the gift amount |
 | `line_problem` | Designation lines are empty, not valid JSON, or the count does not match |
+| `missing_start_date` | A commitment (a gift with a schedule type or recurring amount) has no start date |
+| `end_before_start` | A commitment's end date is before its start date |
 | `missing_required` | A custom field marked required is blank |
 | `unknown_id` | A Designation or Outcome Activity ID on a line is empty or not in the code book |
+
+## Commitments (recurring and instalments)
+
+A gift is a commitment when it has a schedule type or a recurring amount.
+
+| Field | Salesforce column | Meaning |
+|---|---|---|
+| `recurringAmount` | `Recurring_Amount__c` | Amount each period |
+| `startDate` | `EffectiveStartDate` | When the commitment starts. Required |
+| `endDate` | `ExpectedEndDate` | When it ends. **Optional**: some commitments run until stopped. If given, it must be a real date and not before the start |
+| `scheduleType` | `Schedule_Type__c` | Recurring or Custom |
+| `transactionPeriod` | `TransactionPeriod` | For example Monthly |
+| `transactionInterval` | `TransactionInterval` | Every N periods |
+| `transactionDay` | `TransactionDay` | Day of the period |
+| `commitmentType`, `formalCommitmentType` | `Commitment_Type__c`, `Formal_Commitment_Type__c` | Type of commitment |
 
 ## Setup (saved per data source)
 

@@ -23,7 +23,9 @@ export type IssueCode =
   | "amount_mismatch"
   | "line_problem"
   | "unknown_id"
-  | "missing_required";
+  | "missing_required"
+  | "missing_start_date"
+  | "end_before_start";
 
 export interface Issue {
   row: number; // row in the file, counting the header as row 1, so the first gift is row 2
@@ -84,6 +86,22 @@ export function checkGift(
   }
 
   if ((gift["donorId"] ?? "") === "") add("missing_donor", "No Salesforce donor ID");
+
+  // Rule: a gift with a schedule or a recurring amount is a commitment (recurring or
+  // instalments). It needs a valid start date. An end date is optional, because some
+  // commitments run until stopped. If an end date is given it must be a real date and
+  // not before the start date.
+  const isCommitment = (gift["scheduleType"] ?? "") !== "" || (gift["recurringAmount"] ?? "") !== "";
+  if (isCommitment) {
+    const start = gift["startDate"] ?? "";
+    const end = gift["endDate"] ?? "";
+    const startOk = isValidIsoDate(start);
+    const endOk = isValidIsoDate(end);
+    if (start === "") add("missing_start_date", "Commitment has no start date");
+    else if (!startOk) add("bad_date", `Commitment start date "${start}" is not a date in YYYY-MM-DD form`);
+    if (end !== "" && !endOk) add("bad_date", `Commitment end date "${end}" is not a date in YYYY-MM-DD form`);
+    if (startOk && endOk && end < start) add("end_before_start", `Commitment ends (${end}) before it starts (${start})`);
+  }
 
   const amount = Number(gift["giftAmount"] ?? "");
   if (lines.length > 0 && Number.isFinite(amount) && (gift["giftAmount"] ?? "") !== "") {
