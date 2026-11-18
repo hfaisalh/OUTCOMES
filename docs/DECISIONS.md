@@ -39,7 +39,7 @@ Newest at the bottom. Each entry: what, why.
 
 15. **The OSP Sponsorship System (earlier artifact) is discarded.** Its rules and data are not carried over. OUTCOMES starts fresh.
 
-12. **Transaction classification fields (8).** Every transaction record has these fields, always present: **Channel, Platform, Merchant, Type, Method, Mode, Frequency, Settlement.**
+16. **Transaction classification fields (8).** Every transaction record has these fields, always present: **Channel, Platform, Merchant, Type, Method, Mode, Frequency, Settlement.**
    - Fill each from the source file where a column fits. If nothing fits, **leave it blank**. Never block an import because one is empty.
    - Each field points to a **master list** (configurable). Master lists share common fields: code, name, description, category, status, legal entity, country, effective dates, default, display order, parent, integration reference, audit history.
    - Raw file values are mapped to master values once (drag and drop), then reused.
