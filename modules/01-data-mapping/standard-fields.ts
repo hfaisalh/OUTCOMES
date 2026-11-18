@@ -56,6 +56,10 @@ export const STANDARD_FIELDS: StandardField[] = [
   { key: "formalCommitmentType", label: "Formal commitment type", group: "commitment", salesforceColumns: ["Formal_Commitment_Type__c"] },
   { key: "transactionInterval", label: "Interval (every N periods)", group: "commitment", salesforceColumns: ["TransactionInterval"] },
   { key: "transactionDay", label: "Day of the period", group: "commitment", salesforceColumns: ["TransactionDay"] },
+  // Rule: the UK Salesforce upload has no column for the number of instalments, so this
+  // field stays blank unless a source maps one, or staff fill it in, or a calculated rule
+  // sets it. Always present so a commitment's length can be recorded.
+  { key: "instalmentCount", label: "Number of instalments", group: "commitment", salesforceColumns: [] },
 
   // Section: staff notes
   { key: "donorMessage", label: "Donor message", group: "notes", salesforceColumns: ["Donor_Message__c"] },

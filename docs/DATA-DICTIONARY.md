@@ -73,6 +73,7 @@ A gift is a commitment when it has a schedule type or a recurring amount.
 | `transactionPeriod` | `TransactionPeriod` | For example Monthly |
 | `transactionInterval` | `TransactionInterval` | Every N periods |
 | `transactionDay` | `TransactionDay` | Day of the period |
+| `instalmentCount` | none | Number of instalments. Not in the UK Salesforce upload (checked 18 Nov 2026), so blank unless a source maps one, staff fill it in, or a rule sets it |
 | `commitmentType`, `formalCommitmentType` | `Commitment_Type__c`, `Formal_Commitment_Type__c` | Type of commitment |
 
 ## Setup (saved per data source)
