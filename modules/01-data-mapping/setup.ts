@@ -45,7 +45,12 @@ export interface Setup {
   mapping: Mapping;
   customFields: CustomField[];
   valueMaps: ValueMaps;
+  masterValues: MasterValues;
 }
+
+// The master values staff can choose for each field, for example Frequency: One-off, Recurring.
+// A master value can exist before any raw value is mapped to it.
+export type MasterValues = Record<string, string[]>;
 
 // A value in the data that still has no master value.
 export interface UnmappedValue {
@@ -60,7 +65,9 @@ const CLASSIFICATION_KEYS = STANDARD_FIELDS.filter((f) => f.group === "classific
 
 /** A new setup for a source, starting from the suggested mapping. */
 export function newSetup(sourceName: string, headers: string[]): Setup {
-  return { version: 1, sourceName, mapping: suggestMapping(headers), customFields: [], valueMaps: {} };
+  // Rule: Frequency starts with the three master values from the transaction model (DECISIONS 16).
+  const masterValues: MasterValues = { frequency: ["One-off", "Recurring", "Instalment"] };
+  return { version: 1, sourceName, mapping: suggestMapping(headers), customFields: [], valueMaps: {}, masterValues };
 }
 
 /** Rule: work out one calculated value from the values already on the gift. */
@@ -113,7 +120,7 @@ export function findUnmappedValues(gifts: StandardGift[], setup: Setup): Unmappe
   const out: UnmappedValue[] = [];
   for (const field of CLASSIFICATION_KEYS) {
     const map = setup.valueMaps[field] ?? {};
-    const known = new Set([...Object.keys(map), ...Object.values(map)].map(norm));
+    const known = new Set([...Object.keys(map), ...Object.values(map), ...(setup.masterValues[field] ?? [])].map(norm));
     const counts = new Map<string, number>();
     for (const g of gifts) {
       const v = (g[field] ?? "").trim();
@@ -173,6 +180,7 @@ export function loadSetup(text: string): { setup: Setup | null; problems: string
   if (typeof s.mapping !== "object" || s.mapping === null) problems.push("The setup has no mapping");
   if (!Array.isArray(s.customFields)) problems.push("The setup has no list of custom fields");
   if (typeof s.valueMaps !== "object" || s.valueMaps === null) problems.push("The setup has no value maps");
+  if (typeof s.masterValues !== "object" || s.masterValues === null) problems.push("The setup has no master values");
   if (problems.length > 0) return { setup: null, problems };
 
   const setup = s as Setup;
@@ -209,6 +217,12 @@ export function loadSetup(text: string): { setup: Setup | null; problems: string
   // Section: value maps belong to known fields.
   for (const field of Object.keys(setup.valueMaps)) {
     if (!known.has(field)) problems.push(`Value map is for "${field}", which is not a known field`);
+  }
+
+  // Section: master values belong to known fields and are lists of text.
+  for (const [field, list] of Object.entries(setup.masterValues)) {
+    if (!known.has(field)) problems.push(`Master values are for "${field}", which is not a known field`);
+    else if (!Array.isArray(list) || list.some((v) => typeof v !== "string")) problems.push(`Master values for "${field}" must be a list of text`);
   }
 
   return problems.length > 0 ? { setup: null, problems } : { setup, problems: [] };

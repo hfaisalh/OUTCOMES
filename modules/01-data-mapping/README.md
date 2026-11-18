@@ -31,7 +31,7 @@ Scope (decided 18 Nov 2026): the **SF Upload** tab and the **SF META** code book
 | 4 | Suggest a standard field for each column, incl. the 8 classification fields | Done |
 | 5 | Issue check (missing reference, bad date, unknown ID and more) | Done |
 | 6 | Save and load a setup per source, with manual and calculated fields and value mapping | Done |
-| 7 | Drag and drop mapping screen (after the stack is chosen) | Next |
+| 7 | Drag and drop mapping page (plain Vite and TypeScript, thin on purpose) | Done |
 
 ## Files
 
@@ -44,6 +44,7 @@ Scope (decided 18 Nov 2026): the **SF Upload** tab and the **SF META** code book
 | `setup.ts` | The setup for one source: custom fields, value maps, apply, find unmapped values, save and load as text |
 | `issues.ts` | Runs the whole pipeline on a file (`runImport`) and collects the issues list |
 | `codebook.ts` | Reads the code book (SF META) and adds names to order lines |
+| `ui/` | The local page: `index.html`, `main.ts` (events and state), `views.ts` (HTML for each part), `styles.css`. No business rules live here |
 | `csv.test.ts`, `gifts.test.ts`, `codebook.test.ts`, `mapping.test.ts`, `issues.test.ts`, `setup.test.ts` | Tests, using only `samples/` (invented data) |
 
 ## Decisions
@@ -53,7 +54,17 @@ Scope (decided 18 Nov 2026): the **SF Upload** tab and the **SF META** code book
 - Contact details (email, phone, address) are not carried into order lines (CLAUDE.md, Privacy).
 - Calculated fields use a small fixed set of rules (copy, join, starts with, swap values), not free code, so they port to Salesforce and are easy to check.
 - Master values for the 8 classification fields are plain text for now. Full master lists (code, status, parent and so on, DECISIONS 16) come later.
+- The page is a thin layer over the pure functions. The MWF developers can replace it with a CRM screen without touching the rules.
 - Money amounts are kept as exported, for reference only (DECISIONS 3).
+
+## How to see the page
+
+```bash
+npm install
+npm run dev
+```
+
+Open the link it prints (http://localhost:5173). Pick the SF Upload CSV and the SF META CSV. Export each tab from the workbook as CSV first. Files are read in the browser only, nothing is uploaded or stored. Drag a column onto a field, or tap a column then tap a field. Save setup downloads the setup as a `.json` file, and the "Saved setup" picker loads one back. Never put real exports in this repo.
 
 ## How to test
 

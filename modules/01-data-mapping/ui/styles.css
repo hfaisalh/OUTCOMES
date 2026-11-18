@@ -1,0 +1,31 @@
+/* styles.css: look of the Module 1 page. Plain CSS, light and dark, no framework. */
+:root{--bg:#fff;--card:#f7f6f2;--card2:#fff;--text:#1f1f1d;--muted:#6b6a64;--line:#d9d7cf;--accent:#185fa5;--accent-bg:#e6f1fb;--warn:#854f0b;--warn-bg:#faeeda;--bad:#a32d2d;--bad-bg:#fcebeb;--ok:#3b6d11;--ok-bg:#eaf3de}
+@media (prefers-color-scheme:dark){:root{--bg:#1c1c1a;--card:#262624;--card2:#2e2e2b;--text:#ececea;--muted:#a3a29a;--line:#44443f;--accent:#85b7eb;--accent-bg:#0c447c;--warn:#fac775;--warn-bg:#633806;--bad:#f09595;--bad-bg:#791f1f;--ok:#c0dd97;--ok-bg:#27500a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,sans-serif}
+header,main{max-width:1100px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0 0 4px;font-weight:600}h1 span{font-size:14px;font-weight:400;color:var(--muted);margin-left:8px}
+h2{font-size:16px;margin:0 0 8px;font-weight:600}h3{font-size:13px;margin:12px 0 6px;color:var(--muted);font-weight:600}
+.note{color:var(--muted);margin:0 0 12px}
+.pickers{display:flex;flex-wrap:wrap;gap:16px}.pickers label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.status{margin-top:10px;color:var(--muted)}.status.bad{color:var(--bad)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:16px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.stack{display:flex;flex-direction:column;gap:12px}
+.zone{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--card2);min-height:56px}
+.zone.drop{border-style:dashed}
+.over{border-color:var(--accent)!important;background:var(--accent-bg)!important}
+.slot{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;border:1px dashed var(--line);border-radius:8px;padding:4px 8px;min-height:36px;margin-bottom:6px;background:var(--card2)}
+.slot .lbl{width:150px;color:var(--muted);font-size:13px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card2);font:12px ui-monospace,monospace;cursor:grab;margin:0 6px 6px 0;user-select:none}
+.slot .chip{margin:0}.chip.sel{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+.chip .n{color:var(--muted);font-family:system-ui}.chip .x{cursor:pointer;color:var(--muted)}
+.empty{color:var(--muted);font-size:12px}
+button{font:inherit;padding:4px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card2);color:var(--text);cursor:pointer}
+button.on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+select,input[type=text]{font:inherit;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card2);color:var(--text)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:4px 8px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:600}
+.tag{display:inline-block;padding:0 8px;border-radius:8px;font-size:12px;background:var(--warn-bg);color:var(--warn)}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px}
+.metric{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 12px}.metric b{display:block;font-size:20px}.metric span{color:var(--muted);font-size:12px}

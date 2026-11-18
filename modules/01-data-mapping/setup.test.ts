@@ -99,6 +99,18 @@ describe("findUnmappedValues", () => {
   });
 });
 
+describe("master values", () => {
+  it("starts Frequency with One-off, Recurring and Instalment", () => {
+    expect(newSetup("x", []).masterValues["frequency"]).toEqual(["One-off", "Recurring", "Instalment"]);
+  });
+
+  it("treats a value that is already a master value as mapped", () => {
+    const setup = newSetup("x", []);
+    const unmapped = findUnmappedValues([{ frequency: "Recurring" }, { frequency: "Weekly" }], setup);
+    expect(unmapped).toEqual([{ field: "frequency", value: "Weekly", count: 1 }]);
+  });
+});
+
 describe("saveSetup and loadSetup", () => {
   it("round trips a setup", () => {
     const setup = exampleSetup();
@@ -123,6 +135,9 @@ describe("saveSetup and loadSetup", () => {
       [{ ...base, customFields: [{ ...base.customFields[0]!, rule: { type: "copy", from: "nope" } }] }, /not a standard field/],
       [{ ...base, mapping: { X: { action: "field", field: "nope" } } }, /not a standard field/],
       [{ ...base, valueMaps: { nope: {} } }, /not a known field/],
+      [{ ...base, masterValues: { nope: ["x"] } }, /Master values are for "nope"/],
+      [{ ...base, masterValues: { frequency: [1] } }, /must be a list of text/],
+      [{ ...base, masterValues: undefined }, /no master values/],
     ];
     for (const [data, message] of cases) {
       const r = loadSetup(JSON.stringify(data));

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OUTCOMES: data sources and field mapping</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <!-- Page shell. The file pickers stay here so choosing a file is never lost when the page redraws. -->
+    <header>
+      <h1>OUTCOMES <span>Module 1: data sources and field mapping</span></h1>
+      <p class="note">Files are read in your browser only. Nothing is uploaded or stored.</p>
+      <div class="pickers">
+        <label>SF Upload file (CSV)<input type="file" id="gifts" accept=".csv" /></label>
+        <label>SF META code book (CSV)<input type="file" id="meta" accept=".csv" /></label>
+        <label>Saved setup (optional)<input type="file" id="setupfile" accept=".json" /></label>
+      </div>
+      <div id="status" class="status"></div>
+    </header>
+    <main id="app"></main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
