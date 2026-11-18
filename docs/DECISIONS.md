@@ -56,9 +56,12 @@ Newest at the bottom. Each entry: what, why.
 
 20. **Automatic feed by batch.** Admin agents add gifts to the Google Sheet in batches. Each gift carries a batch number (`GiftBatch.Name`, for example GB-000000071). A scheduled job (cron) picks up finished batches that have not been imported yet, runs the saved setup and code book, and sends problems to an exceptions list instead of stopping. Nobody uploads files by hand. Rules: a gift with no batch number is held back; a batch is imported once; a batch edited after import is flagged "changed", not imported again silently. The scheduled job and the Google Sheets connection (read-only) are API nodes for the developers (decision 12). OUTCOMES holds the pure batch planner. Manual Upload file stays for testing and one-off files.
 
+21. **Batch audit.** Items can be added to, changed in or removed from a batch after it is finished and imported. A quick audit compares each imported batch with the sheet as it is now, gift by gift (each gift has its own fingerprint, so one changed gift is found without re-reading the whole batch). It reports: **added** (a new reference under an imported batch number), **changed** (same reference, different content), **removed** (imported but no longer in the sheet) and **moved** (now under another batch). Nothing is lost silently. The audit is a pure function in OUTCOMES; running it on a schedule is part of the developers' job (decision 20).
+
 ## Open questions
 
 - Salesforce feedback module is not built yet, so there is no ready report export. For testing we use the "SF Upload" and "SF META" tabs of the UK upload sheet (see `DATA-SOURCES.md`).
 - Who marks a batch Ready (a column on the sheet is simplest), and when is it safe to pick up a batch while several agents add to the same sheet?
 - Is one batch number one upload event, and what should happen to the gifts that currently have no batch number (125 of 525 in the UK file)?
-- How often should the job run?
+- How often should the job run, and how often the full audit (for example every pick-up for new additions, and a full audit daily)?
+- What happens to audit findings: late additions imported automatically and listed for review, but changed or removed gifts always held for a person to approve (suggested, because reports or allocations may already depend on them)?
