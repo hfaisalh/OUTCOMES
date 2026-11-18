@@ -43,6 +43,20 @@ Always present on every gift. Filled from the file where a column fits, otherwis
 
 Contact details (name, email, phone, address), bank and cheque details, and finance-only flags are dropped with a reason shown to staff. Staff can still map them. Dropped and unmapped columns are never copied into a standard gift. The full list is `DEFAULT_DROPS` in `modules/01-data-mapping/standard-fields.ts`.
 
+## Issues (output of the issue check)
+
+Each issue has the file row (header is row 1), the gift reference, an optional line number, a code and a plain message. Issues never block an import.
+
+| Code | Meaning |
+|---|---|
+| `missing_reference` | The gift has no order reference |
+| `duplicate_reference` | The reference is already used on an earlier row of the file |
+| `bad_date` | Received date missing or not a real date in YYYY-MM-DD form, or the donation date is filled but not valid |
+| `missing_donor` | No Salesforce donor ID |
+| `amount_mismatch` | The line amounts do not add up to the gift amount |
+| `line_problem` | Designation lines are empty, not valid JSON, or the count does not match |
+| `unknown_id` | A Designation or Outcome Activity ID on a line is empty or not in the code book |
+
 ## Code book (SF META tab)
 
 | Column | Meaning |
