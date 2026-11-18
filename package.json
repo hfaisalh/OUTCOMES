@@ -1,0 +1,17 @@
+{
+  "name": "outcomes",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Fulfilment and donor-feedback system for Minhaj Welfare Foundation",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  }
+}
