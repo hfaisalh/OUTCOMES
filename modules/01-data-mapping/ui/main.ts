@@ -3,6 +3,8 @@
  *
  * What it does: runs the Module 1 page. Reads the chosen CSV files in the browser, keeps the
  * page state, handles drag, tap and click, and redraws the page using views.ts.
+ * Rule: the code book is configuration. It is loaded once and saved with the setup in this
+ * browser, so each run only needs the Upload file.
  * Who calls it: index.html (npm run dev).
  * Depends on: the pure Module 1 logic one folder up, and views.ts. Nothing is uploaded or stored.
  */
@@ -10,12 +12,16 @@
 import { buildCodeBook } from "../codebook";
 import { readGiftExport } from "../gifts";
 import { suggestMapping } from "../mapping";
-import { findUnmappedValues, loadSetup, newSetup, runImportWithSetup, saveSetup, type Setup } from "../setup";
-import { mappingView, resultsView, valuesView, type Model } from "./views";
+import { codeBookFromData, codeBookToData, findUnmappedValues, loadSetup, newSetup, runImportWithSetup, saveSetup, type Setup } from "../setup";
+import { templateCsv } from "../template";
+import { guideView, mappingView, resultsView, valuesView, type Model } from "./views";
+
+const STORAGE_KEY = "outcomes.module1.setup";
 
 const model: Model = { headers: [], rawGifts: [], codeBook: null, setup: null, result: null, unmapped: [], sel: null, valueField: "frequency", issueFilter: "all" };
 let pendingSetup: Setup | null = null; // a loaded setup waiting for its gift file
 let sourceGuess = "Data source";
+const STUB_NAME = "Data source"; // name of a setup made before any Upload file was chosen
 
 const app = document.getElementById("app") as HTMLElement;
 const statusEl = document.getElementById("status") as HTMLElement;
@@ -42,8 +48,36 @@ function refresh() {
     model.result = null;
     model.unmapped = [];
   }
-  const parts = [model.setup ? mappingView(model) : "", model.result ? valuesView(model) + resultsView(model) : ""];
+  const parts = [guideView(model), model.setup ? mappingView(model) : "", model.result ? valuesView(model) + resultsView(model) : ""];
   app.innerHTML = parts.join("");
+  persist();
+  showConfig();
+}
+
+// Section: configuration kept in this browser (setup plus code book). Failure is not fatal.
+function persist() {
+  const setup = model.setup ?? pendingSetup;
+  if (!setup) return;
+  if (model.codeBook) setup.codeBook = codeBookToData(model.codeBook);
+  try { localStorage.setItem(STORAGE_KEY, saveSetup(setup)); } catch { /* storage may be blocked, the page still works */ }
+}
+
+function showConfig() {
+  const cb = model.codeBook;
+  (document.getElementById("cfgstatus") as HTMLElement).textContent = cb
+    ? `Code book saved in this browser: ${cb.designations.size} designations, ${cb.outcomeActivities.size} outcome activities. Only replace it when it changes in Salesforce.`
+    : "No code book yet. Pick the code book (CSV) once. It is kept in this browser.";
+  (document.getElementById("cfg") as HTMLDetailsElement).open = !cb;
+}
+
+function restore() {
+  let text: string | null = null;
+  try { text = localStorage.getItem(STORAGE_KEY); } catch { /* ignore */ }
+  if (!text) return;
+  const { setup } = loadSetup(text);
+  if (!setup) return;
+  pendingSetup = setup;
+  if (setup.codeBook) model.codeBook = codeBookFromData(setup.codeBook);
 }
 
 // Section: moving columns and values. Each change updates the setup, then redraws.
@@ -158,15 +192,17 @@ async function onGiftFile(file: File) {
   model.rawGifts = gifts;
   sourceGuess = file.name.replace(/\.csv$/i, "");
   model.setup = pendingSetup ?? newSetup(sourceGuess, headers);
+  if (model.setup.sourceName === STUB_NAME) model.setup.sourceName = sourceGuess;
   pendingSetup = null;
   ensureHeaders(model.setup);
-  status(`Loaded ${gifts.length} gifts and ${headers.length} columns.` + (model.codeBook ? "" : " Now pick the SF META code book to see values and results."));
+  status(`Loaded ${gifts.length} gifts and ${headers.length} columns.` + (model.codeBook ? "" : " Open Configuration and pick the code book once to see values and results."));
   refresh();
 }
 
 async function onMetaFile(file: File) {
   const { codeBook, problems } = buildCodeBook(await file.text());
   model.codeBook = codeBook;
+  if (!model.setup && !pendingSetup) pendingSetup = newSetup(STUB_NAME, []); // keeps the code book until a file is chosen
   status(problems.length > 0 ? `Code book problems: ${problems.join("; ")}` : `Code book loaded: ${codeBook.designations.size} designations, ${codeBook.outcomeActivities.size} outcome activities.`, problems.length > 0);
   refresh();
 }
@@ -175,7 +211,7 @@ async function onSetupFile(file: File) {
   const { setup, problems } = loadSetup(await file.text());
   if (!setup) return status(`That setup can't be used: ${problems.join("; ")}`, true);
   if (model.headers.length > 0) { ensureHeaders(setup); model.setup = setup; } else pendingSetup = setup;
-  status(`Setup "${setup.sourceName}" loaded.` + (model.headers.length > 0 ? "" : " Now pick the SF Upload file."));
+  status(`Setup "${setup.sourceName}" loaded.` + (model.headers.length > 0 ? "" : " Now pick the Upload file."));
   refresh();
 }
 
@@ -187,4 +223,21 @@ const wire = (id: string, handler: (file: File) => Promise<void>) =>
 wire("gifts", onGiftFile);
 wire("meta", onMetaFile);
 wire("setupfile", onSetupFile);
-status("Pick the SF Upload file and the SF META code book (both as CSV) to start.");
+document.getElementById("template")?.addEventListener("click", () => {
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([templateCsv()], { type: "text/csv" }));
+  link.download = "outcomes-upload-template.csv";
+  link.click();
+  URL.revokeObjectURL(link.href);
+});
+document.getElementById("forget")?.addEventListener("click", () => {
+  try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+  Object.assign(model, { headers: [], rawGifts: [], codeBook: null, setup: null, result: null, unmapped: [], sel: null });
+  pendingSetup = null;
+  status("Saved setup forgotten. Pick the code book again, then the Upload file.");
+  refresh();
+});
+
+restore();
+status(model.codeBook ? "Pick the Upload file (CSV) to start. The saved code book and setup are ready." : "Open Configuration to pick the code book once, then pick the Upload file (CSV).");
+refresh();

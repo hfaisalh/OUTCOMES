@@ -46,11 +46,29 @@ export interface Setup {
   customFields: CustomField[];
   valueMaps: ValueMaps;
   masterValues: MasterValues;
+  codeBook?: CodeBookData; // saved with the setup so the code book is not uploaded each time
 }
 
 // The master values staff can choose for each field, for example Frequency: One-off, Recurring.
 // A master value can exist before any raw value is mapped to it.
 export type MasterValues = Record<string, string[]>;
+
+// The code book (Designation and Outcome Activity names by Salesforce ID) as plain data, so it
+// can be saved inside the setup. It is configuration: loaded once, not uploaded with each file.
+export interface CodeBookData {
+  designations: Record<string, string>;
+  outcomeActivities: Record<string, string>;
+}
+
+export const codeBookToData = (cb: CodeBook): CodeBookData => ({
+  designations: Object.fromEntries(cb.designations),
+  outcomeActivities: Object.fromEntries(cb.outcomeActivities),
+});
+
+export const codeBookFromData = (data: CodeBookData): CodeBook => ({
+  designations: new Map(Object.entries(data.designations)),
+  outcomeActivities: new Map(Object.entries(data.outcomeActivities)),
+});
 
 // A value in the data that still has no master value.
 export interface UnmappedValue {
@@ -223,6 +241,16 @@ export function loadSetup(text: string): { setup: Setup | null; problems: string
   for (const [field, list] of Object.entries(setup.masterValues)) {
     if (!known.has(field)) problems.push(`Master values are for "${field}", which is not a known field`);
     else if (!Array.isArray(list) || list.some((v) => typeof v !== "string")) problems.push(`Master values for "${field}" must be a list of text`);
+  }
+
+  // Section: the saved code book, if any, must be two lists of text.
+  if (setup.codeBook !== undefined) {
+    for (const key of ["designations", "outcomeActivities"] as const) {
+      const list = setup.codeBook?.[key];
+      if (typeof list !== "object" || list === null || Object.values(list).some((v) => typeof v !== "string")) {
+        problems.push(`The saved code book has a bad "${key}" list`);
+      }
+    }
   }
 
   return problems.length > 0 ? { setup: null, problems } : { setup, problems: [] };

@@ -11,6 +11,8 @@ import { buildCodeBook } from "./codebook";
 import { readGiftExport } from "./gifts";
 import {
   applySetupToGift,
+  codeBookFromData,
+  codeBookToData,
   computeRule,
   findUnmappedValues,
   loadSetup,
@@ -96,6 +98,28 @@ describe("findUnmappedValues", () => {
     expect(unmapped).toContainEqual({ field: "frequency", value: "Custom Commitment", count: 1 });
     expect(unmapped.some((u) => u.field === "frequency" && (u.value === "One-off" || u.value === "Donation"))).toBe(false);
     expect(unmapped.some((u) => u.field === "channel" && u.value === "Card Machine")).toBe(true);
+  });
+});
+
+describe("code book in the setup", () => {
+  const { codeBook } = buildCodeBook(read("sf-meta-sample.csv"));
+
+  it("converts a code book to plain data and back", () => {
+    const back = codeBookFromData(codeBookToData(codeBook));
+    expect(back.designations).toEqual(codeBook.designations);
+    expect(back.outcomeActivities).toEqual(codeBook.outcomeActivities);
+  });
+
+  it("round trips inside a saved setup", () => {
+    const setup = { ...exampleSetup(), codeBook: codeBookToData(codeBook) };
+    const loaded = loadSetup(saveSetup(setup));
+    expect(loaded.problems).toEqual([]);
+    expect(loaded.setup?.codeBook?.outcomeActivities["9OATw000002DemoOSP"]).toBe("Orphan Sponsorship Where Most Needed");
+  });
+
+  it("rejects a damaged saved code book", () => {
+    const bad = { ...exampleSetup(), codeBook: { designations: { a: 1 }, outcomeActivities: {} } };
+    expect(loadSetup(JSON.stringify(bad)).problems.join(" ")).toMatch(/bad "designations" list/);
   });
 });
 

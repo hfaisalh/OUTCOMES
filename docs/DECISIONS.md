@@ -52,6 +52,8 @@ Newest at the bottom. Each entry: what, why.
 
 18. **Instalments come from the source, not from OUTCOMES.** The number of instalments is normally set in the product configuration of the platform that took the donation, and OUTCOMES must not duplicate product configuration. So the Salesforce export needs to carry the count (to be requested). Until it does, a commitment with no count shows **Indefinitely**; one-off gifts stay blank; a real count in a source overrides it. Consequence for Module 2: Project Rules should not hold duration or instalment counts (this narrows the example in decision 4). Revisit when Module 2 starts.
 
+19. **Only the Upload file is loaded each time. The code book is configuration.** The SF META tab changes rarely, so it is loaded once and saved with the setup (in this browser for now). The page calls the daily file the "Upload file". Auto-matching is as wide as is safe (exact Salesforce names, then names and aliases from other MWF sheets, marked "by name"), and a downloadable template shows the exact format that matches everything. Where the setup and code book are stored long term is for the developers (the setup text format stays the same).
+
 ## Open questions
 
 - Salesforce feedback module is not built yet, so there is no ready report export. For testing we use the "SF Upload" and "SF META" tabs of the UK upload sheet (see `DATA-SOURCES.md`).

@@ -14,6 +14,7 @@ import type { ImportResult } from "../issues";
 import type { Mapping } from "../mapping";
 import { STANDARD_FIELDS, type FieldGroup } from "../standard-fields";
 import type { Setup, UnmappedValue } from "../setup";
+import { expectedColumns } from "../template";
 
 export interface Selection {
   area: "col" | "raw"; // a file column, or a raw value in the value mapping
@@ -56,20 +57,34 @@ function chip(m: Model, area: Selection["area"], value: string, opts: { x?: bool
   return `<span class="${cls}" draggable="true" data-c="${esc(value)}" data-a="${area}"${title}>${esc(value)}${note}${x}</span>`;
 }
 
+// Rule: a column matched by name (not by its exact Salesforce name) is marked so staff can check it.
+const likelyNote = (a: Mapping[string] | undefined) => (a?.action === "field" && a.confidence === "likely" ? "by name" : undefined);
+
 const columnsWhere = (mapping: Mapping, test: (a: Mapping[string]) => boolean) =>
   Object.keys(mapping).filter((c) => { const a = mapping[c]; return a !== undefined && test(a); });
+
+// The expected format of the Upload file, as a table. Open until a file has been loaded.
+export function guideView(m: Model): string {
+  const rows = expectedColumns()
+    .map((c) => `<tr><td><code>${esc(c.column)}</code></td><td>${esc(c.label)}</td><td>${c.required ? "Required" : "Optional"}</td><td>${esc(c.example.length > 40 ? c.example.slice(0, 37) + "..." : c.example)}</td><td>${esc(c.note)}</td></tr>`)
+    .join("");
+  return `<details class="card"${m.setup ? "" : " open"}><summary><b>Expected format of the Upload file</b></summary>
+    <p class="empty">Use these column names and every column matches automatically. Other names are matched as far as possible and you fix the rest. Contact details are not needed. Use Download template for a ready file.</p>
+    <table><thead><tr><th>Column</th><th>Field</th><th></th><th>Example</th><th>Note</th></tr></thead><tbody>${rows}</tbody></table></details>`;
+}
 
 export function mappingView(m: Model): string {
   const setup = m.setup!;
   const pool = columnsWhere(setup.mapping, (a) => a.action === "unmapped");
   const dropped = columnsWhere(setup.mapping, (a) => a.action === "drop");
   const mappedCount = columnsWhere(setup.mapping, (a) => a.action === "field").length;
+  const byName = columnsWhere(setup.mapping, (a) => a.action === "field" && a.confidence === "likely").length;
 
   const slotsFor = (group: FieldGroup) =>
     STANDARD_FIELDS.filter((f) => f.group === group)
       .map((f) => {
         const cols = columnsWhere(setup.mapping, (a) => a.action === "field" && a.field === f.key);
-        const body = cols.map((c) => chip(m, "col", c, { x: true })).join("") || `<span class="empty">blank</span>`;
+        const body = cols.map((c) => chip(m, "col", c, { x: true, note: likelyNote(setup.mapping[c]) })).join("") || `<span class="empty">blank</span>`;
         return `<div class="slot" data-slot="${f.key}"><span class="lbl">${esc(f.label)}</span>${body}</div>`;
       })
       .join("");
@@ -80,7 +95,7 @@ export function mappingView(m: Model): string {
 
   return `<section class="card"><h2>1. Map the columns</h2>
     <div class="row"><label>Source name <input type="text" id="srcname" value="${esc(setup.sourceName)}" /></label>
-    <span class="empty">${m.headers.length} columns: ${mappedCount} mapped, ${dropped.length} dropped, ${pool.length} to decide. Drag a column onto a field, or tap a column then tap a field.</span></div>
+    <span class="empty">Matched ${mappedCount + dropped.length} of ${m.headers.length} columns automatically (${mappedCount} mapped${byName > 0 ? `, ${byName} by name, please check` : ""}, ${dropped.length} dropped). ${pool.length} to decide. Drag a column onto a field, or tap a column then tap a field.</span></div>
     <div class="cols"><div class="stack">
       <div class="zone" data-zone="pool"><h3 style="margin-top:0">To decide</h3>${poolBody}</div>
       <div class="zone drop" data-zone="drop"><h3 style="margin-top:0">Drop (never stored)</h3>${dropBody}</div>

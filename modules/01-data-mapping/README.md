@@ -4,14 +4,14 @@
 
 Turn a Salesforce gift export into clean, standard order lines that later modules can use. This module reads and maps data. It does not route gifts, decide anything about projects, or handle money.
 
-Scope (decided 18 Nov 2026): the **SF Upload** tab and the **SF META** code book only. Other touchpoint sheets (web, JustGiving, Facebook, centres) are upstream of Salesforce and can become extra data sources later through the same mapping.
+Scope (decided 18 Nov 2026): the **Upload file** (the SF Upload tab of the Salesforce upload sheet) and the **code book** (the SF META tab). Other touchpoint sheets (web, JustGiving, Facebook, centres) are upstream of Salesforce and can become extra data sources later through the same mapping.
 
 ## Inputs
 
 | Input | What it is |
 |---|---|
-| Gift export (CSV) | One row per gift, 64 Salesforce columns, with the designation lines as JSON in `GiftTranxDesignationInfo__c` |
-| Code book (CSV) | Salesforce IDs to names for Designations and Outcome Activities |
+| Upload file (CSV) | One row per gift, with the designation lines as JSON in `GiftTranxDesignationInfo__c`. This is the only file loaded each time. A template shows the expected columns |
+| Code book (CSV) | Salesforce IDs to names for Designations and Outcome Activities. **Configuration**: loaded once, then saved with the setup (DECISIONS 19) |
 
 ## Outputs
 
@@ -44,8 +44,9 @@ Scope (decided 18 Nov 2026): the **SF Upload** tab and the **SF META** code book
 | `setup.ts` | The setup for one source: custom fields, value maps, apply, find unmapped values, save and load as text |
 | `issues.ts` | Runs the whole pipeline on a file (`runImport`) and collects the issues list |
 | `codebook.ts` | Reads the code book (SF META) and adds names to order lines |
+| `template.ts`, `field-hints.ts` | The expected Upload file format (table and CSV template) and the extra column names used for auto-matching |
 | `ui/` | The local page: `index.html`, `main.ts` (events and state), `views.ts` (HTML for each part), `styles.css`. No business rules live here |
-| `csv.test.ts`, `gifts.test.ts`, `codebook.test.ts`, `mapping.test.ts`, `issues.test.ts`, `setup.test.ts` | Tests, using only `samples/` (invented data) |
+| `csv.test.ts`, `gifts.test.ts`, `codebook.test.ts`, `mapping.test.ts`, `issues.test.ts`, `setup.test.ts`, `template.test.ts`, `ui/views.test.ts` | Tests, using only `samples/` (invented data) |
 
 ## Decisions
 
@@ -64,7 +65,7 @@ npm install
 npm run dev
 ```
 
-Open the link it prints (http://localhost:5173). Pick the SF Upload CSV and the SF META CSV. Export each tab from the workbook as CSV first. Files are read in the browser only, nothing is uploaded or stored. Drag a column onto a field, or tap a column then tap a field. Save setup downloads the setup as a `.json` file, and the "Saved setup" picker loads one back. Never put real exports in this repo.
+Open the link it prints (http://localhost:5173). First time only: open **Configuration** and pick the code book CSV (export the SF META tab as CSV). It is then kept in this browser along with your setup. Each time after that, just pick the **Upload file** (export the SF Upload tab as CSV), or click **Download template** to see the expected columns. Files are read in the browser only and nothing is sent to a server. The setup and code book are kept in this browser's local storage until you click Forget saved setup. Drag a column onto a field, or tap a column then tap a field. Save setup downloads the setup as a `.json` file, and the "Saved setup" picker loads one back. Never put real exports in this repo.
 
 ## How to test
 

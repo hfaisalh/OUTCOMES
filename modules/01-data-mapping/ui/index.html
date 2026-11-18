@@ -10,13 +10,22 @@
     <!-- Page shell. The file pickers stay here so choosing a file is never lost when the page redraws. -->
     <header>
       <h1>OUTCOMES <span>Module 1: data sources and field mapping</span></h1>
-      <p class="note">Files are read in your browser only. Nothing is uploaded or stored.</p>
+      <p class="note">Files are read in your browser only. Nothing is uploaded to a server.</p>
       <div class="pickers">
-        <label>SF Upload file (CSV)<input type="file" id="gifts" accept=".csv" /></label>
-        <label>SF META code book (CSV)<input type="file" id="meta" accept=".csv" /></label>
-        <label>Saved setup (optional)<input type="file" id="setupfile" accept=".json" /></label>
+        <label>Upload file (CSV)<input type="file" id="gifts" accept=".csv" /></label>
+        <button id="template" type="button">Download template</button>
       </div>
       <div id="status" class="status"></div>
+      <!-- Configuration is set once and kept in this browser, so only the Upload file is chosen each time. -->
+      <details class="cfg" id="cfg">
+        <summary>Configuration (set once)</summary>
+        <p id="cfgstatus" class="note"></p>
+        <div class="pickers">
+          <label>Code book (CSV)<input type="file" id="meta" accept=".csv" /></label>
+          <label>Saved setup (optional)<input type="file" id="setupfile" accept=".json" /></label>
+          <button id="forget" type="button">Forget saved setup</button>
+        </div>
+      </details>
     </header>
     <main id="app"></main>
     <script type="module" src="./main.ts"></script>

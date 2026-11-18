@@ -100,6 +100,10 @@ Calculated rules: **copy** (same as another field), **concat** (join fields, ski
 
 The tab has several columns headed `Id`, so each is read as "the cell to the right of its name column".
 
+## Auto-matching of columns
+
+A column is matched in this order: (1) exact Salesforce column name, (2) by name, meaning its name ignoring case, spaces and punctuation equals a field's label, key or a known alias (shown as "by name" so staff can check it), (3) known contact and bank columns are dropped with a reason. Nothing is guessed from partial names. Aliases come from MWF's other touchpoint sheets (web export, gift sheets) and live in `field-hints.ts`.
+
 ## Order reference prefixes
 
 | Prefix | Meaning |
