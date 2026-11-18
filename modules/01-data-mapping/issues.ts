@@ -22,7 +22,8 @@ export type IssueCode =
   | "missing_donor"
   | "amount_mismatch"
   | "line_problem"
-  | "unknown_id";
+  | "unknown_id"
+  | "missing_required";
 
 export interface Issue {
   row: number; // row in the file, counting the header as row 1, so the first gift is row 2

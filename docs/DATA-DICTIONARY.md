@@ -55,7 +55,23 @@ Each issue has the file row (header is row 1), the gift reference, an optional l
 | `missing_donor` | No Salesforce donor ID |
 | `amount_mismatch` | The line amounts do not add up to the gift amount |
 | `line_problem` | Designation lines are empty, not valid JSON, or the count does not match |
+| `missing_required` | A custom field marked required is blank |
 | `unknown_id` | A Designation or Outcome Activity ID on a line is empty or not in the code book |
+
+## Setup (saved per data source)
+
+| Part | Meaning |
+|---|---|
+| `sourceName` | Name of the source, for example "UK Salesforce upload" |
+| `mapping` | For each file column: map to a standard field, drop, or leave unmapped |
+| `customFields` | Extra fields. **Manual**: staff fill them in. **Calculated**: a rule fills them |
+| `valueMaps` | Raw file value to master value per field, for example Frequency: "Recurring Donation" to "Recurring" |
+
+Custom field settings: key, label, kind (manual or calculated), type (text, number, date), required, default value, privacy (normal or sensitive) and, for calculated fields, one rule.
+
+Calculated rules: **copy** (same as another field), **concat** (join fields, skipping blanks), **starts_with** (for example reference starts with EVO-, then Yes or No), **value_map** (swap listed values, else a fallback).
+
+"Unmapped values" are values in the 8 classification fields that are not yet a master value or mapped to one. The mapping screen lists them for staff to map.
 
 ## Code book (SF META tab)
 
