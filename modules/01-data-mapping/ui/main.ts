@@ -10,6 +10,9 @@
  * each run only needs the upload file. Nothing is sent to a server.
  */
 
+import flatSample from "../../../samples/generic-flat-sample.csv?raw";
+import sfMeta from "../../../samples/sf-meta-sample.csv?raw";
+import sfUpload from "../../../samples/sf-upload-sample.csv?raw";
 import { parseCsv, toRecords, type Table } from "../csv";
 import { readLookups } from "../lookups";
 import { suggestMapping } from "../mapping";
@@ -35,6 +38,9 @@ function restore(): Setup {
   return newSetup(STUB_NAME, []);
 }
 
+// Demo mode uses the invented sample files built into the page. Nothing is saved while it runs.
+let demoMode = false;
+
 const model: Model = { headers: [], rows: [], setup: restore(), result: null, unmapped: [], sel: null, valueField: "frequency", issueFilter: "all" };
 
 function status(text: string, bad = false) {
@@ -59,7 +65,9 @@ function refresh() {
     model.unmapped = [];
   }
   app.innerHTML = [guideView(model), model.headers.length > 0 ? mappingView(model) : "", model.result ? valuesView(model) + resultsView(model) : ""].join("");
-  try { localStorage.setItem(STORAGE_KEY, saveSetup(model.setup)); } catch { /* storage may be blocked, the page still works */ }
+  if (!demoMode) {
+    try { localStorage.setItem(STORAGE_KEY, saveSetup(model.setup)); } catch { /* storage may be blocked, the page still works */ }
+  }
   showConfig();
 }
 
@@ -85,6 +93,23 @@ function useTable(table: Table, name: string, from: string) {
   ensureHeaders();
   status(`Loaded ${records.length} rows and ${headers.length} columns from ${from}.`);
   refresh();
+}
+
+// Section: demo. Loads an invented sample so the page can be shown without any real data.
+function startDemo(kind: "salesforce" | "generic") {
+  demoMode = true;
+  const table = parseCsv(kind === "salesforce" ? sfUpload : flatSample);
+  const { headers } = toRecords(table);
+  const setup = newSetup(kind === "salesforce" ? "Demo: Salesforce sample" : "Demo: another organisation's file", headers, kind === "salesforce" ? "salesforce" : null);
+  if (kind === "salesforce") setup.lookups = readLookups(sfMeta, getPreset("salesforce")).lookups;
+  else {
+    setup.layout = "one-row-per-line";
+    setup.requiredFields = ["reference", "receivedDate", "supporterId", "lineOutcome"];
+  }
+  model.setup = setup;
+  model.valueField = "frequency";
+  useTable(table, setup.sourceName, "the built-in demo sample (invented data)");
+  status("Demo with invented sample data. Nothing is saved. Reload the page to leave the demo.");
 }
 
 // Section: moving columns and values. Each change updates the setup, then redraws.
@@ -236,5 +261,9 @@ initSheetSource({
   openConfig: () => { byId<HTMLDetailsElement>("cfg").open = true; },
   onTable: (table, tabTitle) => useTable(table, tabTitle, `the Google Sheet tab "${tabTitle}"`),
 });
+byId("demo-sf").addEventListener("click", () => startDemo("salesforce"));
+byId("demo-gen").addEventListener("click", () => startDemo("generic"));
 status("Pick the upload file (CSV), or load it from a Google Sheet. Open Configuration to choose the source type.");
 refresh();
+const demoParam = new URLSearchParams(location.search).get("demo");
+if (demoParam === "salesforce" || demoParam === "generic") startDemo(demoParam);
