@@ -17,6 +17,22 @@ What each field means. Terms follow Salesforce. Started with Module 1; grows wit
 | `plateName` | `GiftPlateName__c` | Name on a plaque, if any |
 | `description` | `Description__c` (line) | Free text on the line |
 
+## Decoded line (order line plus names)
+
+| Field | Meaning |
+|---|---|
+| `designationName` | Name of the Designation, looked up from `designationId`. Empty if the ID is missing or not in the code book |
+| `outcomeActivityName` | Name of the Outcome Activity, looked up from `outcomeActivityId`. Empty if missing or unknown |
+
+## Code book (SF META tab)
+
+| Column | Meaning |
+|---|---|
+| `Unique Gift Designation` and the `Id` to its right | Designation name and Salesforce ID |
+| `Unique Outcome Activity Name` and the `Id` to its right | Outcome Activity name and Salesforce ID |
+
+The tab has several columns headed `Id`, so each is read as "the cell to the right of its name column".
+
 ## Gift export columns used so far
 
 | Column | Meaning |
