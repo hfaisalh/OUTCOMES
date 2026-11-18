@@ -26,6 +26,19 @@ Key columns:
 | `GiftTranxDesignationInfo__c` | **JSON list of lines** | Split into order lines |
 | FirstName, LastName, Email, HomePhone, Street, PostalCode | Contact | **Not stored** (stays in CRM) |
 
+Likely fit for the 8 classification fields (blank where nothing fits):
+
+| Field | SF Upload column | Example values |
+|---|---|---|
+| Channel | `Channel__c` | Card Machine, Bank, Website, Centre |
+| Platform | none yet (blank) | |
+| Merchant | `PaymentMethod` (partly) | EVO, Stripe, Sagepay |
+| Type | none (blank, nearly all monetary) | |
+| Method | `PaymentMethod` | EVO, Online Transfer, Apple Pay, Cash, Bank Deposit |
+| Mode | none yet (blank) | |
+| Frequency | `Donation_Type__c` / `TransactionPeriod` | Donation, Recurring Donation, Custom Commitment, Monthly |
+| Settlement | `Bank_Account__r.Name` | CVB Nelson, Sagepay GBP, HSBC1 |
+
 `GiftTranxDesignationInfo__c` example (one gift can have several lines):
 
 ```json
