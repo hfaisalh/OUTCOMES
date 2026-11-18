@@ -9,7 +9,7 @@
  * money is for), Gift Commitment (a recurring or custom schedule).
  */
 
-import { parseCsv, toRecords, type RawRecord } from "./csv";
+import { parseCsv, toRecords, type RawRecord, type Table } from "./csv";
 
 // One line of a gift, taken from the GiftTranxDesignationInfo__c JSON.
 // IDs are kept as they are; decoding them to names is a later step.
@@ -42,10 +42,15 @@ const COL_REFERENCE = "Legacy_Reference_No__c";
 const COL_DESIGNATIONS = "GiftTranxDesignationInfo__c";
 const COL_COUNT = "Designation Count";
 
+/** Reads a table (header row plus rows, from a CSV or a Google Sheet) into records, one per gift. */
+export function giftsFromTable(table: Table): { headers: string[]; gifts: RawRecord[] } {
+  const { headers, records } = toRecords(table);
+  return { headers, gifts: records };
+}
+
 /** Reads a gift export (CSV text) into records, one per gift. */
 export function readGiftExport(csvText: string): { headers: string[]; gifts: RawRecord[] } {
-  const { headers, records } = toRecords(parseCsv(csvText));
-  return { headers, gifts: records };
+  return giftsFromTable(parseCsv(csvText));
 }
 
 // Turns a JSON value into a number, or 0 when it is missing or not a number.

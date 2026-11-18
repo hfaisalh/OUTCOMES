@@ -58,6 +58,8 @@ Newest at the bottom. Each entry: what, why.
 
 21. **Batch audit.** Items can be added to, changed in or removed from a batch after it is finished and imported. A quick audit compares each imported batch with the sheet as it is now, gift by gift (each gift has its own fingerprint, so one changed gift is found without re-reading the whole batch). It reports: **added** (a new reference under an imported batch number), **changed** (same reference, different content), **removed** (imported but no longer in the sheet) and **moved** (now under another batch). Nothing is lost silently. The audit is a pure function in OUTCOMES; running it on a schedule is part of the developers' job (decision 20).
 
+22. **Google Sheets by Google sign-in, read-only.** The page reads a Google Sheet after each person signs in with their own Google account, using only the `spreadsheets.readonly` permission. Who can read a sheet is controlled by the sheet's sharing (Viewer), not by OUTCOMES. The access token is kept in memory only (never stored or logged) and expires in about an hour. The Google client ID is public and is entered once (`docs/GOOGLE-SETUP.md`). Google's script is loaded from accounts.google.com. A scheduled job cannot use an interactive sign-in, so the developers' pick-up job (decision 20) should use a read-only service account with the same `sheets-api.ts` logic. The sheet data is processed in the browser, and contact columns are still dropped before anything is saved.
+
 ## Open questions
 
 - Salesforce feedback module is not built yet, so there is no ready report export. For testing we use the "SF Upload" and "SF META" tabs of the UK upload sheet (see `DATA-SOURCES.md`).

@@ -44,9 +44,11 @@ Scope (decided 18 Nov 2026): the **Upload file** (the SF Upload tab of the Sales
 | `setup.ts` | The setup for one source: custom fields, value maps, apply, find unmapped values, save and load as text |
 | `issues.ts` | Runs the whole pipeline on a file (`runImport`) and collects the issues list |
 | `codebook.ts` | Reads the code book (SF META) and adds names to order lines |
+| `sheets.ts`, `sheets-api.ts` | Reads a tab of a Google Sheet with a read-only token (link parsing, API calls with an injected `fetch`, plain English errors) |
 | `template.ts`, `field-hints.ts` | The expected Upload file format (table and CSV template) and the extra column names used for auto-matching |
+| `ui/google.ts` | Google sign-in in the browser (read-only permission, token in memory only) |
 | `ui/` | The local page: `index.html`, `main.ts` (events and state), `views.ts` (HTML for each part), `styles.css`. No business rules live here |
-| `csv.test.ts`, `gifts.test.ts`, `codebook.test.ts`, `mapping.test.ts`, `issues.test.ts`, `setup.test.ts`, `template.test.ts`, `ui/views.test.ts` | Tests, using only `samples/` (invented data) |
+| `csv.test.ts`, `gifts.test.ts`, `codebook.test.ts`, `mapping.test.ts`, `issues.test.ts`, `setup.test.ts`, `template.test.ts`, `sheets.test.ts`, `ui/views.test.ts` | Tests, using only `samples/` (invented data) |
 
 ## Decisions
 
@@ -66,6 +68,10 @@ npm run dev
 ```
 
 Open the link it prints (http://localhost:5173). First time only: open **Configuration** and pick the code book CSV (export the SF META tab as CSV). It is then kept in this browser along with your setup. Each time after that, just pick the **Upload file** (export the SF Upload tab as CSV), or click **Download template** to see the expected columns. Files are read in the browser only and nothing is sent to a server. The setup and code book are kept in this browser's local storage until you click Forget saved setup. Drag a column onto a field, or tap a column then tap a field. Save setup downloads the setup as a `.json` file, and the "Saved setup" picker loads one back. Never put real exports in this repo.
+
+## Loading from a Google Sheet
+
+Paste the sheet link and click **Load from Google Sheet**. Each person signs in with their own Google account, read-only, and sees only sheets shared with them. One-time setup for the client ID: `docs/GOOGLE-SETUP.md`. The same loading logic (`sheets-api.ts`) is what the developers' scheduled job will use with a service account (DECISIONS 20, 22).
 
 ## How to test
 

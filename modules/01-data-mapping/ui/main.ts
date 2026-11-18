@@ -10,17 +10,23 @@
  */
 
 import { buildCodeBook } from "../codebook";
-import { readGiftExport } from "../gifts";
+import { giftsFromTable, readGiftExport } from "../gifts";
 import { suggestMapping } from "../mapping";
 import { codeBookFromData, codeBookToData, findUnmappedValues, loadSetup, newSetup, runImportWithSetup, saveSetup, type Setup } from "../setup";
+import { parseSheetLink } from "../sheets";
+import { fetchSheetTable, SheetsError } from "../sheets-api";
 import { templateCsv } from "../template";
+import { requestAccessToken, revokeToken, type AccessToken } from "./google";
 import { guideView, mappingView, resultsView, valuesView, type Model } from "./views";
 
 const STORAGE_KEY = "outcomes.module1.setup";
+const SHEET_KEY = "outcomes.module1.sheet"; // last sheet link and tab (not secret)
+const CLIENT_KEY = "outcomes.module1.gclient"; // Google client ID (public, not a secret)
 
 const model: Model = { headers: [], rawGifts: [], codeBook: null, setup: null, result: null, unmapped: [], sel: null, valueField: "frequency", issueFilter: "all" };
 let pendingSetup: Setup | null = null; // a loaded setup waiting for its gift file
 let sourceGuess = "Data source";
+let token: AccessToken | null = null; // Google access token, memory only, never stored
 const STUB_NAME = "Data source"; // name of a setup made before any Upload file was chosen
 
 const app = document.getElementById("app") as HTMLElement;
@@ -186,17 +192,67 @@ app.addEventListener("change", (e) => {
 });
 
 // Section: choosing files.
-async function onGiftFile(file: File) {
-  const { headers, gifts } = readGiftExport(await file.text());
+// Takes the gifts, from a file or a Google Sheet, and starts the mapping.
+function useGifts(headers: string[], gifts: Record<string, string>[], name: string, from: string) {
   model.headers = headers;
   model.rawGifts = gifts;
-  sourceGuess = file.name.replace(/\.csv$/i, "");
+  sourceGuess = name;
   model.setup = pendingSetup ?? newSetup(sourceGuess, headers);
   if (model.setup.sourceName === STUB_NAME) model.setup.sourceName = sourceGuess;
   pendingSetup = null;
   ensureHeaders(model.setup);
-  status(`Loaded ${gifts.length} gifts and ${headers.length} columns.` + (model.codeBook ? "" : " Open Configuration and pick the code book once to see values and results."));
+  status(`Loaded ${gifts.length} gifts and ${headers.length} columns from ${from}.` + (model.codeBook ? "" : " Open Configuration and pick the code book once to see values and results."));
   refresh();
+}
+
+async function onGiftFile(file: File) {
+  const { headers, gifts } = readGiftExport(await file.text());
+  useGifts(headers, gifts, file.name.replace(/\.csv$/i, ""), "the file");
+}
+
+// Section: Google Sheet (read-only sign-in). The token stays in memory and expires in about an hour.
+const clientId = () => {
+  try { return localStorage.getItem(CLIENT_KEY) || import.meta.env.VITE_GOOGLE_CLIENT_ID || ""; } catch { return import.meta.env.VITE_GOOGLE_CLIENT_ID || ""; }
+};
+
+function showSignIn() {
+  (document.getElementById("gsign") as HTMLElement).textContent = token ? "Sign out of Google" : "Sign in with Google";
+}
+
+async function ensureToken(): Promise<string> {
+  if (token && token.expiresAt - 60_000 > Date.now()) return token.value;
+  const id = clientId();
+  if (!id) {
+    (document.getElementById("cfg") as HTMLDetailsElement).open = true;
+    throw new Error("Add your Google client ID in Configuration first (see docs/GOOGLE-SETUP.md).");
+  }
+  token = await requestAccessToken(id);
+  showSignIn();
+  return token.value;
+}
+
+async function loadFromSheet() {
+  const link = (document.getElementById("sheetlink") as HTMLInputElement).value;
+  const tab = (document.getElementById("sheettab") as HTMLInputElement).value;
+  const ref = parseSheetLink(link);
+  if (!ref) return status("Paste the link of the Google Sheet first.", true);
+  try { localStorage.setItem(SHEET_KEY, JSON.stringify({ link, tab })); } catch { /* ignore */ }
+  try {
+    status("Reading the sheet...");
+    const accessToken = await ensureToken();
+    const { table, tabTitle } = await fetchSheetTable({
+      fetch: (url, init) => fetch(url, init),
+      token: accessToken,
+      spreadsheetId: ref.spreadsheetId,
+      ...(tab.trim() !== "" ? { tabName: tab } : ref.gid !== undefined ? { gid: ref.gid } : {}),
+    });
+    const { headers, gifts } = giftsFromTable(table);
+    useGifts(headers, gifts, tabTitle, `the Google Sheet tab "${tabTitle}"`);
+  } catch (err) {
+    if (err instanceof SheetsError && err.status === 401) token = null; // expired: next click signs in again
+    showSignIn();
+    status(err instanceof Error ? err.message : "Could not read the sheet.", true);
+  }
 }
 
 async function onMetaFile(file: File) {
@@ -230,6 +286,23 @@ document.getElementById("template")?.addEventListener("click", () => {
   link.click();
   URL.revokeObjectURL(link.href);
 });
+document.getElementById("gload")?.addEventListener("click", () => void loadFromSheet());
+document.getElementById("gsign")?.addEventListener("click", () => {
+  if (token) { revokeToken(token); token = null; showSignIn(); return status("Signed out of Google."); }
+  ensureToken().then(() => status("Signed in to Google (read-only)."), (err: unknown) => status(err instanceof Error ? err.message : "Sign-in failed.", true));
+});
+const clientBox = document.getElementById("gclient") as HTMLInputElement;
+clientBox.value = (() => { try { return localStorage.getItem(CLIENT_KEY) ?? ""; } catch { return ""; } })();
+clientBox.addEventListener("change", () => { try { localStorage.setItem(CLIENT_KEY, clientBox.value.trim()); } catch { /* ignore */ } });
+try {
+  const last = JSON.parse(localStorage.getItem(SHEET_KEY) ?? "null") as { link?: string; tab?: string } | null;
+  if (last) {
+    (document.getElementById("sheetlink") as HTMLInputElement).value = last.link ?? "";
+    (document.getElementById("sheettab") as HTMLInputElement).value = last.tab ?? "SF Upload";
+  }
+} catch { /* ignore */ }
+showSignIn();
+
 document.getElementById("forget")?.addEventListener("click", () => {
   try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
   Object.assign(model, { headers: [], rawGifts: [], codeBook: null, setup: null, result: null, unmapped: [], sel: null });

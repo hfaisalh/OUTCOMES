@@ -15,6 +15,13 @@
         <label>Upload file (CSV)<input type="file" id="gifts" accept=".csv" /></label>
         <button id="template" type="button">Download template</button>
       </div>
+      <!-- Read-only Google sign-in. People see only the sheets that are shared with their own Google account. -->
+      <div class="pickers">
+        <label>Google Sheet link<input type="text" id="sheetlink" size="44" placeholder="https://docs.google.com/spreadsheets/d/..." /></label>
+        <label>Tab name<input type="text" id="sheettab" size="14" value="SF Upload" /></label>
+        <button id="gload" type="button">Load from Google Sheet</button>
+        <button id="gsign" type="button">Sign in with Google</button>
+      </div>
       <div id="status" class="status"></div>
       <!-- Configuration is set once and kept in this browser, so only the Upload file is chosen each time. -->
       <details class="cfg" id="cfg">
@@ -23,6 +30,7 @@
         <div class="pickers">
           <label>Code book (CSV)<input type="file" id="meta" accept=".csv" /></label>
           <label>Saved setup (optional)<input type="file" id="setupfile" accept=".json" /></label>
+          <label>Google client ID<input type="text" id="gclient" size="40" placeholder="Only needed once, see docs/GOOGLE-SETUP.md" /></label>
           <button id="forget" type="button">Forget saved setup</button>
         </div>
       </details>
