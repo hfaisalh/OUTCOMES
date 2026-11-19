@@ -10,3 +10,7 @@ Built step by step, module by module, to be handed to MWF developers and later f
 - Decisions: `docs/DECISIONS.md`
 - Data sources: `docs/DATA-SOURCES.md`
 - Plan: `docs/ROADMAP.md`
+
+## Publishing the demo
+
+`vercel deploy --prod` builds the site (`npm run build`) and publishes it, using `vercel.json`. The site is behind Vercel's sign-in. Only invented sample data may be on it (DECISIONS 37).

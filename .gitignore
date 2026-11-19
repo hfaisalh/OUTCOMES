@@ -8,3 +8,5 @@ coverage/
 # never commit real exports
 *.xlsx
 real-data/
+.vercel
+.vercel/
