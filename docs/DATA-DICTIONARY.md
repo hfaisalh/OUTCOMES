@@ -109,3 +109,18 @@ A column is matched in this order: (1) the preset's exact column name, if a pres
 | `EVO-` | The donation was taken at an event. Example shape: EVO-707-001 |
 
 Other prefixes are added here as MWF confirms them.
+
+## Work orders (Module 1c)
+
+A work order is one instruction token: deliver this line and report back to this supporter.
+
+| Field | Meaning |
+|---|---|
+| `key` | `transactionRef:lineId`. Unique, so a line never makes two work orders |
+| `itemId`, `itemName` | The CRM item. The CRM says whether it needs feedback |
+| `frameworkId` | Set in OUTCOMES. Empty while unrouted. `default` when the organisation has no frameworks |
+| `status` | `unrouted`, `ready`, `in_progress`, `delivered`, `reported` |
+| `subscriptionId`, `instalmentNumber`, `instalmentCount` | The recurring plan the line belongs to, which instalment, and how many (a number or Indefinitely) |
+| `supporterId`, `supporterName` | The CRM id and a display name only |
+
+The feed columns are listed in `docs/CRM-FEED-SPEC.md`.

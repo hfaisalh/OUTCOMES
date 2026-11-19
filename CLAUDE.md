@@ -51,4 +51,4 @@ The code will be handed to MWF developers. Every change must follow these:
 
 ## Where we are
 
-See `docs/ROADMAP.md`. Module 1 (data sources and field mapping) is rebuilt on the generic model and awaits sign-off. Next: the batch planner and audit (DECISIONS 20, 21), then Module 2.
+See `docs/ROADMAP.md`. Module 1 (data sources and field mapping) is rebuilt on the generic model and awaits sign-off. Module 1c (CRM connector and work orders, DECISIONS 28 to 31) is built as logic and awaits sign-off. Next: the batch planner and audit (DECISIONS 20, 21), then Module 2.
