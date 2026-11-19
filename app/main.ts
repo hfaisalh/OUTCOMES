@@ -322,6 +322,10 @@ document.addEventListener("change", (e) => {
     state.loadNote = "";
     return draw();
   }
+  // Rule: only a field the page knows about causes a redraw. Any other field (the owner passphrase box, for example)
+  // must be left alone, because a redraw would wipe what was typed and replace the button the person is about to press.
+  const known = t.id === "role" || t.dataset.assign !== undefined || !!t.dataset.rename || !!(t.dataset.rule && t.dataset.fw) || !!t.dataset.keywords;
+  if (!known) return;
   if (t.id === "role") {
     state.roleId = t.value;
     state.page = landingPage(permissions()) ?? state.page;

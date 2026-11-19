@@ -114,3 +114,11 @@ describe("owner sign-in form", () => {
     expect(shell.innerHTML).toContain('type="submit"');
   });
 });
+
+describe("typing in a field the page does not manage", () => {
+  it("does not redraw the page, so the owner passphrase box and Sign in button are not replaced", () => {
+    shell.innerHTML = "UNTOUCHED";
+    fire("change", { target: { id: "", dataset: {}, value: "typed passphrase" } });
+    expect(shell.innerHTML).toBe("UNTOUCHED");
+  });
+});
