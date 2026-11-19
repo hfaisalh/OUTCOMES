@@ -116,10 +116,13 @@ export function frameworksPage(v: View): string {
   const nSuggest = Object.keys(v.suggestions).length;
   const card = (f: Framework) => {
       const missing = missingRules(f);
-      return `<div class="card fw"><div class="fwhead"><input class="title" data-rename="${f.id}" value="${esc(f.name)}" /><button data-remove="${f.id}" title="Remove this framework (its items go back to unsorted)">Remove</button></div>
-        ${field("Category", `<select data-fwcat="${f.id}"><option value="">No category</option>${v.categories.map((c) => `<option value="${c.id}"${c.id === f.categoryId ? " selected" : ""}>${esc(c.name)}</option>`).join("")}</select>`)}
+      // Compact tile: name, how many items, and the drop zone. Everything else is under "Edit" so tiles stay short.
+      const n = (byFramework[f.id] ?? []).length;
+      return `<div class="card fw"><div class="fwname"><b>${esc(f.name)}</b> <span class="muted">(${n})</span></div>
         <div class="zone" data-drop="${f.id}">${(byFramework[f.id] ?? []).map((i) => chip(i, v)).join("") || `<span class="muted">Drop items here</span>`}</div>
-        <details><summary>Feedback rules${missing.length ? ` <span class="pill unrouted">to fill in</span>` : ""}</summary>
+        <details><summary>Edit and feedback rules${missing.length ? ` <span class="pill unrouted">to fill in</span>` : ""}</summary>
+          <div class="fwhead"><input class="title" data-rename="${f.id}" value="${esc(f.name)}" /><button data-remove="${f.id}" title="Remove this framework (its items go back to unsorted)">Remove</button></div>
+          ${field("Category", `<select data-fwcat="${f.id}"><option value="">No category</option>${v.categories.map((c) => `<option value="${c.id}"${c.id === f.categoryId ? " selected" : ""}>${esc(c.name)}</option>`).join("")}</select>`)}
           ${field("What one delivery is (unit)", `<input data-rule="unit" data-fw="${f.id}" value="${esc(f.rules.unit)}" placeholder="for example child, pump, animal" />`)}
           ${field("How often the donor hears back", `<select data-rule="cycle" data-fw="${f.id}">${(Object.keys(CYCLE_LABELS) as Cycle[]).map((c) => `<option value="${c}"${c === f.rules.cycle ? " selected" : ""}>${CYCLE_LABELS[c]}</option>`).join("")}</select>`)}
           ${field("Report the donor receives", `<input data-rule="reportType" data-fw="${f.id}" value="${esc(f.rules.reportType)}" placeholder="for example Quarterly update" />`)}
@@ -128,7 +131,7 @@ export function frameworksPage(v: View): string {
   };
   // Frameworks laid out under their category, so the board reads Category, Framework, Items.
   const cards = groupFrameworks(v.frameworks, v.categories)
-    .map((g) => `<h3 class="cat">${g.category ? esc(g.category.name) : "No category"} <span class="muted">(${g.frameworks.length})</span>${g.category ? ` <button class="x" data-remove-category="${g.category.id}" title="Remove this category (its frameworks are kept)">Remove</button>` : ""}</h3>${g.frameworks.map(card).join("") || `<p class="muted">No frameworks in this category yet.</p>`}`)
+    .map((g) => `<h3 class="cat">${g.category ? esc(g.category.name) : "No category"} <span class="muted">(${g.frameworks.length})</span>${g.category ? ` <button class="x" data-remove-category="${g.category.id}" title="Remove this category (its frameworks are kept)">Remove</button>` : ""}</h3>${g.frameworks.length ? `<div class="fwgrid">${g.frameworks.map(card).join("")}</div>` : `<p class="muted">No frameworks in this category yet.</p>`}`)
     .join("");
   return `
     <h1>Frameworks</h1>
@@ -138,7 +141,7 @@ export function frameworksPage(v: View): string {
       <input id="newfw" placeholder="New framework name" />
       <select id="newfwcat"><option value="">No category</option>${v.categories.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><button data-action="add-framework">Add framework</button>
       <input id="newcat" placeholder="New category name" /><button data-action="add-category">Add category</button></div>
-    <div class="board"><div><div class="card"><h2>Unsorted items <span class="muted">(${unsorted.length})</span></h2><p class="muted">Work orders for these stay unrouted. Nothing is lost.</p>
+    <div class="board"><div class="unsorted"><div class="card"><h2>Unsorted items <span class="muted">(${unsorted.length})</span></h2><p class="muted">Work orders for these stay unrouted. Nothing is lost.</p>
       <div class="zone" data-drop="">${unsorted.map((i) => chip(i, v, v.suggestions[i.id] ? frameworkName(v.frameworks, v.suggestions[i.id] as string) : "")).join("") || `<span class="muted">Everything is sorted.</span>`}</div></div></div>
       <div>${cards || `<div class="card empty">No frameworks yet. Add one.</div>`}</div></div>`;
 }
