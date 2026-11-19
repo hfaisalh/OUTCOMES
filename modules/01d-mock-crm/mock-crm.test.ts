@@ -34,7 +34,7 @@ describe("mock CRM feed", () => {
 
   it("has the columns of the feed specification and no contact details", () => {
     const row = mockLine(3, at(3));
-    for (const col of ["line_id", "transaction_ref", "status", "is_deleted", "superseded_by", "paid_at", "supporter_id", "supporter_name", "group_name", "channel", "merchant", "payment_mode", "item_id", "item_name", "item_recurring", "item_frequency", "needs_feedback", "subscription_id", "instalment_number", "amount", "quantity", "intention"]) {
+    for (const col of ["line_id", "transaction_ref", "status", "is_deleted", "superseded_by", "paid_at", "supporter_id", "supporter_name", "group_name", "channel", "merchant", "payment_mode", "item_id", "item_name", "is_recurring", "instalment_count", "item_feedback", "subscription_id", "instalment_number", "amount", "quantity", "intention"]) {
       expect(Object.keys(row)).toContain(col);
     }
     expect(Object.keys(row).some((k) => /email|phone|address/.test(k))).toBe(false);

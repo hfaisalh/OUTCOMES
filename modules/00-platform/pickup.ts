@@ -12,7 +12,7 @@
  * run only moves forward when a run succeeds, so nothing is skipped after a failure.
  */
 
-import { readFeed } from "../01c-crm-connector/feed.js";
+import { currentFeedConfig, readFeed } from "../01c-crm-connector/feed.js";
 import { buildReportBack, REPORTABLE } from "../01c-crm-connector/report-back.js";
 import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
 import { planWorkOrders, type ReviewItem, type WorkOrder } from "../01c-crm-connector/work-orders.js";
@@ -56,7 +56,7 @@ export async function runPickup(org: string, deps: PickupDeps): Promise<RunInfo>
     // Read. With no earlier good run the whole feed is read, so lines missing from it can be spotted.
     const since = before?.lastSuccessAt || undefined;
     const rows = await reader.readFeed(since);
-    const feed = readFeed(rows, config.feed);
+    const feed = readFeed(rows, currentFeedConfig(config.feed));
     run.rows = rows.length;
     run.skipped = feed.skipped.length;
     run.issues = feed.issues.map((i) => i.message);

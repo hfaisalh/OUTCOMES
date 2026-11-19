@@ -120,9 +120,9 @@ export function mockLine(n: number, nowMs: number): FeedRow {
     payment_mode: mode,
     item_id: item.id,
     item_name: item.name,
-    item_recurring: item.recurring ? "1" : "0",
-    item_frequency: item.instalments,
-    needs_feedback: item.needsFeedback ? "1" : "0",
+    is_recurring: item.recurring ? "1" : "0",
+    instalment_count: item.instalments, // set on the catalogue line sold, empty = until cancelled
+    item_feedback: item.needsFeedback ? "2" : "1", // as in the CRM: 1 = Acknowledgement only, 2 = Feedback report
     subscription_id: subscription,
     instalment_number: instalment,
     amount: String(amount),

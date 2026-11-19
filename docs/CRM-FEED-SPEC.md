@@ -18,10 +18,10 @@ Paid lines only is not required: OUTCOMES filters by status itself. Send all lin
 | `supporter_name` | Display name | Name only, no contact details |
 | `group_name` | Centre or branch the gift came through | Empty when none |
 | `channel`, `merchant`, `payment_mode` | Classification details | Become Channel, Merchant and Method |
-| `item_id`, `item_name` | The catalogue item on the line | The trigger is at item level |
-| `item_recurring` | 1 if the item is recurring | |
-| `item_frequency` | Number of instalments set on the item (for example 12) | Empty means Indefinitely (DECISIONS 18) |
-| **`needs_feedback`** | **The item-level trigger: does this item need feedback reports** | **The column name and yes-values are set in the connector settings, because MWF's CRM adds it in its next push (DECISIONS 30)** |
+| `item_id`, `item_name` | The catalogue item on the line | Required |
+| **`item_feedback`** | **The item-level trigger: does this item need feedback reports** | **MWF's CRM has it (migration 074): `1` = Acknowledgement only (the default), `2` = Feedback report. OUTCOMES treats `2` as yes. The column name and yes-values are connector settings, so another CRM can use its own (DECISIONS 30, 41)** |
+| `is_recurring` | 1 if the line is recurring | Taken from the line, not the item |
+| `instalment_count` | Number of payments the plan has, for example 12 | **Set on the catalogue line the supporter chose, never on the item.** Empty on a recurring line means Indefinitely (DECISIONS 18, 41). Blank on a one-off |
 | `subscription_id`, `instalment_number` | Link to the recurring plan, and which instalment this line is | Empty for a one-off |
 | `amount`, `quantity` | For reference only. OUTCOMES does not manage money | |
 | `intention` | For example Sadaqah, Zakat | |
@@ -42,3 +42,27 @@ OUTCOMES sends `POST <base>/report-back` with `{ "items": [ ... ] }`, using a se
 ## Where the frameworks are
 
 Not in the CRM (DECISIONS 31). The CRM says only whether an item needs feedback. Which framework (Orphan, Hifz, Water and so on) an item belongs to is set in OUTCOMES.
+
+## For the MWF CRM developers: where each column comes from
+
+Read from `mwf_crm` on 19 Nov 2026 (code only, no data). Please confirm the columns marked "check".
+
+| Feed column | Where it comes from |
+|---|---|
+| `line_id` | `crm_transaction_detail.id` |
+| `transaction_ref` | the transaction's reference, from `crm_transaction` (check the column) |
+| `status`, `is_deleted`, `superseded_by`, `paid_at` | `crm_transaction` (check the columns). Paid is `2` |
+| `item_id`, `item_name` | `crm_transaction_detail.id_item`, joined to `crm_items` |
+| `item_feedback` | `crm_items.item_feedback` (migration 074): 1 = Acknowledgement only, 2 = Feedback report |
+| `is_recurring` | `crm_transaction_detail.is_recurring` |
+| `instalment_count` | `crm_subscriptions.installment_limit` for a subscription line (empty means no limit). Otherwise the line's own `frequency` when `is_continuously` = 2 (limited), empty when `is_continuously` = 1 (until cancelled) |
+| `subscription_id`, `instalment_number` | `crm_transaction_detail.id_subscription`, `installment_no` |
+| `intention` | `crm_transaction_detail.id_intention`, joined to the intentions list |
+| `channel`, `merchant`, `payment_mode` | the transaction's channel, merchant and payment mode (check the columns) |
+| `supporter_id`, `supporter_name`, `group_name` | the donor and the centre on the transaction (check the columns). Id and display name only |
+
+Notes:
+- Price, frequency and instalments are configured on the **catalogue price list line** (`id_vdetail` on the donation line points at it), not on the item. Some lines have `id_vdetail` = 0 (legacy imports, activated subscriptions), so the view reads the line's own `frequency` and `is_continuously` and does not depend on the catalogue line.
+- Every existing item is `item_feedback` = 1 until staff set it, so nothing is flagged until then. The migration is applied on sandbox and pending on live.
+- Optional later: the item code (for example MWF-EDU-001, migration 075) and the cause could be added so OUTCOMES can suggest a category.
+- Read-only access to the view only. No contact details, bank details or child data in it.

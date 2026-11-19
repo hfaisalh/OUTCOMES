@@ -12,6 +12,7 @@
  */
 
 import { PERMISSIONS as P } from "../../app/menu.js";
+import { currentFeedConfig } from "../01c-crm-connector/feed.js";
 import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
 import { isCurrentCategory } from "../02-project-rules/categories.js";
 import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSION_SECONDS, verifyToken, signToken, clearSessionCookie, type Claims } from "./launch-token.js";
@@ -121,7 +122,7 @@ export async function handleConfig(req: HttpRequest, d: Deps): Promise<HttpRespo
   // The CRM setting is not sent to the page, only whether one exists.
   // Rule: a setup saved by an earlier version (before categories held the framework) is shown as empty.
   const current = c.categories.every(isCurrentCategory);
-  return json(200, { categories: current ? c.categories : [], itemMap: current ? c.itemMap : {}, feed: c.feed, crmConnected: c.crm.kind !== "none" });
+  return json(200, { categories: current ? c.categories : [], itemMap: current ? c.itemMap : {}, feed: currentFeedConfig(c.feed), crmConnected: c.crm.kind !== "none" });
 }
 
 // GET /api/work-orders  This organisation's work orders, what is held for review, and the last pick-up.

@@ -11,7 +11,7 @@
  * from the request.
  */
 
-import type { FeedConfig } from "../01c-crm-connector/feed.js";
+import { MWF_CRM_CONFIG, type FeedConfig } from "../01c-crm-connector/feed.js";
 import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js";
 import type { Category, ItemMap } from "../02-project-rules/categories.js";
 
@@ -57,7 +57,7 @@ export interface Store {
   useLaunchId(jti: string, expiresAtSeconds: number, nowSeconds: number): Promise<boolean>; // true the first time only
 }
 
-export const MWF_FEED: FeedConfig = { triggerColumn: "needs_feedback", yesValues: ["1", "yes", "true", "y"], paidValues: ["paid", "2"] };
+export const MWF_FEED: FeedConfig = MWF_CRM_CONFIG;
 
 // A new organisation starts empty, with no CRM, until an administrator sets it up.
 export const defaultConfig = (): OrgConfig => ({ categories: [], itemMap: {}, usesFrameworks: true, feed: MWF_FEED, crm: { kind: "none" } });

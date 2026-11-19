@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { readFeed } from "./feed";
+import { currentFeedConfig, MWF_CRM_CONFIG, readFeed } from "./feed";
 import { firstRow, sampleRows } from "./sample";
 
 describe("readFeed on the sample", () => {
@@ -22,13 +22,26 @@ describe("readFeed on the sample", () => {
     expect(r.issues).toEqual([]);
   });
 
+  it("reads the CRM trigger: item_feedback 2 is Feedback report, 1 is Acknowledgement only", () => {
+    expect(MWF_CRM_CONFIG).toMatchObject({ triggerColumn: "item_feedback", yesValues: ["2"] });
+    expect(readFeed([{ ...firstRow(), item_feedback: "1" }]).lines[0]?.needsFeedback).toBe(false);
+    expect(readFeed([{ ...firstRow(), item_feedback: "2" }]).lines[0]?.needsFeedback).toBe(true);
+  });
+
   it("reads the item-level trigger", () => {
     expect(r.lines.filter((l) => l.needsFeedback).map((l) => l.lineId)).toEqual(["L001", "L002", "L004", "L008"]);
   });
 
-  it("takes the instalment count from the CRM item, Indefinitely when recurring has none, blank for one-off", () => {
+  it("takes the instalment count from the line (price and frequency are not set on the item), Indefinitely when recurring has none, blank for one-off", () => {
     const by = Object.fromEntries(r.lines.map((l) => [l.lineId, l.instalmentCount]));
     expect(by).toEqual({ L001: "12", L002: "", L003: "", L004: "Indefinitely", L008: "" });
+  });
+
+  it("a plan with no limit is Indefinitely, and a one-off stays blank even if a count is sent", () => {
+    const plan = readFeed([{ ...firstRow(), is_recurring: "1", instalment_count: "" }]).lines[0];
+    expect(plan?.instalmentCount).toBe("Indefinitely");
+    const once = readFeed([{ ...firstRow(), is_recurring: "0", subscription_id: "", instalment_count: "12" }]).lines[0];
+    expect(once?.instalmentCount).toBe("");
   });
 
   it("keeps the day only from the paid time", () => {
@@ -40,7 +53,7 @@ describe("readFeed problems", () => {
   const base = firstRow();
 
   it("reports a missing trigger column once and treats nothing as needing feedback", () => {
-    const { needs_feedback: _drop, ...noTrigger } = base;
+    const { item_feedback: _drop, ...noTrigger } = base;
     const r = readFeed([noTrigger]);
     expect(r.issues.map((i) => i.code)).toEqual(["trigger_column_missing"]);
     expect(r.lines[0]?.needsFeedback).toBe(false);
@@ -62,5 +75,17 @@ describe("readFeed problems", () => {
     const r = readFeed([{ ...base, paid_at: "02/11/2026", amount: "abc", transaction_ref: "" }]);
     expect(r.lines).toHaveLength(1);
     expect(r.issues.map((i) => i.code).sort()).toEqual(["bad_amount", "bad_date", "missing_transaction_ref"]);
+  });
+});
+
+describe("an older saved setup", () => {
+  it("with the first guess (needs_feedback) moves to the real CRM settings and keeps its paid values", () => {
+    const old = { triggerColumn: "needs_feedback", yesValues: ["1", "yes", "true", "y"], paidValues: ["paid", "settled"] };
+    expect(currentFeedConfig(old)).toEqual({ ...MWF_CRM_CONFIG, paidValues: ["paid", "settled"] });
+  });
+
+  it("leaves any other saved setting alone", () => {
+    const own = { triggerColumn: "fb", yesValues: ["required"], paidValues: ["paid"] };
+    expect(currentFeedConfig(own)).toBe(own);
   });
 });

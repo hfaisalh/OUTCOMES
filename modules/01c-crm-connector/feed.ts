@@ -20,12 +20,19 @@ export interface FeedConfig {
   paidValues: string[]; // values of the status column that mean paid, compared ignoring case
 }
 
-// MWF CRM starting point. The trigger column name is a placeholder until the CRM's next push.
+// MWF CRM settings. The CRM item has `item_feedback` (1 = Acknowledgement only, 2 = Feedback report,
+// migration 074), so "2" is the only yes. Everything else, including the default 1, means no.
 export const MWF_CRM_CONFIG: FeedConfig = {
-  triggerColumn: "needs_feedback",
-  yesValues: ["1", "yes", "true", "y"],
+  triggerColumn: "item_feedback",
+  yesValues: ["2"],
   paidValues: ["paid", "2"],
 };
+
+// The first guess, before the CRM added its column (19 Nov 2026). A setup saved with exactly this is
+// moved to the real settings, so an older saved setup keeps working.
+export const isOldMwfGuess = (c: FeedConfig): boolean =>
+  c.triggerColumn === "needs_feedback" && c.yesValues.join(",") === "1,yes,true,y";
+export const currentFeedConfig = (c: FeedConfig): FeedConfig => (isOldMwfGuess(c) ? { ...MWF_CRM_CONFIG, paidValues: c.paidValues } : c);
 
 // One line of a paid transaction, in OUTCOMES' own terms.
 export interface FeedLine {
@@ -135,9 +142,12 @@ export function readFeed(rows: FeedRow[], config: FeedConfig = MWF_CRM_CONFIG): 
     const amount = num(r["amount"]);
     if (amount === null) issues.push({ row, lineId, code: "bad_amount", message: "amount is missing or not a number." });
 
-    // Rule: instalments come from the CRM item (DECISIONS 18, 28). Recurring with no count is "Indefinitely".
-    const recurring = isYes(r["item_recurring"], ["1", "yes", "true", "y"]) || (r["subscription_id"] ?? "").trim() !== "";
-    const count = num(r["item_frequency"]);
+    // Rule: price and instalments are set on the catalogue line the supporter chose, not on the item
+    // (DECISIONS 18, 41). The feed carries them per line: `is_recurring` and `instalment_count` (the
+    // subscription's limit, or the line's own count when it is limited). Recurring with no count, or a
+    // plan that runs until cancelled, is "Indefinitely". A one-off stays blank.
+    const recurring = isYes(r["is_recurring"], ["1", "yes", "true", "y"]) || (r["subscription_id"] ?? "").trim() !== "";
+    const count = num(r["instalment_count"]);
     const instalmentCount = !recurring ? "" : count !== null && count > 0 ? String(count) : INDEFINITELY;
 
     lines.push({

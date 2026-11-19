@@ -13,8 +13,8 @@ const status = (s: number): FetchLike => async () => ({ ok: false, status: s, js
 
 describe("apiReader", () => {
   it("reads rows and turns every value into text", async () => {
-    const rows = await apiReader(config, ok({ rows: [{ line_id: 7, needs_feedback: 1, superseded_by: null }] })).readFeed();
-    expect(rows).toEqual([{ line_id: "7", needs_feedback: "1", superseded_by: "" }]);
+    const rows = await apiReader(config, ok({ rows: [{ line_id: 7, item_feedback: 2, superseded_by: null }] })).readFeed();
+    expect(rows).toEqual([{ line_id: "7", item_feedback: "2", superseded_by: "" }]);
   });
 
   it("asks for changes since a time and sends the token as a header, not in the address", async () => {

@@ -1,9 +1,9 @@
-line_id,transaction_ref,status,is_deleted,superseded_by,paid_at,supporter_id,supporter_name,group_name,channel,merchant,payment_mode,item_id,item_name,item_recurring,item_frequency,needs_feedback,subscription_id,instalment_number,amount,quantity,intention
-L001,T1001,paid,0,,2026-11-02 10:15:00,D100,Sample Supporter A,,Website,Stripe,Card,I10,Orphan Sponsorship Monthly,1,12,1,S50,1,30,1,Sadaqah
-L002,T1002,paid,0,,2026-11-02 11:40:00,D101,Sample Supporter B,,Website,Stripe,Card,I11,Water Pump,0,,1,,,150,1,Sadaqah Jariyah
-L003,T1002,paid,0,,2026-11-02 11:40:00,D101,Sample Supporter B,,Website,Stripe,Card,I12,General Donation,0,,0,,,20,1,Sadaqah
-L004,T1003,paid,0,,2026-11-03 09:05:00,D102,Sample Supporter C,Sample Centre,POS,Terminal,Card,I13,Hifz Sponsorship Monthly,1,,1,S51,2,25,1,Sadaqah
-L005,T1004,pending,0,,2026-11-03 12:00:00,D103,Sample Supporter D,,Website,Stripe,Card,I11,Water Pump,0,,1,,,150,1,Sadaqah Jariyah
-L006,T1005,paid,1,,2026-11-03 13:00:00,D104,Sample Supporter E,,Website,Stripe,Card,I10,Orphan Sponsorship Monthly,1,12,1,S52,1,30,1,Sadaqah
-L007,T1006,paid,0,T1007,2026-11-03 14:00:00,D105,Sample Supporter F,,Website,Stripe,Card,I11,Water Pump,0,,1,,,150,1,Sadaqah Jariyah
-L008,T1008,paid,0,,2026-11-04 08:30:00,D106,Sample Supporter G,,Kiosk,Terminal,Card,I14,Animal Sacrifice,0,,1,,,75,1,Qurbani
+line_id,transaction_ref,status,is_deleted,superseded_by,paid_at,supporter_id,supporter_name,group_name,channel,merchant,payment_mode,item_id,item_name,is_recurring,instalment_count,item_feedback,subscription_id,instalment_number,amount,quantity,intention
+L001,T1001,paid,0,,2026-11-02 10:15:00,D100,Sample Supporter A,,Website,Stripe,Card,I10,Orphan Sponsorship Monthly,1,12,2,S50,1,30,1,Sadaqah
+L002,T1002,paid,0,,2026-11-02 11:40:00,D101,Sample Supporter B,,Website,Stripe,Card,I11,Water Pump,0,,2,,,150,1,Sadaqah Jariyah
+L003,T1002,paid,0,,2026-11-02 11:40:00,D101,Sample Supporter B,,Website,Stripe,Card,I12,General Donation,0,,1,,,20,1,Sadaqah
+L004,T1003,paid,0,,2026-11-03 09:05:00,D102,Sample Supporter C,Sample Centre,POS,Terminal,Card,I13,Hifz Sponsorship Monthly,1,,2,S51,2,25,1,Sadaqah
+L005,T1004,pending,0,,2026-11-03 12:00:00,D103,Sample Supporter D,,Website,Stripe,Card,I11,Water Pump,0,,2,,,150,1,Sadaqah Jariyah
+L006,T1005,paid,1,,2026-11-03 13:00:00,D104,Sample Supporter E,,Website,Stripe,Card,I10,Orphan Sponsorship Monthly,1,12,2,S52,1,30,1,Sadaqah
+L007,T1006,paid,0,T1007,2026-11-03 14:00:00,D105,Sample Supporter F,,Website,Stripe,Card,I11,Water Pump,0,,2,,,150,1,Sadaqah Jariyah
+L008,T1008,paid,0,,2026-11-04 08:30:00,D106,Sample Supporter G,,Kiosk,Terminal,Card,I14,Animal Sacrifice,0,,2,,,75,1,Qurbani
