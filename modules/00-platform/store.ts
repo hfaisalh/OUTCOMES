@@ -16,7 +16,8 @@ import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js"
 import type { Category, Framework, ItemMap } from "../02-project-rules/frameworks.js";
 
 // How this organisation reads its CRM (DECISIONS 30). The token itself is never stored here, only the name of the setting that holds it.
-export type CrmSetting = { kind: "none" } | { kind: "api"; baseUrl: string; tokenEnv: string };
+// "demo" is the pretend CRM of Module 1d, for testing with live input before a real CRM is connected.
+export type CrmSetting = { kind: "none" } | { kind: "demo" } | { kind: "api"; baseUrl: string; tokenEnv: string };
 
 // Everything an organisation sets up in OUTCOMES.
 export interface OrgConfig {

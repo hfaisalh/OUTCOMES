@@ -11,6 +11,7 @@
  *   LAUNCH_SECRET   shared with the CRM, signs the launch tokens
  *   SESSION_SECRET  OUTCOMES only, signs the session cookie
  *   CRON_SECRET     lets the scheduled job call /api/pickup
+ *   DEMO_LOGIN      set to 1 only on a test server: switches on /api/demo-login (the pretend CRM)
  *   DATABASE_URL    the Postgres database. Without it a memory store is used and nothing is kept
  *   <TOKEN_ENV>     the read token for an organisation's CRM, named in its setup
  */
@@ -20,6 +21,7 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { apiReader, apiReporter, ConnectorError, type CrmReader, type CrmReporter } from "../modules/01c-crm-connector/reader.js";
 import type { Deps, HttpRequest, HttpResponse } from "../modules/00-platform/handlers.js";
+import { mockFeed } from "../modules/01d-mock-crm/mock-crm.js";
 import { pgStore } from "../modules/00-platform/pg-store.js";
 import { memoryStore, type OrgConfig, type Store } from "../modules/00-platform/store.js";
 
@@ -40,6 +42,8 @@ function getStore(): { store: Store; kind: Deps["storage"] } {
 
 // The connection to an organisation's CRM, from its setup and the token held in the environment.
 function connector(config: OrgConfig): { reader: CrmReader; reporter: CrmReporter } | null {
+  // The pretend CRM (Module 1d): new gifts arrive as time passes. It accepts report-back and forgets it.
+  if (config.crm.kind === "demo") return { reader: { readFeed: async () => mockFeed(Date.now()) }, reporter: { send: async () => undefined } };
   if (config.crm.kind !== "api") return null;
   const token = process.env[config.crm.tokenEnv] ?? "";
   if (token === "") {
@@ -60,6 +64,7 @@ export function deps(): Deps {
     nowMs: () => Date.now(),
     newId: () => randomUUID(),
     connector,
+    demoLogin: process.env["DEMO_LOGIN"] === "1",
   };
 }
 

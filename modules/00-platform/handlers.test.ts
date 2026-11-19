@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { PERMISSIONS as P } from "../../app/menu";
 import { rowsReader } from "../01c-crm-connector/reader";
 import { sampleRows } from "../01c-crm-connector/sample";
-import { handleConfig, handleLaunch, handleMe, handlePickup, handleWorkOrders, type Deps, type HttpRequest } from "./handlers";
+import { handleConfig, handleDemoLogin, handleLaunch, handleMe, handlePickup, handleWorkOrders, type Deps, type HttpRequest } from "./handlers";
 import { signToken, verifyToken, type Claims } from "./launch-token";
 import { defaultConfig, memoryStore } from "./store";
 
@@ -24,8 +24,9 @@ function deps(): Deps {
     secrets: SECRETS,
     nowMs: () => NOW_MS,
     newId: () => `id${++n}`,
-    connector: (c) => (c.crm.kind === "api" ? { reader: rowsReader(sampleRows()), reporter: { send: async () => {} } } : null),
+    connector: (c) => (c.crm.kind === "api" || c.crm.kind === "demo" ? { reader: rowsReader(sampleRows()), reporter: { send: async () => {} } } : null),
     storage: "memory",
+    demoLogin: false,
   };
 }
 const claims = (over: Partial<Claims> = {}): Claims => ({ typ: "launch", jti: `L${++n}`, sub: "u1", name: "Sample User", org: "mwf", perms: Object.values(P), iat: now, exp: now + 60, ...over });
@@ -166,5 +167,29 @@ describe("a session is checked, not trusted", () => {
     const later: Deps = { ...d, nowMs: () => NOW_MS + 2 * 3600 * 1000 };
     expect((await handleMe(as(cookie), later)).status).toBe(401);
     expect(verifyToken(SECRETS.session, cookie.split("=")[1] as string, "session", now).ok).toBe(true);
+  });
+});
+
+describe("test sign-in for the pretend CRM", () => {
+  it("does not exist unless the server was set up for testing", async () => {
+    expect((await handleDemoLogin(req(), d)).status).toBe(404);
+  });
+
+  it("signs in as the demo organisation, connects the pretend CRM, and can pick up", async () => {
+    const t: Deps = { ...d, demoLogin: true };
+    const r = await handleDemoLogin(req(), t);
+    expect([r.status, r.headers?.["location"]]).toEqual([302, "/app/"]);
+    const cookie = (r.headers?.["set-cookie"] ?? "").split(";")[0] as string;
+    expect((await handleMe(as(cookie), t)).body).toMatchObject({ org: "demo", demo: true });
+    // Rule: it can only ever open the "demo" organisation, never a real one.
+    expect(await d.store.getConfig("mwf")).toBeNull();
+    expect((await handlePickup(as(cookie, { method: "POST" }), t)).body).toMatchObject({ org: "demo", ok: true });
+  });
+
+  it("keeps a CRM setting that is already there", async () => {
+    const t: Deps = { ...d, demoLogin: true };
+    await t.store.putConfig("demo", { ...defaultConfig(), crm: { kind: "api", baseUrl: "x", tokenEnv: "X" } });
+    await handleDemoLogin(req(), t);
+    expect((await t.store.getConfig("demo"))?.crm.kind).toBe("api");
   });
 });

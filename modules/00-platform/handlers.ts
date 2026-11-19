@@ -37,6 +37,7 @@ export interface Deps {
   // The reader and reporter for an organisation's CRM, or null when it has none set up.
   connector: (config: OrgConfig) => { reader: CrmReader; reporter: CrmReporter } | null;
   storage: "database" | "memory"; // shown to staff, so nobody trusts the memory version with real work
+  demoLogin: boolean; // true only where the test sign-in is switched on (DEMO_LOGIN=1). Never for a live organisation
 }
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}): HttpResponse => ({ status, body, headers });
@@ -72,6 +73,20 @@ export async function handleLaunch(req: HttpRequest, d: Deps): Promise<HttpRespo
   return { status: 302, headers: { location: "/app/", "set-cookie": sessionCookie(session, SESSION_SECONDS), "cache-control": "no-store" } };
 }
 
+// GET /api/demo-login  TEST ONLY. Signs in as an administrator of the "demo" organisation, whose CRM is the
+// pretend one (Module 1d). Rule: it answers 404 unless the server was set up for testing (DEMO_LOGIN=1),
+// and it can only ever open the "demo" organisation, never a real one.
+export const DEMO_ORG = "demo";
+export async function handleDemoLogin(_req: HttpRequest, d: Deps): Promise<HttpResponse> {
+  if (!d.demoLogin) return text(404, "Not found.");
+  const now = nowSeconds(d);
+  const config = (await d.store.getConfig(DEMO_ORG)) ?? defaultConfig();
+  if (config.crm.kind === "none") await d.store.putConfig(DEMO_ORG, { ...config, crm: { kind: "demo" } });
+  const claims: Claims = { typ: "launch", jti: d.newId(), sub: "demo-user", name: "Demo administrator", org: DEMO_ORG, perms: Object.values(P), iat: now, exp: now + 60 };
+  const session = signToken(d.secrets.session, sessionFrom(claims, d.newId(), now));
+  return { status: 302, headers: { location: "/app/", "set-cookie": sessionCookie(session, SESSION_SECONDS), "cache-control": "no-store" } };
+}
+
 // POST /api/logout
 export const handleLogout = async (): Promise<HttpResponse> => json(200, { ok: true }, { "set-cookie": clearSessionCookie() });
 
@@ -79,7 +94,9 @@ export const handleLogout = async (): Promise<HttpResponse> => json(200, { ok: t
 export async function handleMe(req: HttpRequest, d: Deps): Promise<HttpResponse> {
   const c = sessionOf(req, d);
   if (!c) return json(401, { error: "Not signed in." });
-  return json(200, { name: c.name, org: c.org, perms: c.perms, expiresAt: c.exp, storage: d.storage });
+  // `demo` tells the page it is talking to the pretend CRM, so it can refresh by itself.
+  const demo = (await d.store.getConfig(c.org))?.crm.kind === "demo";
+  return json(200, { name: c.name, org: c.org, perms: c.perms, expiresAt: c.exp, storage: d.storage, demo });
 }
 
 // GET and PUT /api/config  Frameworks, categories and the item map. PUT needs permission to map frameworks.

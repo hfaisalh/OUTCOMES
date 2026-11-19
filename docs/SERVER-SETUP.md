@@ -7,7 +7,8 @@ The server parts run as Vercel functions in `api/` (the logic is in `modules/00-
 | `LAUNCH_SECRET` | Shared with the CRM. Signs the launch token (`docs/LAUNCH-SPEC.md`) | Set. A copy is in `.secrets/launch-secret.txt` on the laptop that set it (not in git). Give it to the CRM developers by a private channel |
 | `SESSION_SECRET` | Only OUTCOMES. Signs the session cookie | Set |
 | `CRON_SECRET` | Lets Vercel's scheduled job call `/api/pickup` | Set |
-| `DATABASE_URL` | The Postgres database | **Not set yet.** Without it a temporary memory store is used and the page says "TEMPORARY STORAGE, nothing is kept" |
+| `DATABASE_URL` | The Postgres database (Neon, set through the Vercel integration) | Set. The page says whether storage is the database or temporary |
+| `DEMO_LOGIN` | Test sign-in for the pretend CRM (Module 1d). Set to `1` on a protected test server only | Remove it to switch the test sign-in off |
 | `<TOKEN NAME>` | The read token for an organisation's CRM, named in that organisation's setup (`crm.tokenEnv`) | Not set |
 
 ## Add the database

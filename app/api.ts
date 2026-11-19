@@ -19,6 +19,7 @@ export interface Me {
   perms: string[];
   expiresAt: number;
   storage: "database" | "memory";
+  demo?: boolean; // true when the organisation is connected to the pretend CRM
 }
 export interface ServerConfig {
   frameworks: Framework[];

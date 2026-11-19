@@ -100,6 +100,18 @@ async function enterLive(me: Me): Promise<void> {
   }
   await reloadLive();
   draw();
+  if (me.demo) startDemoRefresh();
+}
+
+// With the pretend CRM, new gifts arrive all the time, so the page picks them up by itself every minute.
+// Rule: it only redraws on the work orders and dashboard pages, so it never interrupts dragging on the frameworks page.
+let demoTimer: ReturnType<typeof setInterval> | undefined;
+function startDemoRefresh(): void {
+  if (demoTimer) return;
+  demoTimer = setInterval(() => {
+    if (state.page !== "work-orders" && state.page !== "dashboard") return;
+    void runPickupNow().then(reloadLive).then(draw).catch(() => undefined);
+  }, 60_000);
 }
 
 function view(): View {
