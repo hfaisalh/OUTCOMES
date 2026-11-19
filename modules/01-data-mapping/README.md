@@ -74,11 +74,11 @@ npm install
 npm run dev
 ```
 
-Open the link it prints (http://localhost:5173). Pick the **Source type** in Configuration (Salesforce, or Generic file to map your own columns) and the lines layout. Then pick the **Upload file**, or load it from a Google Sheet. Click **Download template** to see the expected columns. If the file carries IDs, pick the lookup lists once. They are kept in this browser with your setup until you click Forget saved setup. Drag a column onto a field, or tap a column then tap a field. Save setup downloads the setup as a `.json` file, and the Saved setup picker loads one back. Files are read in the browser only. Never put real exports in this repo.
+Open the OUTCOMES shell at http://localhost:5173/app/ and choose Other sources, or go straight to http://localhost:5173/modules/01-data-mapping/ui/ . Pick the **Source type** in Configuration (Salesforce, or Generic file to map your own columns) and the lines layout. Then pick the **Upload file**, or load it from a Google Sheet. Click **Download template** to see the expected columns. If the file carries IDs, pick the lookup lists once. They are kept in this browser with your setup until you click Forget saved setup. Drag a column onto a field, or tap a column then tap a field. Save setup downloads the setup as a `.json` file, and the Saved setup picker loads one back. Files are read in the browser only. Never put real exports in this repo.
 
 ## Demo
 
-Click **Demo: Salesforce sample** or **Demo: another organisation's file** (or open `http://localhost:5173/?demo=salesforce` or `?demo=generic`). They load the invented files from `samples/`, nothing is saved, and a reload leaves the demo. Use them to show the page without any real data.
+Click **Demo: Salesforce sample** or **Demo: another organisation's file** (or open `http://localhost:5173/modules/01-data-mapping/ui/?demo=salesforce` or `?demo=generic`). They load the invented files from `samples/`, nothing is saved, and a reload leaves the demo. Use them to show the page without any real data.
 
 ## Loading from a Google Sheet
 

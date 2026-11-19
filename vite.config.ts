@@ -1,8 +1,8 @@
 /**
  * vite.config.ts
  *
- * What it does: settings for the local Module 1 page (npm run dev). The page lives in
- * modules/01-data-mapping/ui and reads the pure logic one folder up.
+ * What it does: settings for the local pages (npm run dev). The OUTCOMES shell is at /app/ and the
+ * Module 1 mapping page at /modules/01-data-mapping/ui/. Both read the pure logic in modules/.
  * Who calls it: Vite, when you run npm run dev or npm run build.
  */
 
@@ -12,9 +12,13 @@ import { defineConfig } from "vitest/config";
 const repoRoot = import.meta.dirname;
 
 export default defineConfig({
-  root: resolve(repoRoot, "modules/01-data-mapping/ui"),
-  server: { fs: { allow: [repoRoot] } }, // lets the page import the logic in the parent folder
+  root: repoRoot,
+  server: { open: "/app/", fs: { allow: [repoRoot] } },
   // Tests run from the repo root, not from the page folder.
-  test: { root: repoRoot, include: ["modules/**/*.test.ts"] },
-  build: { outDir: resolve(repoRoot, "dist"), emptyOutDir: true },
+  test: { root: repoRoot, include: ["modules/**/*.test.ts", "app/**/*.test.ts"] },
+  build: {
+    outDir: resolve(repoRoot, "dist"),
+    emptyOutDir: true,
+    rollupOptions: { input: { app: resolve(repoRoot, "app/index.html"), mapping: resolve(repoRoot, "modules/01-data-mapping/ui/index.html") } },
+  },
 });

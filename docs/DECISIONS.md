@@ -82,6 +82,8 @@ Newest at the bottom. Each entry: what, why.
 
 33. **Connected mode is the main screen, import is for other sources (19 Nov 2026).** With a CRM connected, OUTCOMES shows **work orders** that arrive from the CRM feed, already limited to items flagged as needing feedback (decision 30), so there is nothing to import. The Module 1 import and mapping page stays as the way in for organisations with no CRM, and as a testing tool. The home screen should show work orders (ready, unrouted, needs review), not the import page.
 
+34. **OUTCOMES has an application shell that matches the CRM, grown as the product grows (19 Nov 2026).** Because OUTCOMES will have many pages, menu items, frameworks and dashboards, it starts from a proper ERP or CRM style shell (side menu, top bar, page area, cards and tables) that follows the MWF CRM's look (blue gradient menu and header, Inter font, tinted page, white cards), instead of one tool page. The menu is driven by the CRM role's permissions (decision 32), so a person only sees what their role allows. The shell is in `app/` (open `/app/` with `npm run dev`). Colours are variables, so another organisation can re-brand it (decision 23). Module 1's mapping page stays reachable under "Other sources" until it is moved inside the shell. The look is plain CSS for now. Whether the developers move to a component library or the CRM's own theme is for them to decide when the stack is confirmed (open question on the stack).
+
 ## Open questions
 
 - Salesforce feedback module is not built yet, so there is no ready report export. For testing we use the "SF Upload" and "SF META" tabs of the UK upload sheet (see `DATA-SOURCES.md`).
