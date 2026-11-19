@@ -71,3 +71,6 @@ h3.cat{margin:18px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:
 @keyframes spin{to{transform:rotate(360deg)}}
 button:disabled{opacity:.5;cursor:not-allowed}
 .warnnote{background:#fff4d6;border:1px solid #e9c46a}
+
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.filters input[type=search]{flex:1 1 260px;min-width:200px}
+table.inner{margin-top:8px;font-size:12px}details .actions{margin-top:8px}

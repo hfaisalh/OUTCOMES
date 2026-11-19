@@ -17,6 +17,23 @@ import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js"
 
 export type AttentionKind = "unrouted" | "import" | "changed" | "no_longer_needs_feedback" | "missing_from_feed";
 
+// One work order shown under an entry, so a person can see exactly which lines it is about (DECISIONS 48). No contact details.
+export interface AttentionLine {
+  key: string; // the CRM line id
+  ref: string; // order reference, may be blank
+  paidDate: string;
+  supporterName: string;
+  supporterId: string;
+  itemName: string;
+  amount: number;
+  instalment: string; // "2 of 12", or "One-off"
+  subscriptionId: string;
+  status: string;
+}
+
+// The most lines listed under one entry. The rest are reached through "Show in Work orders".
+export const MAX_LINES = 25;
+
 export interface AttentionItem {
   id: string; // stable, so a reviewed mark sticks across imports
   kind: AttentionKind;
@@ -25,6 +42,10 @@ export interface AttentionItem {
   itemId?: string; // for unrouted entries: the item to put in a category
   itemName?: string;
   count?: number; // how many work orders it affects
+  lines?: AttentionLine[]; // the work orders it is about, up to MAX_LINES
+  workOrderKey?: string; // when the entry is about one work order: its key, for Show and Exclude
+  was?: string; // for a change: what was saved
+  now?: string; // for a change: what the CRM says now
   status: "open" | "reviewed";
   reviewedAt?: string;
   note?: string;
@@ -42,6 +63,11 @@ export interface TriageInput {
   notes: string[]; // problems found while reading or converting the last import
   marks: Record<string, TriageMark>;
 }
+
+const lineOf = (w: WorkOrder): AttentionLine => ({
+  key: w.key, ref: w.transactionRef, paidDate: w.paidDate.slice(0, 10), supporterName: w.supporterName, supporterId: w.supporterId, itemName: w.itemName, amount: w.amount,
+  instalment: w.instalmentNumber === "" ? "One-off" : `${w.instalmentNumber} of ${w.instalmentCount}`, subscriptionId: w.subscriptionId, status: w.status,
+});
 
 // A short stable id for a piece of text, so the same problem keeps the same id.
 function hash(text: string): string {
@@ -61,15 +87,16 @@ export function buildAttention(input: TriageInput): AttentionItem[] {
   const mark = (id: string) => input.marks[id];
 
   // Section: items whose work orders are not in a category yet. One entry per item.
-  const unrouted = new Map<string, { name: string; count: number }>();
+  const unrouted = new Map<string, { name: string; count: number; lines: AttentionLine[] }>();
   for (const w of input.workOrders) {
     if (w.status !== "unrouted") continue;
-    const e = unrouted.get(w.itemId) ?? { name: w.itemName, count: 0 };
+    const e = unrouted.get(w.itemId) ?? { name: w.itemName, count: 0, lines: [] as AttentionLine[] };
     e.count++;
+    if (e.lines.length < MAX_LINES) e.lines.push(lineOf(w));
     unrouted.set(w.itemId, e);
   }
   for (const [itemId, e] of unrouted) {
-    out.push({ id: `unrouted:${itemId}`, kind: "unrouted", title: `${e.name} is not in a category`, detail: `${e.count} work order${e.count === 1 ? "" : "s"} wait for this item to be put in a category.`, itemId, itemName: e.name, count: e.count, status: "open" });
+    out.push({ id: `unrouted:${itemId}`, kind: "unrouted", title: `${e.name} is not in a category`, detail: `${e.count} work order${e.count === 1 ? "" : "s"} wait for this item to be put in a category.`, itemId, itemName: e.name, count: e.count, lines: e.lines, status: "open" });
   }
 
   // Section: problems found when a file was imported.
@@ -85,7 +112,7 @@ export function buildAttention(input: TriageInput): AttentionItem[] {
     const id = `${r.reason}:${r.key}`;
     const m = mark(id);
     const w = byKey.get(r.key);
-    out.push({ id, kind: r.reason, title: `${REVIEW_TITLE[r.reason]}: ${r.key}`, detail: `${w ? `${w.itemName}, ${w.supporterName}. ` : ""}${r.message}`, status: m ? "reviewed" : "open", ...(m ? { reviewedAt: m.at, note: m.note } : {}) });
+    out.push({ id, kind: r.reason, title: `${REVIEW_TITLE[r.reason]}: ${r.key}`, detail: `${w ? `${w.itemName}, ${w.supporterName}. ` : ""}${r.message}`, status: m ? "reviewed" : "open", workOrderKey: r.key, ...(w ? { lines: [lineOf(w)] } : {}), ...(r.was ? { was: r.was } : {}), ...(r.now ? { now: r.now } : {}), ...(m ? { reviewedAt: m.at, note: m.note } : {}) });
   }
 
   // Open first, then reviewed. Within each, in the order built.

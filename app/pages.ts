@@ -8,7 +8,8 @@
  * Depends on: the connector types, menu.ts and demo-data.ts (categories list).
  */
 
-import type { AttentionItem } from "../modules/04-triage/triage";
+import type { AttentionItem, AttentionLine } from "../modules/04-triage/triage";
+import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { noIndividualDonor } from "../modules/01c-crm-connector/credits";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import type { MWF_CRM_CONFIG } from "../modules/01c-crm-connector/feed";
@@ -24,6 +25,7 @@ export interface View {
   itemCategories: Record<string, string>;
   flaggedItems: { id: string; name: string; count: number }[]; // CRM items that need feedback, with how many work orders each has
   filter: Filter;
+  criteria?: Criteria; // the Work orders filter boxes (DECISIONS 48)
   message: string;
   config: typeof MWF_CRM_CONFIG;
   categories: Category[];
@@ -94,12 +96,49 @@ const creditLine = (w: WorkOrder): string => {
   return chain || flag ? `<div class="muted">${chain ? "Credited: " + chain : ""}${flag}</div>` : "";
 };
 
+// The filter boxes above the list. Typing or choosing only redraws the list, never the boxes (main.ts), so typing is not interrupted.
+function filterBar(v: View): string {
+  const c = v.criteria ?? NO_CRITERIA;
+  const items = new Map<string, string>();
+  for (const w of v.workOrders) items.set(w.itemId, w.itemName);
+  const opt = (value: string, label: string, cur: string) => `<option value="${esc(value)}"${value === cur ? " selected" : ""}>${esc(label)}</option>`;
+  return `<div class="card filters">
+    <input type="search" data-f="text" placeholder="Search line id, order reference, supporter, item, subscription..." value="${esc(c.text)}">
+    <select data-f="itemId"><option value="">All items</option>${[...items].sort((a, b) => a[1].localeCompare(b[1])).map(([id, name]) => opt(id, name, c.itemId)).join("")}</select>
+    <select data-f="categoryId"><option value="">All categories</option>${v.categories.map((x) => opt(x.id, x.name, c.categoryId)).join("")}</select>
+    <select data-f="kind">${opt("any", "One-off and recurring", c.kind)}${opt("recurring", "Recurring only", c.kind)}${opt("oneoff", "One-off only", c.kind)}</select>
+    <label class="muted">Paid from <input type="date" data-f="from" value="${esc(c.from)}"></label>
+    <label class="muted">to <input type="date" data-f="to" value="${esc(c.to)}"></label>
+    <button data-action="clear-filters">Clear filters</button></div>`;
+}
+
+// The list itself, with how many are shown.
+export function workOrderList(v: View): string {
+  const reviewKeys = new Set(v.review.map((r) => r.key));
+  const c = v.criteria ?? NO_CRITERIA;
+  const byTab = v.workOrders.filter((w) => (v.filter === "all" ? w.status !== "excluded" : v.filter === "review" ? reviewKeys.has(w.key) && w.status !== "excluded" : w.status === v.filter));
+  const rows = filterWorkOrders(byTab, c);
+  return `${isFiltering(c) ? `<p class="muted">Showing ${rows.length} of ${byTab.length} in this tab.</p>` : ""}`+(
+      rows.length === 0
+        ? `<div class="empty">No work orders in this list.</div>`
+        : `<table><thead><tr><th>Reference</th><th>Supporter</th><th>Item</th><th>Instalment</th><th>Category</th><th>Status</th><th></th></tr></thead><tbody>${rows
+            .map(
+              (w) => `<tr><td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)} · ${esc(w.paidDate)}</div></td>
+              <td>${esc(w.supporterName)}<div class="muted">${esc(w.supporterId)}${w.group ? " · " + esc(w.group) : ""}</div>${creditLine(w)}</td>
+              <td>${esc(w.itemName)}</td><td>${instalment(w)}</td>
+              <td>${w.status === "unrouted" ? picker(v.categories, w.itemId, "") : esc(categoryName(v.categories, w.categoryId))}</td>
+              <td>${w.status === "excluded" ? "" : `<span class="pill ${w.status === "unrouted" ? "unrouted" : "ready"}">${w.status === "unrouted" ? "Unrouted" : "Ready"}</span>`}${reviewKeys.has(w.key) ? ` <span class="pill review">Review</span>` : ""}${w.status === "excluded" ? `<span class="pill unrouted">Excluded</span><div class="muted">${esc(w.exclusion?.reason ?? "")}${w.exclusion ? ` (${esc(w.exclusion.by)}, ${esc(w.exclusion.at.slice(0, 10))})` : ""}</div>` : ""}</td>
+              <td>${w.status === "excluded" ? `<button data-excl="${esc(w.key)}" data-excl-action="restore">Restore</button>` : w.status === "unrouted" || w.status === "ready" ? `<button data-excl="${esc(w.key)}" data-excl-action="exclude">Exclude</button>` : ""}</td></tr>`,
+            )
+            .join("")}</tbody></table>`
+  );
+}
+
 export function workOrdersPage(v: View): string {
   const reviewKeys = new Set(v.review.map((r) => r.key));
   // Rule: excluded work orders are out of the active list and the counts. They show only under the Excluded tab (DECISIONS 47).
   const active = v.workOrders.filter((w) => w.status !== "excluded");
   const count = (s: string) => v.workOrders.filter((w) => w.status === s).length;
-  const rows = v.workOrders.filter((w) => (v.filter === "all" ? w.status !== "excluded" : v.filter === "review" ? reviewKeys.has(w.key) && w.status !== "excluded" : w.status === v.filter));
   const tab = (id: Filter, label: string) => `<button data-filter="${id}" class="${v.filter === id ? "on" : ""}">${label}</button>`;
   return `
     <h1>Work orders</h1>
@@ -115,20 +154,8 @@ export function workOrdersPage(v: View): string {
     ${v.live ? "" : ownerCard(v)}
     ${v.live && !v.upload ? "" : loadCard(v)}
     <div class="tabs">${tab("all", "All")}${tab("ready", "Ready")}${tab("unrouted", "Unrouted")}${tab("review", "To review")}${tab("excluded", `Excluded (${count("excluded")})`)}</div>
-    <div class="card">${
-      rows.length === 0
-        ? `<div class="empty">No work orders in this list.</div>`
-        : `<table><thead><tr><th>Reference</th><th>Supporter</th><th>Item</th><th>Instalment</th><th>Category</th><th>Status</th><th></th></tr></thead><tbody>${rows
-            .map(
-              (w) => `<tr><td>${esc(w.transactionRef)}<div class="muted">${esc(w.paidDate)}</div></td>
-              <td>${esc(w.supporterName)}<div class="muted">${esc(w.supporterId)}${w.group ? " · " + esc(w.group) : ""}</div>${creditLine(w)}</td>
-              <td>${esc(w.itemName)}</td><td>${instalment(w)}</td>
-              <td>${w.status === "unrouted" ? picker(v.categories, w.itemId, "") : esc(categoryName(v.categories, w.categoryId))}</td>
-              <td>${w.status === "excluded" ? "" : `<span class="pill ${w.status === "unrouted" ? "unrouted" : "ready"}">${w.status === "unrouted" ? "Unrouted" : "Ready"}</span>`}${reviewKeys.has(w.key) ? ` <span class="pill review">Review</span>` : ""}${w.status === "excluded" ? `<span class="pill unrouted">Excluded</span><div class="muted">${esc(w.exclusion?.reason ?? "")}${w.exclusion ? ` (${esc(w.exclusion.by)}, ${esc(w.exclusion.at.slice(0, 10))})` : ""}</div>` : ""}</td>
-              <td>${w.status === "excluded" ? `<button data-excl="${esc(w.key)}" data-excl-action="restore">Restore</button>` : w.status === "unrouted" || w.status === "ready" ? `<button data-excl="${esc(w.key)}" data-excl-action="exclude">Exclude</button>` : ""}</td></tr>`,
-            )
-            .join("")}</tbody></table>`
-    }</div>
+    ${filterBar(v)}
+    <div class="card" id="wo-list">${workOrderList(v)}</div>
     ${
       v.review.length
         ? `<div class="card"><h2>Held for review</h2><p class="muted">These changed in the CRM after the work order was made. Nothing was changed automatically.</p><table><tbody>${v.review.map((r) => `<tr><td>${esc(r.key)}</td><td>${esc(r.message)}</td></tr>`).join("")}</tbody></table></div>`
@@ -221,8 +248,22 @@ export function attentionPage(v: View): string {
   const items = v.attention ?? [];
   const open = items.filter((i) => i.status === "open");
   const done = items.filter((i) => i.status === "reviewed");
-  const card = (i: AttentionItem) => `<tr><td><b>${esc(i.title)}</b><div class="muted">${esc(i.detail)}</div>${i.note ? `<div class="muted">Note: ${esc(i.note)}</div>` : ""}</td>
-    <td style="text-align:right;white-space:nowrap">${
+  // Under each entry: exactly which lines it is about, what changed, and buttons to look at or deal with them (DECISIONS 48).
+  const lineTable = (lines: AttentionLine[], total: number | undefined) => `<table class="inner"><thead><tr><th>Line</th><th>Order ref</th><th>Paid</th><th>Supporter</th><th>Item</th><th>Amount</th><th>Instalment</th></tr></thead><tbody>${lines
+    .map((l: AttentionLine) => `<tr><td>${esc(l.key)}</td><td>${esc(l.ref) || "none"}</td><td>${esc(l.paidDate)}</td><td>${esc(l.supporterName)} <span class="muted">${esc(l.supporterId)}</span></td><td>${esc(l.itemName)}</td><td>${l.amount}</td><td>${esc(l.instalment)}${l.subscriptionId ? ` <span class="muted">sub ${esc(l.subscriptionId)}</span>` : ""}</td></tr>`)
+    .join("")}</tbody></table>${total !== undefined && total > lines.length ? `<p class="muted">Showing ${lines.length} of ${total}. Use "Show in Work orders" to see them all.</p>` : ""}`;
+  const detail = (i: AttentionItem) => {
+    const was = i.was || i.now ? `<p><b>Saved:</b> ${esc(i.was ?? "")}<br><b>CRM now:</b> ${esc(i.now ?? "")}</p>` : "";
+    const lines = i.lines?.length ? lineTable(i.lines, i.count) : "";
+    const actions = [
+      i.itemId !== undefined && i.kind === "unrouted" ? `<button data-view-item="${esc(i.itemId)}">Show in Work orders</button>` : "",
+      i.workOrderKey !== undefined ? `<button data-view-key="${esc(i.workOrderKey)}">Show in Work orders</button>` : "",
+      i.workOrderKey !== undefined && v.live && i.lines?.[0] && (i.lines[0].status === "ready" || i.lines[0].status === "unrouted") ? `<button data-excl="${esc(i.workOrderKey)}" data-excl-action="exclude">Exclude this work order</button>` : "",
+    ].join(" ");
+    return was || lines || actions ? `<details${i.status === "open" && i.kind !== "import" ? " open" : ""}><summary>Show the lines</summary>${was}${lines}<div class="actions">${actions}</div></details>` : "";
+  };
+  const card = (i: AttentionItem) => `<tr><td><b>${esc(i.title)}</b><div class="muted">${esc(i.detail)}</div>${i.note ? `<div class="muted">Note: ${esc(i.note)}</div>` : ""}${detail(i)}</td>
+    <td style="text-align:right;white-space:nowrap;vertical-align:top">${
       i.kind === "unrouted" && i.itemId !== undefined ? picker(v.categories, i.itemId, "")
       : !v.live ? ""
       : i.status === "open" ? `<button data-attn="${esc(i.id)}" data-attn-action="review">Mark reviewed</button>`

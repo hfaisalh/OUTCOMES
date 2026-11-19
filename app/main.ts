@@ -11,6 +11,7 @@
  */
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
+import { NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { excludeWorkOrder, planWorkOrders, restoreWorkOrder, type ReviewItem, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { acceptSuggestions, addCategory, assignItem, removeCategory, renameCategory, setKeywords, suggestAll, updateFramework, type Cycle, type Framework } from "../modules/02-project-rules/categories";
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
@@ -22,7 +23,7 @@ import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { DEMO_ROLES, demoCategories, demoFeedRows } from "./demo-data";
 import { landingPage, visibleMenu, type PageId } from "./menu";
-import { attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
+import { workOrderList, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
 
 const state = {
   live: (): boolean => state.me !== null,
@@ -35,6 +36,7 @@ const state = {
   categories: demoCategories(),
   selectedItem: "",
   filter: "all" as Filter,
+  criteria: { ...NO_CRITERIA } as Criteria, // the Work orders filter boxes
   message: "",
   pendingFiles: [] as File[], // export files chosen but not loaded yet (demo only)
   loadNote: "", // what the last load did, shown in the load card
@@ -129,7 +131,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -215,6 +217,7 @@ document.addEventListener("click", (e) => {
     if (state.live()) {
       void setExcluded(key, restoring ? "restore" : "exclude", reason)
         .then((r) => { state.workOrders = state.workOrders.map((w) => (w.key === key ? r.workOrder : w)); state.review = state.review.filter((x) => !(x.key === key && !restoring)); })
+        .then(() => loadAttention().then((a) => (state.attention = a.items)).catch(() => undefined))
         .catch((e) => (state.message = e instanceof Error ? e.message : "That did not work."))
         .then(draw);
       return;
@@ -225,11 +228,21 @@ document.addEventListener("click", (e) => {
     else state.message = r.error;
     return draw();
   }
+  // Needs attention: jump to the matching lines in Work orders.
+  const viewItem = target.closest("[data-view-item]") as HTMLElement | null;
+  const viewKey = target.closest("[data-view-key]") as HTMLElement | null;
+  if (viewItem || viewKey) {
+    state.criteria = { ...NO_CRITERIA, ...(viewItem ? { itemId: viewItem.dataset.viewItem as string } : { text: viewKey?.dataset.viewKey as string }) };
+    state.filter = viewItem ? "unrouted" : "all";
+    state.page = "work-orders";
+    return draw();
+  }
   const el = target.closest("[data-page],[data-filter],[data-action]") as HTMLElement | null;
   if (!el) return;
   if (el.dataset.page) state.page = el.dataset.page as PageId;
   if (el.dataset.filter) state.filter = el.dataset.filter as Filter;
   const action = el.dataset.action;
+  if (action === "clear-filters") state.criteria = { ...NO_CRITERIA };
   if (action === "refresh") {
     if (state.live()) return void reloadLive().then(draw);
     refresh();
@@ -335,7 +348,19 @@ async function loadFiles(files: File[]): Promise<void> {
   draw();
 });
 
+// The Work orders filter boxes. Rule: only the list is redrawn, never the boxes, so typing is never interrupted.
+function onFilterInput(e: Event): void {
+  const t = e.target as HTMLInputElement | HTMLSelectElement;
+  const field = t.dataset?.f;
+  if (!field) return;
+  state.criteria = { ...state.criteria, [field]: t.value } as Criteria;
+  const list = document.getElementById("wo-list");
+  if (list) list.innerHTML = workOrderList(view());
+}
+document.addEventListener("input", onFilterInput);
+
 document.addEventListener("change", (e) => {
+  if ((e.target as HTMLElement).dataset?.f) return onFilterInput(e);
   const t = e.target as HTMLSelectElement;
   if (t.id === "feedfile") {
     state.pendingFiles = [...((t as unknown as HTMLInputElement).files ?? [])];

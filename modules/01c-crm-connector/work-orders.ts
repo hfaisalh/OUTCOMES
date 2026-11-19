@@ -60,6 +60,8 @@ export interface ReviewItem {
   key: string;
   reason: "changed" | "no_longer_needs_feedback" | "missing_from_feed";
   message: string;
+  was?: string; // for "changed": what was saved, in words, so a person can see the difference (DECISIONS 48)
+  now?: string; // for "changed": what the CRM says now
 }
 
 export interface Plan {
@@ -143,7 +145,7 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
     if (!line.needsFeedback) {
       review.push({ key, reason: "no_longer_needs_feedback", message: "The CRM item no longer says it needs feedback. The work order was kept." });
     } else if (current.amount !== line.amount || current.supporterId !== line.supporterId) {
-      review.push({ key, reason: "changed", message: "The amount or supporter changed in the CRM after the work order was created." });
+      review.push({ key, reason: "changed", message: "The amount or supporter changed in the CRM after the work order was created.", was: `amount ${current.amount}, supporter ${current.supporterId}`, now: `amount ${line.amount}, supporter ${line.supporterId}` });
     }
 
     if (current.status === "unrouted") {

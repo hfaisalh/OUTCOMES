@@ -7,10 +7,10 @@
 
 import { describe, expect, it } from "vitest";
 import { MWF_CRM_CONFIG, readFeed } from "../modules/01c-crm-connector/feed";
-import { planWorkOrders } from "../modules/01c-crm-connector/work-orders";
+import { planWorkOrders, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { demoCategories, demoFeedRows } from "./demo-data";
 import { suggestAll } from "../modules/02-project-rules/categories";
-import { signinNote, attentionPage, auditPage, esc, categoriesPage, workOrdersPage, type View } from "./pages";
+import { signinNote, attentionPage, auditPage, esc, categoriesPage, workOrderList, workOrdersPage, type View } from "./pages";
 
 const lines = readFeed(demoFeedRows(), MWF_CRM_CONFIG).lines;
 const MAP = { I10: "sponsorship", I11: "transactional", I13: "sponsorship" }; // the item "I14" is left unsorted on purpose
@@ -29,9 +29,24 @@ describe("workOrdersPage", () => {
   });
 
   it("filters to unrouted only", () => {
-    const html = workOrdersPage(view({ filter: "unrouted" }));
+    const html = workOrderList(view({ filter: "unrouted" })); // the list only, the filter boxes name every item
     expect(html).toContain("Animal Sacrifice");
     expect(html).not.toContain("Orphan Sponsorship Monthly");
+  });
+
+  it("narrows the list by the filter boxes and says how many are shown", () => {
+    const html = workOrderList(view({ criteria: { text: "animal", itemId: "", categoryId: "", kind: "any", from: "", to: "" } }));
+    expect(html).toContain("Animal Sacrifice");
+    expect(html).not.toContain("Orphan Sponsorship Monthly");
+    expect(html).toMatch(/Showing \d+ of \d+/);
+  });
+
+  it("shows the lines behind a Needs attention entry", () => {
+    const w = plan.created[0] as WorkOrder;
+    const html = attentionPage(view({ live: true, attention: [{ id: "changed:1", kind: "changed", title: "Changed", detail: "d", status: "open", workOrderKey: w.key, was: "amount 1", now: "amount 2", lines: [{ key: w.key, ref: "T1", paidDate: "2026-06-10", supporterName: "Sample", supporterId: "D1", itemName: "Pump", amount: 1, instalment: "One-off", subscriptionId: "", status: "ready" }] }] }));
+    expect(html).toContain("amount 2");
+    expect(html).toContain(`data-view-key="${w.key}"`);
+    expect(html).toContain("Exclude this work order");
   });
 
   it("never lets CRM text become HTML", () => {

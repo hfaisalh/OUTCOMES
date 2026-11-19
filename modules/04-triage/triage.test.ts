@@ -51,3 +51,20 @@ describe("buildAttention", () => {
     expect(a[0]?.status).toBe("open");
   });
 });
+
+describe("the lines behind each entry (DECISIONS 48)", () => {
+  const w = (key: string, over: Record<string, unknown> = {}) => ({ key, lineId: key, transactionRef: `T${key}`, paidDate: "2026-06-10 10:00:00", supporterId: "D1", supporterName: "Sample Supporter", group: "", itemId: "I1", itemName: "Water Pump", amount: 100, quantity: 1, intention: "", subscriptionId: "", instalmentNumber: "", instalmentCount: "", categoryId: "", status: "unrouted", ...over }) as never;
+
+  it("lists the unrouted lines under the item, capped, with the full count", () => {
+    const many = Array.from({ length: 40 }, (_, i) => w(String(i + 1)));
+    const e = buildAttention({ workOrders: many, review: [], notes: [], marks: {} })[0]!;
+    expect(e.count).toBe(40);
+    expect(e.lines).toHaveLength(25);
+    expect(e.lines?.[0]).toMatchObject({ key: "1", ref: "T1", paidDate: "2026-06-10", instalment: "One-off" });
+  });
+
+  it("shows the saved and current values for a change, and the work order it is about", () => {
+    const e = buildAttention({ workOrders: [w("7", { status: "ready", instalmentNumber: "2", instalmentCount: "12" })], review: [{ key: "7", reason: "changed", message: "m", was: "amount 100", now: "amount 90" }], notes: [], marks: {} })[0]!;
+    expect([e.workOrderKey, e.was, e.now, e.lines?.[0]?.instalment]).toEqual(["7", "amount 100", "amount 90", "2 of 12"]);
+  });
+});
