@@ -79,8 +79,10 @@ const isYes = (text: string) => ["yes", "y", "1", "true"].includes(norm(text));
  *   plan runs until cancelled, the planned number otherwise (DECISIONS 18, 41).
  * - With no plan row, the line itself says: Period "Monthly" is a plan until cancelled (the CRM stores
  *   frequency 1), so empty is right. Period "Recurring" is a limited plan, whose count is the line's
- *   Frequency when that column is in the export. Without it the count is unknown, shown as
- *   "Indefinitely" and counted, so it can be fixed by adding Frequency to the export.
+ *   Frequency when that column is in the export (it is not always offered). Failing that, the count
+ *   comes from the catalogue when the item has exactly one limited plan length (for example every
+ *   limited variation of the item is 12 instalments). Otherwise the count is unknown, shown as
+ *   "Indefinitely" and counted.
  * - The export holds paid lines and has no deleted or replaced markers, so those stay empty. This is
  *   a known limit of the export (replaced orders cannot be detected).
  */
@@ -105,6 +107,18 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
     trigger.set(sku, seen === "2" || code === "2" ? "2" : "1");
   }
   for (const sku of conflicted) issues.push({ code: "catalogue_conflict", message: `Item ${sku} has different feedback types in the catalogue. Treated as needing feedback.` });
+
+  // Section: the one limited plan length of each item, when it has exactly one (a fallback for lines with no plan row).
+  const limited = new Map<string, Set<string>>();
+  for (const r of catalogue) {
+    const sku = pick(r, "Item SKU");
+    const n = pick(r, "Instalments");
+    if (sku !== "" && Number(n) > 0 && !isYes(pick(r, "Continues until cancelled"))) limited.set(sku, (limited.get(sku) ?? new Set<string>()).add(String(Number(n))));
+  }
+  const onlyLength = (sku: string): string => {
+    const set = limited.get(sku);
+    return set && set.size === 1 ? ([...set][0] as string) : "";
+  };
 
   // Section: the plans by id.
   const planById = new Map<string, { untilCancelled: boolean; planned: string }>();
@@ -136,7 +150,10 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
     if (recurring && plan && !plan.untilCancelled) instalmentCount = plan.planned;
     else if (recurring && !plan) {
       if (Number.isInteger(lineFrequency) && lineFrequency > 1) instalmentCount = String(lineFrequency);
-      else if (period === "recurring") recurringCountUnknown++;
+      else if (period === "recurring") {
+        instalmentCount = onlyLength(code);
+        if (instalmentCount === "") recurringCountUnknown++;
+      }
     }
 
     const feedback = trigger.get(code) ?? "";
@@ -174,7 +191,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
   }
 
   for (const code of missingItems) issues.push({ code: "item_not_in_catalogue", message: `Item code ${code} is not in the Catalogue items file, so it is not flagged for feedback.` });
-  if (recurringCountUnknown > 0) issues.push({ code: "recurring_count_unknown", message: `${recurringCountUnknown} limited recurring line(s) have no plan row and no Frequency column, so their instalment count is unknown (shown as Indefinitely). Add the Frequency field to the Donation lines export.` });
+  if (recurringCountUnknown > 0) issues.push({ code: "recurring_count_unknown", message: `${recurringCountUnknown} limited recurring line(s) have no plan row, no Frequency and no single plan length in the catalogue, so their instalment count is unknown (shown as Indefinitely).` });
   if (badDates > 0) issues.push({ code: "bad_date", message: `${badDates} line(s) have a Payment Date that is not a real date.` });
 
   return { rows, issues, counts: { lines: rows.length, feedbackLines, recurringLines, recurringWithoutPlan, recurringCountUnknown } };

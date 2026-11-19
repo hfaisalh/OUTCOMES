@@ -78,6 +78,15 @@ describe("adaptExports", () => {
     expect(noPlans.issues.some((i) => i.code === "recurring_count_unknown")).toBe(true);
   });
 
+  it("falls back to the catalogue when the item has exactly one limited plan length", () => {
+    const lines = load("export-donation-lines-sample.csv").map((l) => (l["Line ID"] === "9006" ? { ...l, "Item Code": "MWF-ORP-001" } : l));
+    const r = adaptExports(lines, load("export-catalogue-sample.csv"), []);
+    expect(r.rows.find((x) => x["line_id"] === "9006")!["instalment_count"]).toBe("12");
+    // Two different limited lengths on one item is ambiguous, so it stays unknown.
+    const ambiguous = [...load("export-catalogue-sample.csv"), { "Item SKU": "MWF-ORP-001", "Feedback type": "Feedback report", Instalments: "6", "Continues until cancelled": "No" }];
+    expect(adaptExports(lines, ambiguous, []).rows.find((x) => x["line_id"] === "9006")!["instalment_count"]).toBe("");
+  });
+
   it("raises one issue when the catalogue disagrees about an item, and keeps the report", () => {
     const cat = [...load("export-catalogue-sample.csv"), { "Item SKU": "MWF-GEN-001", "Feedback type": "Feedback report" }];
     const result = adaptExports(load("export-donation-lines-sample.csv"), cat, load("export-recurring-plans-sample.csv"));
