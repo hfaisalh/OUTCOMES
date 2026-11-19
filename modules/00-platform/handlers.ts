@@ -17,7 +17,7 @@ import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
 import { isCurrentCategory } from "../02-project-rules/categories.js";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSION_SECONDS, verifyToken, signToken, clearSessionCookie, type Claims } from "./launch-token.js";
-import { excludeWorkOrder, restoreWorkOrder } from "../01c-crm-connector/work-orders.js";
+import { excludeWorkOrder, restoreWorkOrder, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import { applyDecision, buildAttention } from "../04-triage/triage.js";
 import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
 import { rerouteUnrouted, runPickup } from "./pickup.js";
@@ -232,27 +232,42 @@ export async function handleTriage(req: HttpRequest, d: Deps): Promise<HttpRespo
   return json(200, { items: buildAttention({ workOrders, review, notes, marks }) });
 }
 
-// POST /api/exclude  { key, action: "exclude" | "restore", reason }  A person takes a work order out of the active list, or puts it back.
-// Needs permission to map items. Rule (DECISIONS 47): a reason is required, only unstarted work orders can be excluded, nothing is deleted.
+// POST /api/exclude  { key | keys, action: "exclude" | "restore", reason }  A person takes work orders out of the active list, or puts them back, one or many at once.
+// Needs permission to map items. Rule (DECISIONS 47, 49): a reason is required to exclude, only unstarted work orders can be excluded, nothing is deleted.
+// Rule: in a bulk change each work order is judged on its own. The ones that cannot change are skipped and counted, the rest are saved together.
+export const MAX_BULK = 1000;
 export async function handleExclude(req: HttpRequest, d: Deps): Promise<HttpResponse> {
   if (req.method !== "POST") return text(404, "Not found.");
   const a = need(req, d, P.mapFrameworks);
   if ("response" in a) return a.response;
   const org = a.claims.org;
-  const b = req.body as { key?: unknown; action?: unknown; reason?: unknown } | undefined;
-  if (typeof b?.key !== "string" || b.key === "" || b.key.length > 200 || (b.action !== "exclude" && b.action !== "restore")) return json(400, { error: "That request is not understood." });
-  const w = (await d.store.listWorkOrders(org)).find((x) => x.key === b.key);
-  if (!w) return json(404, { error: "That work order was not found." });
-  const r = b.action === "exclude" ? excludeWorkOrder(w, typeof b.reason === "string" ? b.reason : "", a.claims.name, new Date(d.nowMs()).toISOString()) : restoreWorkOrder(w);
-  if ("error" in r) return json(400, { error: r.error });
-  let order = r.order;
-  // A restored work order whose item now has a category is routed straight away.
-  if (b.action === "restore" && order.status === "unrouted") {
-    const config = (await d.store.getConfig(org)) ?? defaultConfig();
-    order = rerouteUnrouted([order], config)[0] ?? order;
+  const b = req.body as { key?: unknown; keys?: unknown; action?: unknown; reason?: unknown } | undefined;
+  const keys = Array.isArray(b?.keys) ? b.keys : typeof b?.key === "string" ? [b.key] : [];
+  if (keys.length === 0 || keys.length > MAX_BULK || !keys.every((k): k is string => typeof k === "string" && k !== "" && k.length <= 200) || (b?.action !== "exclude" && b?.action !== "restore")) return json(400, { error: "That request is not understood." });
+  const byKey = new Map((await d.store.listWorkOrders(org)).map((w) => [w.key, w]));
+  const config = (await d.store.getConfig(org)) ?? defaultConfig();
+  const at = new Date(d.nowMs()).toISOString();
+  const done: WorkOrder[] = [];
+  let skipped = 0;
+  let firstError = "";
+  for (const key of new Set(keys)) {
+    const w = byKey.get(key);
+    const r = !w ? { error: "That work order was not found." } : b.action === "exclude" ? excludeWorkOrder(w, typeof b.reason === "string" ? b.reason : "", a.claims.name, at) : restoreWorkOrder(w);
+    if ("error" in r) {
+      skipped++;
+      firstError ||= r.error;
+      continue;
+    }
+    // A restored work order whose item now has a category is routed straight away.
+    done.push(b.action === "restore" && r.order.status === "unrouted" ? (rerouteUnrouted([r.order], config)[0] ?? r.order) : r.order);
   }
-  await d.store.saveWorkOrders(org, [order]);
+  // One key on its own keeps the plain answers: not found is 404, anything else wrong is 400.
+  if (done.length === 0) return json(firstError === "That work order was not found." && keys.length === 1 ? 404 : 400, { error: firstError });
+  await d.store.saveWorkOrders(org, done);
   // An excluded work order no longer needs review, so its held entry is dropped.
-  if (b.action === "exclude") await d.store.putReview(org, (await d.store.getReview(org)).filter((x) => x.key !== b.key));
-  return json(200, { ok: true, workOrder: order });
+  if (b.action === "exclude") {
+    const gone = new Set(done.map((w) => w.key));
+    await d.store.putReview(org, (await d.store.getReview(org)).filter((x) => !gone.has(x.key)));
+  }
+  return json(200, { ok: true, workOrders: done, workOrder: done[0], skipped, ...(firstError ? { firstError } : {}) });
 }

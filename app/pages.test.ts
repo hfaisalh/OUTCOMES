@@ -35,18 +35,35 @@ describe("workOrdersPage", () => {
   });
 
   it("narrows the list by the filter boxes and says how many are shown", () => {
-    const html = workOrderList(view({ criteria: { text: "animal", itemId: "", categoryId: "", kind: "any", from: "", to: "" } }));
+    const html = workOrderList(view({ criteria: { text: "animal", itemId: "", categoryId: "", status: "", kind: "any", from: "", to: "" } }));
     expect(html).toContain("Animal Sacrifice");
     expect(html).not.toContain("Orphan Sponsorship Monthly");
     expect(html).toMatch(/Showing \d+ of \d+/);
   });
 
-  it("shows the lines behind a Needs attention entry", () => {
+  it("opens the lines behind a Needs attention entry with filter boxes and bulk buttons", () => {
     const w = plan.created[0] as WorkOrder;
-    const html = attentionPage(view({ live: true, attention: [{ id: "changed:1", kind: "changed", title: "Changed", detail: "d", status: "open", workOrderKey: w.key, was: "amount 1", now: "amount 2", lines: [{ key: w.key, ref: "T1", paidDate: "2026-06-10", supporterName: "Sample", supporterId: "D1", itemName: "Pump", amount: 1, instalment: "One-off", subscriptionId: "", status: "ready" }] }] }));
+    const entry = { id: "changed:1", kind: "changed" as const, title: "Changed", detail: "d", status: "open" as const, workOrderKey: w.key, was: "amount 1", now: "amount 2" };
+    const closed = attentionPage(view({ live: true, attention: [entry] }));
+    expect(closed).toContain("Show the lines (1)");
+    expect(closed).not.toContain("Exclude selected"); // drawn only when opened
+    const html = attentionPage(view({ live: true, attention: [entry], openAttn: ["changed:1"] }));
     expect(html).toContain("amount 2");
+    expect(html).toContain("data-f=\"text\"");
+    expect(html).toContain("Exclude selected");
+    expect(html).toContain(`data-sel="${w.key}"`);
     expect(html).toContain(`data-view-key="${w.key}"`);
-    expect(html).toContain("Exclude this work order");
+  });
+
+  it("finds the lines of an import note from the work orders (no order reference)", () => {
+    const orders = plan.created.map((x, n) => (n === 0 ? { ...x, transactionRef: "" } : x));
+    const html = attentionPage(view({ live: true, workOrders: orders, attention: [{ id: "import:x", kind: "import", title: "Import problem", detail: "5 lines have no transaction_ref (order reference).", status: "open" }] }));
+    expect(html).toContain("Show the lines (1)");
+  });
+
+  it("shows no empty 'Show the lines' for a note it cannot tie to lines", () => {
+    const html = attentionPage(view({ live: true, attention: [{ id: "import:y", kind: "import", title: "Import problem", detail: "Something else.", status: "open" }] }));
+    expect(html).not.toContain("Show the lines");
   });
 
   it("never lets CRM text become HTML", () => {

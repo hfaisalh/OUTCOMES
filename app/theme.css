@@ -74,3 +74,4 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 .filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.filters input[type=search]{flex:1 1 260px;min-width:200px}
 table.inner{margin-top:8px;font-size:12px}details .actions{margin-top:8px}
+.bulkbar{display:flex;gap:8px;align-items:center;margin-bottom:8px}

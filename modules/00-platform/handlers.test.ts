@@ -333,3 +333,28 @@ describe("excluding a work order", () => {
     expect((await post(await signIn(d, { org: "other" }), { key: "1", action: "exclude", reason: "test" })).status).toBe(404);
   });
 });
+
+describe("excluding and restoring many at once", () => {
+  const row = (id: string) => ({ line_id: id, transaction_ref: `T${id}`, status: "Paid", paid_at: "2026-06-10 10:00:00", supporter_id: "D1", supporter_name: "Sample Supporter", item_id: "I1", item_name: "Water Pump", item_feedback: "2", amount: "100", quantity: "1" });
+  const up = (rows: Record<string, string>[]) => ({ ...packFeed(rows), source: "files", notes: [] });
+  const status = async (cookie: string) => Object.fromEntries(((await handleWorkOrders(as(cookie), d)).body as { workOrders: { key: string; status: string }[] }).workOrders.map((w) => [w.key, w.status]));
+
+  it("changes all it can, skips the rest and says how many", async () => {
+    const cookie = await signIn(d);
+    await handleImport(as(cookie, { method: "POST", body: up([row("1"), row("2"), row("3")]) }), d);
+    expect((await handleExclude(as(cookie, { method: "POST", body: { keys: ["1", "2", "nope"], action: "exclude", reason: "Bug fixing" } }), d)).body).toMatchObject({ ok: true, skipped: 1 });
+    expect(await status(cookie)).toEqual({ "1": "excluded", "2": "excluded", "3": "unrouted" });
+    expect((await handleExclude(as(cookie, { method: "POST", body: { keys: ["1", "2", "3"], action: "restore" } }), d)).body).toMatchObject({ ok: true, skipped: 1 });
+    expect(await status(cookie)).toEqual({ "1": "unrouted", "2": "unrouted", "3": "unrouted" });
+  });
+
+  it("needs a reason, refuses an empty or oversized list, and refuses a viewer", async () => {
+    const cookie = await signIn(d);
+    await handleImport(as(cookie, { method: "POST", body: up([row("1")]) }), d);
+    expect((await handleExclude(as(cookie, { method: "POST", body: { keys: ["1"], action: "exclude", reason: "" } }), d)).status).toBe(400);
+    expect((await handleExclude(as(cookie, { method: "POST", body: { keys: [], action: "exclude", reason: "x" } }), d)).status).toBe(400);
+    expect((await handleExclude(as(cookie, { method: "POST", body: { keys: Array.from({ length: 1001 }, (_, i) => String(i)), action: "restore" } }), d)).status).toBe(400);
+    const viewer = await signIn(d, { perms: [P.access, P.viewWorkOrders] });
+    expect((await handleExclude(as(viewer, { method: "POST", body: { keys: ["1"], action: "exclude", reason: "x" } }), d)).status).toBe(403);
+  });
+});

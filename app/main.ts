@@ -11,7 +11,7 @@
  */
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
-import { NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
+import { filterWorkOrders, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { excludeWorkOrder, planWorkOrders, restoreWorkOrder, type ReviewItem, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { acceptSuggestions, addCategory, assignItem, removeCategory, renameCategory, setKeywords, suggestAll, updateFramework, type Cycle, type Framework } from "../modules/02-project-rules/categories";
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
@@ -23,7 +23,7 @@ import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { DEMO_ROLES, demoCategories, demoFeedRows } from "./demo-data";
 import { landingPage, visibleMenu, type PageId } from "./menu";
-import { workOrderList, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
+import { listBlock, listHtml, listBase, workOrderList, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
 
 const state = {
   live: (): boolean => state.me !== null,
@@ -37,6 +37,9 @@ const state = {
   selectedItem: "",
   filter: "all" as Filter,
   criteria: { ...NO_CRITERIA } as Criteria, // the Work orders filter boxes
+  scopeCriteria: {} as Record<string, Criteria>, // the filter boxes inside Needs attention entries, by list id
+  selected: [] as string[], // work orders ticked for a bulk exclude or restore
+  openAttn: [] as string[], // Needs attention entries whose lines are open
   message: "",
   pendingFiles: [] as File[], // export files chosen but not loaded yet (demo only)
   loadNote: "", // what the last load did, shown in the load card
@@ -131,7 +134,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -145,6 +148,48 @@ function sortItem(itemId: string, categoryId: string): void {
   if (state.live()) return changed();
   refresh();
   if (keep > 0) state.message += ` ${keep} existing work order${keep === 1 ? "" : "s"} for this item keep${keep === 1 ? "s" : ""} the category they already had.`;
+}
+
+// Applies an exclude or restore to the chosen work orders, on the server when live, in the browser in the demo.
+async function applyExclusion(keys: string[], restoring: boolean, reason: string): Promise<void> {
+  const word = restoring ? "Restored" : "Excluded";
+  try {
+    if (state.live()) {
+      const r = await setExcluded(keys, restoring ? "restore" : "exclude", reason);
+      const back = new Map(r.workOrders.map((w) => [w.key, w]));
+      state.workOrders = state.workOrders.map((w) => back.get(w.key) ?? w);
+      if (!restoring) state.review = state.review.filter((x) => !back.has(x.key));
+      state.message = `${word} ${r.workOrders.length}.${r.skipped ? ` Skipped ${r.skipped}: ${r.firstError ?? ""}` : ""}`;
+      await loadAttention().then((a) => (state.attention = a.items)).catch(() => undefined);
+    } else {
+      let done = 0;
+      let firstError = "";
+      state.workOrders = state.workOrders.map((w) => {
+        if (!keys.includes(w.key)) return w;
+        const r = restoring ? restoreWorkOrder(w) : excludeWorkOrder(w, reason, "Sample User", new Date().toISOString());
+        if ("order" in r) { done++; return r.order; }
+        firstError ||= r.error;
+        return w;
+      });
+      state.message = `${word} ${done}.${keys.length - done ? ` Skipped ${keys.length - done}: ${firstError}` : ""}`;
+    }
+    state.selected = state.selected.filter((k) => !keys.includes(k));
+  } catch (e) {
+    state.message = e instanceof Error ? e.message : "That did not work.";
+  }
+  draw();
+}
+
+// The keys a list is showing now (after its filter boxes), for "tick all".
+function listShownKeys(scope: string): string[] {
+  const v = view();
+  const c = scope === "main" ? state.criteria : state.scopeCriteria[scope] ?? NO_CRITERIA;
+  return filterWorkOrders(listBase(v, scope), c).slice(0, 500).map((w) => w.key);
+}
+
+// Redraws every list (the ticked count is shown in each), leaving the filter boxes alone.
+function redrawLists(): void {
+  for (const el of Array.from(document.querySelectorAll("[data-list]"))) el.innerHTML = listHtml(view(), (el as HTMLElement).dataset.list as string);
 }
 
 function draw(): void {
@@ -207,26 +252,22 @@ document.addEventListener("click", (e) => {
       .then(draw);
     return;
   }
-  // Exclude a work order (with a reason) or restore it. Saved on the server when live.
+  // Exclude or restore work orders: one (its own button) or all ticked (the bulk bar). A reason is asked for once.
   const excl = target.closest("[data-excl]") as HTMLElement | null;
-  if (excl && excl.dataset.excl) {
-    const key = excl.dataset.excl;
-    const restoring = excl.dataset.exclAction === "restore";
-    const reason = restoring ? "" : window.prompt("Why exclude this work order? (kept on file, you can restore it later)") ?? "";
-    if (!restoring && reason.trim() === "") return;
-    if (state.live()) {
-      void setExcluded(key, restoring ? "restore" : "exclude", reason)
-        .then((r) => { state.workOrders = state.workOrders.map((w) => (w.key === key ? r.workOrder : w)); state.review = state.review.filter((x) => !(x.key === key && !restoring)); })
-        .then(() => loadAttention().then((a) => (state.attention = a.items)).catch(() => undefined))
-        .catch((e) => (state.message = e instanceof Error ? e.message : "That did not work."))
-        .then(draw);
-      return;
+  const bulk = target.closest("[data-bulk]") as HTMLElement | null;
+  if (excl || bulk) {
+    const how = bulk?.dataset.bulk;
+    if (how === "clear") {
+      state.selected = [];
+      return redrawLists();
     }
-    const w = state.workOrders.find((x) => x.key === key);
-    const r = w ? (restoring ? restoreWorkOrder(w) : excludeWorkOrder(w, reason, "Sample User", new Date().toISOString())) : { error: "Not found." };
-    if ("order" in r) state.workOrders = state.workOrders.map((x) => (x.key === key ? r.order : x));
-    else state.message = r.error;
-    return draw();
+    const restoring = (excl ? excl.dataset.exclAction : how) === "restore";
+    const keys = excl ? [excl.dataset.excl as string] : [...state.selected];
+    if (keys.length === 0) return;
+    const reason = restoring ? "" : window.prompt(`Why exclude ${keys.length === 1 ? "this work order" : `these ${keys.length} work orders`}? (kept on file, you can restore later)`) ?? "";
+    if (!restoring && reason.trim() === "") return;
+    void applyExclusion(keys, restoring, reason);
+    return;
   }
   // Needs attention: jump to the matching lines in Work orders.
   const viewItem = target.closest("[data-view-item]") as HTMLElement | null;
@@ -242,7 +283,11 @@ document.addEventListener("click", (e) => {
   if (el.dataset.page) state.page = el.dataset.page as PageId;
   if (el.dataset.filter) state.filter = el.dataset.filter as Filter;
   const action = el.dataset.action;
-  if (action === "clear-filters") state.criteria = { ...NO_CRITERIA };
+  if (action === "clear-filters") {
+    const scope = el.dataset.scope ?? "main";
+    if (scope === "main") state.criteria = { ...NO_CRITERIA };
+    else state.scopeCriteria = { ...state.scopeCriteria, [scope]: { ...NO_CRITERIA } };
+  }
   if (action === "refresh") {
     if (state.live()) return void reloadLive().then(draw);
     refresh();
@@ -348,19 +393,43 @@ async function loadFiles(files: File[]): Promise<void> {
   draw();
 });
 
-// The Work orders filter boxes. Rule: only the list is redrawn, never the boxes, so typing is never interrupted.
+// The filter boxes (Work orders page and inside Needs attention entries). Rule: only the list is redrawn, never the boxes, so typing is never interrupted.
 function onFilterInput(e: Event): void {
   const t = e.target as HTMLInputElement | HTMLSelectElement;
   const field = t.dataset?.f;
   if (!field) return;
-  state.criteria = { ...state.criteria, [field]: t.value } as Criteria;
-  const list = document.getElementById("wo-list");
-  if (list) list.innerHTML = workOrderList(view());
+  const scope = t.dataset.scope ?? "main";
+  if (scope === "main") state.criteria = { ...state.criteria, [field]: t.value } as Criteria;
+  else state.scopeCriteria = { ...state.scopeCriteria, [scope]: { ...(state.scopeCriteria[scope] ?? NO_CRITERIA), [field]: t.value } as Criteria };
+  const list = document.querySelector(`[data-list="${scope}"]`);
+  if (list) list.innerHTML = listHtml(view(), scope);
 }
+// Opening an entry's lines in Needs attention draws them then (they are not drawn while closed).
+document.addEventListener("toggle", (e) => {
+  const el = e.target as HTMLElement;
+  const id = el.dataset?.attnOpen;
+  if (!id) return;
+  const open = (el as HTMLDetailsElement).open;
+  state.openAttn = open ? [...new Set([...state.openAttn, id])] : state.openAttn.filter((x) => x !== id);
+  const slot = el.querySelector(`[data-lazy="a:${id}"]`);
+  if (slot && open && slot.innerHTML === "") slot.innerHTML = listBlock(view(), `a:${id}`);
+}, true);
 document.addEventListener("input", onFilterInput);
 
 document.addEventListener("change", (e) => {
-  if ((e.target as HTMLElement).dataset?.f) return onFilterInput(e);
+  const el = e.target as HTMLInputElement;
+  if (el.dataset?.f) return onFilterInput(e);
+  // Tick boxes: one work order, or all shown in a list. Only the lists are redrawn.
+  if (el.dataset?.sel !== undefined) {
+    state.selected = el.checked ? [...new Set([...state.selected, el.dataset.sel])] : state.selected.filter((k) => k !== el.dataset.sel);
+    return redrawLists();
+  }
+  if (el.dataset?.selall !== undefined) {
+    const scope = el.dataset.selall;
+    const shown = listShownKeys(scope);
+    state.selected = el.checked ? [...new Set([...state.selected, ...shown])] : state.selected.filter((k) => !shown.includes(k));
+    return redrawLists();
+  }
   const t = e.target as HTMLSelectElement;
   if (t.id === "feedfile") {
     state.pendingFiles = [...((t as unknown as HTMLInputElement).files ?? [])];

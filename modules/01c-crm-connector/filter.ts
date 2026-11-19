@@ -16,20 +16,22 @@ export interface Criteria {
   text: string;
   itemId: string; // "" for any item
   categoryId: string; // "" for any category
+  status: string; // "" for any status, or a work order status such as "ready", "unrouted", "excluded"
   kind: "any" | "recurring" | "oneoff";
   from: string; // paid on or after, "YYYY-MM-DD" or ""
   to: string; // paid on or before, "YYYY-MM-DD" or ""
 }
 
-export const NO_CRITERIA: Criteria = { text: "", itemId: "", categoryId: "", kind: "any", from: "", to: "" };
+export const NO_CRITERIA: Criteria = { text: "", itemId: "", categoryId: "", status: "", kind: "any", from: "", to: "" };
 
-export const isFiltering = (c: Criteria): boolean => c.text.trim() !== "" || c.itemId !== "" || c.categoryId !== "" || c.kind !== "any" || c.from !== "" || c.to !== "";
+export const isFiltering = (c: Criteria): boolean => c.text.trim() !== "" || c.itemId !== "" || c.categoryId !== "" || c.status !== "" || c.kind !== "any" || c.from !== "" || c.to !== "";
 
 export function filterWorkOrders(orders: WorkOrder[], c: Criteria): WorkOrder[] {
   const words = c.text.toLowerCase().split(/\s+/).filter((x) => x !== "");
   return orders.filter((w) => {
     if (c.itemId !== "" && w.itemId !== c.itemId) return false;
     if (c.categoryId !== "" && w.categoryId !== c.categoryId) return false;
+    if (c.status !== "" && w.status !== c.status) return false;
     // Rule: recurring means the line belongs to a subscription.
     if (c.kind === "recurring" && w.subscriptionId === "") return false;
     if (c.kind === "oneoff" && w.subscriptionId !== "") return false;

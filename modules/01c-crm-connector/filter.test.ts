@@ -34,6 +34,9 @@ describe("filterWorkOrders", () => {
     expect(keys({ kind: "recurring" })).toEqual(["2"]);
     expect(keys({ kind: "oneoff" })).toEqual(["1", "3"]);
   });
+  it("filters by status", () => {
+    expect(filterWorkOrders([wo({ key: "1" }), wo({ key: "2", status: "excluded" })], { ...NO_CRITERIA, status: "excluded" }).map((w) => w.key)).toEqual(["2"]);
+  });
   it("filters by paid dates, both ends included", () => {
     expect(keys({ from: "2026-07-01" })).toEqual(["2", "3"]);
     expect(keys({ to: "2026-07-01" })).toEqual(["1", "2"]);

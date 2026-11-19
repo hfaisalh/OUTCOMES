@@ -8,7 +8,7 @@
  * Depends on: the connector types, menu.ts and demo-data.ts (categories list).
  */
 
-import type { AttentionItem, AttentionLine } from "../modules/04-triage/triage";
+import type { AttentionItem } from "../modules/04-triage/triage";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { noIndividualDonor } from "../modules/01c-crm-connector/credits";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
@@ -26,6 +26,9 @@ export interface View {
   flaggedItems: { id: string; name: string; count: number }[]; // CRM items that need feedback, with how many work orders each has
   filter: Filter;
   criteria?: Criteria; // the Work orders filter boxes (DECISIONS 48)
+  scopeCriteria?: Record<string, Criteria>; // the filter boxes inside each Needs attention entry, by list id
+  selected?: string[]; // work order keys ticked for a bulk exclude or restore (DECISIONS 49)
+  openAttn?: string[]; // Needs attention entries whose lines are open
   message: string;
   config: typeof MWF_CRM_CONFIG;
   categories: Category[];
@@ -96,46 +99,89 @@ const creditLine = (w: WorkOrder): string => {
   return chain || flag ? `<div class="muted">${chain ? "Credited: " + chain : ""}${flag}</div>` : "";
 };
 
-// The filter boxes above the list. Typing or choosing only redraws the list, never the boxes (main.ts), so typing is not interrupted.
-function filterBar(v: View): string {
-  const c = v.criteria ?? NO_CRITERIA;
-  const items = new Map<string, string>();
-  for (const w of v.workOrders) items.set(w.itemId, w.itemName);
-  const opt = (value: string, label: string, cur: string) => `<option value="${esc(value)}"${value === cur ? " selected" : ""}>${esc(label)}</option>`;
-  return `<div class="card filters">
-    <input type="search" data-f="text" placeholder="Search line id, order reference, supporter, item, subscription..." value="${esc(c.text)}">
-    <select data-f="itemId"><option value="">All items</option>${[...items].sort((a, b) => a[1].localeCompare(b[1])).map(([id, name]) => opt(id, name, c.itemId)).join("")}</select>
-    <select data-f="categoryId"><option value="">All categories</option>${v.categories.map((x) => opt(x.id, x.name, c.categoryId)).join("")}</select>
-    <select data-f="kind">${opt("any", "One-off and recurring", c.kind)}${opt("recurring", "Recurring only", c.kind)}${opt("oneoff", "One-off only", c.kind)}</select>
-    <label class="muted">Paid from <input type="date" data-f="from" value="${esc(c.from)}"></label>
-    <label class="muted">to <input type="date" data-f="to" value="${esc(c.to)}"></label>
-    <button data-action="clear-filters">Clear filters</button></div>`;
+// Which work orders a list shows before the filter boxes apply. "main" is the Work orders page (by its tab); "a:<entry id>" is a Needs attention entry.
+// Rule: the lines under an entry are found from the work orders themselves, so they always match what the page holds (DECISIONS 49).
+export function listBase(v: View, id: string): WorkOrder[] {
+  if (id === "main") {
+    const reviewKeys = new Set(v.review.map((r) => r.key));
+    return v.workOrders.filter((w) => (v.filter === "all" ? w.status !== "excluded" : v.filter === "review" ? reviewKeys.has(w.key) && w.status !== "excluded" : w.status === v.filter));
+  }
+  const i = (v.attention ?? []).find((x) => `a:${x.id}` === id);
+  return i ? attentionBase(v, i) : [];
 }
 
-// The list itself, with how many are shown.
-export function workOrderList(v: View): string {
-  const reviewKeys = new Set(v.review.map((r) => r.key));
-  const c = v.criteria ?? NO_CRITERIA;
-  const byTab = v.workOrders.filter((w) => (v.filter === "all" ? w.status !== "excluded" : v.filter === "review" ? reviewKeys.has(w.key) && w.status !== "excluded" : w.status === v.filter));
-  const rows = filterWorkOrders(byTab, c);
-  return `${isFiltering(c) ? `<p class="muted">Showing ${rows.length} of ${byTab.length} in this tab.</p>` : ""}`+(
-      rows.length === 0
-        ? `<div class="empty">No work orders in this list.</div>`
-        : `<table><thead><tr><th>Reference</th><th>Supporter</th><th>Item</th><th>Instalment</th><th>Category</th><th>Status</th><th></th></tr></thead><tbody>${rows
-            .map(
-              (w) => `<tr><td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)} · ${esc(w.paidDate)}</div></td>
-              <td>${esc(w.supporterName)}<div class="muted">${esc(w.supporterId)}${w.group ? " · " + esc(w.group) : ""}</div>${creditLine(w)}</td>
-              <td>${esc(w.itemName)}</td><td>${instalment(w)}</td>
-              <td>${w.status === "unrouted" ? picker(v.categories, w.itemId, "") : esc(categoryName(v.categories, w.categoryId))}</td>
-              <td>${w.status === "excluded" ? "" : `<span class="pill ${w.status === "unrouted" ? "unrouted" : "ready"}">${w.status === "unrouted" ? "Unrouted" : "Ready"}</span>`}${reviewKeys.has(w.key) ? ` <span class="pill review">Review</span>` : ""}${w.status === "excluded" ? `<span class="pill unrouted">Excluded</span><div class="muted">${esc(w.exclusion?.reason ?? "")}${w.exclusion ? ` (${esc(w.exclusion.by)}, ${esc(w.exclusion.at.slice(0, 10))})` : ""}</div>` : ""}</td>
-              <td>${w.status === "excluded" ? `<button data-excl="${esc(w.key)}" data-excl-action="restore">Restore</button>` : w.status === "unrouted" || w.status === "ready" ? `<button data-excl="${esc(w.key)}" data-excl-action="exclude">Exclude</button>` : ""}</td></tr>`,
-            )
-            .join("")}</tbody></table>`
-  );
+// The work orders an Needs attention entry is about. Empty when the entry is not about particular work orders.
+function attentionBase(v: View, i: AttentionItem): WorkOrder[] {
+  if (i.kind === "unrouted") return v.workOrders.filter((w) => w.itemId === i.itemId && (w.status === "unrouted" || w.status === "excluded"));
+  if (i.workOrderKey !== undefined) return v.workOrders.filter((w) => w.key === i.workOrderKey);
+  // Import notes: the order reference notes are about lines with no reference, the instalment notes about recurring lines with no subscription.
+  if (/order reference|transaction_ref/i.test(i.detail)) return v.workOrders.filter((w) => w.transactionRef === "");
+  if (/instalment count/i.test(i.detail)) return v.workOrders.filter((w) => w.subscriptionId === "" && w.instalmentCount !== "");
+  return [];
 }
+
+export const criteriaFor = (v: View, id: string): Criteria => (id === "main" ? v.criteria : v.scopeCriteria?.[id]) ?? NO_CRITERIA;
+
+// The filter boxes above a list. Typing or choosing only redraws the list, never the boxes (main.ts), so typing is not interrupted.
+function filterBar(v: View, id: string, base: WorkOrder[]): string {
+  const c = criteriaFor(v, id);
+  const items = new Map<string, string>();
+  for (const w of base) items.set(w.itemId, w.itemName);
+  const opt = (value: string, label: string, cur: string) => `<option value="${esc(value)}"${value === cur ? " selected" : ""}>${esc(label)}</option>`;
+  const d = `data-scope="${esc(id)}"`;
+  return `<div class="card filters">
+    <input type="search" data-f="text" ${d} placeholder="Search line id, order reference, supporter, item, subscription..." value="${esc(c.text)}">
+    <select data-f="itemId" ${d}><option value="">All items</option>${[...items].sort((a, b) => a[1].localeCompare(b[1])).map(([k, name]) => opt(k, name, c.itemId)).join("")}</select>
+    <select data-f="categoryId" ${d}><option value="">All categories</option>${v.categories.map((x) => opt(x.id, x.name, c.categoryId)).join("")}</select>
+    ${id === "main" ? "" : `<select data-f="status" ${d}>${opt("", "Any status", c.status)}${opt("unrouted", "Unrouted", c.status)}${opt("ready", "Ready", c.status)}${opt("excluded", "Excluded", c.status)}</select>`}
+    <select data-f="kind" ${d}>${opt("any", "One-off and recurring", c.kind)}${opt("recurring", "Recurring only", c.kind)}${opt("oneoff", "One-off only", c.kind)}</select>
+    <label class="muted">Paid from <input type="date" data-f="from" ${d} value="${esc(c.from)}"></label>
+    <label class="muted">to <input type="date" data-f="to" ${d} value="${esc(c.to)}"></label>
+    <button data-action="clear-filters" data-scope="${esc(id)}">Clear filters</button></div>`;
+}
+
+const MAX_ROWS = 500; // the most rows drawn at once. The filter boxes narrow the rest.
+
+// A list with its filter boxes and bulk exclude and restore. Used on the Work orders page and inside each Needs attention entry.
+export function listBlock(v: View, id: string): string {
+  const base = listBase(v, id);
+  return `${filterBar(v, id, base)}<div class="card" data-list="${esc(id)}">${listHtml(v, id)}</div>`;
+}
+
+// The list itself (the part that is redrawn as you type or tick): the count, the bulk bar and the table.
+export function listHtml(v: View, id: string): string {
+  const base = listBase(v, id);
+  const c = criteriaFor(v, id);
+  const rows = filterWorkOrders(base, c);
+  const shown = rows.slice(0, MAX_ROWS);
+  const reviewKeys = new Set(v.review.map((r) => r.key));
+  const picked = new Set(v.selected ?? []);
+  const allTicked = shown.length > 0 && shown.every((w) => picked.has(w.key));
+  const bulk = `<div class="bulkbar"><span><b>${picked.size}</b> selected</span>
+    <button data-bulk="exclude"${picked.size ? "" : " disabled"}>Exclude selected</button><button data-bulk="restore"${picked.size ? "" : " disabled"}>Restore selected</button><button data-bulk="clear"${picked.size ? "" : " disabled"}>Clear selection</button></div>`;
+  const note = `${isFiltering(c) ? `<p class="muted">Showing ${rows.length} of ${base.length}.</p>` : ""}${rows.length > MAX_ROWS ? `<p class="muted">Only the first ${MAX_ROWS} are drawn. Narrow the list with the filter boxes.</p>` : ""}`;
+  if (base.length === 0) return `<div class="empty">No work orders in this list.</div>`;
+  return `${bulk}${note}${
+    rows.length === 0
+      ? `<div class="empty">No work orders match the filters.</div>`
+      : `<table><thead><tr><th><input type="checkbox" data-selall="${esc(id)}" title="Tick all shown"${allTicked ? " checked" : ""}></th><th>Reference</th><th>Supporter</th><th>Item</th><th>Instalment</th><th>Category</th><th>Status</th><th></th></tr></thead><tbody>${shown
+          .map(
+            (w) => `<tr><td><input type="checkbox" data-sel="${esc(w.key)}"${picked.has(w.key) ? " checked" : ""}></td>
+            <td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)} · ${esc(w.paidDate)}</div></td>
+            <td>${esc(w.supporterName)}<div class="muted">${esc(w.supporterId)}${w.group ? " · " + esc(w.group) : ""}</div>${creditLine(w)}</td>
+            <td>${esc(w.itemName)}</td><td>${instalment(w)}</td>
+            <td>${w.status === "unrouted" ? picker(v.categories, w.itemId, "") : esc(categoryName(v.categories, w.categoryId))}</td>
+            <td>${w.status === "excluded" ? "" : `<span class="pill ${w.status === "unrouted" ? "unrouted" : "ready"}">${w.status === "unrouted" ? "Unrouted" : "Ready"}</span>`}${reviewKeys.has(w.key) ? ` <span class="pill review">Review</span>` : ""}${w.status === "excluded" ? `<span class="pill unrouted">Excluded</span><div class="muted">${esc(w.exclusion?.reason ?? "")}${w.exclusion ? ` (${esc(w.exclusion.by)}, ${esc(w.exclusion.at.slice(0, 10))})` : ""}</div>` : ""}</td>
+            <td>${w.status === "excluded" ? `<button data-excl="${esc(w.key)}" data-excl-action="restore">Restore</button>` : w.status === "unrouted" || w.status === "ready" ? `<button data-excl="${esc(w.key)}" data-excl-action="exclude">Exclude</button>` : ""}</td></tr>`,
+          )
+          .join("")}</tbody></table>`
+  }`;
+}
+
+// The Work orders page list, kept under its old name.
+export const workOrderList = (v: View): string => listHtml(v, "main");
 
 export function workOrdersPage(v: View): string {
-  const reviewKeys = new Set(v.review.map((r) => r.key));
   // Rule: excluded work orders are out of the active list and the counts. They show only under the Excluded tab (DECISIONS 47).
   const active = v.workOrders.filter((w) => w.status !== "excluded");
   const count = (s: string) => v.workOrders.filter((w) => w.status === s).length;
@@ -154,8 +200,7 @@ export function workOrdersPage(v: View): string {
     ${v.live ? "" : ownerCard(v)}
     ${v.live && !v.upload ? "" : loadCard(v)}
     <div class="tabs">${tab("all", "All")}${tab("ready", "Ready")}${tab("unrouted", "Unrouted")}${tab("review", "To review")}${tab("excluded", `Excluded (${count("excluded")})`)}</div>
-    ${filterBar(v)}
-    <div class="card" id="wo-list">${workOrderList(v)}</div>
+    ${listBlock(v, "main")}
     ${
       v.review.length
         ? `<div class="card"><h2>Held for review</h2><p class="muted">These changed in the CRM after the work order was made. Nothing was changed automatically.</p><table><tbody>${v.review.map((r) => `<tr><td>${esc(r.key)}</td><td>${esc(r.message)}</td></tr>`).join("")}</tbody></table></div>`
@@ -248,19 +293,18 @@ export function attentionPage(v: View): string {
   const items = v.attention ?? [];
   const open = items.filter((i) => i.status === "open");
   const done = items.filter((i) => i.status === "reviewed");
-  // Under each entry: exactly which lines it is about, what changed, and buttons to look at or deal with them (DECISIONS 48).
-  const lineTable = (lines: AttentionLine[], total: number | undefined) => `<table class="inner"><thead><tr><th>Line</th><th>Order ref</th><th>Paid</th><th>Supporter</th><th>Item</th><th>Amount</th><th>Instalment</th></tr></thead><tbody>${lines
-    .map((l: AttentionLine) => `<tr><td>${esc(l.key)}</td><td>${esc(l.ref) || "none"}</td><td>${esc(l.paidDate)}</td><td>${esc(l.supporterName)} <span class="muted">${esc(l.supporterId)}</span></td><td>${esc(l.itemName)}</td><td>${l.amount}</td><td>${esc(l.instalment)}${l.subscriptionId ? ` <span class="muted">sub ${esc(l.subscriptionId)}</span>` : ""}</td></tr>`)
-    .join("")}</tbody></table>${total !== undefined && total > lines.length ? `<p class="muted">Showing ${lines.length} of ${total}. Use "Show in Work orders" to see them all.</p>` : ""}`;
+  // Under each entry: the lines it is about, with the same filter boxes and bulk exclude or restore as the Work orders page (DECISIONS 48, 49).
   const detail = (i: AttentionItem) => {
     const was = i.was || i.now ? `<p><b>Saved:</b> ${esc(i.was ?? "")}<br><b>CRM now:</b> ${esc(i.now ?? "")}</p>` : "";
-    const lines = i.lines?.length ? lineTable(i.lines, i.count) : "";
-    const actions = [
+    const base = attentionBase(v, i);
+    const id = `a:${i.id}`;
+    const open = (v.openAttn ?? []).includes(i.id);
+    const jump = [
       i.itemId !== undefined && i.kind === "unrouted" ? `<button data-view-item="${esc(i.itemId)}">Show in Work orders</button>` : "",
       i.workOrderKey !== undefined ? `<button data-view-key="${esc(i.workOrderKey)}">Show in Work orders</button>` : "",
-      i.workOrderKey !== undefined && v.live && i.lines?.[0] && (i.lines[0].status === "ready" || i.lines[0].status === "unrouted") ? `<button data-excl="${esc(i.workOrderKey)}" data-excl-action="exclude">Exclude this work order</button>` : "",
-    ].join(" ");
-    return was || lines || actions ? `<details${i.status === "open" && i.kind !== "import" ? " open" : ""}><summary>Show the lines</summary>${was}${lines}<div class="actions">${actions}</div></details>` : "";
+    ].join("");
+    if (base.length === 0) return was ? `<div>${was}</div>` : "";
+    return `<details data-attn-open="${esc(i.id)}"${open ? " open" : ""}><summary>Show the lines (${base.length})</summary>${was}<div data-lazy="${esc(id)}">${open ? listBlock(v, id) : ""}</div>${jump ? `<div class="actions">${jump}</div>` : ""}</details>`;
   };
   const card = (i: AttentionItem) => `<tr><td><b>${esc(i.title)}</b><div class="muted">${esc(i.detail)}</div>${i.note ? `<div class="muted">Note: ${esc(i.note)}</div>` : ""}${detail(i)}</td>
     <td style="text-align:right;white-space:nowrap;vertical-align:top">${
