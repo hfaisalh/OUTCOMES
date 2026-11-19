@@ -8,6 +8,11 @@
  * Depends on: nothing (pure functions, no database, no screen). Every function returns a new value
  * and leaves its input unchanged, so it ports easily to Apex or another stack.
  *
+ * Three levels: many CRM **items** cluster into one **framework** (for example several orphan
+ * sponsorship items into Orphan Sponsorship), and frameworks are grouped into **categories** of
+ * framework (Sponsorship, Transactional and so on). A category says what kind of journey its
+ * frameworks follow, so a new framework starts with sensible feedback rules.
+ *
  * Rule: frameworks live in OUTCOMES, not in the CRM. The CRM only says whether an item needs
  * feedback (DECISIONS 31). An item with no framework is unrouted, never lost.
  * Rule: a framework does not hold duration or instalment counts. Those come from the CRM item (DECISIONS 18).
@@ -31,9 +36,17 @@ export interface FrameworkRules {
   reportType: string; // the name of the report the donor receives
 }
 
+// A kind of framework, for example Sponsorship or Transactional. Set per organisation (DECISIONS 23, 36).
+export interface Category {
+  id: string;
+  name: string;
+  defaultCycle: Cycle; // the feedback cycle a new framework in this category starts with
+}
+
 export interface Framework {
   id: string; // stable, saved with the map. Made from the name when added
   name: string;
+  categoryId: string; // "" when not in a category yet
   keywords: string[]; // lower case words that suggest this framework when found in an item's name
   rules: FrameworkRules;
 }
@@ -56,14 +69,14 @@ export interface Changed<T> {
  * Rule: a framework needs a name, and no two frameworks may share a name (ignoring case) or an id.
  * The name also becomes its first keyword so "Hifz" suggests itself.
  */
-export function addFramework(frameworks: Framework[], name: string): Changed<Framework[]> {
+export function addFramework(frameworks: Framework[], name: string, category?: Category): Changed<Framework[]> {
   const clean = name.trim().replace(/\s+/g, " ");
   if (clean === "") return { value: frameworks, error: "Give the framework a name." };
   if (frameworks.some((f) => f.name.toLowerCase() === clean.toLowerCase())) return { value: frameworks, error: `There is already a framework called "${clean}".` };
   const base = slugify(clean) || "framework";
   let id = base;
   for (let n = 2; frameworks.some((f) => f.id === id); n++) id = `${base}-${n}`;
-  return { value: [...frameworks, { id, name: clean, keywords: clean.toLowerCase().split(" ").filter((w) => w.length > 2), rules: emptyRules() }] };
+  return { value: [...frameworks, { id, name: clean, categoryId: category?.id ?? "", keywords: clean.toLowerCase().split(" ").filter((w) => w.length > 2), rules: { ...emptyRules(), cycle: category?.defaultCycle ?? "on_delivery" } }] };
 }
 
 export function renameFramework(frameworks: Framework[], id: string, name: string): Changed<Framework[]> {
@@ -76,6 +89,34 @@ export function renameFramework(frameworks: Framework[], id: string, name: strin
 // Rule: removing a framework sends its items back to unrouted. The items themselves are kept.
 export function removeFramework(frameworks: Framework[], map: ItemMap, id: string): { frameworks: Framework[]; map: ItemMap } {
   return { frameworks: frameworks.filter((f) => f.id !== id), map: Object.fromEntries(Object.entries(map).filter(([, fw]) => fw !== id)) };
+}
+
+// ---- Categories ----
+
+export function addCategory(categories: Category[], name: string, defaultCycle: Cycle = "on_delivery"): Changed<Category[]> {
+  const clean = name.trim().replace(/\s+/g, " ");
+  if (clean === "") return { value: categories, error: "Give the category a name." };
+  if (categories.some((c) => c.name.toLowerCase() === clean.toLowerCase())) return { value: categories, error: `There is already a category called "${clean}".` };
+  const base = slugify(clean) || "category";
+  let id = base;
+  for (let n = 2; categories.some((c) => c.id === id); n++) id = `${base}-${n}`;
+  return { value: [...categories, { id, name: clean, defaultCycle }] };
+}
+
+// Rule: removing a category keeps its frameworks, they just have no category until one is chosen.
+export function removeCategory(categories: Category[], frameworks: Framework[], id: string): { categories: Category[]; frameworks: Framework[] } {
+  return { categories: categories.filter((c) => c.id !== id), frameworks: frameworks.map((f) => (f.categoryId === id ? { ...f, categoryId: "" } : f)) };
+}
+
+// Rule: an id that is not a category is ignored, so a stale choice can never create a broken link.
+export const setCategory = (frameworks: Framework[], categories: Category[], frameworkId: string, categoryId: string): Framework[] =>
+  frameworks.map((f) => (f.id === frameworkId && (categoryId === "" || categories.some((c) => c.id === categoryId)) ? { ...f, categoryId } : f));
+
+// Frameworks laid out by category, in the category order. Frameworks with no category come last.
+export function groupFrameworks(frameworks: Framework[], categories: Category[]): { category: Category | null; frameworks: Framework[] }[] {
+  const groups = categories.map((c) => ({ category: c as Category | null, frameworks: frameworks.filter((f) => f.categoryId === c.id) }));
+  const loose = frameworks.filter((f) => !categories.some((c) => c.id === f.categoryId));
+  return loose.length ? [...groups, { category: null, frameworks: loose }] : groups;
 }
 
 export const updateRules = (frameworks: Framework[], id: string, rules: Partial<FrameworkRules>): Framework[] =>

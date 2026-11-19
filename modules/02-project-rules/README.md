@@ -3,12 +3,16 @@
 ## Purpose
 Frameworks (Orphan Sponsorship, Hifz, Water and so on) live in OUTCOMES, not in the CRM (DECISIONS 31). The CRM says which items need feedback. This module lets staff sort those items into frameworks, and set each framework's feedback rules.
 
+## Three levels
+Many **items** sit in one **framework**, and frameworks are grouped into **categories** (DECISIONS 36). A category sets the feedback cycle a new framework starts with.
+
 ## Inputs
 - The CRM items that need feedback (from the connector, Module 1c).
 - The organisation's frameworks, and the current item to framework map.
 
 ## Outputs
 - An updated map, `{ CRM item id: framework id }`. The work-order planner uses it. An item not in the map is unrouted, never lost.
+- Categories per organisation, and each framework's category.
 - Per framework: unit (what one delivery is), feedback cycle, report type, and the words that suggest it.
 
 ## Rules

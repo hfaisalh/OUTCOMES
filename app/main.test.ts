@@ -13,10 +13,11 @@ type Handler = (e: unknown) => void;
 const handlers: Record<string, Handler[]> = {};
 const shell = { innerHTML: "" };
 let input = { value: "" };
+let category = { value: "" };
 
 beforeAll(async () => {
   vi.stubGlobal("document", {
-    getElementById: (id: string) => (id === "shell" ? shell : id === "newfw" ? input : null),
+    getElementById: (id: string) => (id === "shell" ? shell : id === "newfw" ? input : id === "newfwcat" ? { value: "sponsorship" } : id === "newcat" ? category : null),
     addEventListener: (type: string, h: Handler) => ((handlers[type] ??= []).push(h)),
   });
   await import("./main");
@@ -73,5 +74,18 @@ describe("the shell", () => {
     input = { value: "" };
     click({ action: "add-framework" }, "data-action");
     expect(shell.innerHTML).toContain("Give the framework a name.");
+  });
+
+  it("groups frameworks under categories and adds a category", () => {
+    expect(shell.innerHTML).toContain("Sponsorship");
+    expect(shell.innerHTML).toContain("Transactional");
+    category = { value: "Education" };
+    click({ action: "add-category" }, "data-action");
+    expect(shell.innerHTML).toContain("Education");
+  });
+
+  it("moves a framework to another category", () => {
+    fire("change", { target: { id: "", dataset: { fwcat: "education" }, value: "transactional" } });
+    expect(shell.innerHTML).toContain('data-fwcat="education"');
   });
 });

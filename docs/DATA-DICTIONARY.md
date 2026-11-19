@@ -127,6 +127,8 @@ The feed columns are listed in `docs/CRM-FEED-SPEC.md`.
 
 ## Frameworks (Module 2)
 
+A **category** (`id`, `name`, `defaultCycle`) groups frameworks, for example Sponsorship or Transactional. A framework has a `categoryId` (blank when none).
+
 | Field | Meaning |
 |---|---|
 | `id`, `name` | Stable id (made from the name) and the name staff see |

@@ -7,8 +7,8 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  acceptSuggestions, addFramework, assignItem, groupItems, missingRules, removeFramework, renameFramework,
-  setKeywords, suggestAll, suggestFramework, updateRules, type Framework,
+  acceptSuggestions, addCategory, addFramework, groupFrameworks, removeCategory, setCategory, assignItem, groupItems, missingRules, removeFramework, renameFramework,
+  setKeywords, suggestAll, suggestFramework, updateRules, type Category, type Framework,
 } from "./frameworks";
 
 const base = (): Framework[] => {
@@ -97,5 +97,47 @@ describe("groupItems and rules", () => {
     expect(missingRules(fw[0] as Framework)).toHaveLength(2);
     const done = updateRules(fw, "hifz", { unit: "student", reportType: "Term report" })[1] as Framework;
     expect(missingRules(done)).toEqual([]);
+  });
+});
+
+describe("categories", () => {
+  const cats = (): Category[] => {
+    let c: Category[] = [];
+    c = addCategory(c, "Sponsorship", "quarterly").value;
+    c = addCategory(c, "Transactional").value;
+    return c;
+  };
+
+  it("makes ids, refuses empty and repeated names", () => {
+    expect(cats().map((c) => c.id)).toEqual(["sponsorship", "transactional"]);
+    expect(addCategory(cats(), " ").error).toContain("name");
+    expect(addCategory(cats(), "sponsorship").error).toContain("already");
+  });
+
+  it("starts a new framework with its category's feedback cycle", () => {
+    const [sp, tr] = cats() as [Category, Category];
+    const f = addFramework(addFramework([], "Hifz", sp).value, "Water", tr).value;
+    expect(f.map((x) => [x.categoryId, x.rules.cycle])).toEqual([["sponsorship", "quarterly"], ["transactional", "on_delivery"]]);
+  });
+
+  it("groups frameworks by category, loose ones last", () => {
+    const [sp] = cats() as [Category];
+    const f = addFramework(addFramework([], "Hifz", sp).value, "Misc").value;
+    const g = groupFrameworks(f, cats());
+    expect(g.map((x) => [x.category?.id ?? null, x.frameworks.map((y) => y.id)])).toEqual([["sponsorship", ["hifz"]], ["transactional", []], [null, ["misc"]]]);
+  });
+
+  it("moves a framework to another category, and ignores an unknown one", () => {
+    const f = addFramework([], "Hifz").value;
+    expect(setCategory(f, cats(), "hifz", "sponsorship")[0]?.categoryId).toBe("sponsorship");
+    expect(setCategory(f, cats(), "hifz", "nope")[0]?.categoryId).toBe("");
+  });
+
+  it("keeps the frameworks when a category is removed", () => {
+    const [sp] = cats() as [Category];
+    const f = addFramework([], "Hifz", sp).value;
+    const r = removeCategory(cats(), f, "sponsorship");
+    expect(r.categories.map((c) => c.id)).toEqual(["transactional"]);
+    expect(r.frameworks[0]?.categoryId).toBe("");
   });
 });

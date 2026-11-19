@@ -10,7 +10,7 @@
 
 import type { MWF_CRM_CONFIG } from "../modules/01c-crm-connector/feed";
 import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-orders";
-import { CYCLE_LABELS, groupItems, missingRules, type Cycle, type Framework, type ItemInfo } from "../modules/02-project-rules/frameworks";
+import { CYCLE_LABELS, groupFrameworks, groupItems, missingRules, type Category, type Cycle, type Framework, type ItemInfo } from "../modules/02-project-rules/frameworks";
 
 export type Filter = "all" | "ready" | "unrouted" | "review";
 
@@ -23,6 +23,7 @@ export interface View {
   message: string;
   config: typeof MWF_CRM_CONFIG;
   frameworks: Framework[];
+  categories: Category[];
   suggestions: Record<string, string>; // item id to suggested framework id, for items not yet sorted
   selectedItem: string; // item picked by tapping, waiting to be tapped onto a framework ("" when none)
 }
@@ -98,10 +99,10 @@ export function frameworksPage(v: View): string {
   const items: ItemInfo[] = v.flaggedItems.map((i) => ({ id: i.id, name: i.name }));
   const { unsorted, byFramework } = groupItems(items, v.itemFrameworks, v.frameworks);
   const nSuggest = Object.keys(v.suggestions).length;
-  const cards = v.frameworks
-    .map((f) => {
+  const card = (f: Framework) => {
       const missing = missingRules(f);
       return `<div class="card fw"><div class="fwhead"><input class="title" data-rename="${f.id}" value="${esc(f.name)}" /><button data-remove="${f.id}" title="Remove this framework (its items go back to unsorted)">Remove</button></div>
+        ${field("Category", `<select data-fwcat="${f.id}"><option value="">No category</option>${v.categories.map((c) => `<option value="${c.id}"${c.id === f.categoryId ? " selected" : ""}>${esc(c.name)}</option>`).join("")}</select>`)}
         <div class="zone" data-drop="${f.id}">${(byFramework[f.id] ?? []).map((i) => chip(i, v)).join("") || `<span class="muted">Drop items here</span>`}</div>
         <details><summary>Feedback rules${missing.length ? ` <span class="pill unrouted">to fill in</span>` : ""}</summary>
           ${field("What one delivery is (unit)", `<input data-rule="unit" data-fw="${f.id}" value="${esc(f.rules.unit)}" placeholder="for example child, pump, animal" />`)}
@@ -109,14 +110,19 @@ export function frameworksPage(v: View): string {
           ${field("Report the donor receives", `<input data-rule="reportType" data-fw="${f.id}" value="${esc(f.rules.reportType)}" placeholder="for example Quarterly update" />`)}
           ${field("Words that suggest this framework", `<input data-keywords="${f.id}" value="${esc(f.keywords.join(", "))}" />`)}
           <p class="muted">Duration and instalments are not set here. They come from the CRM item.</p></details></div>`;
-    })
+  };
+  // Frameworks laid out under their category, so the board reads Category, Framework, Items.
+  const cards = groupFrameworks(v.frameworks, v.categories)
+    .map((g) => `<h3 class="cat">${g.category ? esc(g.category.name) : "No category"} <span class="muted">(${g.frameworks.length})</span>${g.category ? ` <button class="x" data-remove-category="${g.category.id}" title="Remove this category (its frameworks are kept)">Remove</button>` : ""}</h3>${g.frameworks.map(card).join("") || `<p class="muted">No frameworks in this category yet.</p>`}`)
     .join("");
   return `
     <h1>Frameworks</h1>
-    <p class="sub">The CRM says which items need feedback. Drag each item into the framework it belongs to (or tap an item, then tap a framework). Frameworks are kept in OUTCOMES, not in the CRM.</p>
+    <p class="sub">The CRM says which items need feedback. Many items can sit in one framework, and frameworks are grouped into categories. Drag each item into its framework (or tap an item, then tap a framework). Frameworks are kept in OUTCOMES, not in the CRM.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="actions"><button class="primary" data-action="accept-suggestions"${nSuggest ? "" : " disabled"}>Accept ${nSuggest} suggestion${nSuggest === 1 ? "" : "s"}</button>
-      <input id="newfw" placeholder="New framework name" /><button data-action="add-framework">Add framework</button></div>
+      <input id="newfw" placeholder="New framework name" />
+      <select id="newfwcat"><option value="">No category</option>${v.categories.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><button data-action="add-framework">Add framework</button>
+      <input id="newcat" placeholder="New category name" /><button data-action="add-category">Add category</button></div>
     <div class="board"><div><div class="card"><h2>Unsorted items <span class="muted">(${unsorted.length})</span></h2><p class="muted">Work orders for these stay unrouted. Nothing is lost.</p>
       <div class="zone" data-drop="">${unsorted.map((i) => chip(i, v, v.suggestions[i.id] ? frameworkName(v.frameworks, v.suggestions[i.id] as string) : "")).join("") || `<span class="muted">Everything is sorted.</span>`}</div></div></div>
       <div>${cards || `<div class="card empty">No frameworks yet. Add one.</div>`}</div></div>`;

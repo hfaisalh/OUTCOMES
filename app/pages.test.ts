@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { MWF_CRM_CONFIG, readFeed } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders } from "../modules/01c-crm-connector/work-orders";
-import { demoFeedRows, demoFrameworks } from "./demo-data";
+import { demoCategories, demoFeedRows, demoFrameworks } from "./demo-data";
 import { suggestAll } from "../modules/02-project-rules/frameworks";
 import { esc, frameworksPage, workOrdersPage, type View } from "./pages";
 
@@ -17,7 +17,7 @@ const MAP = { I10: "orphan-sponsorship", I11: "water", I13: "hifz" }; // the ite
 const frameworks = demoFrameworks();
 const plan = planWorkOrders(lines, [], { frameworkByItem: MAP, usesFrameworks: true });
 const flagged = [{ id: "I10", name: "Orphan Sponsorship Monthly", count: 1 }, { id: "I14", name: "Animal Sacrifice", count: 1 }];
-const view = (over: Partial<View> = {}): View => ({ workOrders: plan.created, review: [], itemFrameworks: MAP, flaggedItems: flagged, filter: "all", message: "", config: MWF_CRM_CONFIG, frameworks, suggestions: suggestAll(flagged, MAP, frameworks), selectedItem: "", ...over });
+const view = (over: Partial<View> = {}): View => ({ workOrders: plan.created, review: [], itemFrameworks: MAP, flaggedItems: flagged, filter: "all", message: "", config: MWF_CRM_CONFIG, frameworks, categories: demoCategories(), suggestions: suggestAll(flagged, MAP, frameworks), selectedItem: "", ...over });
 
 describe("workOrdersPage", () => {
   it("lists the four flagged lines and shows the unrouted one with a picker", () => {

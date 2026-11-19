@@ -12,8 +12,8 @@
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders, type ReviewItem, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
-import { acceptSuggestions, addFramework, assignItem, removeFramework, renameFramework, setKeywords, suggestAll, updateRules, type Cycle, type FrameworkRules } from "../modules/02-project-rules/frameworks";
-import { DEMO_ROLES, demoFeedRows, demoFrameworks } from "./demo-data";
+import { acceptSuggestions, addCategory, addFramework, assignItem, removeCategory, removeFramework, renameFramework, setCategory, setKeywords, suggestAll, updateRules, type Cycle, type FrameworkRules } from "../modules/02-project-rules/frameworks";
+import { DEMO_ROLES, demoCategories, demoFeedRows, demoFrameworks } from "./demo-data";
 import { landingPage, visibleMenu, type PageId } from "./menu";
 import { dashboardPage, esc, frameworksPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
 
@@ -24,6 +24,7 @@ const state = {
   workOrders: [] as WorkOrder[],
   review: [] as ReviewItem[],
   itemFrameworks: {} as Record<string, string>, // every item starts unsorted, so the demo shows the whole flow
+  categories: demoCategories(),
   frameworks: demoFrameworks(),
   selectedItem: "",
   filter: "all" as Filter,
@@ -49,7 +50,7 @@ function view(): View {
   const flaggedItems = [...items.values()];
   return {
     workOrders: state.workOrders, review: state.review, itemFrameworks: state.itemFrameworks, flaggedItems, filter: state.filter, message: state.message, config: MWF_CRM_CONFIG,
-    frameworks: state.frameworks, suggestions: suggestAll(flaggedItems, state.itemFrameworks, state.frameworks), selectedItem: state.selectedItem,
+    frameworks: state.frameworks, categories: state.categories, suggestions: suggestAll(flaggedItems, state.itemFrameworks, state.frameworks), selectedItem: state.selectedItem,
   };
 }
 
@@ -110,6 +111,13 @@ document.addEventListener("click", (e) => {
     refresh();
     return draw();
   }
+  const rc = target.closest("[data-remove-category]") as HTMLElement | null;
+  if (rc) {
+    const r = removeCategory(state.categories, state.frameworks, rc.dataset.removeCategory as string);
+    state.categories = r.categories;
+    state.frameworks = r.frameworks;
+    return draw();
+  }
   const el = target.closest("[data-page],[data-filter],[data-action]") as HTMLElement | null;
   if (!el) return;
   if (el.dataset.page) state.page = el.dataset.page as PageId;
@@ -122,8 +130,14 @@ document.addEventListener("click", (e) => {
   }
   if (action === "add-framework") {
     const input = document.getElementById("newfw") as HTMLInputElement;
-    const r = addFramework(state.frameworks, input.value);
+    const cat = state.categories.find((c) => c.id === (document.getElementById("newfwcat") as HTMLSelectElement).value);
+    const r = addFramework(state.frameworks, input.value, cat);
     state.frameworks = r.value;
+    state.message = r.error ?? "";
+  }
+  if (action === "add-category") {
+    const r = addCategory(state.categories, (document.getElementById("newcat") as HTMLInputElement).value);
+    state.categories = r.value;
     state.message = r.error ?? "";
   }
   // Demo: a new paid line appears in the CRM. It is a copy of an existing flagged line with new ids.
@@ -147,6 +161,8 @@ document.addEventListener("change", (e) => {
     state.page = landingPage(permissions()) ?? state.page;
   } else if (t.dataset.assign !== undefined && t.value !== "") {
     sortItem(t.dataset.assign, t.value);
+  } else if (t.dataset.fwcat) {
+    state.frameworks = setCategory(state.frameworks, state.categories, t.dataset.fwcat, t.value);
   } else if (t.dataset.rename) {
     const r = renameFramework(state.frameworks, t.dataset.rename, t.value);
     state.frameworks = r.value;
