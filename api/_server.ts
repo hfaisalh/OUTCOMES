@@ -70,14 +70,22 @@ export function deps(): Deps {
   };
 }
 
+// Reads the request body. JSON is the normal case. A plain HTML form post (the owner sign-in form) is read as fields.
 async function readBody(req: IncomingMessage): Promise<unknown> {
-  const pre = (req as IncomingMessage & { body?: unknown }).body; // Vercel may already have read it
-  if (pre !== undefined) return pre;
+  const isForm = String(req.headers["content-type"] ?? "").includes("application/x-www-form-urlencoded");
+  const fields = (raw: string) => Object.fromEntries(new URLSearchParams(raw));
+  let pre = (req as IncomingMessage & { body?: unknown }).body; // Vercel may already have read it
+  if (pre !== undefined) {
+    if (Buffer.isBuffer(pre)) pre = pre.toString("utf8");
+    return isForm && typeof pre === "string" ? fields(pre) : pre;
+  }
   const chunks: Buffer[] = [];
   for await (const c of req) chunks.push(c as Buffer);
   const raw = Buffer.concat(chunks).toString("utf8");
+  if (raw === "") return undefined;
+  if (isForm) return fields(raw);
   try {
-    return raw === "" ? undefined : JSON.parse(raw);
+    return JSON.parse(raw);
   } catch {
     return undefined;
   }

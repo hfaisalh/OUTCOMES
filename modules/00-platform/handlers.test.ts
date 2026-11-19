@@ -210,6 +210,14 @@ describe("owner sign-in", () => {
     const cookie = (r.headers?.["set-cookie"] ?? "").split(";")[0] as string;
     expect((await handleMe(as(cookie), t())).body).toMatchObject({ org: "mwf", upload: true });
   });
+  it("answers a plain form post with redirects: back to the app signed in, or with a wrong-passphrase flag", async () => {
+    const form = (passphrase: string) => req({ method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: { passphrase } });
+    const ok = await handleOwnerLogin(form("a-long-owner-passphrase"), t());
+    expect([ok.status, ok.headers?.["location"]]).toEqual([302, "/app/"]);
+    expect(ok.headers?.["set-cookie"]).toMatch(/HttpOnly/);
+    const bad = await handleOwnerLogin(form("nope"), t());
+    expect([bad.status, bad.headers?.["location"], bad.headers?.["set-cookie"]]).toEqual([302, "/app/?signin=wrong", undefined]);
+  });
   it("answers 404 to anything but POST", async () => {
     expect((await handleOwnerLogin(req(), t())).status).toBe(404);
   });

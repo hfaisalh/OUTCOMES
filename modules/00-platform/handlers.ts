@@ -168,14 +168,19 @@ const digest = (s: string) => createHash("sha256").update(s).digest();
 export async function handleOwnerLogin(req: HttpRequest, d: Deps): Promise<HttpResponse> {
   const secret = d.ownerPassphrase ?? "";
   if (secret === "" || req.method !== "POST") return text(404, "Not found.");
+  // A plain form post (the page's sign-in form) gets redirects back to the app. A script (JSON) gets JSON.
+  const isForm = (req.headers["content-type"] ?? "").includes("application/x-www-form-urlencoded");
   const given = (req.body as { passphrase?: unknown } | undefined)?.passphrase;
-  if (typeof given !== "string" || !timingSafeEqual(digest(given), digest(secret))) return json(401, { error: "That passphrase is not right." });
+  if (typeof given !== "string" || !timingSafeEqual(digest(given), digest(secret))) {
+    return isForm ? { status: 302, headers: { location: "/app/?signin=wrong", "cache-control": "no-store" } } : json(401, { error: "That passphrase is not right." });
+  }
   const now = nowSeconds(d);
   const config = (await d.store.getConfig(OWNER_ORG)) ?? defaultConfig();
   if (config.crm.kind === "none") await d.store.putConfig(OWNER_ORG, { ...config, crm: { kind: "upload" } });
   const claims: Claims = { typ: "launch", jti: d.newId(), sub: "owner", name: "Owner", org: OWNER_ORG, perms: Object.values(P), iat: now, exp: now + 60 };
   const session = signToken(d.secrets.session, sessionFrom(claims, d.newId(), now));
-  return json(200, { ok: true }, { "set-cookie": sessionCookie(session, SESSION_SECONDS), "cache-control": "no-store" });
+  const headers = { "set-cookie": sessionCookie(session, SESSION_SECONDS), "cache-control": "no-store" };
+  return isForm ? { status: 302, headers: { ...headers, location: "/app/" } } : json(200, { ok: true }, headers);
 }
 
 // POST /api/import  { columns, rows, source }  Lines from uploaded CRM export files, packed by the page (compact.ts).

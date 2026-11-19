@@ -106,10 +106,11 @@ describe("loading the CRM export files", () => {
   });
 });
 
-describe("owner sign-in feedback", () => {
-  it("asks for the passphrase when the box is empty", () => {
+describe("owner sign-in form", () => {
+  it("is a real form that posts to the server, so it works without any script", () => {
     click({ page: "work-orders" }, "data-page");
-    click({ action: "owner-login" }, "data-action");
-    expect(shell.innerHTML).toContain("Type the owner passphrase first.");
+    expect(shell.innerHTML).toContain('<form method="post" action="/api/owner-login">');
+    expect(shell.innerHTML).toContain('name="passphrase"');
+    expect(shell.innerHTML).toContain('type="submit"');
   });
 });

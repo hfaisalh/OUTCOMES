@@ -16,13 +16,13 @@ import { acceptSuggestions, addCategory, assignItem, removeCategory, renameCateg
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
 import { buildAttention, type AttentionItem } from "../modules/04-triage/triage";
-import { decideAttention, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, ownerLogin, runPickupNow, saveConfig, type Me } from "./api";
+import { decideAttention, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
 import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { DEMO_ROLES, demoCategories, demoFeedRows } from "./demo-data";
 import { landingPage, visibleMenu, type PageId } from "./menu";
-import { attentionPage, auditPage, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
+import { attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
 
 const state = {
   live: (): boolean => state.me !== null,
@@ -40,7 +40,6 @@ const state = {
   loadNote: "", // what the last load did, shown in the load card
   audits: [] as AuditRecord[], // batch audit history (live only)
   attention: [] as AttentionItem[], // Needs attention, from the server when live (Module 4)
-  ownerBusy: false, // the owner sign-in is in progress
   ownerNote: "", // what the last owner sign-in attempt said
   loading: "", // what the load is doing right now, "" when idle (shows a spinner)
   me: null as Me | null, // set when signed in from the CRM (live mode)
@@ -132,7 +131,7 @@ function view(): View {
   return {
     workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
-    pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerBusy: state.ownerBusy, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
+    pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
 }
 
@@ -215,10 +214,6 @@ document.addEventListener("click", (e) => {
     if (state.live()) return void reloadLive().then(draw);
     refresh();
   }
-  if (action === "owner-login") {
-    signInOwner();
-    return;
-  }
   if (action === "load-files") {
     // Rule: read the file box itself if the list of chosen files is empty, so the button works either way.
     const box = document.getElementById("feedfile") as HTMLInputElement | null;
@@ -263,31 +258,6 @@ document.addEventListener("click", (e) => {
   }
   draw();
 });
-
-// The owner signs in with the passphrase. Feedback is shown at once: "Signing in...", then a plain message if it failed,
-// and on success the page switches to the saved data (the top bar then says Signed in from the CRM).
-function signInOwner(): void {
-  const pass = (document.getElementById("ownerpass") as HTMLInputElement | null)?.value ?? "";
-  if (pass === "") {
-    state.ownerNote = "Type the owner passphrase first.";
-    return draw();
-  }
-  state.ownerBusy = true;
-  state.ownerNote = "";
-  draw();
-  void ownerLogin(pass)
-    .then(() => fetchMe())
-    .then(async (me) => {
-      if (!me) throw new Error("The passphrase was accepted but the browser did not keep the sign-in. Check that you are on https://outcomes-beryl.vercel.app/app/ and that cookies are allowed for it.");
-      state.ownerBusy = false;
-      await enterLive(me);
-    })
-    .catch((e) => {
-      state.ownerBusy = false;
-      state.ownerNote = e instanceof Error ? e.message : "The sign-in did not work.";
-      draw();
-    });
-}
 
 // Rule: files chosen here are parsed in the browser. Nothing is sent anywhere or saved.
 // Each step is shown with a spinner, and the page is given a moment to paint between steps, so it never looks stuck.
@@ -345,11 +315,6 @@ async function loadFiles(files: File[]): Promise<void> {
   draw();
 });
 
-document.addEventListener("keydown", (e) => {
-  const k = e as unknown as KeyboardEvent;
-  if (k.key === "Enter" && (k.target as HTMLElement | null)?.id === "ownerpass") signInOwner();
-});
-
 document.addEventListener("change", (e) => {
   const t = e.target as HTMLSelectElement;
   if (t.id === "feedfile") {
@@ -380,6 +345,12 @@ document.addEventListener("change", (e) => {
 
 refresh();
 state.message = "";
+// After the owner sign-in form was sent with a wrong passphrase the address says so. Show it, then tidy the address.
+const loc = (globalThis as { location?: { search: string; pathname: string } }).location;
+if (loc) {
+  state.ownerNote = signinNote(loc.search);
+  if (loc.search !== "") (globalThis as { history?: { replaceState(a: null, b: string, c: string): void } }).history?.replaceState(null, "", loc.pathname);
+}
 draw();
 // If the person arrived from the CRM there is a session: switch from demo to live data.
 void fetchMe().then((me) => (me ? enterLive(me) : undefined));

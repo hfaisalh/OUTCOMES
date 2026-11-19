@@ -10,7 +10,7 @@ import { MWF_CRM_CONFIG, readFeed } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders } from "../modules/01c-crm-connector/work-orders";
 import { demoCategories, demoFeedRows } from "./demo-data";
 import { suggestAll } from "../modules/02-project-rules/categories";
-import { attentionPage, auditPage, esc, categoriesPage, workOrdersPage, type View } from "./pages";
+import { signinNote, attentionPage, auditPage, esc, categoriesPage, workOrdersPage, type View } from "./pages";
 
 const lines = readFeed(demoFeedRows(), MWF_CRM_CONFIG).lines;
 const MAP = { I10: "sponsorship", I11: "transactional", I13: "sponsorship" }; // the item "I14" is left unsorted on purpose
@@ -107,5 +107,13 @@ describe("attentionPage", () => {
   it("says when nothing needs attention, and offers no review buttons in demo mode", () => {
     expect(attentionPage(view({ attention: [] }))).toContain("Nothing needs attention.");
     expect(attentionPage(view({ live: false, attention: items }))).not.toContain("data-attn=");
+  });
+});
+
+describe("signinNote", () => {
+  it("explains a wrong passphrase from the address, and says nothing otherwise", () => {
+    expect(signinNote("?signin=wrong")).toContain("not right");
+    expect(signinNote("")).toBe("");
+    expect(signinNote("?other=1")).toBe("");
   });
 });
