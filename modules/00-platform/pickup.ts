@@ -105,7 +105,7 @@ export async function runPickup(org: string, deps: PickupDeps): Promise<RunInfo>
     const audit = auditFeed(feed.lines, existing, { complete });
     await store.addAudit(org, auditRecord(deps.newId?.() ?? nowIso, nowIso, deps.source ?? (since === undefined ? "Full read of the CRM" : "Pick-up since the last one"), feed.lines.length, complete, audit, deps.notes));
     const plan = planWorkOrders(feed.lines, existing, { categoryByItem: config.itemMap, usesFrameworks: config.usesFrameworks, feedIsComplete: complete, coverage: audit.coverage });
-    await store.saveWorkOrders(org, [...plan.created, ...plan.rerouted]);
+    await store.saveWorkOrders(org, [...plan.created, ...plan.updated, ...plan.rerouted]);
     run.created = plan.created.length;
     run.rerouted = plan.rerouted.length;
     run.unchanged = plan.unchanged.length;

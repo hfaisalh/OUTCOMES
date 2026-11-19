@@ -10,14 +10,16 @@
  * real-data/ is ignored by git (.gitignore), so real exports and the feed never reach the repository.
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { adaptExports } from "../modules/01e-crm-export-adapter/export-adapter.ts";
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv.ts";
 
 const dir = new URL("../real-data/", import.meta.url);
 const load = (name: string) => toRecords(parseCsv(readFileSync(new URL(`crm-exports/${name}`, dir), "utf8"))).records;
 
-const result = adaptExports(load("donation-lines.csv"), load("catalogue-items.csv"), load("recurring-plans.csv"));
+// The Catalogue prices file (bundle quantities) is optional. Without it a bundle counts as 1 part and a note says so.
+const prices = existsSync(new URL("crm-exports/catalogue-prices.csv", dir)) ? load("catalogue-prices.csv") : [];
+const result = adaptExports(load("donation-lines.csv"), load("catalogue-items.csv"), load("recurring-plans.csv"), prices);
 
 // Section: write the feed as CSV (quote every cell that needs it).
 const columns = Object.keys(result.rows[0] ?? {});

@@ -40,6 +40,7 @@ export interface WorkOrder {
   itemName: string;
   amount: number; // for reference only
   quantity: number;
+  bundleQty?: number; // parts of the item in the bundle bought, absent means 1 (DECISIONS 51)
   intention: string;
   subscriptionId: string;
   instalmentNumber: string;
@@ -48,6 +49,9 @@ export interface WorkOrder {
   status: WorkOrderStatus;
   exclusion?: Exclusion; // present only while status is "excluded"
 }
+
+// Rule (DECISIONS 51): parts = the bundle quantity times the order quantity. Prices play no part, so an old price does not matter.
+export const partsOf = (w: Pick<WorkOrder, "quantity" | "bundleQty">): number => (w.bundleQty ?? 1) * w.quantity;
 
 export interface PlanOptions {
   categoryByItem: Record<string, string>; // CRM item id to category id, set in OUTCOMES
@@ -66,6 +70,7 @@ export interface ReviewItem {
 
 export interface Plan {
   created: WorkOrder[]; // new work orders to save
+  updated: WorkOrder[]; // existing work orders given the bundle quantity they were missing (catalogue data, not a donor change)
   rerouted: WorkOrder[]; // existing unrouted work orders whose item now has a category (updated copies)
   unchanged: WorkOrder[];
   review: ReviewItem[]; // held for a person to approve, never changed automatically (DECISIONS 21)
@@ -101,6 +106,7 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
   const byKey = new Map(existing.map((w) => [w.key, w]));
   const created: WorkOrder[] = [];
   const rerouted: WorkOrder[] = [];
+  const updated: WorkOrder[] = [];
   const unchanged: WorkOrder[] = [];
   const review: ReviewItem[] = [];
   const seen = new Set<string>();
@@ -127,6 +133,7 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
         itemName: line.itemName,
         amount: line.amount,
         quantity: line.quantity,
+        ...(line.bundleQty !== 1 ? { bundleQty: line.bundleQty } : {}),
         intention: line.intention,
         subscriptionId: line.subscriptionId,
         instalmentNumber: line.instalmentNumber,
@@ -142,6 +149,14 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
       continue;
     }
 
+    // Rule: the bundle quantity comes from the catalogue, so a work order made before it was known is given it quietly. Never reviewed.
+    let have = current;
+    if ((current.bundleQty ?? 1) !== line.bundleQty) {
+      const { bundleQty: _old, ...rest } = current;
+      have = { ...rest, ...(line.bundleQty !== 1 ? { bundleQty: line.bundleQty } : {}) };
+      updated.push(have);
+    }
+
     if (!line.needsFeedback) {
       review.push({ key, reason: "no_longer_needs_feedback", message: "The CRM item no longer says it needs feedback. The work order was kept." });
     } else if (current.amount !== line.amount || current.supporterId !== line.supporterId) {
@@ -151,11 +166,12 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
     if (current.status === "unrouted") {
       const r = route(current.itemId, options);
       if (r.status === "ready") {
-        rerouted.push({ ...current, ...r });
+        rerouted.push({ ...have, ...r });
+        if (have !== current) updated.pop();
         continue;
       }
     }
-    unchanged.push(current);
+    unchanged.push(have);
   }
 
   if (options.feedIsComplete) {
@@ -164,7 +180,7 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
       if (!seen.has(w.key) && inside && w.status !== "excluded") review.push({ key: w.key, reason: "missing_from_feed", message: "The line is no longer in the CRM feed (refunded, deleted or replaced). The work order was kept." });
     }
   }
-  return { created, rerouted, unchanged, review };
+  return { created, updated, rerouted, unchanged, review };
 }
 
 // Rule (DECISIONS 47): a person can exclude a work order that has not started (unrouted or ready), for a stated reason.

@@ -138,3 +138,10 @@ An item belongs to one **category** (for example Sponsorship or Transactional). 
 | `framework.cycle` | How often the donor hears back: monthly, quarterly, half_yearly, annual, on_delivery |
 | `framework.reportType` | The report the donor receives |
 | item map | `{ CRM item id: category id }`. An item not in the map is unrouted |
+
+## Parts (decision 51)
+
+| Field | Meaning |
+|---|---|
+| `bundleQty` (work order, feed line) | Parts of the item in the bundle the line was bought as. Absent on a work order means 1. Comes from the CRM's bundle configuration through the Catalogue prices export |
+| parts | `bundleQty` x `quantity`. The base for units. Months are added later by the category (a sponsorship counts months, a water pump does not) |

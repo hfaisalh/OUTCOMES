@@ -19,7 +19,7 @@ import type { FeedRow } from "../01c-crm-connector/feed.js";
 
 export type ExportRow = Record<string, string>;
 
-export type AdaptIssueCode = "missing_column" | "item_not_in_catalogue" | "catalogue_conflict" | "bad_date" | "recurring_count_unknown" | "recurring_count_guessed" | "missing_order_reference";
+export type AdaptIssueCode = "missing_column" | "item_not_in_catalogue" | "catalogue_conflict" | "bad_date" | "recurring_count_unknown" | "recurring_count_guessed" | "bundle_not_in_catalogue" | "bundle_without_prices" | "missing_order_reference";
 
 export interface AdaptIssue {
   code: AdaptIssueCode;
@@ -86,7 +86,7 @@ const isYes = (text: string) => ["yes", "y", "1", "true"].includes(norm(text));
  * - The export holds paid lines and has no deleted or replaced markers, so those stay empty. This is
  *   a known limit of the export (replaced orders cannot be detected).
  */
-export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: ExportRow[]): AdaptResult {
+export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: ExportRow[], prices: ExportRow[] = []): AdaptResult {
   const issues: AdaptIssue[] = [];
 
   for (const label of REQUIRED_LINE_COLUMNS)
@@ -119,6 +119,18 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
     const set = limited.get(sku);
     return set && set.size === 1 ? ([...set][0] as string) : "";
   };
+
+  // Section: the bundle quantities, from the Catalogue prices file (DECISIONS 51). Key: item code and bundle name.
+  // A bundle is a fixed number of parts of the item, such as "Sponsor an Orphan" = 3. No bundle means the item on its own, which is 1.
+  const bundleQty = new Map<string, string>();
+  for (const r of prices) {
+    const sku = pick(r, "Item SKU");
+    const name = pick(r, "Bundle");
+    const q = pick(r, "Quantity");
+    if (sku !== "" && name !== "" && Number.isInteger(Number(q)) && Number(q) > 0 && !bundleQty.has(`${sku}|${name}`)) bundleQty.set(`${sku}|${name}`, q);
+  }
+  const unknownBundles = new Set<string>();
+  let bundleLines = 0;
 
   // Section: the plans by id.
   const planById = new Map<string, { untilCancelled: boolean; planned: string }>();
@@ -170,6 +182,15 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
     const paidAt = toFeedDate(pick(r, "Payment Date"));
     if (paidAt === "") badDates++;
 
+    // Rule: the line's bundle name gives its parts. Not read from the amount, because prices change but parts do not (DECISIONS 51).
+    const bundleName = pick(r, "Item Bundle");
+    let bundleQuantity = "";
+    if (bundleName !== "") {
+      bundleLines++;
+      bundleQuantity = bundleQty.get(`${code}|${bundleName}`) ?? "";
+      if (bundleQuantity === "") unknownBundles.add(`${code} / ${bundleName}`);
+    }
+
     rows.push({
       line_id: pick(r, "Line ID"),
       transaction_ref: pick(r, "Order Reference"),
@@ -192,11 +213,13 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
       instalment_number: subscriptionId !== "" ? pick(r, "Instalment no") : "",
       amount: pick(r, "Item Cost"),
       quantity: pick(r, "Order Quantity"),
+      bundle_qty: bundleQuantity,
       intention: pick(r, "Intention"),
     });
   }
 
   for (const code of missingItems) issues.push({ code: "item_not_in_catalogue", message: `Item code ${code} is not in the Catalogue items file, so it is not flagged for feedback.` });
+  if (unknownBundles.size > 0) issues.push({ code: prices.length === 0 ? "bundle_without_prices" : "bundle_not_in_catalogue", message: prices.length === 0 ? `${bundleLines} line(s) were bought as a bundle but no Catalogue prices file was given, so their number of parts is taken as 1. Add the Catalogue prices export.` : `${unknownBundles.size} bundle(s) on the lines are not in the Catalogue prices file, so their number of parts is taken as 1: ${[...unknownBundles].slice(0, 5).join("; ")}.` });
   const eg = (ids: string[]) => ids.slice(0, 5).join(", ");
   if (recurringCountGuessed > 0) issues.push({ code: "recurring_count_guessed", message: `${recurringCountGuessed} recurring line(s) have no plan row, so their instalment count was guessed from the catalogue and may be wrong. A count from a real plan is always used when there is one. Examples (search the Line ID in Work orders): ${eg(guessedIds)}.` });
   if (recurringCountUnknown > 0) issues.push({ code: "recurring_count_unknown", message: `${recurringCountUnknown} limited recurring line(s) have no plan row, no Frequency and no single plan length in the catalogue, so their instalment count is unknown (shown as Indefinitely). Examples (search the Line ID in Work orders): ${eg(unknownIds)}.` });
@@ -208,7 +231,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
 
 // ---- Picking the files ----
 
-export type ExportKind = "lines" | "catalogue" | "plans" | "feed" | "unknown";
+export type ExportKind = "lines" | "catalogue" | "plans" | "prices" | "feed" | "unknown";
 
 // Rule: a file is recognised by its column names, not its file name, so renamed downloads still work.
 export function classifyExport(rows: ExportRow[]): ExportKind {
@@ -218,6 +241,7 @@ export function classifyExport(rows: ExportRow[]): ExportKind {
   if (has("line_id") && has("item_feedback")) return "feed"; // already in the feed shape
   if (has("Line ID") && has("Item Code")) return "lines";
   if (has("Item SKU") && has("Feedback type")) return "catalogue";
+  if (has("Item SKU") && has("Bundle") && has("Quantity")) return "prices"; // the Catalogue prices file
   if (has("Plan ID") && has("Until cancelled")) return "plans";
   return "unknown";
 }
@@ -228,7 +252,7 @@ export interface AdaptFilesResult extends AdaptResult {
 
 /**
  * What the screen calls: any mix of the exported files, in any order. A ready feed file is used as it
- * is. Otherwise Donation lines and Catalogue items are both needed, Recurring plans is optional.
+ * is. Otherwise Donation lines and Catalogue items are both needed, Recurring plans and Catalogue prices are optional (without prices, bundles count as 1 part and a note says so).
  */
 export function adaptFiles(files: ExportRow[][]): AdaptFilesResult {
   const kinds = files.map(classifyExport);
@@ -244,5 +268,5 @@ export function adaptFiles(files: ExportRow[][]): AdaptFilesResult {
   if (!kinds.includes("lines")) issues.push({ code: "missing_column", message: "No Donation lines file was recognised. It needs the columns Line ID and Item Code." });
   if (!kinds.includes("catalogue")) issues.push({ code: "missing_column", message: "No Catalogue items file was recognised. It needs the columns Item SKU and Feedback type." });
   if (issues.length > 0) return { rows: [], issues, counts: none, used };
-  return { ...adaptExports(pickFile("lines"), pickFile("catalogue"), pickFile("plans")), used };
+  return { ...adaptExports(pickFile("lines"), pickFile("catalogue"), pickFile("plans"), pickFile("prices")), used };
 }

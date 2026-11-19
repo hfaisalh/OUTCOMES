@@ -54,6 +54,7 @@ export interface FeedLine {
   itemName: string;
   amount: number; // for reference only
   quantity: number;
+  bundleQty: number; // parts of the item in the bundle the line was bought as, 1 when none (DECISIONS 51)
   intention: string;
   subscriptionId: string; // "" for a one-off
   instalmentNumber: string; // "" for a one-off
@@ -100,6 +101,12 @@ const num = (text: string | undefined): number | null => {
   if (t === "") return null;
   const n = Number(t);
   return Number.isFinite(n) ? n : null;
+};
+
+// Rule: the bundle quantity is a whole number of 1 or more. Blank or anything else means the item on its own, which is 1.
+const bundleOf = (text: string | undefined): number => {
+  const n = num(text);
+  return n !== null && Number.isInteger(n) && n >= 1 ? n : 1;
 };
 
 /**
@@ -171,6 +178,7 @@ export function readFeed(rows: FeedRow[], config: FeedConfig = MWF_CRM_CONFIG): 
       itemName: (r["item_name"] ?? "").trim(),
       amount: amount ?? 0,
       quantity: num(r["quantity"]) ?? 1,
+      bundleQty: bundleOf(r["bundle_qty"]),
       intention: (r["intention"] ?? "").trim(),
       subscriptionId: (r["subscription_id"] ?? "").trim(),
       instalmentNumber: (r["instalment_number"] ?? "").trim(),

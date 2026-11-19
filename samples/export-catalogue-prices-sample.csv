@@ -1,0 +1,5 @@
+"Item SKU",Item,Cause,Projects,Locations,Segment,Bundle,Quantity,Currency,"Way of giving",Price,"Each payment",Payments,"Total of the plan","Price status"
+MWF-ORP-001,Orphan Sponsorship Monthly,Orphans,,,,,1,GBP,"Single payment",480,480,1,480,Priced
+MWF-ORP-001,Orphan Sponsorship Monthly,Orphans,,,,"Part Sponsorship",1,GBP,"Single payment",480,480,1,480,Priced
+MWF-ORP-001,Orphan Sponsorship Monthly,Orphans,,,,"Sponsor an Orphan",3,GBP,"Single payment",480,1440,1,1440,Priced
+MWF-ORP-001,Orphan Sponsorship Monthly,Orphans,,,,"Sponsor an Orphan",3,GBP,Instalments,480,105,12,1260,Priced

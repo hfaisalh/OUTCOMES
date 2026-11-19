@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { readFeed, type FeedLine } from "./feed";
 import { sampleRows } from "./sample";
-import { DEFAULT_CATEGORY, excludeWorkOrder, planWorkOrders, restoreWorkOrder, type PlanOptions, type WorkOrder } from "./work-orders";
+import { DEFAULT_CATEGORY, excludeWorkOrder, partsOf, planWorkOrders, restoreWorkOrder, type PlanOptions, type WorkOrder } from "./work-orders";
 
 const feed = readFeed(sampleRows()).lines;
 // Set in OUTCOMES (DECISIONS 31). The item I14 (Animal Sacrifice) is deliberately not mapped yet.
@@ -123,5 +123,27 @@ describe("excluding a work order (DECISIONS 47)", () => {
     if (!("order" in back)) throw new Error("expected an order");
     expect(back.order.status).toBe(w.status);
     expect(back.order.exclusion).toBeUndefined();
+  });
+});
+
+describe("parts (DECISIONS 51)", () => {
+  const opts: PlanOptions = { categoryByItem: {}, usesFrameworks: false, feedIsComplete: true };
+  const bundled = feed.map((l, i) => (i === 0 ? { ...l, bundleQty: 3, quantity: 2 } : l));
+
+  it("is the bundle quantity times the order quantity, and 1 for a plain line", () => {
+    const made = planWorkOrders(bundled, [], opts).created;
+    expect(partsOf(made[0] as WorkOrder)).toBe(6);
+    expect(made[0]?.bundleQty).toBe(3);
+    expect(partsOf(made[1] as WorkOrder)).toBe(made[1]?.quantity);
+    expect(made[1]?.bundleQty).toBeUndefined();
+  });
+
+  it("quietly gives an existing work order the bundle quantity it was missing, without a review entry", () => {
+    const before = planWorkOrders(feed, [], opts).created;
+    const again = planWorkOrders(bundled, before, opts);
+    expect(again.created).toHaveLength(0);
+    expect(again.updated).toHaveLength(1);
+    expect(again.updated[0]?.bundleQty).toBe(3);
+    expect(again.review.filter((r) => r.reason !== "changed")).toHaveLength(0);
   });
 });

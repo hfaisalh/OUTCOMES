@@ -1,8 +1,8 @@
-"Line ID","Item Name","Item Code",Project,Cause,Intention,"Instalment no","Subscription ID","Order Quantity","Order Reference","Order Status",Source,Currency,"Item Cost","Payment Gateway",Merchant,"Donor ID","Payment Date",Period,"First Name (Billing)","Last Name (Billing)"
-9001,Orphan Sponsorship Monthly,MWF-ORP-001,,Orphans,Sadaqah,1,501,1,REF-2001,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D100,02/11/2026 10:15,Monthly,Sample,Supporter A
-9002,Orphan Sponsorship Monthly,MWF-ORP-001,,Orphans,Sadaqah,2,501,1,REF-2002,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D100,02/12/2026 10:15,Monthly,Sample,Supporter A
-9003,Water Pump,MWF-WAT-001,,Water,Sadaqah Jariyah,,0,1,REF-2003,Paid,Website,GBP,150,Paypal,Paypal,D101,03/11/2026 11:40,One-time,Sample,Supporter B
-9004,General Fund,MWF-GEN-001,,General,Sadaqah,,,2,REF-2004,Paid,POS / staff,GBP,20,Bank Transfer,,D102,04/11/2026 09:05,One-time,Sample,Supporter C
-9005,Hifz Sponsorship,MWF-HIF-001,,Hifz,Sadaqah,1,502,1,REF-2005,Paid,Website,GBP,25,Apple Pay,Stripe,D103,05/11/2026 14:30,Recurring,Sample,Supporter D
-9006,Hifz Sponsorship,MWF-HIF-001,,Hifz,Sadaqah,3,509,1,REF-2006,Paid,Website,GBP,25,Google Pay,Stripe,D104,06/11/2026 16:00,Recurring,Sample,Supporter E
-9007,Mystery Item,MWF-XXX-999,,General,Sadaqah,,,1,REF-2007,Paid,Website,GBP,10,Credit / Debit Card,Stripe,D105,07/11/2026 08:20,One-time,Sample,Supporter F
+"Line ID","Item Name","Item Code",Project,Cause,Intention,"Instalment no","Subscription ID","Order Quantity","Order Reference","Order Status",Source,Currency,"Item Cost","Payment Gateway",Merchant,"Donor ID","Payment Date",Period,"First Name (Billing)","Last Name (Billing)","Item Bundle"
+9001,Orphan Sponsorship Monthly,MWF-ORP-001,,Orphans,Sadaqah,1,501,1,REF-2001,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D100,02/11/2026 10:15,Monthly,Sample,Supporter A,
+9002,Orphan Sponsorship Monthly,MWF-ORP-001,,Orphans,Sadaqah,2,501,1,REF-2002,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D100,02/12/2026 10:15,Monthly,Sample,Supporter A,Sponsor an Orphan
+9003,Water Pump,MWF-WAT-001,,Water,Sadaqah Jariyah,,0,1,REF-2003,Paid,Website,GBP,150,Paypal,Paypal,D101,03/11/2026 11:40,One-time,Sample,Supporter B,
+9004,General Fund,MWF-GEN-001,,General,Sadaqah,,,2,REF-2004,Paid,POS / staff,GBP,20,Bank Transfer,,D102,04/11/2026 09:05,One-time,Sample,Supporter C,
+9005,Hifz Sponsorship,MWF-HIF-001,,Hifz,Sadaqah,1,502,1,REF-2005,Paid,Website,GBP,25,Apple Pay,Stripe,D103,05/11/2026 14:30,Recurring,Sample,Supporter D,
+9006,Hifz Sponsorship,MWF-HIF-001,,Hifz,Sadaqah,3,509,1,REF-2006,Paid,Website,GBP,25,Google Pay,Stripe,D104,06/11/2026 16:00,Recurring,Sample,Supporter E,
+9007,Mystery Item,MWF-XXX-999,,General,Sadaqah,,,1,REF-2007,Paid,Website,GBP,10,Credit / Debit Card,Stripe,D105,07/11/2026 08:20,One-time,Sample,Supporter F,

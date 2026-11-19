@@ -14,7 +14,7 @@ import { MWF_CRM_CONFIG, readFeed } from "../01c-crm-connector/feed";
 import { adaptExports, adaptFiles, classifyExport, toFeedDate } from "./export-adapter";
 
 const load = (name: string) => toRecords(parseCsv(readFileSync(new URL(`../../samples/${name}`, import.meta.url), "utf8"))).records;
-const adapt = () => adaptExports(load("export-donation-lines-sample.csv"), load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"));
+const adapt = () => adaptExports(load("export-donation-lines-sample.csv"), load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), load("export-catalogue-prices-sample.csv"));
 const byLine = (id: string) => adapt().rows.find((r) => r["line_id"] === id)!;
 
 describe("toFeedDate", () => {
@@ -108,6 +108,32 @@ describe("adaptExports", () => {
     const result = adaptExports([{ "Line ID": "1" }], load("export-catalogue-sample.csv"), []);
     expect(result.rows).toHaveLength(0);
     expect(result.issues[0]?.code).toBe("missing_column");
+  });
+});
+
+describe("bundles and parts (DECISIONS 51)", () => {
+  it("gives a line its bundle quantity from the Catalogue prices file, and none when it has no bundle", () => {
+    expect(byLine("9002")["bundle_qty"]).toBe("3"); // bought as "Sponsor an Orphan"
+    expect(byLine("9001")["bundle_qty"]).toBe("");
+  });
+  it("says so once when there is no prices file, and counts the bundle as 1 part", () => {
+    const r = adaptExports(load("export-donation-lines-sample.csv"), load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"));
+    expect(r.rows.find((x) => x["line_id"] === "9002")!["bundle_qty"]).toBe("");
+    expect(r.issues.filter((i) => i.code === "bundle_without_prices")).toHaveLength(1);
+  });
+  it("reports a bundle name the prices file does not know", () => {
+    const lines = load("export-donation-lines-sample.csv").map((l) => (l["Line ID"] === "9001" ? { ...l, "Item Bundle": "Mystery Pack" } : l));
+    const r = adaptExports(lines, load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), load("export-catalogue-prices-sample.csv"));
+    expect(r.issues.some((i) => i.code === "bundle_not_in_catalogue")).toBe(true);
+  });
+  it("reaches the feed lines and work orders as parts", () => {
+    const feed = readFeed(adapt().rows, MWF_CRM_CONFIG);
+    expect(feed.lines.find((l) => l.lineId === "9002")!.bundleQty).toBe(3);
+    expect(feed.lines.find((l) => l.lineId === "9001")!.bundleQty).toBe(1);
+  });
+  it("recognises the Catalogue prices file by its columns", () => {
+    expect(classifyExport(load("export-catalogue-prices-sample.csv"))).toBe("prices");
+    expect(adaptFiles([load("export-donation-lines-sample.csv"), load("export-catalogue-prices-sample.csv"), load("export-catalogue-sample.csv")]).rows.find((x) => x["line_id"] === "9002")!["bundle_qty"]).toBe("3");
   });
 });
 

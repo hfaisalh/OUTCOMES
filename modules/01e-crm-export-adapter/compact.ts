@@ -19,7 +19,7 @@ import type { FeedRow } from "../01c-crm-connector/feed.js";
 const CREDIT_COLUMNS = [1, 2, 3, 4].flatMap((n) => [`credit_${n}_role`, `credit_${n}_id`, `credit_${n}_name`]);
 export const SEND_COLUMNS = [
   "line_id", "transaction_ref", "status", "is_deleted", "superseded_by", "paid_at", "supporter_id", "supporter_name", "supporter_kind", "group_name", "item_id", "item_name",
-  "item_feedback", "is_recurring", "instalment_count", "subscription_id", "instalment_number", "amount", "quantity", "intention", ...CREDIT_COLUMNS,
+  "item_feedback", "is_recurring", "instalment_count", "subscription_id", "instalment_number", "amount", "quantity", "bundle_qty", "intention", ...CREDIT_COLUMNS,
 ] as const;
 
 export interface CompactFeed {
