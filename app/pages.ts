@@ -37,6 +37,8 @@ export interface View {
   attention?: AttentionItem[]; // everything that needs a person, open first (Module 4)
   audits?: AuditRecord[]; // batch audit history, newest first (live only)
   upload?: boolean; // the organisation takes uploaded export files, so the load card is shown even when signed in
+  ownerBusy?: boolean; // the owner sign-in is in progress (demo only)
+  ownerNote?: string; // what the last owner sign-in attempt said (demo only)
   loading?: string; // what the load is doing right now ("" when idle), shown with a spinner (demo only)
 }
 
@@ -69,9 +71,10 @@ function liveBar(v: View): string {
 // Demo only: the owner signs in with a passphrase to use saved data. Rule: the passphrase is sent to the server over HTTPS and never kept in the page.
 const ownerCard = (v: View): string => `<div class="card"><h2>Not signed in: nothing is being saved</h2>
   <div class="note warnnote"><b>Everything on this page is forgotten when you refresh or open a new address.</b> Sign in as the owner first to keep your work on the server, then load your files. Always use the same address, https://outcomes-beryl.vercel.app/app/, because the sign-in belongs to that address.</div>
-  <div class="filebox"><input type="password" id="ownerpass" placeholder="Owner passphrase" autocomplete="current-password"></div>
-  <div class="actions loadbox"><button data-action="owner-login">Sign in</button></div>
-  ${v.message && /passphrase|sign-in/i.test(v.message) ? `<div class="note">${esc(v.message)}</div>` : ""}</div>`;
+  <div class="filebox"><input type="password" id="ownerpass" placeholder="Owner passphrase" autocomplete="current-password"> <span class="muted">Press Enter or the Sign in button.</span></div>
+  <div class="actions loadbox"><button class="primary" data-action="owner-login"${v.ownerBusy ? " disabled" : ""}>Sign in</button></div>
+  ${v.ownerBusy ? `<div class="progress"><span class="spinner"></span><span>Signing in...</span></div>` : ""}
+  ${v.ownerNote && !v.ownerBusy ? `<div class="note warnnote">${esc(v.ownerNote)}</div>` : ""}</div>`;
 
 const loadCard = (v: View): string => `<div class="card"><h2>Use your own CRM export files</h2>
   <p class="muted">Choose the Donation lines, Catalogue items and (optionally) Recurring plans files from the CRM Export Centre, all at once, then press Load. ${v.live ? "They are read in this browser. Only the lines needed for work orders and the audit are sent to your saved data, with no contact details." : "They are read in this browser only. Nothing is uploaded or saved, so sign in above first if you want to keep the result."}</p>

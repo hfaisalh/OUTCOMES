@@ -40,6 +40,8 @@ const state = {
   loadNote: "", // what the last load did, shown in the load card
   audits: [] as AuditRecord[], // batch audit history (live only)
   attention: [] as AttentionItem[], // Needs attention, from the server when live (Module 4)
+  ownerBusy: false, // the owner sign-in is in progress
+  ownerNote: "", // what the last owner sign-in attempt said
   loading: "", // what the load is doing right now, "" when idle (shows a spinner)
   me: null as Me | null, // set when signed in from the CRM (live mode)
   run: null as import("../modules/00-platform/store").RunInfo | null,
@@ -214,14 +216,7 @@ document.addEventListener("click", (e) => {
     refresh();
   }
   if (action === "owner-login") {
-    const pass = (document.getElementById("ownerpass") as HTMLInputElement | null)?.value ?? "";
-    void ownerLogin(pass)
-      .then(() => fetchMe())
-      .then((me) => (me ? enterLive(me) : undefined))
-      .catch((e) => {
-        state.message = `Owner sign-in: ${e instanceof Error ? e.message : "it did not work."}`;
-        draw();
-      });
+    signInOwner();
     return;
   }
   if (action === "load-files") {
@@ -268,6 +263,31 @@ document.addEventListener("click", (e) => {
   }
   draw();
 });
+
+// The owner signs in with the passphrase. Feedback is shown at once: "Signing in...", then a plain message if it failed,
+// and on success the page switches to the saved data (the top bar then says Signed in from the CRM).
+function signInOwner(): void {
+  const pass = (document.getElementById("ownerpass") as HTMLInputElement | null)?.value ?? "";
+  if (pass === "") {
+    state.ownerNote = "Type the owner passphrase first.";
+    return draw();
+  }
+  state.ownerBusy = true;
+  state.ownerNote = "";
+  draw();
+  void ownerLogin(pass)
+    .then(() => fetchMe())
+    .then(async (me) => {
+      if (!me) throw new Error("The passphrase was accepted but the browser did not keep the sign-in. Check that you are on https://outcomes-beryl.vercel.app/app/ and that cookies are allowed for it.");
+      state.ownerBusy = false;
+      await enterLive(me);
+    })
+    .catch((e) => {
+      state.ownerBusy = false;
+      state.ownerNote = e instanceof Error ? e.message : "The sign-in did not work.";
+      draw();
+    });
+}
 
 // Rule: files chosen here are parsed in the browser. Nothing is sent anywhere or saved.
 // Each step is shown with a spinner, and the page is given a moment to paint between steps, so it never looks stuck.
@@ -323,6 +343,11 @@ async function loadFiles(files: File[]): Promise<void> {
   state.loading = "";
   state.loadNote = `Something went wrong: ${e.message}`;
   draw();
+});
+
+document.addEventListener("keydown", (e) => {
+  const k = e as unknown as KeyboardEvent;
+  if (k.key === "Enter" && (k.target as HTMLElement | null)?.id === "ownerpass") signInOwner();
 });
 
 document.addEventListener("change", (e) => {

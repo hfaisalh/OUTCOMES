@@ -105,3 +105,11 @@ describe("loading the CRM export files", () => {
     expect(shell.innerHTML).toContain("Choose the files first");
   });
 });
+
+describe("owner sign-in feedback", () => {
+  it("asks for the passphrase when the box is empty", () => {
+    click({ page: "work-orders" }, "data-page");
+    click({ action: "owner-login" }, "data-action");
+    expect(shell.innerHTML).toContain("Type the owner passphrase first.");
+  });
+});
