@@ -45,9 +45,12 @@ async function call<T>(path: string, init?: { method: string; body?: unknown }):
 }
 
 // Who is signed in, or null when nobody is (demo mode) or the server cannot be reached.
+// Rule: only a real session counts. The local dev server answers /api/me with a plain page (status 200, no
+// permissions), which must not be mistaken for a sign-in, or the page would try to draw with no permissions and freeze.
 export async function fetchMe(): Promise<Me | null> {
   try {
-    return await call<Me>("/api/me");
+    const me = await call<Partial<Me>>("/api/me");
+    return Array.isArray(me.perms) && typeof me.name === "string" ? (me as Me) : null;
   } catch {
     return null;
   }

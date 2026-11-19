@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseCsv, toRecords } from "../01-data-mapping/csv";
 import { MWF_CRM_CONFIG, readFeed } from "../01c-crm-connector/feed";
-import { adaptExports, toFeedDate } from "./export-adapter";
+import { adaptExports, adaptFiles, classifyExport, toFeedDate } from "./export-adapter";
 
 const load = (name: string) => toRecords(parseCsv(readFileSync(new URL(`../../samples/${name}`, import.meta.url), "utf8"))).records;
 const adapt = () => adaptExports(load("export-donation-lines-sample.csv"), load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"));
@@ -93,5 +93,40 @@ describe("through the normal feed reader", () => {
     expect(feed.lines.find((l) => l.lineId === "9006")!.instalmentCount).toBe("Indefinitely");
     expect(feed.lines.find((l) => l.lineId === "9003")!.instalmentCount).toBe("");
     expect(feed.issues).toHaveLength(0);
+  });
+});
+
+describe("picking the files", () => {
+  const lines = load("export-donation-lines-sample.csv");
+  const catalogue = load("export-catalogue-sample.csv");
+  const plans = load("export-recurring-plans-sample.csv");
+
+  it("recognises each file by its columns, whatever it is called", () => {
+    expect(classifyExport(lines)).toBe("lines");
+    expect(classifyExport(catalogue)).toBe("catalogue");
+    expect(classifyExport(plans)).toBe("plans");
+    expect(classifyExport(adapt().rows)).toBe("feed");
+    expect(classifyExport([{ Something: "else" }])).toBe("unknown");
+  });
+
+  it("takes the files in any order", () => {
+    const a = adaptFiles([plans, lines, catalogue]);
+    expect(a.rows).toHaveLength(7);
+    expect(a.counts.feedbackLines).toBe(adapt().counts.feedbackLines);
+  });
+
+  it("works without the plans file", () => {
+    expect(adaptFiles([lines, catalogue]).rows).toHaveLength(7);
+  });
+
+  it("asks for the missing file in plain words", () => {
+    const r = adaptFiles([lines]);
+    expect(r.rows).toHaveLength(0);
+    expect(r.issues[0]?.message).toContain("Catalogue items");
+  });
+
+  it("uses a ready feed file as it is", () => {
+    const feed = adapt().rows;
+    expect(adaptFiles([feed]).rows).toHaveLength(feed.length);
   });
 });

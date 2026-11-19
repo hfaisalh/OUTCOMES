@@ -13,6 +13,8 @@
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders, type ReviewItem, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { acceptSuggestions, addCategory, assignItem, removeCategory, renameCategory, setKeywords, suggestAll, updateFramework, type Cycle, type Framework } from "../modules/02-project-rules/categories";
+import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
+import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
 import { loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
 import { PERMISSIONS } from "./menu";
 import { DEMO_ROLES, demoCategories, demoFeedRows } from "./demo-data";
@@ -31,6 +33,9 @@ const state = {
   selectedItem: "",
   filter: "all" as Filter,
   message: "",
+  pendingFiles: [] as File[], // export files chosen but not loaded yet (demo only)
+  loadNote: "", // what the last load did, shown in the load card
+  loading: "", // what the load is doing right now, "" when idle (shows a spinner)
   me: null as Me | null, // set when signed in from the CRM (live mode)
   run: null as import("../modules/00-platform/store").RunInfo | null,
 };
@@ -118,7 +123,7 @@ function view(): View {
   return {
     workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
-    live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
+    pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
 }
 
@@ -190,6 +195,17 @@ document.addEventListener("click", (e) => {
     if (state.live()) return void reloadLive().then(draw);
     refresh();
   }
+  if (action === "load-files") {
+    // Rule: read the file box itself if the list of chosen files is empty, so the button works either way.
+    const box = document.getElementById("feedfile") as HTMLInputElement | null;
+    const chosen = state.pendingFiles.length ? state.pendingFiles : [...(box?.files ?? [])];
+    if (chosen.length === 0) {
+      state.loadNote = "Choose the files first, using the box above, then press Load.";
+      return draw();
+    }
+    void loadFiles(chosen);
+    return;
+  }
   if (action === "pickup-now") {
     state.message = "Running the pick-up...";
     void runPickupNow()
@@ -224,8 +240,59 @@ document.addEventListener("click", (e) => {
   draw();
 });
 
+// Rule: files chosen here are parsed in the browser. Nothing is sent anywhere or saved.
+// Each step is shown with a spinner, and the page is given a moment to paint between steps, so it never looks stuck.
+const paint = () => new Promise<void>((r) => setTimeout(r, 40));
+async function step(text: string): Promise<void> {
+  state.loading = text;
+  draw();
+  await paint();
+}
+async function loadFiles(files: File[]): Promise<void> {
+  state.loadNote = "";
+  try {
+    const parsed = [];
+    for (const [i, f] of files.entries()) {
+      await step(`Reading file ${i + 1} of ${files.length}: ${f.name}`);
+      parsed.push(toRecords(parseCsv(await f.text())).records);
+    }
+    await step("Matching items, plans and feedback flags...");
+    const r = adaptFiles(parsed);
+    if (r.rows.length === 0) {
+      state.loadNote = r.issues[0]?.message ?? "The files could not be read.";
+      return;
+    }
+    await step(`Making work orders from ${r.counts.lines} lines...`);
+    state.feedRows = r.rows;
+    state.workOrders = [];
+    state.review = [];
+    refresh();
+    state.message = "";
+    state.pendingFiles = [];
+    state.loadNote = `Loaded ${r.counts.lines} lines from your files, ${r.counts.feedbackLines} need feedback, ${state.workOrders.length} work orders made. They stayed in this browser.${r.issues.length ? ` ${r.issues.length} note${r.issues.length === 1 ? "" : "s"}, first: ${r.issues[0]?.message}` : ""}`;
+  } catch (e) {
+    state.loadNote = `The files could not be loaded: ${e instanceof Error ? e.message : "unknown error"}`;
+  } finally {
+    state.loading = "";
+    draw();
+  }
+}
+
+// Rule: if anything fails unexpectedly, say so in the load card instead of leaving the page looking stuck.
+(globalThis as { addEventListener?: (type: "error", h: (e: ErrorEvent) => void) => void }).addEventListener?.("error", (e) => {
+  if (!state.loading) return;
+  state.loading = "";
+  state.loadNote = `Something went wrong: ${e.message}`;
+  draw();
+});
+
 document.addEventListener("change", (e) => {
   const t = e.target as HTMLSelectElement;
+  if (t.id === "feedfile") {
+    state.pendingFiles = [...((t as unknown as HTMLInputElement).files ?? [])];
+    state.loadNote = "";
+    return draw();
+  }
   if (t.id === "role") {
     state.roleId = t.value;
     state.page = landingPage(permissions()) ?? state.page;

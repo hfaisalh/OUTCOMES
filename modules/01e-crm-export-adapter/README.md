@@ -26,6 +26,9 @@ Feed rows (`FeedRow`) and a list of issues, plus plain counts. Joins: item code 
 No centre column, no deleted or replaced markers, no line total. Replaced orders cannot be detected.
 
 ## How to run it on real files
+**In the app (recommended):** run `npm run dev`, open `/app/`, and on Work orders choose the three files in "Use your own CRM export files". They are read in the browser only, nothing is uploaded or saved. Any order works, and Recurring plans is optional. A ready feed file also works.
+
+**On the command line:**
 1. Put the three CSVs in `real-data/crm-exports/` as `donation-lines.csv`, `catalogue-items.csv`, `recurring-plans.csv`. That folder is ignored by git. Never commit real exports.
 2. `npm run feed:from-exports` writes `real-data/crm-feed.csv` and prints counts only.
 

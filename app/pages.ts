@@ -29,6 +29,9 @@ export interface View {
   canPickup: boolean; // the person may run a pick-up now
   run: RunInfo | null; // what the last pick-up did (live only)
   selectedItem: string; // item picked by tapping, waiting to be tapped onto a category ("" when none)
+  pendingFiles?: string[]; // names of the export files chosen but not loaded yet (demo only)
+  loadNote?: string; // what the last load of export files did, shown inside the load card (demo only)
+  loading?: string; // what the load is doing right now ("" when idle), shown with a spinner (demo only)
 }
 
 // Text that came from the CRM is never trusted as HTML.
@@ -55,6 +58,16 @@ function liveBar(v: View): string {
     : `<div class="note" style="background:var(--bad-bg)">The last pick-up (${when} UTC) did not finish: ${esc(r.error)} Earlier work orders are kept.</div>`;
 }
 
+// Demo only: load your own CRM export files. They are read in this browser and go nowhere else.
+// Two steps so it is clear what happens: choose the files, then press the button.
+const loadCard = (v: View): string => `<div class="card"><h2>Use your own CRM export files</h2>
+  <p class="muted">Choose the Donation lines, Catalogue items and (optionally) Recurring plans files from the CRM Export Centre, all at once, then press Load. They are read in this browser only. Nothing is uploaded or saved.</p>
+  <div class="filebox"><input type="file" id="feedfile" multiple accept=".csv,text/csv"${v.loading ? " disabled" : ""}></div>
+  ${v.pendingFiles?.length ? `<p>Chosen: ${v.pendingFiles.map(esc).join(", ")}</p>` : ""}
+  <div class="actions loadbox"><button class="primary" data-action="load-files"${v.loading ? " disabled" : ""}>Load the chosen files</button></div>
+  ${v.loading ? `<div class="progress"><span class="spinner"></span><span>${esc(v.loading)}</span></div>` : ""}
+  ${v.loadNote && !v.loading ? `<div class="note">${esc(v.loadNote)}</div>` : ""}</div>`;
+
 export function workOrdersPage(v: View): string {
   const reviewKeys = new Set(v.review.map((r) => r.key));
   const count = (s: string) => v.workOrders.filter((w) => w.status === s).length;
@@ -71,6 +84,7 @@ export function workOrdersPage(v: View): string {
       ${v.live ? (v.canPickup ? `<button data-action="pickup-now">Run pickup now</button>` : "") : `<button data-action="demo-new">Demo: a new paid line arrives in the CRM</button>
       <button data-action="demo-change">Demo: the CRM changes an amount</button>`}
     </div>
+    ${v.live ? "" : loadCard(v)}
     <div class="tabs">${tab("all", "All")}${tab("ready", "Ready")}${tab("unrouted", "Unrouted")}${tab("review", "To review")}</div>
     <div class="card">${
       rows.length === 0

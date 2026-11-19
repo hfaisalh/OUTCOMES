@@ -167,3 +167,44 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
 
   return { rows, issues, counts: { lines: rows.length, feedbackLines, recurringLines, recurringWithoutPlan } };
 }
+
+// ---- Picking the files ----
+
+export type ExportKind = "lines" | "catalogue" | "plans" | "feed" | "unknown";
+
+// Rule: a file is recognised by its column names, not its file name, so renamed downloads still work.
+export function classifyExport(rows: ExportRow[]): ExportKind {
+  const first = rows[0];
+  if (!first) return "unknown";
+  const has = (label: string) => hasColumn(rows, label);
+  if (has("line_id") && has("item_feedback")) return "feed"; // already in the feed shape
+  if (has("Line ID") && has("Item Code")) return "lines";
+  if (has("Item SKU") && has("Feedback type")) return "catalogue";
+  if (has("Plan ID") && has("Until cancelled")) return "plans";
+  return "unknown";
+}
+
+export interface AdaptFilesResult extends AdaptResult {
+  used: ExportKind[]; // which kinds of file were recognised, for the on-screen message
+}
+
+/**
+ * What the screen calls: any mix of the exported files, in any order. A ready feed file is used as it
+ * is. Otherwise Donation lines and Catalogue items are both needed, Recurring plans is optional.
+ */
+export function adaptFiles(files: ExportRow[][]): AdaptFilesResult {
+  const kinds = files.map(classifyExport);
+  const pickFile = (k: ExportKind) => files[kinds.indexOf(k)] ?? [];
+  const used = [...new Set(kinds.filter((k) => k !== "unknown"))];
+  const none = { lines: 0, feedbackLines: 0, recurringLines: 0, recurringWithoutPlan: 0 };
+
+  if (kinds.includes("feed")) {
+    const rows = pickFile("feed");
+    return { rows, issues: [], counts: { ...none, lines: rows.length, feedbackLines: rows.filter((r) => r["item_feedback"] === "2").length }, used };
+  }
+  const issues: AdaptIssue[] = [];
+  if (!kinds.includes("lines")) issues.push({ code: "missing_column", message: "No Donation lines file was recognised. It needs the columns Line ID and Item Code." });
+  if (!kinds.includes("catalogue")) issues.push({ code: "missing_column", message: "No Catalogue items file was recognised. It needs the columns Item SKU and Feedback type." });
+  if (issues.length > 0) return { rows: [], issues, counts: none, used };
+  return { ...adaptExports(pickFile("lines"), pickFile("catalogue"), pickFile("plans")), used };
+}

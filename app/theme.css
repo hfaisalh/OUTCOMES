@@ -64,3 +64,9 @@ h3.cat{margin:18px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:
 .fwgrid .chip{font-size:13px;padding:3px 8px}
 @media(max-width:800px){.unsorted{position:static}.unsorted .card{max-height:none}}
 .fwtitle{margin:12px 0 0;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+
+.loadbox{margin-top:14px}.filebox{margin-bottom:18px}
+.progress{display:flex;align-items:center;gap:10px;margin-top:14px;padding:10px 14px;background:var(--accent-bg);border-radius:10px}
+.spinner{width:18px;height:18px;border:3px solid var(--line);border-top-color:var(--accent,#2b5bd7);border-radius:50%;animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+button:disabled{opacity:.5;cursor:not-allowed}

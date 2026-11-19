@@ -82,3 +82,26 @@ describe("the shell", () => {
     expect(shell.innerHTML).toContain('value="student"');
   });
 });
+
+describe("loading the CRM export files", () => {
+  const sample = (n: string) => ({ name: n, text: async () => (await import("node:fs")).readFileSync(new URL(`../samples/${n}`, import.meta.url), "utf8") });
+
+  it("chooses the files, then loads them when the button is pressed", async () => {
+    click({ page: "work-orders" }, "data-page");
+    const files = [sample("export-donation-lines-sample.csv"), sample("export-catalogue-sample.csv"), sample("export-recurring-plans-sample.csv")];
+    fire("change", { target: { id: "feedfile", dataset: {}, files } });
+    expect(shell.innerHTML).toContain("Chosen: export-donation-lines-sample.csv");
+    click({ action: "load-files" }, "data-action");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(shell.innerHTML).toContain("Reading file 1 of 3");
+    await new Promise((r) => setTimeout(r, 300));
+    expect(shell.innerHTML).toContain("Loaded 7 lines from your files");
+    expect(shell.innerHTML).toContain("MWF-ORP-001".slice(0, 0) + "Orphan Sponsorship Monthly");
+  });
+
+  it("says what to do when Load is pressed with no files chosen", () => {
+    fire("change", { target: { id: "feedfile", dataset: {}, files: [] } });
+    click({ action: "load-files" }, "data-action");
+    expect(shell.innerHTML).toContain("Choose the files first");
+  });
+});
