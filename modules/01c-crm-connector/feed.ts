@@ -181,3 +181,27 @@ export function readFeed(rows: FeedRow[], config: FeedConfig = MWF_CRM_CONFIG): 
 
   return { lines, skipped, issues };
 }
+
+/**
+ * Rule: a big feed can raise the same problem thousands of times. People see it once, with a count.
+ * Groups the issues by kind and gives one plain sentence each, most common first.
+ */
+export function summariseIssues(issues: FeedIssue[]): string[] {
+  const groups = new Map<FeedIssueCode, { count: number; first: FeedIssue }>();
+  for (const i of issues) {
+    const g = groups.get(i.code);
+    if (g) g.count++;
+    else groups.set(i.code, { count: 1, first: i });
+  }
+  const sentence = (code: FeedIssueCode, count: number, first: FeedIssue): string => {
+    const n = count === 1 ? "1 line has" : `${count} lines have`;
+    switch (code) {
+      case "missing_transaction_ref": return `${n} no transaction_ref (order reference). The line id alone identifies ${count === 1 ? "it" : "them"}, so work orders are still made.`;
+      case "bad_date": return `${n} a paid_at that is missing or not a real date.`;
+      case "bad_amount": return `${n} an amount that is missing or not a number.`;
+      case "missing_line_id": return `${n} no line_id and ${count === 1 ? "was" : "were"} left out.`;
+      default: return count === 1 ? first.message : `${first.message} (${count} times)`;
+    }
+  };
+  return [...groups.entries()].sort((a, b) => b[1].count - a[1].count).map(([code, g]) => sentence(code, g.count, g.first));
+}

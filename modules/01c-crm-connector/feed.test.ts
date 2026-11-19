@@ -5,6 +5,7 @@
  * double as examples of what the feed should look like.
  */
 
+import { summariseIssues } from "./feed";
 import { describe, expect, it } from "vitest";
 import { currentFeedConfig, MWF_CRM_CONFIG, readFeed } from "./feed";
 import { firstRow, sampleRows } from "./sample";
@@ -87,5 +88,18 @@ describe("an older saved setup", () => {
   it("leaves any other saved setting alone", () => {
     const own = { triggerColumn: "fb", yesValues: ["required"], paidValues: ["paid"] };
     expect(currentFeedConfig(own)).toBe(own);
+  });
+});
+
+describe("summariseIssues", () => {
+  const issue = (code: "missing_transaction_ref" | "bad_date", row: number) => ({ row, lineId: `L${row}`, code, message: `m${row}` });
+  it("gives one sentence per kind with a count, most common first", () => {
+    const out = summariseIssues([issue("bad_date", 1), ...Array.from({ length: 5787 }, (_, i) => issue("missing_transaction_ref", i + 2))]);
+    expect(out).toHaveLength(2);
+    expect(out[0]).toContain("5787 lines have no transaction_ref");
+    expect(out[1]).toBe("1 line has a paid_at that is missing or not a real date.");
+  });
+  it("says nothing when there are no issues", () => {
+    expect(summariseIssues([])).toEqual([]);
   });
 });

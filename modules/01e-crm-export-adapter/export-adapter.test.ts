@@ -78,6 +78,15 @@ describe("adaptExports", () => {
     expect(noPlans.issues.some((i) => i.code === "recurring_count_unknown")).toBe(true);
   });
 
+  it("reports blank order references once, with a count, and still makes the rows", () => {
+    const lines = load("export-donation-lines-sample.csv").map((l, i) => (i < 3 ? { ...l, "Order Reference": "" } : l));
+    const r = adaptExports(lines, load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"));
+    expect(r.rows).toHaveLength(7);
+    const notes = r.issues.filter((i) => i.code === "missing_order_reference");
+    expect(notes).toHaveLength(1);
+    expect(notes[0]?.message).toContain("3 of 7 lines");
+  });
+
   it("falls back to the catalogue when the item has exactly one limited plan length", () => {
     const lines = load("export-donation-lines-sample.csv").map((l) => (l["Line ID"] === "9006" ? { ...l, "Item Code": "MWF-ORP-001" } : l));
     const r = adaptExports(lines, load("export-catalogue-sample.csv"), []);

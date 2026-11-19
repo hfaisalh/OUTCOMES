@@ -61,7 +61,7 @@ function liveBar(v: View): string {
   if (!r) return `<div class="note">No pick-up has run yet. Work orders appear after the first pick-up from the CRM.</div>`;
   const when = esc(r.at.replace("T", " ").slice(0, 16));
   return r.ok
-    ? `<p class="muted">Last pick-up ${when} UTC: read ${r.rows} lines, ${r.created} new work orders, ${r.rerouted} routed, ${r.skipped} left out${r.issues.length ? `, ${r.issues.length} notice(s): ${esc(r.issues.join(" "))}` : ""}.</p>`
+    ? `<p class="muted">Last pick-up ${when} UTC: read ${r.rows} lines, ${r.created} new work orders, ${r.rerouted} routed, ${r.skipped} left out${r.issues.length ? `, ${r.issues.length} notice${r.issues.length === 1 ? "" : "s"}: ${esc(r.issues.slice(0, 3).join(" "))}${r.issues.length > 3 ? ` and ${r.issues.length - 3} more (see Needs attention)` : ""}` : ""}.</p>`
     : `<div class="note" style="background:var(--bad-bg)">The last pick-up (${when} UTC) did not finish: ${esc(r.error)} Earlier work orders are kept.</div>`;
 }
 
