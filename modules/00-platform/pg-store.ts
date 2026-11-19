@@ -11,6 +11,7 @@
 
 import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js";
 import type { AuditRecord } from "../01f-batch-audit/audit.js";
+import type { TriageMark } from "../04-triage/triage.js";
 import { KEEP_AUDITS, type OrgConfig, type RunInfo, type Store } from "./store.js";
 
 export type Query = (sql: string, params: unknown[]) => Promise<Record<string, unknown>[]>;
@@ -53,6 +54,10 @@ export function pgStore(query: Query): Store {
     async addAudit(org, record) {
       await query("INSERT INTO audits (org, id, at, data) VALUES ($1, $2, $3, $4) ON CONFLICT (org, id) DO UPDATE SET data = EXCLUDED.data", [org, record.id, record.at, JSON.stringify(record)]);
       await query("DELETE FROM audits WHERE org = $1 AND id NOT IN (SELECT id FROM audits WHERE org = $1 ORDER BY at DESC LIMIT " + KEEP_AUDITS + ")", [org]);
+    },
+    getTriage: async (org) => (await one<Record<string, TriageMark>>("SELECT marks FROM triage WHERE org = $1", org, "marks")) ?? {},
+    async putTriage(org, marks) {
+      await query("INSERT INTO triage (org, marks) VALUES ($1, $2) ON CONFLICT (org) DO UPDATE SET marks = EXCLUDED.marks", [org, JSON.stringify(marks)]);
     },
     async listOrgs() {
       return (await query("SELECT org FROM org_config ORDER BY org", [])).map((r) => r["org"] as string);

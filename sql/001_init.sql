@@ -37,3 +37,8 @@ CREATE TABLE IF NOT EXISTS audits (
   data jsonb NOT NULL,
   PRIMARY KEY (org, id)
 );
+
+CREATE TABLE IF NOT EXISTS triage (
+  org   text PRIMARY KEY,
+  marks jsonb NOT NULL             -- what a person has reviewed in Needs attention (DECISIONS 45)
+);

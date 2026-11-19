@@ -15,6 +15,7 @@ import { MWF_CRM_CONFIG, type FeedConfig } from "../01c-crm-connector/feed.js";
 import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js";
 import type { Category, ItemMap } from "../02-project-rules/categories.js";
 import type { AuditRecord } from "../01f-batch-audit/audit.js";
+import type { TriageMark } from "../04-triage/triage.js";
 
 // How this organisation reads its CRM (DECISIONS 30). The token itself is never stored here, only the name of the setting that holds it.
 // "demo" is the pretend CRM of Module 1d, for testing with live input before a real CRM is connected.
@@ -57,6 +58,8 @@ export interface Store {
   putRun(org: string, run: RunInfo): Promise<void>;
   listAudits(org: string): Promise<AuditRecord[]>; // newest first, at most KEEP_AUDITS
   addAudit(org: string, record: AuditRecord): Promise<void>;
+  getTriage(org: string): Promise<Record<string, TriageMark>>; // what a person has reviewed in Needs attention
+  putTriage(org: string, marks: Record<string, TriageMark>): Promise<void>;
   listOrgs(): Promise<string[]>; // organisations that have a setup, for the scheduled pick-up
   useLaunchId(jti: string, expiresAtSeconds: number, nowSeconds: number): Promise<boolean>; // true the first time only
 }
@@ -75,6 +78,7 @@ export function memoryStore(): Store {
   const reviews = new Map<string, ReviewItem[]>();
   const runs = new Map<string, RunInfo>();
   const audits = new Map<string, AuditRecord[]>();
+  const triage = new Map<string, Record<string, TriageMark>>();
   const launchIds = new Map<string, number>();
   return {
     async getConfig(org) { return configs.get(org) ?? null; },
@@ -91,6 +95,8 @@ export function memoryStore(): Store {
     async putRun(org, run) { runs.set(org, structuredClone(run)); },
     async listAudits(org) { return structuredClone(audits.get(org) ?? []); },
     async addAudit(org, record) { audits.set(org, [structuredClone(record), ...(audits.get(org) ?? [])].slice(0, KEEP_AUDITS)); },
+    async getTriage(org) { return structuredClone(triage.get(org) ?? {}); },
+    async putTriage(org, marks) { triage.set(org, structuredClone(marks)); },
     async listOrgs() { return [...configs.keys()]; },
     async useLaunchId(jti, expiresAt, now) {
       for (const [id, exp] of launchIds) if (exp <= now) launchIds.delete(id); // forget old ones

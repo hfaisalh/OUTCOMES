@@ -17,6 +17,7 @@ import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
 import { isCurrentCategory } from "../02-project-rules/categories.js";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSION_SECONDS, verifyToken, signToken, clearSessionCookie, type Claims } from "./launch-token.js";
+import { applyDecision, buildAttention } from "../04-triage/triage.js";
 import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
 import { rerouteUnrouted, runPickup } from "./pickup.js";
 import { defaultConfig, type OrgConfig, type Store } from "./store.js";
@@ -191,7 +192,10 @@ export async function handleImport(req: HttpRequest, d: Deps): Promise<HttpRespo
   if (config.crm.kind === "none") await d.store.putConfig(org, { ...config, crm: { kind: "upload" } });
   else if (config.crm.kind !== "upload") return json(409, { error: "This organisation reads its CRM directly, so uploads are not accepted." });
   const source = String((req.body as { source?: unknown }).source ?? "Uploaded files").slice(0, 200);
-  const run = await runPickup(org, { store: d.store, reader: { readFeed: async () => packed.rows }, reporter: { send: async () => undefined }, nowIso: new Date(d.nowMs()).toISOString(), complete: true, source, newId: d.newId });
+  // Rule: notes are plain text from the page, limited in number and length, so they cannot fill the database.
+  const rawNotes = (req.body as { notes?: unknown }).notes;
+  const notes = Array.isArray(rawNotes) ? rawNotes.filter((n): n is string => typeof n === "string").slice(0, 20).map((n) => n.slice(0, 300)) : [];
+  const run = await runPickup(org, { store: d.store, reader: { readFeed: async () => packed.rows }, reporter: { send: async () => undefined }, nowIso: new Date(d.nowMs()).toISOString(), complete: true, source, newId: d.newId, notes });
   return json(200, { ok: run.ok, error: run.error, rows: run.rows, created: run.created, unchanged: run.unchanged, issues: run.issues.slice(0, 5) });
 }
 
@@ -200,4 +204,24 @@ export async function handleAudits(req: HttpRequest, d: Deps): Promise<HttpRespo
   const a = need(req, d, P.viewWorkOrders);
   if ("response" in a) return a.response;
   return json(200, { audits: await d.store.listAudits(a.claims.org) });
+}
+
+// GET /api/triage   The Needs attention list for this organisation.
+// POST /api/triage  { id, action: "review" | "reopen", note }  A person marks an entry reviewed, or reopens it. Needs permission to map items.
+export async function handleTriage(req: HttpRequest, d: Deps): Promise<HttpResponse> {
+  const write = req.method === "POST";
+  const a = need(req, d, write ? P.mapFrameworks : P.viewWorkOrders);
+  if ("response" in a) return a.response;
+  const org = a.claims.org;
+  if (write) {
+    const b = req.body as { id?: unknown; action?: unknown; note?: unknown } | undefined;
+    if (typeof b?.id !== "string" || b.id === "" || b.id.length > 200 || (b.action !== "review" && b.action !== "reopen")) return json(400, { error: "That decision is not understood." });
+    // Rule: an item waiting for a category is fixed by sorting it, never by marking it reviewed.
+    if (b.id.startsWith("unrouted:")) return json(400, { error: "Put the item in a category to clear this one." });
+    const marks = applyDecision(await d.store.getTriage(org), b.id, b.action, new Date(d.nowMs()).toISOString(), typeof b.note === "string" ? b.note : "");
+    await d.store.putTriage(org, marks);
+  }
+  const [workOrders, review, audits, run, marks] = await Promise.all([d.store.listWorkOrders(org), d.store.getReview(org), d.store.listAudits(org), d.store.getRun(org), d.store.getTriage(org)]);
+  const notes = [...(audits[0]?.notes ?? []), ...(run?.issues ?? [])];
+  return json(200, { items: buildAttention({ workOrders, review, notes, marks }) });
 }

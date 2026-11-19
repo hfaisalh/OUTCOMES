@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { PERMISSIONS as P } from "../../app/menu";
 import { rowsReader } from "../01c-crm-connector/reader";
 import { sampleRows } from "../01c-crm-connector/sample";
-import { handleAudits, handleConfig, handleDemoLogin, handleImport, handleOwnerLogin, handleLaunch, handleMe, handlePickup, handleWorkOrders, type Deps, type HttpRequest } from "./handlers";
+import { handleAudits, handleConfig, handleDemoLogin, handleImport, handleOwnerLogin, handleTriage, handleLaunch, handleMe, handlePickup, handleWorkOrders, type Deps, type HttpRequest } from "./handlers";
 import { signToken, verifyToken, type Claims } from "./launch-token";
 import { defaultConfig, memoryStore } from "./store";
 import { packFeed } from "../01e-crm-export-adapter/compact";
@@ -255,5 +255,43 @@ describe("import and batch audit", () => {
     await handleImport(as(mine, { method: "POST", body: feedOf([row("1")]) }), d);
     expect(((await handleAudits(as(other), d)).body as { audits: unknown[] }).audits).toHaveLength(0);
     expect(((await handleWorkOrders(as(other), d)).body as { workOrders: unknown[] }).workOrders).toHaveLength(0);
+  });
+});
+
+describe("needs attention", () => {
+  const row = (id: string, over: Record<string, string> = {}) => ({ line_id: id, transaction_ref: `T${id}`, status: "Paid", paid_at: "2026-06-10 10:00:00", supporter_id: "D1", supporter_name: "Sample Supporter", item_id: "I1", item_name: "Water Pump", item_feedback: "2", amount: "100", quantity: "1", ...over });
+  const up = (rows: Record<string, string>[], notes: string[] = []) => ({ ...packFeed(rows), source: "files", notes });
+  const items = async (cookie: string) => ((await handleTriage(as(cookie), d)).body as { items: { id: string; kind: string; status: string }[] }).items;
+
+  it("lists unrouted items, import problems and held changes, and lets a person mark one reviewed", async () => {
+    const cookie = await signIn(d);
+    await handleImport(as(cookie, { method: "POST", body: up([row("1"), row("2")], ["1 line has an unknown instalment count."]) }), d);
+    // Import problems describe the latest import, so the second one repeats the note.
+    await handleImport(as(cookie, { method: "POST", body: up([row("1", { amount: "90" }), row("2")], ["1 line has an unknown instalment count."]) }), d);
+    const list = await items(cookie);
+    expect(list.map((i) => i.kind).sort()).toEqual(["changed", "import", "unrouted"]);
+    const changed = list.find((i) => i.kind === "changed")!;
+    const after = (await handleTriage(as(cookie, { method: "POST", body: { id: changed.id, action: "review", note: "Checked" } }), d)).body as { items: { id: string; status: string }[] };
+    expect(after.items.find((i) => i.id === changed.id)?.status).toBe("reviewed");
+    expect(after.items.at(-1)?.id).toBe(changed.id); // reviewed entries go last
+    const reopened = (await handleTriage(as(cookie, { method: "POST", body: { id: changed.id, action: "reopen" } }), d)).body as { items: { id: string; status: string }[] };
+    expect(reopened.items.find((i) => i.id === changed.id)?.status).toBe("open");
+  });
+
+  it("refuses to mark an unrouted item reviewed, bad decisions, and a person without permission", async () => {
+    const cookie = await signIn(d);
+    await handleImport(as(cookie, { method: "POST", body: up([row("1")]) }), d);
+    expect((await handleTriage(as(cookie, { method: "POST", body: { id: "unrouted:I1", action: "review" } }), d)).status).toBe(400);
+    expect((await handleTriage(as(cookie, { method: "POST", body: { id: "x", action: "delete" } }), d)).status).toBe(400);
+    const viewer = await signIn(d, { perms: [P.access, P.viewWorkOrders] });
+    expect((await handleTriage(as(viewer), d)).status).toBe(200);
+    expect((await handleTriage(as(viewer, { method: "POST", body: { id: "x", action: "review" } }), d)).status).toBe(403);
+    expect((await handleTriage(req(), d)).status).toBe(401);
+  });
+
+  it("keeps organisations apart", async () => {
+    const mine = await signIn(d);
+    await handleImport(as(mine, { method: "POST", body: up([row("1")], ["a problem"]) }), d);
+    expect(await items(await signIn(d, { org: "other" }))).toEqual([]);
   });
 });

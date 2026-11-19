@@ -15,13 +15,14 @@ import { planWorkOrders, type ReviewItem, type WorkOrder } from "../modules/01c-
 import { acceptSuggestions, addCategory, assignItem, removeCategory, renameCategory, setKeywords, suggestAll, updateFramework, type Cycle, type Framework } from "../modules/02-project-rules/categories";
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
-import { importFeed, loadAudits, loadConfig, loadWorkOrders, fetchMe, ownerLogin, runPickupNow, saveConfig, type Me } from "./api";
+import { buildAttention, type AttentionItem } from "../modules/04-triage/triage";
+import { decideAttention, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, ownerLogin, runPickupNow, saveConfig, type Me } from "./api";
 import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { DEMO_ROLES, demoCategories, demoFeedRows } from "./demo-data";
 import { landingPage, visibleMenu, type PageId } from "./menu";
-import { auditPage, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
+import { attentionPage, auditPage, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
 
 const state = {
   live: (): boolean => state.me !== null,
@@ -38,6 +39,7 @@ const state = {
   pendingFiles: [] as File[], // export files chosen but not loaded yet (demo only)
   loadNote: "", // what the last load did, shown in the load card
   audits: [] as AuditRecord[], // batch audit history (live only)
+  attention: [] as AttentionItem[], // Needs attention, from the server when live (Module 4)
   loading: "", // what the load is doing right now, "" when idle (shows a spinner)
   me: null as Me | null, // set when signed in from the CRM (live mode)
   run: null as import("../modules/00-platform/store").RunInfo | null,
@@ -64,6 +66,7 @@ async function reloadLive(): Promise<void> {
     state.workOrders = r.workOrders;
     state.review = r.review;
     state.run = r.run;
+    state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
     state.message = "";
   } catch (e) {
@@ -127,7 +130,7 @@ function view(): View {
   return {
     workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
-    pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
+    pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
 }
 
@@ -150,6 +153,7 @@ function draw(): void {
   const body = menu.length === 0
     ? `<h1>No access</h1><p class="sub">Your CRM role has no OUTCOMES permission. In the live product you would not have been shown the OUTCOMES button.</p>`
     : state.page === "work-orders" ? workOrdersPage(v)
+    : state.page === "attention" ? attentionPage(v)
     : state.page === "audit" ? auditPage(v)
     : state.page === "dashboard" ? dashboardPage(v)
     : state.page === "categories" ? categoriesPage(v)
@@ -190,6 +194,15 @@ document.addEventListener("click", (e) => {
     state.itemCategories = r.map;
     afterConfig();
     return draw();
+  }
+  // Needs attention: mark an entry reviewed or reopen it. Saved on the server.
+  const attn = target.closest("[data-attn]") as HTMLElement | null;
+  if (attn && attn.dataset.attn) {
+    void decideAttention(attn.dataset.attn, attn.dataset.attnAction === "reopen" ? "reopen" : "review")
+      .then((r) => (state.attention = r.items))
+      .catch((e) => (state.message = e instanceof Error ? e.message : "That did not work."))
+      .then(draw);
+    return;
   }
   const el = target.closest("[data-page],[data-filter],[data-action]") as HTMLElement | null;
   if (!el) return;
@@ -280,12 +293,12 @@ async function loadFiles(files: File[]): Promise<void> {
     }
     if (state.live()) {
       await step(`Sending ${r.counts.lines} lines to your saved data and auditing them...`);
-      const res = await importFeed(packFeed(r.rows), files.map((f) => f.name).join(", "));
+      const res = await importFeed(packFeed(r.rows), files.map((f) => f.name).join(", "), r.issues.map((i) => i.message));
       if (!res.ok) throw new Error(res.error || "The import did not finish.");
       await reloadLive();
       state.pendingFiles = [];
       const a = state.audits[0];
-      state.loadNote = `Imported ${res.rows} lines: ${res.created} new work orders, ${res.unchanged} already saved.${a ? ` Audit: ${a.counts.changed + a.counts.moved} changed or moved, ${a.complete ? a.counts.removed : 0} no longer in the CRM.` : ""} Saved.`;
+      state.loadNote = `Imported ${res.rows} lines: ${res.created} new work orders, ${res.unchanged} already saved.${a ? ` Audit: ${a.counts.changed + a.counts.moved} changed or moved, ${a.complete ? a.counts.removed : 0} no longer in the CRM.` : ""} ${state.attention.filter((i) => i.status === "open").length} need attention. Saved.`;
       return;
     }
     await step(`Making work orders from ${r.counts.lines} lines...`);

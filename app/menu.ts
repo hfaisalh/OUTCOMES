@@ -21,7 +21,7 @@ export const PERMISSIONS = {
   settings: "outcomes.settings",
 } as const;
 
-export type PageId = "work-orders" | "audit" | "categories" | "dashboard" | "sources" | "settings";
+export type PageId = "work-orders" | "attention" | "audit" | "categories" | "dashboard" | "sources" | "settings";
 
 export interface MenuItem {
   id: PageId;
@@ -33,6 +33,7 @@ export interface MenuItem {
 
 export const MENU: MenuItem[] = [
   { id: "work-orders", label: "Work orders", icon: "☰", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
+  { id: "attention", label: "Needs attention", icon: "!", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "audit", label: "Audit", icon: "✓", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "dashboard", label: "Dashboard", icon: "◔", permission: PERMISSIONS.dashboards, section: "Work" },
   { id: "categories", label: "Categories", icon: "▦", permission: PERMISSIONS.mapFrameworks, section: "Set up" },

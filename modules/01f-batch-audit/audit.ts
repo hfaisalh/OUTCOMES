@@ -47,6 +47,7 @@ export interface AuditRecord {
   counts: AuditCounts;
   findings: Finding[]; // everything except added lines (changed, moved, removed...), plus up to ADDED_SAMPLE added keys
   addedSample: string[];
+  notes?: string[]; // problems found while converting the files (for example an unknown instalment count), shown in Needs attention
 }
 
 export const ADDED_SAMPLE = 25;
@@ -110,6 +111,6 @@ export function auditFeed(lines: FeedLine[], stored: WorkOrder[], options: { com
 }
 
 // Builds the record to save from an audit result.
-export function auditRecord(id: string, at: string, source: string, lines: number, complete: boolean, r: ReturnType<typeof auditFeed>): AuditRecord {
-  return { id, at, source, lines, coverage: r.coverage, complete, counts: r.counts, findings: r.findings, addedSample: r.addedSample };
+export function auditRecord(id: string, at: string, source: string, lines: number, complete: boolean, r: ReturnType<typeof auditFeed>, notes: string[] = []): AuditRecord {
+  return { id, at, source, lines, coverage: r.coverage, complete, counts: r.counts, findings: r.findings, addedSample: r.addedSample, ...(notes.length ? { notes } : {}) };
 }

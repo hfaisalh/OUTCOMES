@@ -11,6 +11,7 @@
 
 import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import type { RunInfo } from "../modules/00-platform/store";
+import type { AttentionItem } from "../modules/04-triage/triage";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import type { CompactFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { Category, ItemMap } from "../modules/02-project-rules/categories";
@@ -64,5 +65,7 @@ export const loadWorkOrders = () => call<WorkOrdersReply>("/api/work-orders");
 export const runPickupNow = () => call<{ ok?: boolean; error?: string; created?: number; rerouted?: number; skipped?: string }>("/api/pickup", { method: "POST" });
 
 export const loadAudits = () => call<{ audits: AuditRecord[] }>("/api/audits");
-export const importFeed = (feed: CompactFeed, source: string) => call<{ ok: boolean; error: string; rows: number; created: number; unchanged: number; issues: string[] }>("/api/import", { method: "POST", body: { ...feed, source } });
+export const importFeed = (feed: CompactFeed, source: string, notes: string[] = []) => call<{ ok: boolean; error: string; rows: number; created: number; unchanged: number; issues: string[] }>("/api/import", { method: "POST", body: { ...feed, source, notes } });
 export const ownerLogin = (passphrase: string) => call<{ ok: boolean }>("/api/owner-login", { method: "POST", body: { passphrase } });
+export const loadAttention = () => call<{ items: AttentionItem[] }>("/api/triage");
+export const decideAttention = (id: string, action: "review" | "reopen", note = "") => call<{ items: AttentionItem[] }>("/api/triage", { method: "POST", body: { id, action, note } });

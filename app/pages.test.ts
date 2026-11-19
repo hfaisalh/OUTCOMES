@@ -10,7 +10,7 @@ import { MWF_CRM_CONFIG, readFeed } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders } from "../modules/01c-crm-connector/work-orders";
 import { demoCategories, demoFeedRows } from "./demo-data";
 import { suggestAll } from "../modules/02-project-rules/categories";
-import { auditPage, esc, categoriesPage, workOrdersPage, type View } from "./pages";
+import { attentionPage, auditPage, esc, categoriesPage, workOrdersPage, type View } from "./pages";
 
 const lines = readFeed(demoFeedRows(), MWF_CRM_CONFIG).lines;
 const MAP = { I10: "sponsorship", I11: "transactional", I13: "sponsorship" }; // the item "I14" is left unsorted on purpose
@@ -85,5 +85,27 @@ describe("credit chain on the work orders page", () => {
     expect(html).toContain("Credited: agent: Sample Rep › group: &lt;b&gt;Branch&lt;/b&gt;");
     expect(html).toContain("No individual donor");
     expect(workOrdersPage(view({ workOrders: [first] }))).not.toContain("Credited:");
+  });
+});
+
+describe("attentionPage", () => {
+  const items = [
+    { id: "unrouted:I1", kind: "unrouted" as const, title: "Water Pump is not in a category", detail: "2 work orders wait.", itemId: "I1", itemName: "Water Pump", count: 2, status: "open" as const },
+    { id: "import:x", kind: "import" as const, title: "Import problem", detail: "A <b>bad</b> date.", status: "open" as const },
+    { id: "changed:T:1", kind: "changed" as const, title: "Changed in the CRM: T:1", detail: "Amount changed.", status: "reviewed" as const, note: "Checked", reviewedAt: "t" },
+  ];
+
+  it("shows open entries first, a category picker for an unrouted item, and review buttons when signed in", () => {
+    const html = attentionPage(view({ live: true, attention: items }));
+    expect(html).toContain('data-assign="I1"');
+    expect(html).toContain('data-attn="import:x" data-attn-action="review"');
+    expect(html).toContain('data-attn="changed:T:1" data-attn-action="reopen"');
+    expect(html).toContain("Note: Checked");
+    expect(html).not.toContain("<b>bad</b>");
+    expect(html.indexOf("Import problem")).toBeLessThan(html.indexOf("Changed in the CRM"));
+  });
+  it("says when nothing needs attention, and offers no review buttons in demo mode", () => {
+    expect(attentionPage(view({ attention: [] }))).toContain("Nothing needs attention.");
+    expect(attentionPage(view({ live: false, attention: items }))).not.toContain("data-attn=");
   });
 });

@@ -8,6 +8,7 @@
  * Depends on: the connector types, menu.ts and demo-data.ts (categories list).
  */
 
+import type { AttentionItem } from "../modules/04-triage/triage";
 import { noIndividualDonor } from "../modules/01c-crm-connector/credits";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import type { MWF_CRM_CONFIG } from "../modules/01c-crm-connector/feed";
@@ -33,6 +34,7 @@ export interface View {
   selectedItem: string; // item picked by tapping, waiting to be tapped onto a category ("" when none)
   pendingFiles?: string[]; // names of the export files chosen but not loaded yet (demo only)
   loadNote?: string; // what the last load of export files did, shown inside the load card (demo only)
+  attention?: AttentionItem[]; // everything that needs a person, open first (Module 4)
   audits?: AuditRecord[]; // batch audit history, newest first (live only)
   upload?: boolean; // the organisation takes uploaded export files, so the load card is shown even when signed in
   loading?: string; // what the load is doing right now ("" when idle), shown with a spinner (demo only)
@@ -203,4 +205,25 @@ export function auditPage(v: View): string {
     ${latest ? `<div class="metrics">${metric(latest.counts.added, "New lines")}${metric(latest.counts.changed + latest.counts.moved, "Changed or moved", latest.counts.changed + latest.counts.moved ? "warn" : "")}${metric(latest.counts.no_longer_needs_feedback, "No longer need feedback")}${metric(latest.complete ? latest.counts.removed : 0, "No longer in the CRM", latest.counts.removed ? "warn" : "")}</div>` : ""}
     <div class="card"><h2>Imports</h2>${audits.length === 0 ? `<div class="empty">No imports yet.</div>` : `<table><thead><tr><th>When</th><th>Source</th><th>Lines</th><th>Dates covered</th><th>New</th><th>Changed</th><th>Moved</th><th>Not flagged</th><th>Removed</th></tr></thead><tbody>${audits.map(row).join("")}</tbody></table>`}</div>
     ${latest && latest.findings.length ? `<div class="card"><h2>Latest import: to look at</h2><p class="muted">Work orders already made were kept. A person decides what to do with each.</p><table><tbody>${latest.findings.slice(0, 100).map((f) => `<tr><td>${esc(f.key)}</td><td><span class="pill review">${esc(kindWord[f.kind] ?? f.kind)}</span></td><td>${esc(f.message)}</td></tr>`).join("")}</tbody></table>${latest.findings.length > 100 ? `<p class="muted">Showing 100 of ${latest.findings.length}.</p>` : ""}</div>` : ""}`;
+}
+
+// Needs attention (Module 4): everything that needs a person, in one list. Unrouted items are fixed by choosing a category here.
+export function attentionPage(v: View): string {
+  const items = v.attention ?? [];
+  const open = items.filter((i) => i.status === "open");
+  const done = items.filter((i) => i.status === "reviewed");
+  const card = (i: AttentionItem) => `<tr><td><b>${esc(i.title)}</b><div class="muted">${esc(i.detail)}</div>${i.note ? `<div class="muted">Note: ${esc(i.note)}</div>` : ""}</td>
+    <td style="text-align:right;white-space:nowrap">${
+      i.kind === "unrouted" && i.itemId !== undefined ? picker(v.categories, i.itemId, "")
+      : !v.live ? ""
+      : i.status === "open" ? `<button data-attn="${esc(i.id)}" data-attn-action="review">Mark reviewed</button>`
+      : `<button data-attn="${esc(i.id)}" data-attn-action="reopen">Reopen</button>`
+    }</td></tr>`;
+  return `
+    <h1>Needs attention</h1>
+    <p class="sub">Everything that needs a person, in one place. Nothing here is changed automatically. An item waiting for a category clears itself when you choose one.</p>
+    ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
+    <div class="metrics">${metric(open.length, "Open", open.length ? "warn" : "ok")}${metric(open.filter((i) => i.kind === "unrouted").length, "Items to sort")}${metric(done.length, "Reviewed")}</div>
+    <div class="card"><h2>Open</h2>${open.length === 0 ? `<div class="empty">Nothing needs attention.</div>` : `<table><tbody>${open.map(card).join("")}</tbody></table>`}</div>
+    ${done.length ? `<div class="card"><h2>Reviewed</h2><table><tbody>${done.map(card).join("")}</tbody></table></div>` : ""}`;
 }
