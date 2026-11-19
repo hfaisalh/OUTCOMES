@@ -27,6 +27,6 @@ writeFileSync(new URL("crm-feed.csv", dir), csv);
 
 console.log(`Wrote real-data/crm-feed.csv: ${result.counts.lines} lines.`);
 console.log(`Lines whose item needs feedback: ${result.counts.feedbackLines}`);
-console.log(`Recurring lines: ${result.counts.recurringLines} (${result.counts.recurringWithoutPlan} with no plan row, shown as Indefinitely)`);
+console.log(`Recurring lines: ${result.counts.recurringLines} (${result.counts.recurringWithoutPlan} with no plan row, ${result.counts.recurringCountUnknown} limited with an unknown count)`);
 console.log(`Issues: ${result.issues.length}`);
 for (const i of result.issues.slice(0, 20)) console.log(`  - ${i.message}`);

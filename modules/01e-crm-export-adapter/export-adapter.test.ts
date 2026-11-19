@@ -68,6 +68,16 @@ describe("adaptExports", () => {
     expect(adapt().counts.recurringWithoutPlan).toBe(1); // line 9006, plan 509 is not in the plans file
   });
 
+  it("with no plan row, a Monthly line is until cancelled, and a limited line takes its count from Frequency", () => {
+    const lines = load("export-donation-lines-sample.csv");
+    const noPlans = adaptExports(lines, load("export-catalogue-sample.csv"), []);
+    expect(noPlans.counts.recurringCountUnknown).toBe(2); // 9005 and 9006 are Period Recurring, and the sample has no Frequency column
+    const withFrequency = adaptExports(lines.map((l) => (l["Line ID"] === "9006" ? { ...l, Frequency: "6" } : l)), load("export-catalogue-sample.csv"), []);
+    expect(withFrequency.rows.find((r) => r["line_id"] === "9006")!["instalment_count"]).toBe("6");
+    expect(withFrequency.counts.recurringCountUnknown).toBe(1);
+    expect(noPlans.issues.some((i) => i.code === "recurring_count_unknown")).toBe(true);
+  });
+
   it("raises one issue when the catalogue disagrees about an item, and keeps the report", () => {
     const cat = [...load("export-catalogue-sample.csv"), { "Item SKU": "MWF-GEN-001", "Feedback type": "Feedback report" }];
     const result = adaptExports(load("export-donation-lines-sample.csv"), cat, load("export-recurring-plans-sample.csv"));

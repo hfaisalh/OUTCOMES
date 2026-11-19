@@ -19,7 +19,7 @@ import type { FeedRow } from "../01c-crm-connector/feed.js";
 
 export type ExportRow = Record<string, string>;
 
-export type AdaptIssueCode = "missing_column" | "item_not_in_catalogue" | "catalogue_conflict" | "bad_date";
+export type AdaptIssueCode = "missing_column" | "item_not_in_catalogue" | "catalogue_conflict" | "bad_date" | "recurring_count_unknown";
 
 export interface AdaptIssue {
   code: AdaptIssueCode;
@@ -30,7 +30,7 @@ export interface AdaptResult {
   rows: FeedRow[];
   issues: AdaptIssue[];
   // Plain counts for a summary, no donor data.
-  counts: { lines: number; feedbackLines: number; recurringLines: number; recurringWithoutPlan: number };
+  counts: { lines: number; feedbackLines: number; recurringLines: number; recurringWithoutPlan: number; recurringCountUnknown: number };
 }
 
 // Columns the Donation lines export must have. Names are the Export Centre's own labels.
@@ -76,8 +76,11 @@ const isYes = (text: string) => ["yes", "y", "1", "true"].includes(norm(text));
  *   missed. An item code not in the catalogue is not flagged for feedback and is reported once.
  * - A line is recurring when it has a subscription id (not blank or 0) or its Period is not "One-time".
  * - The instalment count comes from the plan (Plan ID = the line's Subscription ID): empty when the
- *   plan runs until cancelled, the planned number otherwise. No plan row gives empty, which the feed
- *   reader shows as "Indefinitely" (DECISIONS 18, 41).
+ *   plan runs until cancelled, the planned number otherwise (DECISIONS 18, 41).
+ * - With no plan row, the line itself says: Period "Monthly" is a plan until cancelled (the CRM stores
+ *   frequency 1), so empty is right. Period "Recurring" is a limited plan, whose count is the line's
+ *   Frequency when that column is in the export. Without it the count is unknown, shown as
+ *   "Indefinitely" and counted, so it can be fixed by adding Frequency to the export.
  * - The export holds paid lines and has no deleted or replaced markers, so those stay empty. This is
  *   a known limit of the export (replaced orders cannot be detected).
  */
@@ -88,7 +91,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
     if (!hasColumn(lines, label)) issues.push({ code: "missing_column", message: `The Donation lines file has no "${label}" column.` });
   for (const label of REQUIRED_CATALOGUE_COLUMNS)
     if (!hasColumn(catalogue, label)) issues.push({ code: "missing_column", message: `The Catalogue items file has no "${label}" column.` });
-  if (issues.length > 0) return { rows: [], issues, counts: { lines: 0, feedbackLines: 0, recurringLines: 0, recurringWithoutPlan: 0 } };
+  if (issues.length > 0) return { rows: [], issues, counts: { lines: 0, feedbackLines: 0, recurringLines: 0, recurringWithoutPlan: 0, recurringCountUnknown: 0 } };
 
   // Section: the trigger per item code.
   const trigger = new Map<string, "1" | "2">();
@@ -115,6 +118,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
   let feedbackLines = 0;
   let recurringLines = 0;
   let recurringWithoutPlan = 0;
+  let recurringCountUnknown = 0;
   let badDates = 0;
 
   for (const r of lines) {
@@ -126,7 +130,14 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
 
     const plan = subscriptionId !== "" ? planById.get(subscriptionId) : undefined;
     if (recurring && !plan) recurringWithoutPlan++;
-    const instalmentCount = !recurring || !plan || plan.untilCancelled ? "" : plan.planned;
+    // Rule: with no plan row, read the line itself (see above). A limited plan whose count is unknown is counted.
+    const lineFrequency = Number(pick(r, "Frequency"));
+    let instalmentCount = "";
+    if (recurring && plan && !plan.untilCancelled) instalmentCount = plan.planned;
+    else if (recurring && !plan) {
+      if (Number.isInteger(lineFrequency) && lineFrequency > 1) instalmentCount = String(lineFrequency);
+      else if (period === "recurring") recurringCountUnknown++;
+    }
 
     const feedback = trigger.get(code) ?? "";
     if (code !== "" && !trigger.has(code)) missingItems.add(code);
@@ -163,9 +174,10 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
   }
 
   for (const code of missingItems) issues.push({ code: "item_not_in_catalogue", message: `Item code ${code} is not in the Catalogue items file, so it is not flagged for feedback.` });
+  if (recurringCountUnknown > 0) issues.push({ code: "recurring_count_unknown", message: `${recurringCountUnknown} limited recurring line(s) have no plan row and no Frequency column, so their instalment count is unknown (shown as Indefinitely). Add the Frequency field to the Donation lines export.` });
   if (badDates > 0) issues.push({ code: "bad_date", message: `${badDates} line(s) have a Payment Date that is not a real date.` });
 
-  return { rows, issues, counts: { lines: rows.length, feedbackLines, recurringLines, recurringWithoutPlan } };
+  return { rows, issues, counts: { lines: rows.length, feedbackLines, recurringLines, recurringWithoutPlan, recurringCountUnknown } };
 }
 
 // ---- Picking the files ----
@@ -196,7 +208,7 @@ export function adaptFiles(files: ExportRow[][]): AdaptFilesResult {
   const kinds = files.map(classifyExport);
   const pickFile = (k: ExportKind) => files[kinds.indexOf(k)] ?? [];
   const used = [...new Set(kinds.filter((k) => k !== "unknown"))];
-  const none = { lines: 0, feedbackLines: 0, recurringLines: 0, recurringWithoutPlan: 0 };
+  const none = { lines: 0, feedbackLines: 0, recurringLines: 0, recurringWithoutPlan: 0, recurringCountUnknown: 0 };
 
   if (kinds.includes("feed")) {
     const rows = pickFile("feed");
