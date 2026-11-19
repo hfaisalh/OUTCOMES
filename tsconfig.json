@@ -9,5 +9,5 @@
     "noEmit": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["modules/**/*.ts", "app/**/*.ts"]
+  "include": ["modules/**/*.ts", "app/**/*.ts", "api/**/*.ts"]
 }

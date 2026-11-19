@@ -17,7 +17,7 @@ const MAP = { I10: "orphan-sponsorship", I11: "water", I13: "hifz" }; // the ite
 const frameworks = demoFrameworks();
 const plan = planWorkOrders(lines, [], { frameworkByItem: MAP, usesFrameworks: true });
 const flagged = [{ id: "I10", name: "Orphan Sponsorship Monthly", count: 1 }, { id: "I14", name: "Animal Sacrifice", count: 1 }];
-const view = (over: Partial<View> = {}): View => ({ workOrders: plan.created, review: [], itemFrameworks: MAP, flaggedItems: flagged, filter: "all", message: "", config: MWF_CRM_CONFIG, frameworks, categories: demoCategories(), suggestions: suggestAll(flagged, MAP, frameworks), selectedItem: "", ...over });
+const view = (over: Partial<View> = {}): View => ({ workOrders: plan.created, review: [], itemFrameworks: MAP, flaggedItems: flagged, filter: "all", message: "", config: MWF_CRM_CONFIG, frameworks, categories: demoCategories(), suggestions: suggestAll(flagged, MAP, frameworks), selectedItem: "", live: false, canPickup: false, run: null, ...over });
 
 describe("workOrdersPage", () => {
   it("lists the four flagged lines and shows the unrouted one with a picker", () => {

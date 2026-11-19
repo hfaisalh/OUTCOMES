@@ -10,6 +10,7 @@
 
 import type { MWF_CRM_CONFIG } from "../modules/01c-crm-connector/feed";
 import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-orders";
+import type { RunInfo } from "../modules/00-platform/store";
 import { CYCLE_LABELS, groupFrameworks, groupItems, missingRules, type Category, type Cycle, type Framework, type ItemInfo } from "../modules/02-project-rules/frameworks";
 
 export type Filter = "all" | "ready" | "unrouted" | "review";
@@ -25,6 +26,9 @@ export interface View {
   frameworks: Framework[];
   categories: Category[];
   suggestions: Record<string, string>; // item id to suggested framework id, for items not yet sorted
+  live: boolean; // true when signed in from the CRM, false for the demo
+  canPickup: boolean; // the person may run a pick-up now
+  run: RunInfo | null; // what the last pick-up did (live only)
   selectedItem: string; // item picked by tapping, waiting to be tapped onto a framework ("" when none)
 }
 
@@ -42,6 +46,16 @@ const metric = (value: number, label: string, cls = "") => `<div class="metric $
 // Rule shown to staff: the instalment as "2 of 12" or "2 of Indefinitely". Blank for a one-off.
 const instalment = (w: WorkOrder) => (w.instalmentNumber === "" ? `<span class="muted">One-off</span>` : `${esc(w.instalmentNumber)} of ${esc(w.instalmentCount)}`);
 
+// The last pick-up, in plain words (live only).
+function liveBar(v: View): string {
+  const r = v.run;
+  if (!r) return `<div class="note">No pick-up has run yet. Work orders appear after the first pick-up from the CRM.</div>`;
+  const when = esc(r.at.replace("T", " ").slice(0, 16));
+  return r.ok
+    ? `<p class="muted">Last pick-up ${when} UTC: read ${r.rows} lines, ${r.created} new work orders, ${r.rerouted} routed, ${r.skipped} left out${r.issues.length ? `, ${r.issues.length} notice(s): ${esc(r.issues.join(" "))}` : ""}.</p>`
+    : `<div class="note" style="background:var(--bad-bg)">The last pick-up (${when} UTC) did not finish: ${esc(r.error)} Earlier work orders are kept.</div>`;
+}
+
 export function workOrdersPage(v: View): string {
   const reviewKeys = new Set(v.review.map((r) => r.key));
   const count = (s: string) => v.workOrders.filter((w) => w.status === s).length;
@@ -52,10 +66,11 @@ export function workOrdersPage(v: View): string {
     <p class="sub">Arrive from the CRM feed. Only items the CRM marks as needing feedback appear here, so nothing is imported by hand.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics">${metric(v.workOrders.length, "Work orders")}${metric(count("ready"), "Ready", "ok")}${metric(count("unrouted"), "Unrouted", count("unrouted") ? "warn" : "")}${metric(v.review.length, "To review", v.review.length ? "warn" : "")}</div>
+    ${v.live ? liveBar(v) : ""}
     <div class="actions">
-      <button class="primary" data-action="refresh">Refresh from CRM</button>
-      <button data-action="demo-new">Demo: a new paid line arrives in the CRM</button>
-      <button data-action="demo-change">Demo: the CRM changes an amount</button>
+      <button class="primary" data-action="refresh">${v.live ? "Reload" : "Refresh from CRM"}</button>
+      ${v.live ? (v.canPickup ? `<button data-action="pickup-now">Run pickup now</button>` : "") : `<button data-action="demo-new">Demo: a new paid line arrives in the CRM</button>
+      <button data-action="demo-change">Demo: the CRM changes an amount</button>`}
     </div>
     <div class="tabs">${tab("all", "All")}${tab("ready", "Ready")}${tab("unrouted", "Unrouted")}${tab("review", "To review")}</div>
     <div class="card">${

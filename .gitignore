@@ -10,3 +10,4 @@ coverage/
 real-data/
 .vercel
 .vercel/
+.secrets/

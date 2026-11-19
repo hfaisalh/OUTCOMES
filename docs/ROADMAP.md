@@ -5,6 +5,7 @@ One module at a time. Each ends with: working screen, tests, module README, deci
 | # | Module | Status | What it does |
 |---|---|---|---|
 | 1 | **Data sources and field mapping** | Rebuilt (generic), awaiting sign-off | Generic model with source presets (Salesforce is one). Load a file or Google Sheet. Drag columns onto fields, drop the rest, add manual or calculated fields. Three line layouts. Always the 8 classification fields. Auto-match, template, value mapping, issue list, saved setup. See `modules/01-data-mapping/README.md`. |
+| 0b | **Platform (sign-in, storage, pick-up)** | Built, needs the database | Launch token from the CRM, per-organisation storage, scheduled pick-up, live mode in the shell. See `modules/00-platform/README.md`, `docs/LAUNCH-SPEC.md`, `docs/SERVER-SETUP.md`. |
 | 0 | **Application shell** | Started | CRM-style shell in `app/`: side menu from CRM permissions, top bar, work orders home screen on the sample feed, dashboard, frameworks, settings. Grown with each module (DECISIONS 32 to 34). |
 | 1b | **Classification master lists** | After 1 | Master lists for the 8 fields with common fields. Drag raw file values onto master values (saved, reused). Dependency rules as warnings. |
 | 1c | **CRM connector and work orders** | Built (logic), awaiting sign-off | Read the CRM feed (database view or API), create work orders from lines whose item needs feedback, keep unmapped items unrouted, report status back to the CRM. See `modules/01c-crm-connector/README.md` and `docs/CRM-FEED-SPEC.md` (DECISIONS 28 to 31). |
