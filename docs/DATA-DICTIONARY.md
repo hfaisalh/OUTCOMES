@@ -124,3 +124,14 @@ A work order is one instruction token: deliver this line and report back to this
 | `supporterId`, `supporterName` | The CRM id and a display name only |
 
 The feed columns are listed in `docs/CRM-FEED-SPEC.md`.
+
+## Frameworks (Module 2)
+
+| Field | Meaning |
+|---|---|
+| `id`, `name` | Stable id (made from the name) and the name staff see |
+| `keywords` | Words that suggest this framework when found in a CRM item's name |
+| `rules.unit` | What one delivery is, for example child, pump, animal |
+| `rules.cycle` | How often the donor hears back: monthly, quarterly, half_yearly, annual, on_delivery |
+| `rules.reportType` | The report the donor receives |
+| item map | `{ CRM item id: framework id }`. An item not in the map is unrouted |

@@ -10,7 +10,7 @@
 
 import type { MWF_CRM_CONFIG } from "../modules/01c-crm-connector/feed";
 import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-orders";
-import { FRAMEWORKS } from "./demo-data";
+import { CYCLE_LABELS, groupItems, missingRules, type Cycle, type Framework, type ItemInfo } from "../modules/02-project-rules/frameworks";
 
 export type Filter = "all" | "ready" | "unrouted" | "review";
 
@@ -22,16 +22,19 @@ export interface View {
   filter: Filter;
   message: string;
   config: typeof MWF_CRM_CONFIG;
+  frameworks: Framework[];
+  suggestions: Record<string, string>; // item id to suggested framework id, for items not yet sorted
+  selectedItem: string; // item picked by tapping, waiting to be tapped onto a framework ("" when none)
 }
 
 // Text that came from the CRM is never trusted as HTML.
 export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);
 
-const frameworkName = (id: string) => FRAMEWORKS.find((f) => f.id === id)?.name ?? (id === "default" ? "Default journey" : id);
+const frameworkName = (frameworks: Framework[], id: string) => frameworks.find((f) => f.id === id)?.name ?? (id === "default" ? "Default journey" : id);
 
 // A framework picker. `item` is the CRM item id that the choice applies to.
-const picker = (item: string, current: string) =>
-  `<select data-assign="${esc(item)}"><option value="">Choose framework...</option>${FRAMEWORKS.map((f) => `<option value="${f.id}"${f.id === current ? " selected" : ""}>${esc(f.name)}</option>`).join("")}</select>`;
+const picker = (frameworks: Framework[], item: string, current: string) =>
+  `<select data-assign="${esc(item)}"><option value="">Choose framework...</option>${frameworks.map((f) => `<option value="${f.id}"${f.id === current ? " selected" : ""}>${esc(f.name)}</option>`).join("")}</select>`;
 
 const metric = (value: number, label: string, cls = "") => `<div class="metric ${cls}"><b>${value}</b><span>${label}</span></div>`;
 
@@ -62,7 +65,7 @@ export function workOrdersPage(v: View): string {
               (w) => `<tr><td>${esc(w.transactionRef)}<div class="muted">${esc(w.paidDate)}</div></td>
               <td>${esc(w.supporterName)}<div class="muted">${esc(w.supporterId)}${w.group ? " · " + esc(w.group) : ""}</div></td>
               <td>${esc(w.itemName)}</td><td>${instalment(w)}</td>
-              <td>${w.status === "unrouted" ? picker(w.itemId, "") : esc(frameworkName(w.frameworkId))}</td>
+              <td>${w.status === "unrouted" ? picker(v.frameworks, w.itemId, "") : esc(frameworkName(v.frameworks, w.frameworkId))}</td>
               <td><span class="pill ${w.status === "unrouted" ? "unrouted" : "ready"}">${w.status === "unrouted" ? "Unrouted" : "Ready"}</span>${reviewKeys.has(w.key) ? ` <span class="pill review">Review</span>` : ""}</td></tr>`,
             )
             .join("")}</tbody></table>`
@@ -81,23 +84,42 @@ export function dashboardPage(v: View): string {
   return `
     <h1>Dashboard</h1><p class="sub">A first view of the work. More dashboards (coverage, compliance, outstanding feedback) come with the later modules.</p>
     <div class="card"><h2>Work orders by framework</h2>${[...byFw.entries()]
-      .map(([id, n]) => `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between"><span>${id === "" ? "Unrouted" : esc(frameworkName(id))}</span><b>${n}</b></div><div class="bar"><i style="width:${Math.round((n / total) * 100)}%"></i></div></div>`)
+      .map(([id, n]) => `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between"><span>${id === "" ? "Unrouted" : esc(frameworkName(v.frameworks, id))}</span><b>${n}</b></div><div class="bar"><i style="width:${Math.round((n / total) * 100)}%"></i></div></div>`)
       .join("") || `<div class="empty">No work orders yet.</div>`}</div>`;
 }
 
+// One item as a draggable chip. A suggested framework is shown as a hint, never applied on its own.
+const chip = (i: ItemInfo, v: View, hint = "") =>
+  `<span class="chip${v.selectedItem === i.id ? " sel" : ""}" draggable="true" data-item="${esc(i.id)}">${esc(i.name)} <small>${esc(i.id)}</small>${hint ? ` <em class="sug">suggested: ${esc(hint)}</em>` : ""}</span>`;
+
+const field = (label: string, control: string) => `<label class="fld"><span>${label}</span>${control}</label>`;
+
 export function frameworksPage(v: View): string {
+  const items: ItemInfo[] = v.flaggedItems.map((i) => ({ id: i.id, name: i.name }));
+  const { unsorted, byFramework } = groupItems(items, v.itemFrameworks, v.frameworks);
+  const nSuggest = Object.keys(v.suggestions).length;
+  const cards = v.frameworks
+    .map((f) => {
+      const missing = missingRules(f);
+      return `<div class="card fw"><div class="fwhead"><input class="title" data-rename="${f.id}" value="${esc(f.name)}" /><button data-remove="${f.id}" title="Remove this framework (its items go back to unsorted)">Remove</button></div>
+        <div class="zone" data-drop="${f.id}">${(byFramework[f.id] ?? []).map((i) => chip(i, v)).join("") || `<span class="muted">Drop items here</span>`}</div>
+        <details><summary>Feedback rules${missing.length ? ` <span class="pill unrouted">to fill in</span>` : ""}</summary>
+          ${field("What one delivery is (unit)", `<input data-rule="unit" data-fw="${f.id}" value="${esc(f.rules.unit)}" placeholder="for example child, pump, animal" />`)}
+          ${field("How often the donor hears back", `<select data-rule="cycle" data-fw="${f.id}">${(Object.keys(CYCLE_LABELS) as Cycle[]).map((c) => `<option value="${c}"${c === f.rules.cycle ? " selected" : ""}>${CYCLE_LABELS[c]}</option>`).join("")}</select>`)}
+          ${field("Report the donor receives", `<input data-rule="reportType" data-fw="${f.id}" value="${esc(f.rules.reportType)}" placeholder="for example Quarterly update" />`)}
+          ${field("Words that suggest this framework", `<input data-keywords="${f.id}" value="${esc(f.keywords.join(", "))}" />`)}
+          <p class="muted">Duration and instalments are not set here. They come from the CRM item.</p></details></div>`;
+    })
+    .join("");
   return `
     <h1>Frameworks</h1>
-    <p class="sub">The CRM says which items need feedback. Here you say which framework each item belongs to (frameworks are kept in OUTCOMES, not in the CRM).</p>
-    <div class="card"><h2>Items that need feedback</h2>${
-      v.flaggedItems.length === 0
-        ? `<div class="empty">No flagged items in the CRM feed.</div>`
-        : `<table><thead><tr><th>Item</th><th>CRM item id</th><th>Work orders</th><th>Framework</th></tr></thead><tbody>${v.flaggedItems
-            .map((i) => `<tr><td>${esc(i.name)}</td><td class="muted">${esc(i.id)}</td><td>${i.count}</td><td>${picker(i.id, v.itemFrameworks[i.id] ?? "")}</td></tr>`)
-            .join("")}</tbody></table>`
-    }</div>
-    <div class="card"><h2>Frameworks</h2><table><tbody>${FRAMEWORKS.map((f) => `<tr><td>${esc(f.name)}</td><td class="muted">${Object.values(v.itemFrameworks).filter((x) => x === f.id).length} item(s)</td></tr>`).join("")}</tbody></table>
-    <p class="muted">Stages, rules and report types for each framework arrive with Module 2 (Project Rules) and Module 5 (Frameworks).</p></div>`;
+    <p class="sub">The CRM says which items need feedback. Drag each item into the framework it belongs to (or tap an item, then tap a framework). Frameworks are kept in OUTCOMES, not in the CRM.</p>
+    ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
+    <div class="actions"><button class="primary" data-action="accept-suggestions"${nSuggest ? "" : " disabled"}>Accept ${nSuggest} suggestion${nSuggest === 1 ? "" : "s"}</button>
+      <input id="newfw" placeholder="New framework name" /><button data-action="add-framework">Add framework</button></div>
+    <div class="board"><div><div class="card"><h2>Unsorted items <span class="muted">(${unsorted.length})</span></h2><p class="muted">Work orders for these stay unrouted. Nothing is lost.</p>
+      <div class="zone" data-drop="">${unsorted.map((i) => chip(i, v, v.suggestions[i.id] ? frameworkName(v.frameworks, v.suggestions[i.id] as string) : "")).join("") || `<span class="muted">Everything is sorted.</span>`}</div></div></div>
+      <div>${cards || `<div class="card empty">No frameworks yet. Add one.</div>`}</div></div>`;
 }
 
 export const sourcesPage = (): string => `

@@ -8,12 +8,16 @@
 import { describe, expect, it } from "vitest";
 import { MWF_CRM_CONFIG, readFeed } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders } from "../modules/01c-crm-connector/work-orders";
-import { DEMO_ITEM_FRAMEWORKS, demoFeedRows } from "./demo-data";
-import { esc, workOrdersPage, type View } from "./pages";
+import { demoFeedRows, demoFrameworks } from "./demo-data";
+import { suggestAll } from "../modules/02-project-rules/frameworks";
+import { esc, frameworksPage, workOrdersPage, type View } from "./pages";
 
 const lines = readFeed(demoFeedRows(), MWF_CRM_CONFIG).lines;
-const plan = planWorkOrders(lines, [], { frameworkByItem: DEMO_ITEM_FRAMEWORKS, usesFrameworks: true });
-const view = (over: Partial<View> = {}): View => ({ workOrders: plan.created, review: [], itemFrameworks: DEMO_ITEM_FRAMEWORKS, flaggedItems: [], filter: "all", message: "", config: MWF_CRM_CONFIG, ...over });
+const MAP = { I10: "orphan-sponsorship", I11: "water", I13: "hifz" }; // the item "I14" is left unsorted on purpose
+const frameworks = demoFrameworks();
+const plan = planWorkOrders(lines, [], { frameworkByItem: MAP, usesFrameworks: true });
+const flagged = [{ id: "I10", name: "Orphan Sponsorship Monthly", count: 1 }, { id: "I14", name: "Animal Sacrifice", count: 1 }];
+const view = (over: Partial<View> = {}): View => ({ workOrders: plan.created, review: [], itemFrameworks: MAP, flaggedItems: flagged, filter: "all", message: "", config: MWF_CRM_CONFIG, frameworks, suggestions: suggestAll(flagged, MAP, frameworks), selectedItem: "", ...over });
 
 describe("workOrdersPage", () => {
   it("lists the four flagged lines and shows the unrouted one with a picker", () => {
@@ -35,5 +39,21 @@ describe("workOrdersPage", () => {
     const html = workOrdersPage(view({ workOrders: evil }));
     expect(html).not.toContain("<img");
     expect(esc("a&b")).toBe("a&amp;b");
+  });
+});
+
+describe("frameworksPage", () => {
+  it("shows sorted items inside their framework and unsorted items with a suggestion", () => {
+    const html = frameworksPage(view({ itemFrameworks: { I10: "orphan-sponsorship" } }));
+    expect(html).toContain('data-drop="orphan-sponsorship"');
+    expect(html).toContain('draggable="true" data-item="I14"');
+    expect(html).toContain("suggested: Animal Sacrifice");
+    expect(html).toContain("Accept 1 suggestion");
+  });
+
+  it("disables accepting when there is nothing to suggest, and marks the selected item", () => {
+    const html = frameworksPage(view({ suggestions: {}, selectedItem: "I14" }));
+    expect(html).toContain("disabled");
+    expect(html).toContain('class="chip sel"');
   });
 });

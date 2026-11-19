@@ -12,7 +12,8 @@
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders, type ReviewItem, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
-import { DEMO_ITEM_FRAMEWORKS, DEMO_ROLES, demoFeedRows } from "./demo-data";
+import { acceptSuggestions, addFramework, assignItem, removeFramework, renameFramework, setKeywords, suggestAll, updateRules, type Cycle, type FrameworkRules } from "../modules/02-project-rules/frameworks";
+import { DEMO_ROLES, demoFeedRows, demoFrameworks } from "./demo-data";
 import { landingPage, visibleMenu, type PageId } from "./menu";
 import { dashboardPage, esc, frameworksPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
 
@@ -22,7 +23,9 @@ const state = {
   feedRows: demoFeedRows() as FeedRow[],
   workOrders: [] as WorkOrder[],
   review: [] as ReviewItem[],
-  itemFrameworks: { ...DEMO_ITEM_FRAMEWORKS } as Record<string, string>,
+  itemFrameworks: {} as Record<string, string>, // every item starts unsorted, so the demo shows the whole flow
+  frameworks: demoFrameworks(),
+  selectedItem: "",
   filter: "all" as Filter,
   message: "",
 };
@@ -43,7 +46,20 @@ function view(): View {
   const lines = readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((l) => l.needsFeedback);
   const items = new Map<string, { id: string; name: string; count: number }>();
   for (const l of lines) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
-  return { workOrders: state.workOrders, review: state.review, itemFrameworks: state.itemFrameworks, flaggedItems: [...items.values()], filter: state.filter, message: state.message, config: MWF_CRM_CONFIG };
+  const flaggedItems = [...items.values()];
+  return {
+    workOrders: state.workOrders, review: state.review, itemFrameworks: state.itemFrameworks, flaggedItems, filter: state.filter, message: state.message, config: MWF_CRM_CONFIG,
+    frameworks: state.frameworks, suggestions: suggestAll(flaggedItems, state.itemFrameworks, state.frameworks), selectedItem: state.selectedItem,
+  };
+}
+
+// Put an item in a framework (or back to unsorted with ""). Unrouted work orders for it are routed now.
+// Rule: work orders that already have a framework keep it, so work in progress never moves by accident.
+function sortItem(itemId: string, frameworkId: string): void {
+  const keep = state.workOrders.filter((w) => w.itemId === itemId && w.status !== "unrouted" && w.frameworkId !== frameworkId).length;
+  state.itemFrameworks = assignItem(state.itemFrameworks, state.frameworks, itemId, frameworkId);
+  refresh();
+  if (keep > 0) state.message += ` ${keep} existing work order${keep === 1 ? "" : "s"} for this item keep${keep === 1 ? "s" : ""} the framework they already had.`;
 }
 
 function draw(): void {
@@ -73,12 +89,43 @@ function draw(): void {
 }
 
 document.addEventListener("click", (e) => {
-  const el = (e.target as HTMLElement).closest("[data-page],[data-filter],[data-action]") as HTMLElement | null;
+  const target = e.target as HTMLElement;
+  // Tap to sort: tap an item, then tap the framework (or unsorted) it should go to. Same result as dragging.
+  const zone = target.closest("[data-drop]") as HTMLElement | null;
+  const chipEl = target.closest("[data-item]") as HTMLElement | null;
+  if (chipEl) {
+    state.selectedItem = state.selectedItem === chipEl.dataset.item ? "" : (chipEl.dataset.item as string);
+    return draw();
+  }
+  if (zone && state.selectedItem !== "") {
+    sortItem(state.selectedItem, zone.dataset.drop as string);
+    state.selectedItem = "";
+    return draw();
+  }
+  const rm = target.closest("[data-remove]") as HTMLElement | null;
+  if (rm) {
+    const r = removeFramework(state.frameworks, state.itemFrameworks, rm.dataset.remove as string);
+    state.frameworks = r.frameworks;
+    state.itemFrameworks = r.map;
+    refresh();
+    return draw();
+  }
+  const el = target.closest("[data-page],[data-filter],[data-action]") as HTMLElement | null;
   if (!el) return;
   if (el.dataset.page) state.page = el.dataset.page as PageId;
   if (el.dataset.filter) state.filter = el.dataset.filter as Filter;
   const action = el.dataset.action;
   if (action === "refresh") refresh();
+  if (action === "accept-suggestions") {
+    state.itemFrameworks = acceptSuggestions(state.itemFrameworks, view().suggestions);
+    refresh();
+  }
+  if (action === "add-framework") {
+    const input = document.getElementById("newfw") as HTMLInputElement;
+    const r = addFramework(state.frameworks, input.value);
+    state.frameworks = r.value;
+    state.message = r.error ?? "";
+  }
   // Demo: a new paid line appears in the CRM. It is a copy of an existing flagged line with new ids.
   if (action === "demo-new") {
     const copy = { ...(state.feedRows.find((r) => r["line_id"] === "L004") as FeedRow), line_id: `L${900 + state.feedRows.length}`, transaction_ref: `T${2000 + state.feedRows.length}`, supporter_name: "Sample Supporter H", supporter_id: "D107" };
@@ -99,8 +146,16 @@ document.addEventListener("change", (e) => {
     state.roleId = t.value;
     state.page = landingPage(permissions()) ?? state.page;
   } else if (t.dataset.assign !== undefined && t.value !== "") {
-    state.itemFrameworks[t.dataset.assign] = t.value;
-    refresh();
+    sortItem(t.dataset.assign, t.value);
+  } else if (t.dataset.rename) {
+    const r = renameFramework(state.frameworks, t.dataset.rename, t.value);
+    state.frameworks = r.value;
+    state.message = r.error ?? "";
+  } else if (t.dataset.rule && t.dataset.fw) {
+    const key = t.dataset.rule as keyof FrameworkRules;
+    state.frameworks = updateRules(state.frameworks, t.dataset.fw, { [key]: key === "cycle" ? (t.value as Cycle) : t.value });
+  } else if (t.dataset.keywords) {
+    state.frameworks = setKeywords(state.frameworks, t.dataset.keywords, t.value);
   }
   draw();
 });
@@ -108,3 +163,29 @@ document.addEventListener("change", (e) => {
 refresh();
 state.message = "";
 draw();
+
+// Drag and drop: drag an item chip onto a framework or onto Unsorted.
+document.addEventListener("dragstart", (e) => {
+  const c = (e.target as HTMLElement).closest("[data-item]") as HTMLElement | null;
+  if (c && e.dataTransfer) {
+    e.dataTransfer.setData("text/plain", c.dataset.item as string);
+    e.dataTransfer.effectAllowed = "move";
+  }
+});
+document.addEventListener("dragover", (e) => {
+  const z = (e.target as HTMLElement).closest("[data-drop]") as HTMLElement | null;
+  if (z) {
+    e.preventDefault();
+    z.classList.add("over");
+  }
+});
+document.addEventListener("dragleave", (e) => ((e.target as HTMLElement).closest?.("[data-drop]") as HTMLElement | null)?.classList.remove("over"));
+document.addEventListener("drop", (e) => {
+  const z = (e.target as HTMLElement).closest("[data-drop]") as HTMLElement | null;
+  const id = e.dataTransfer?.getData("text/plain") ?? "";
+  if (!z || id === "") return;
+  e.preventDefault();
+  sortItem(id, z.dataset.drop as string);
+  state.selectedItem = "";
+  draw();
+});

@@ -12,19 +12,20 @@
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import type { FeedRow } from "../modules/01c-crm-connector/feed";
 import feedCsv from "../samples/crm-feed-sample.csv?raw";
+import { addFramework, setKeywords, updateRules, type Framework } from "../modules/02-project-rules/frameworks";
 import { PERMISSIONS as P } from "./menu";
 
 export const demoFeedRows = (): FeedRow[] => toRecords(parseCsv(feedCsv)).records;
 
-export const FRAMEWORKS: { id: string; name: string }[] = [
-  { id: "orphan", name: "Orphan Sponsorship" },
-  { id: "hifz", name: "Hifz" },
-  { id: "water", name: "Water" },
-  { id: "qurbani", name: "Animal Sacrifice" },
-];
-
-// Items already mapped to a framework. The item "I14" is left out on purpose, so it shows as unrouted.
-export const DEMO_ITEM_FRAMEWORKS: Record<string, string> = { I10: "orphan", I11: "water", I13: "hifz" };
+// Starting frameworks for the demo, with the words that suggest them (Module 2 lets staff change all of this).
+export function demoFrameworks(): Framework[] {
+  let f: Framework[] = [];
+  for (const n of ["Orphan Sponsorship", "Hifz", "Water", "Animal Sacrifice"]) f = addFramework(f, n).value;
+  f = setKeywords(f, "water", "water, well, pump");
+  f = setKeywords(f, "animal-sacrifice", "sacrifice, qurbani, udhiya");
+  f = updateRules(f, "orphan-sponsorship", { unit: "child", cycle: "quarterly", reportType: "Quarterly child update" });
+  return f;
+}
 
 // What three CRM roles might be allowed to do (DECISIONS 32). Names are invented.
 export const DEMO_ROLES: { id: string; name: string; permissions: string[] }[] = [
