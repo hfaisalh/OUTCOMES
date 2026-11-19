@@ -18,7 +18,7 @@ import type { FeedLine } from "./feed.js";
 export type WorkOrderStatus = "unrouted" | "ready" | "in_progress" | "delivered" | "reported";
 
 export interface WorkOrder {
-  key: string; // transactionRef:lineId, unique and stable, the guard against duplicates
+  key: string; // the CRM line id, unique and never reused, so it is the guard against duplicates (DECISIONS 46)
   lineId: string;
   transactionRef: string;
   paidDate: string;
@@ -62,7 +62,9 @@ export interface Plan {
 // The category used when an organisation has none: a simple default journey.
 export const DEFAULT_CATEGORY = "default";
 
-export const workOrderKey = (line: Pick<FeedLine, "transactionRef" | "lineId">) => `${line.transactionRef}:${line.lineId}`;
+// Rule: a work order is identified by its CRM line id alone (DECISIONS 46). The line id is unique and never reused, while the
+// order reference can be blank or appear later, which would otherwise change the key and make a duplicate.
+export const workOrderKey = (line: Pick<FeedLine, "lineId">) => line.lineId;
 
 // Rule: where a line goes. No categories in use: the default journey. Otherwise the item's category, or unrouted.
 function route(itemId: string, options: PlanOptions): { categoryId: string; status: WorkOrderStatus } {

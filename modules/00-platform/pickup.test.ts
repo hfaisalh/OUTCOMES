@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { ConnectorError, rowsReader, type CrmReader, type CrmReporter } from "../01c-crm-connector/reader";
 import type { ReportBackItem } from "../01c-crm-connector/report-back";
 import { sampleRows } from "../01c-crm-connector/sample";
-import { mergeReview, runPickup } from "./pickup";
+import { mergeReview, rekeyLegacy, runPickup } from "./pickup";
 import { defaultConfig, memoryStore, type OrgConfig } from "./store";
 
 const config = (): OrgConfig => ({ ...defaultConfig(), itemMap: { I10: "orphan", I11: "water", I13: "hifz" }, crm: { kind: "api", baseUrl: "x", tokenEnv: "X" } });
@@ -27,7 +27,7 @@ describe("runPickup", () => {
     const store = await setup();
     const run = await runPickup("mwf", { store, reader: rowsReader(sampleRows()), reporter, nowIso: "2026-11-19T09:00:00Z" });
     expect([run.ok, run.rows, run.created, run.skipped]).toEqual([true, 8, 4, 3]);
-    expect((await store.listWorkOrders("mwf")).map((w) => [w.key, w.status])).toEqual([["T1001:L001", "ready"], ["T1002:L002", "ready"], ["T1003:L004", "ready"], ["T1008:L008", "unrouted"]]);
+    expect((await store.listWorkOrders("mwf")).map((w) => [w.key, w.status])).toEqual([["L001", "ready"], ["L002", "ready"], ["L004", "ready"], ["L008", "unrouted"]]);
     expect((await store.getRun("mwf"))?.lastSuccessAt).toBe("2026-11-19T09:00:00Z");
   });
 
@@ -83,5 +83,35 @@ describe("mergeReview", () => {
   it("keeps older review items for lines not in this feed and replaces those that are", () => {
     const merged = mergeReview([item("a"), item("b")], [item("b", "missing_from_feed")], new Set(["b", "c"]));
     expect(merged.map((m) => [m.key, m.reason])).toEqual([["a", "changed"], ["b", "missing_from_feed"]]);
+  });
+});
+
+describe("work orders are keyed by the line id (DECISIONS 46)", () => {
+  const old = (ref: string, id: string, over = {}) => ({ key: `${ref}:${id}`, lineId: id, transactionRef: ref, paidDate: "2026-06-10", supporterId: "D1", supporterName: "S", group: "", itemId: "I11", itemName: "Water Pump", amount: 150, quantity: 1, intention: "", subscriptionId: "", instalmentNumber: "", instalmentCount: "", categoryId: "water", status: "ready" as const, ...over });
+
+  it("moves work orders saved under the old key to the line id, keeping their category and status, and their review entries", () => {
+    const r = rekeyLegacy([old("T1", "L1", { status: "delivered" }), old("", "L2"), { ...old("", "L3"), key: "L3" }], [{ key: "T1:L1", reason: "changed", message: "m" }]);
+    expect(r.orders.map((w) => [w.key, w.status, w.categoryId]).sort()).toEqual([["L1", "delivered", "water"], ["L2", "ready", "water"], ["L3", "ready", "water"]]);
+    expect(r.oldKeys.sort()).toEqual([":L2", "T1:L1"]);
+    expect(r.review[0]?.key).toBe("L1");
+  });
+
+  it("does nothing when everything is already keyed by line id", () => {
+    expect(rekeyLegacy([{ ...old("", "L3"), key: "L3" }], []).oldKeys).toEqual([]);
+  });
+
+  it("migrates on the next pick-up without making duplicates, and a reference that appears later changes nothing", async () => {
+    const store = await setup();
+    const rows = sampleRows();
+    await runPickup("mwf", { store, reader: rowsReader(rows), reporter, nowIso: "2026-11-19T09:00:00Z" });
+    // Simulate work orders saved by the older version: key = reference:line id.
+    const saved = await store.listWorkOrders("mwf");
+    await store.deleteWorkOrders("mwf", saved.map((w) => w.key));
+    await store.saveWorkOrders("mwf", saved.map((w) => ({ ...w, key: `${w.transactionRef}:${w.lineId}` })));
+    // The same lines come again, one with its reference now filled in differently.
+    const changedRef = rows.map((r) => (r["line_id"] === "L001" ? { ...r, transaction_ref: "NEW-REF" } : r));
+    const run = await runPickup("mwf", { store, reader: rowsReader(changedRef), reporter, nowIso: "2026-11-20T09:00:00Z" });
+    expect(run.created).toBe(0);
+    expect((await store.listWorkOrders("mwf")).map((w) => w.key).sort()).toEqual(["L001", "L002", "L004", "L008"]);
   });
 });

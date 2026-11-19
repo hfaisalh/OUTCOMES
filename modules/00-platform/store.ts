@@ -52,6 +52,7 @@ export interface Store {
   putConfig(org: string, config: OrgConfig): Promise<void>;
   listWorkOrders(org: string): Promise<WorkOrder[]>;
   saveWorkOrders(org: string, orders: WorkOrder[]): Promise<void>; // add or replace, by key
+  deleteWorkOrders(org: string, keys: string[]): Promise<void>; // only used to move work orders to their new key (DECISIONS 46)
   getReview(org: string): Promise<ReviewItem[]>;
   putReview(org: string, items: ReviewItem[]): Promise<void>;
   getRun(org: string): Promise<RunInfo | null>;
@@ -89,6 +90,7 @@ export function memoryStore(): Store {
       for (const w of list) m.set(w.key, { ...w });
       orders.set(org, m);
     },
+    async deleteWorkOrders(org, keys) { for (const k of keys) orders.get(org)?.delete(k); },
     async getReview(org) { return (reviews.get(org) ?? []).map((r) => ({ ...r })); },
     async putReview(org, items) { reviews.set(org, items.map((r) => ({ ...r }))); },
     async getRun(org) { return runs.get(org) ? structuredClone(runs.get(org) as RunInfo) : null; },

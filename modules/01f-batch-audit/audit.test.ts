@@ -15,7 +15,7 @@ const line = (id: string, over: Partial<FeedLine> = {}): FeedLine => ({
   itemId: "I1", itemName: "Water Pump", amount: 100, quantity: 1, intention: "", subscriptionId: "", instalmentNumber: "", instalmentCount: "", needsFeedback: true, supporterKind: "individual", credits: [], ...over,
 });
 const order = (id: string, over: Partial<WorkOrder> = {}): WorkOrder => ({
-  key: `T${id}:${id}`, lineId: id, transactionRef: `T${id}`, paidDate: "2026-06-10", supporterId: "D1", supporterName: "Sample", group: "", itemId: "I1", itemName: "Water Pump", amount: 100,
+  key: id, lineId: id, transactionRef: `T${id}`, paidDate: "2026-06-10", supporterId: "D1", supporterName: "Sample", group: "", itemId: "I1", itemName: "Water Pump", amount: 100,
   quantity: 1, intention: "", subscriptionId: "", instalmentNumber: "", instalmentCount: "", categoryId: "", status: "unrouted", ...over,
 });
 
@@ -23,7 +23,7 @@ describe("auditFeed", () => {
   it("counts new lines that need feedback as added, and ignores new lines that do not", () => {
     const r = auditFeed([line("1"), line("2", { needsFeedback: false })], [], { complete: true });
     expect(r.counts.added).toBe(1);
-    expect(r.addedSample).toEqual(["T1:1"]);
+    expect(r.addedSample).toEqual(["1"]);
   });
 
   it("reports a changed amount, a changed supporter and a moved item, and leaves the rest unchanged", () => {
@@ -31,7 +31,7 @@ describe("auditFeed", () => {
     const feed = [line("1", { amount: 90 }), line("2", { supporterId: "D9" }), line("3", { itemId: "I2", itemName: "Well" }), line("4")];
     const r = auditFeed(feed, stored, { complete: true });
     expect(r.counts).toMatchObject({ changed: 2, moved: 1, unchanged: 1, added: 0 });
-    expect(r.findings.find((f) => f.key === "T3:3")?.kind).toBe("moved");
+    expect(r.findings.find((f) => f.key === "3")?.kind).toBe("moved");
   });
 
   it("reports an item that no longer needs feedback", () => {
@@ -43,7 +43,7 @@ describe("auditFeed", () => {
     const feed = [line("9", { paidDate: "2026-06-01" }), line("8", { paidDate: "2026-06-30" })];
     const r = auditFeed(feed, stored, { complete: true });
     expect(r.counts.removed).toBe(1);
-    expect(r.findings.map((f) => f.key)).toEqual(["T1:1"]);
+    expect(r.findings.map((f) => f.key)).toEqual(["1"]);
   });
 
   it("does not judge missing lines when the feed is not complete", () => {

@@ -8,7 +8,7 @@ Paid lines only is not required: OUTCOMES filters by status itself. Send all lin
 
 | Column | Meaning | Notes |
 |---|---|---|
-| `line_id` | Unique id of the line in the CRM | Required. Never reused |
+| `line_id` | Unique id of the line in the CRM | Required. Never reused. OUTCOMES identifies a work order by this alone (DECISIONS 46) |
 | `transaction_ref` | The transaction's reference or order reference | Required |
 | `status` | The transaction's payment status | A configurable list says which values mean paid (MWF: `paid` or `2`) |
 | `is_deleted` | 1 if deleted | Deleted lines are left out |

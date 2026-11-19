@@ -37,6 +37,9 @@ export function pgStore(query: Query): Store {
         await query("INSERT INTO work_orders (org, key, data) SELECT $1, e->>'key', e FROM jsonb_array_elements($2::jsonb) AS e ON CONFLICT (org, key) DO UPDATE SET data = EXCLUDED.data", [org, JSON.stringify(chunk)]);
       }
     },
+    async deleteWorkOrders(org, keys) {
+      if (keys.length > 0) await query("DELETE FROM work_orders WHERE org = $1 AND key IN (SELECT jsonb_array_elements_text($2::jsonb))", [org, JSON.stringify(keys)]);
+    },
     async getReview(org) {
       return (await one<ReviewItem[]>("SELECT items FROM review WHERE org = $1", org, "items")) ?? [];
     },

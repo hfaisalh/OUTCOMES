@@ -18,7 +18,7 @@ describe("planWorkOrders", () => {
   const plan = planWorkOrders(feed, [], options);
 
   it("creates one work order for each paid line whose item needs feedback", () => {
-    expect(plan.created.map((w) => w.key)).toEqual(["T1001:L001", "T1002:L002", "T1003:L004", "T1008:L008"]);
+    expect(plan.created.map((w) => w.key)).toEqual(["L001", "L002", "L004", "L008"]);
   });
 
   it("routes by the framework set in OUTCOMES, and leaves an unmapped item unrouted", () => {
@@ -40,7 +40,7 @@ describe("planWorkOrders", () => {
 
   it("reroutes an unrouted work order once its item is mapped", () => {
     const later = planWorkOrders(feed, plan.created, { ...options, categoryByItem: { ...options.categoryByItem, I14: "qurbani" } });
-    expect(later.rerouted.map((w) => [w.key, w.categoryId, w.status])).toEqual([["T1008:L008", "qurbani", "ready"]]);
+    expect(later.rerouted.map((w) => [w.key, w.categoryId, w.status])).toEqual([["L008", "qurbani", "ready"]]);
   });
 
   it("uses the default journey when the organisation has no frameworks", () => {
@@ -55,8 +55,8 @@ describe("planWorkOrders review list", () => {
   it("holds a changed amount for review and does not change the work order", () => {
     const changed = feed.map((l) => (l.lineId === "L002" ? { ...l, amount: 99 } : l));
     const p = planWorkOrders(changed, made, options);
-    expect(p.review).toEqual([expect.objectContaining({ key: "T1002:L002", reason: "changed" })]);
-    expect(p.unchanged.find((w) => w.key === "T1002:L002")?.amount).toBe(150);
+    expect(p.review).toEqual([expect.objectContaining({ key: "L002", reason: "changed" })]);
+    expect(p.unchanged.find((w) => w.key === "L002")?.amount).toBe(150);
   });
 
   it("holds a line whose item stopped needing feedback", () => {

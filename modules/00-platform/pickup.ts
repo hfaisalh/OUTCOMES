@@ -38,6 +38,30 @@ export function mergeReview(previous: ReviewItem[], fresh: ReviewItem[], seenKey
   return [...previous.filter((r) => !seenKeys.has(r.key) && !fresh.some((f) => f.key === r.key)), ...fresh];
 }
 
+/**
+ * Rule (DECISIONS 46): a work order's key is its CRM line id. Work orders saved under the older key
+ * ("order reference:line id") are moved to the new one, keeping their category, status and everything
+ * else, and the review entries that named them follow. Returns the updated lists and the old keys to delete.
+ * Safe to run every time: once moved there is nothing left to do.
+ */
+export function rekeyLegacy(orders: WorkOrder[], review: ReviewItem[]): { orders: WorkOrder[]; review: ReviewItem[]; moved: WorkOrder[]; oldKeys: string[] } {
+  const have = new Set(orders.filter((w) => w.key === w.lineId).map((w) => w.key));
+  const moved: WorkOrder[] = [];
+  const oldKeys: string[] = [];
+  const renamed = new Map<string, string>();
+  for (const w of orders) {
+    if (w.key === w.lineId) continue;
+    oldKeys.push(w.key);
+    renamed.set(w.key, w.lineId);
+    if (!have.has(w.lineId)) {
+      have.add(w.lineId);
+      moved.push({ ...w, key: w.lineId });
+    }
+  }
+  const kept = orders.filter((w) => w.key === w.lineId);
+  return { orders: [...kept, ...moved], review: review.map((r) => (renamed.has(r.key) ? { ...r, key: renamed.get(r.key) as string } : r)), moved, oldKeys };
+}
+
 // Rule: when staff sort an item into a category, its unrouted work orders are routed straight away.
 // Work orders that already have a category are never changed here.
 export function rerouteUnrouted(orders: WorkOrder[], config: OrgConfig): WorkOrder[] {
@@ -67,7 +91,15 @@ export async function runPickup(org: string, deps: PickupDeps): Promise<RunInfo>
     run.issues = summariseIssues(feed.issues);
 
     // Plan and save.
-    const existing = await store.listWorkOrders(org);
+    let existing = await store.listWorkOrders(org);
+    if (existing.some((w) => w.key !== w.lineId)) {
+      const moved = rekeyLegacy(existing, await store.getReview(org));
+      await store.saveWorkOrders(org, moved.moved);
+      await store.deleteWorkOrders(org, moved.oldKeys);
+      await store.putReview(org, moved.review);
+      existing = moved.orders;
+      run.reported = {}; // report-back statuses were kept under the old keys, so the CRM is told once more
+    }
     const complete = deps.complete ?? since === undefined;
     // Batch audit (DECISIONS 21, 43): compare this import with what is saved and keep the report. It changes nothing.
     const audit = auditFeed(feed.lines, existing, { complete });
@@ -77,7 +109,7 @@ export async function runPickup(org: string, deps: PickupDeps): Promise<RunInfo>
     run.created = plan.created.length;
     run.rerouted = plan.rerouted.length;
     run.unchanged = plan.unchanged.length;
-    await store.putReview(org, mergeReview(await store.getReview(org), plan.review, new Set(feed.lines.map((l) => `${l.transactionRef}:${l.lineId}`))));
+    await store.putReview(org, mergeReview(await store.getReview(org), plan.review, new Set(feed.lines.map((l) => l.lineId))));
 
     // Report back: only work orders whose status the CRM has not heard yet.
     const all = await store.listWorkOrders(org);
