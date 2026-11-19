@@ -15,7 +15,9 @@ import { PERMISSIONS as P } from "../../app/menu.js";
 import { currentFeedConfig } from "../01c-crm-connector/feed.js";
 import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
 import { isCurrentCategory } from "../02-project-rules/categories.js";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSION_SECONDS, verifyToken, signToken, clearSessionCookie, type Claims } from "./launch-token.js";
+import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
 import { rerouteUnrouted, runPickup } from "./pickup.js";
 import { defaultConfig, type OrgConfig, type Store } from "./store.js";
 
@@ -39,6 +41,7 @@ export interface Deps {
   // The reader and reporter for an organisation's CRM, or null when it has none set up.
   connector: (config: OrgConfig) => { reader: CrmReader; reporter: CrmReporter } | null;
   storage: "database" | "memory"; // shown to staff, so nobody trusts the memory version with real work
+  ownerPassphrase?: string; // the owner's sign-in passphrase (OWNER_PASSPHRASE). Empty or missing switches the owner sign-in off
   demoLogin: boolean; // true only where the test sign-in is switched on (DEMO_LOGIN=1). Never for a live organisation
 }
 
@@ -97,8 +100,8 @@ export async function handleMe(req: HttpRequest, d: Deps): Promise<HttpResponse>
   const c = sessionOf(req, d);
   if (!c) return json(401, { error: "Not signed in." });
   // `demo` tells the page it is talking to the pretend CRM, so it can refresh by itself.
-  const demo = (await d.store.getConfig(c.org))?.crm.kind === "demo";
-  return json(200, { name: c.name, org: c.org, perms: c.perms, expiresAt: c.exp, storage: d.storage, demo });
+  const kind = (await d.store.getConfig(c.org))?.crm.kind;
+  return json(200, { name: c.name, org: c.org, perms: c.perms, expiresAt: c.exp, storage: d.storage, demo: kind === "demo", upload: kind === "upload" });
 }
 
 // GET and PUT /api/config  Categories (each with its framework) and the item map. PUT needs permission to map items.
@@ -154,4 +157,47 @@ export async function handlePickup(req: HttpRequest, d: Deps): Promise<HttpRespo
   const results = [];
   for (const org of await d.store.listOrgs()) results.push(await pickupOne(org, d));
   return json(200, { results });
+}
+
+// POST /api/owner-login  { passphrase }  The owner signs in with a passphrase held in the server's settings (OWNER_PASSPHRASE),
+// until the CRM sign-in exists. Rule: it answers 404 when no passphrase is set, compares without leaking timing, and can only
+// open the organisation named OWNER_ORG. Use a long passphrase (16 characters or more).
+export const OWNER_ORG = "mwf";
+const digest = (s: string) => createHash("sha256").update(s).digest();
+export async function handleOwnerLogin(req: HttpRequest, d: Deps): Promise<HttpResponse> {
+  const secret = d.ownerPassphrase ?? "";
+  if (secret === "" || req.method !== "POST") return text(404, "Not found.");
+  const given = (req.body as { passphrase?: unknown } | undefined)?.passphrase;
+  if (typeof given !== "string" || !timingSafeEqual(digest(given), digest(secret))) return json(401, { error: "That passphrase is not right." });
+  const now = nowSeconds(d);
+  const config = (await d.store.getConfig(OWNER_ORG)) ?? defaultConfig();
+  if (config.crm.kind === "none") await d.store.putConfig(OWNER_ORG, { ...config, crm: { kind: "upload" } });
+  const claims: Claims = { typ: "launch", jti: d.newId(), sub: "owner", name: "Owner", org: OWNER_ORG, perms: Object.values(P), iat: now, exp: now + 60 };
+  const session = signToken(d.secrets.session, sessionFrom(claims, d.newId(), now));
+  return json(200, { ok: true }, { "set-cookie": sessionCookie(session, SESSION_SECONDS), "cache-control": "no-store" });
+}
+
+// POST /api/import  { columns, rows, source }  Lines from uploaded CRM export files, packed by the page (compact.ts).
+// Runs the same pick-up as a scheduled read, so work orders are made and the batch audit is kept. Needs the settings permission.
+// Rule: only organisations that take uploads accept one. One that reads its CRM directly refuses, so two sources never mix.
+export async function handleImport(req: HttpRequest, d: Deps): Promise<HttpResponse> {
+  if (req.method !== "POST") return text(404, "Not found.");
+  const a = need(req, d, P.settings);
+  if ("response" in a) return a.response;
+  const org = a.claims.org;
+  const packed = unpackFeed(req.body);
+  if ("error" in packed) return json(400, { error: packed.error });
+  const config = (await d.store.getConfig(org)) ?? defaultConfig();
+  if (config.crm.kind === "none") await d.store.putConfig(org, { ...config, crm: { kind: "upload" } });
+  else if (config.crm.kind !== "upload") return json(409, { error: "This organisation reads its CRM directly, so uploads are not accepted." });
+  const source = String((req.body as { source?: unknown }).source ?? "Uploaded files").slice(0, 200);
+  const run = await runPickup(org, { store: d.store, reader: { readFeed: async () => packed.rows }, reporter: { send: async () => undefined }, nowIso: new Date(d.nowMs()).toISOString(), complete: true, source, newId: d.newId });
+  return json(200, { ok: run.ok, error: run.error, rows: run.rows, created: run.created, unchanged: run.unchanged, issues: run.issues.slice(0, 5) });
+}
+
+// GET /api/audits  The batch audit history for this organisation, newest first.
+export async function handleAudits(req: HttpRequest, d: Deps): Promise<HttpResponse> {
+  const a = need(req, d, P.viewWorkOrders);
+  if ("response" in a) return a.response;
+  return json(200, { audits: await d.store.listAudits(a.claims.org) });
 }

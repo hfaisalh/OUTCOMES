@@ -11,6 +11,8 @@
 
 import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import type { RunInfo } from "../modules/00-platform/store";
+import type { AuditRecord } from "../modules/01f-batch-audit/audit";
+import type { CompactFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { Category, ItemMap } from "../modules/02-project-rules/categories";
 
 export interface Me {
@@ -20,6 +22,7 @@ export interface Me {
   expiresAt: number;
   storage: "database" | "memory";
   demo?: boolean; // true when the organisation is connected to the pretend CRM
+  upload?: boolean; // true when the organisation takes uploaded CRM export files
 }
 export interface ServerConfig {
   categories: Category[];
@@ -59,3 +62,7 @@ export const loadConfig = () => call<ServerConfig>("/api/config");
 export const saveConfig = (c: { categories: Category[]; itemMap: ItemMap }) => call<{ ok: boolean; routed: number }>("/api/config", { method: "PUT", body: c });
 export const loadWorkOrders = () => call<WorkOrdersReply>("/api/work-orders");
 export const runPickupNow = () => call<{ ok?: boolean; error?: string; created?: number; rerouted?: number; skipped?: string }>("/api/pickup", { method: "POST" });
+
+export const loadAudits = () => call<{ audits: AuditRecord[] }>("/api/audits");
+export const importFeed = (feed: CompactFeed, source: string) => call<{ ok: boolean; error: string; rows: number; created: number; unchanged: number; issues: string[] }>("/api/import", { method: "POST", body: { ...feed, source } });
+export const ownerLogin = (passphrase: string) => call<{ ok: boolean }>("/api/owner-login", { method: "POST", body: { passphrase } });

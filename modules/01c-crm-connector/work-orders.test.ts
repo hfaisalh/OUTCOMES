@@ -70,6 +70,12 @@ describe("planWorkOrders review list", () => {
     expect(planWorkOrders(fewer, made, { ...options, feedIsComplete: true }).review.map((r) => r.reason)).toEqual(["missing_from_feed"]);
   });
 
+  it("judges a vanished line only inside the dates the feed covers", () => {
+    const fewer = feed.filter((l) => l.lineId !== "L004");
+    const outside = { from: "2020-01-01", to: "2020-12-31" };
+    expect(planWorkOrders(fewer, made, { ...options, feedIsComplete: true, coverage: outside }).review).toEqual([]);
+  });
+
   it("does not create a second work order for a line repeated in one feed", () => {
     expect(planWorkOrders([...feed, feed[0] as FeedLine], [], options).created).toHaveLength(4);
   });

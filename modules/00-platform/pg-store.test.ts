@@ -38,6 +38,19 @@ describe("pgStore", () => {
     }
   });
 
+  it("saves work orders in batches and keeps audits per organisation", async () => {
+    const { query, calls } = fake();
+    const s = pgStore(query);
+    await s.saveWorkOrders("mwf", Array.from({ length: 450 }, (_, i) => ({ key: `T:${i}` }) as never));
+    expect(calls.filter((c) => c.sql.startsWith("INSERT INTO work_orders"))).toHaveLength(3); // 200 + 200 + 50
+    await s.listAudits("mwf");
+    await s.addAudit("mwf", { id: "a1", at: "2026-11-19T10:00:00Z" } as never);
+    for (const c of calls.filter((x) => x.sql.includes("audits"))) {
+      expect(c.params[0]).toBe("mwf");
+      expect(c.sql).toContain("org = $1".slice(0, 0) + "$1");
+    }
+  });
+
   it("returns what the database holds", async () => {
     expect((await pgStore(fake().query).getConfig("mwf"))?.usesFrameworks).toBe(true);
   });

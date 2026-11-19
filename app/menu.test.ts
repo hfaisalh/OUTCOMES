@@ -15,7 +15,7 @@ describe("visibleMenu", () => {
 
   it("shows only the items the role allows", () => {
     const ids = visibleMenu([P.access, P.viewWorkOrders, P.dashboards]).map((m) => m.id);
-    expect(ids).toEqual(["work-orders", "dashboard"]);
+    expect(ids).toEqual(["work-orders", "audit", "dashboard"]);
   });
 
   it("lands on the first allowed item", () => {
@@ -23,6 +23,6 @@ describe("visibleMenu", () => {
   });
 
   it("shows everything to a role with every permission", () => {
-    expect(visibleMenu(Object.values(P))).toHaveLength(5);
+    expect(visibleMenu(Object.values(P))).toHaveLength(6);
   });
 });

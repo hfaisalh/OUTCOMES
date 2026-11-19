@@ -10,7 +10,7 @@ import { MWF_CRM_CONFIG, readFeed } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders } from "../modules/01c-crm-connector/work-orders";
 import { demoCategories, demoFeedRows } from "./demo-data";
 import { suggestAll } from "../modules/02-project-rules/categories";
-import { esc, categoriesPage, workOrdersPage, type View } from "./pages";
+import { auditPage, esc, categoriesPage, workOrdersPage, type View } from "./pages";
 
 const lines = readFeed(demoFeedRows(), MWF_CRM_CONFIG).lines;
 const MAP = { I10: "sponsorship", I11: "transactional", I13: "sponsorship" }; // the item "I14" is left unsorted on purpose
@@ -55,5 +55,24 @@ describe("categoriesPage", () => {
     const html = categoriesPage(view({ suggestions: {}, selectedItem: "I14" }));
     expect(html).toContain("disabled");
     expect(html).toContain('class="chip sel"');
+  });
+});
+
+describe("auditPage", () => {
+  const record = { id: "a1", at: "2026-11-19T10:00:00Z", source: "donation-lines.csv", lines: 7736, coverage: { from: "2026-01-02", to: "2026-10-31" }, complete: true, counts: { added: 424, changed: 1, moved: 0, no_longer_needs_feedback: 0, removed: 2, unchanged: 0 }, findings: [{ key: "T1:L1", kind: "changed" as const, message: "The amount <b>changed</b>." }], addedSample: [] };
+
+  it("shows the history and what to look at, and never trusts text as HTML", () => {
+    const html = auditPage(view({ live: true, audits: [record] }));
+    expect(html).toContain("donation-lines.csv");
+    expect(html).toContain("2026-01-02 to 2026-10-31");
+    expect(html).toContain("Changed");
+    expect(html).not.toContain("<b>changed</b>");
+  });
+  it("says when there is nothing yet, and asks a demo visitor to sign in", () => {
+    expect(auditPage(view({ live: true, audits: [] }))).toContain("No imports yet.");
+    expect(auditPage(view())).toContain("Sign in as the owner");
+  });
+  it("says removed lines were not judged when the import was not complete", () => {
+    expect(auditPage(view({ live: true, audits: [{ ...record, complete: false }] }))).toContain("not judged");
   });
 });

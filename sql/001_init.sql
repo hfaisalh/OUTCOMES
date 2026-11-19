@@ -29,3 +29,11 @@ CREATE TABLE IF NOT EXISTS used_launch (
   jti        text PRIMARY KEY,     -- launch tokens already used (each works once)
   expires_at bigint NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS audits (
+  org  text NOT NULL,
+  id   text NOT NULL,              -- one batch audit per import (DECISIONS 21, 43)
+  at   text NOT NULL,              -- ISO time of the import, sorts newest first
+  data jsonb NOT NULL,
+  PRIMARY KEY (org, id)
+);

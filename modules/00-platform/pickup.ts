@@ -15,6 +15,7 @@
 import { currentFeedConfig, readFeed } from "../01c-crm-connector/feed.js";
 import { buildReportBack, REPORTABLE } from "../01c-crm-connector/report-back.js";
 import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
+import { auditFeed, auditRecord } from "../01f-batch-audit/audit.js";
 import { planWorkOrders, type ReviewItem, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import type { OrgConfig, RunInfo, Store } from "./store.js";
 
@@ -24,6 +25,9 @@ export interface PickupDeps {
   reporter: CrmReporter;
   nowIso: string;
   reportUrlFor?: (w: WorkOrder) => string; // supplied by the reporting module later. Blank means no report yet
+  complete?: boolean; // true when the feed is the whole picture for its dates (an import), so missing lines can be judged. Default: only the first full read
+  source?: string; // plain description of where the lines came from, kept with the audit
+  newId?: () => string; // id for the audit record
 }
 
 const blankRun = (at: string, last: string): RunInfo => ({ at, lastSuccessAt: last, ok: false, error: "", rows: 0, created: 0, rerouted: 0, unchanged: 0, skipped: 0, issues: [], reportedSent: 0, reported: {} });
@@ -63,7 +67,11 @@ export async function runPickup(org: string, deps: PickupDeps): Promise<RunInfo>
 
     // Plan and save.
     const existing = await store.listWorkOrders(org);
-    const plan = planWorkOrders(feed.lines, existing, { categoryByItem: config.itemMap, usesFrameworks: config.usesFrameworks, feedIsComplete: since === undefined });
+    const complete = deps.complete ?? since === undefined;
+    // Batch audit (DECISIONS 21, 43): compare this import with what is saved and keep the report. It changes nothing.
+    const audit = auditFeed(feed.lines, existing, { complete });
+    await store.addAudit(org, auditRecord(deps.newId?.() ?? nowIso, nowIso, deps.source ?? (since === undefined ? "Full read of the CRM" : "Pick-up since the last one"), feed.lines.length, complete, audit));
+    const plan = planWorkOrders(feed.lines, existing, { categoryByItem: config.itemMap, usesFrameworks: config.usesFrameworks, feedIsComplete: complete, coverage: audit.coverage });
     await store.saveWorkOrders(org, [...plan.created, ...plan.rerouted]);
     run.created = plan.created.length;
     run.rerouted = plan.rerouted.length;

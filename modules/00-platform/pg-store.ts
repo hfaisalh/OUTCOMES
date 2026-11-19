@@ -10,7 +10,8 @@
  */
 
 import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js";
-import type { OrgConfig, RunInfo, Store } from "./store.js";
+import type { AuditRecord } from "../01f-batch-audit/audit.js";
+import { KEEP_AUDITS, type OrgConfig, type RunInfo, type Store } from "./store.js";
 
 export type Query = (sql: string, params: unknown[]) => Promise<Record<string, unknown>[]>;
 
@@ -28,9 +29,11 @@ export function pgStore(query: Query): Store {
       const rows = await query("SELECT data FROM work_orders WHERE org = $1 ORDER BY key", [org]);
       return rows.map((r) => r["data"] as WorkOrder);
     },
+    // Rule: saved in batches of one query per 200 work orders, so a whole import fits inside the server's time limit.
     async saveWorkOrders(org, orders) {
-      for (const w of orders) {
-        await query("INSERT INTO work_orders (org, key, data) VALUES ($1, $2, $3) ON CONFLICT (org, key) DO UPDATE SET data = EXCLUDED.data", [org, w.key, JSON.stringify(w)]);
+      for (let i = 0; i < orders.length; i += 200) {
+        const chunk = orders.slice(i, i + 200);
+        await query("INSERT INTO work_orders (org, key, data) SELECT $1, e->>'key', e FROM jsonb_array_elements($2::jsonb) AS e ON CONFLICT (org, key) DO UPDATE SET data = EXCLUDED.data", [org, JSON.stringify(chunk)]);
       }
     },
     async getReview(org) {
@@ -42,6 +45,14 @@ export function pgStore(query: Query): Store {
     getRun: (org) => one<RunInfo>("SELECT info FROM runs WHERE org = $1", org, "info"),
     async putRun(org, run) {
       await query("INSERT INTO runs (org, info) VALUES ($1, $2) ON CONFLICT (org) DO UPDATE SET info = EXCLUDED.info", [org, JSON.stringify(run)]);
+    },
+    async listAudits(org) {
+      const rows = await query("SELECT data FROM audits WHERE org = $1 ORDER BY at DESC LIMIT " + KEEP_AUDITS, [org]);
+      return rows.map((r) => r["data"] as AuditRecord);
+    },
+    async addAudit(org, record) {
+      await query("INSERT INTO audits (org, id, at, data) VALUES ($1, $2, $3, $4) ON CONFLICT (org, id) DO UPDATE SET data = EXCLUDED.data", [org, record.id, record.at, JSON.stringify(record)]);
+      await query("DELETE FROM audits WHERE org = $1 AND id NOT IN (SELECT id FROM audits WHERE org = $1 ORDER BY at DESC LIMIT " + KEEP_AUDITS + ")", [org]);
     },
     async listOrgs() {
       return (await query("SELECT org FROM org_config ORDER BY org", [])).map((r) => r["org"] as string);

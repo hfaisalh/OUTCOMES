@@ -8,6 +8,7 @@
  * Depends on: the connector types, menu.ts and demo-data.ts (categories list).
  */
 
+import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import type { MWF_CRM_CONFIG } from "../modules/01c-crm-connector/feed";
 import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import type { RunInfo } from "../modules/00-platform/store";
@@ -31,6 +32,8 @@ export interface View {
   selectedItem: string; // item picked by tapping, waiting to be tapped onto a category ("" when none)
   pendingFiles?: string[]; // names of the export files chosen but not loaded yet (demo only)
   loadNote?: string; // what the last load of export files did, shown inside the load card (demo only)
+  audits?: AuditRecord[]; // batch audit history, newest first (live only)
+  upload?: boolean; // the organisation takes uploaded export files, so the load card is shown even when signed in
   loading?: string; // what the load is doing right now ("" when idle), shown with a spinner (demo only)
 }
 
@@ -60,8 +63,15 @@ function liveBar(v: View): string {
 
 // Demo only: load your own CRM export files. They are read in this browser and go nowhere else.
 // Two steps so it is clear what happens: choose the files, then press the button.
+// Demo only: the owner signs in with a passphrase to use saved data. Rule: the passphrase is sent to the server over HTTPS and never kept in the page.
+const ownerCard = (v: View): string => `<div class="card"><h2>Owner sign-in</h2>
+  <p class="muted">Sign in to save your work on the server, so you can come back to it. Without it, everything on this page is forgotten when you close it.</p>
+  <div class="filebox"><input type="password" id="ownerpass" placeholder="Owner passphrase" autocomplete="current-password"></div>
+  <div class="actions loadbox"><button data-action="owner-login">Sign in</button></div>
+  ${v.message && /passphrase|sign-in/i.test(v.message) ? `<div class="note">${esc(v.message)}</div>` : ""}</div>`;
+
 const loadCard = (v: View): string => `<div class="card"><h2>Use your own CRM export files</h2>
-  <p class="muted">Choose the Donation lines, Catalogue items and (optionally) Recurring plans files from the CRM Export Centre, all at once, then press Load. They are read in this browser only. Nothing is uploaded or saved.</p>
+  <p class="muted">Choose the Donation lines, Catalogue items and (optionally) Recurring plans files from the CRM Export Centre, all at once, then press Load. ${v.live ? "They are read in this browser. Only the lines needed for work orders and the audit are sent to your saved data, with no contact details." : "They are read in this browser only. Nothing is uploaded or saved."}</p>
   <div class="filebox"><input type="file" id="feedfile" multiple accept=".csv,text/csv"${v.loading ? " disabled" : ""}></div>
   ${v.pendingFiles?.length ? `<p>Chosen: ${v.pendingFiles.map(esc).join(", ")}</p>` : ""}
   <div class="actions loadbox"><button class="primary" data-action="load-files"${v.loading ? " disabled" : ""}>Load the chosen files</button></div>
@@ -84,7 +94,8 @@ export function workOrdersPage(v: View): string {
       ${v.live ? (v.canPickup ? `<button data-action="pickup-now">Run pickup now</button>` : "") : `<button data-action="demo-new">Demo: a new paid line arrives in the CRM</button>
       <button data-action="demo-change">Demo: the CRM changes an amount</button>`}
     </div>
-    ${v.live ? "" : loadCard(v)}
+    ${v.live && !v.upload ? "" : loadCard(v)}
+    ${v.live ? "" : ownerCard(v)}
     <div class="tabs">${tab("all", "All")}${tab("ready", "Ready")}${tab("unrouted", "Unrouted")}${tab("review", "To review")}</div>
     <div class="card">${
       rows.length === 0
@@ -167,3 +178,21 @@ export const settingsPage = (v: View): string => `
       <tr><td>Values that mean paid</td><td>${v.config.paidValues.map((x) => `<code>${esc(x)}</code>`).join(" ")}</td></tr>
       <tr><td>How the feed is read</td><td>Database view or API (chosen per organisation)</td></tr></tbody></table>
     <p class="muted">In this demo the settings are read-only and the feed is the invented sample.</p></div>`;
+
+const kindWord: Record<string, string> = { added: "New", changed: "Changed", moved: "Moved to another item", no_longer_needs_feedback: "No longer needs feedback", removed: "No longer in the CRM" };
+
+// The batch audit (DECISIONS 21, 43): what each import found compared with what was saved. It only reports.
+export function auditPage(v: View): string {
+  const audits = v.audits ?? [];
+  const latest = audits[0];
+  const row = (a: AuditRecord) => `<tr><td>${esc(a.at.slice(0, 16).replace("T", " "))}</td><td>${esc(a.source)}</td><td>${a.lines}</td>
+    <td>${a.coverage.from ? esc(a.coverage.from) + " to " + esc(a.coverage.to) : ""}</td>
+    <td>${a.counts.added}</td><td>${a.counts.changed}</td><td>${a.counts.moved}</td><td>${a.counts.no_longer_needs_feedback}</td><td>${a.complete ? a.counts.removed : "not judged"}</td></tr>`;
+  return `
+    <h1>Audit</h1>
+    <p class="sub">Every import is compared with what is already saved, line by line. The audit only reports. Nothing is changed or deleted by it.</p>
+    ${v.live ? "" : `<div class="empty">Sign in as the owner to keep an audit history.</div>`}
+    ${latest ? `<div class="metrics">${metric(latest.counts.added, "New lines")}${metric(latest.counts.changed + latest.counts.moved, "Changed or moved", latest.counts.changed + latest.counts.moved ? "warn" : "")}${metric(latest.counts.no_longer_needs_feedback, "No longer need feedback")}${metric(latest.complete ? latest.counts.removed : 0, "No longer in the CRM", latest.counts.removed ? "warn" : "")}</div>` : ""}
+    <div class="card"><h2>Imports</h2>${audits.length === 0 ? `<div class="empty">No imports yet.</div>` : `<table><thead><tr><th>When</th><th>Source</th><th>Lines</th><th>Dates covered</th><th>New</th><th>Changed</th><th>Moved</th><th>Not flagged</th><th>Removed</th></tr></thead><tbody>${audits.map(row).join("")}</tbody></table>`}</div>
+    ${latest && latest.findings.length ? `<div class="card"><h2>Latest import: to look at</h2><p class="muted">Work orders already made were kept. A person decides what to do with each.</p><table><tbody>${latest.findings.slice(0, 100).map((f) => `<tr><td>${esc(f.key)}</td><td><span class="pill review">${esc(kindWord[f.kind] ?? f.kind)}</span></td><td>${esc(f.message)}</td></tr>`).join("")}</tbody></table>${latest.findings.length > 100 ? `<p class="muted">Showing 100 of ${latest.findings.length}.</p>` : ""}</div>` : ""}`;
+}

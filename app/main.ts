@@ -15,11 +15,13 @@ import { planWorkOrders, type ReviewItem, type WorkOrder } from "../modules/01c-
 import { acceptSuggestions, addCategory, assignItem, removeCategory, renameCategory, setKeywords, suggestAll, updateFramework, type Cycle, type Framework } from "../modules/02-project-rules/categories";
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
-import { loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
+import { importFeed, loadAudits, loadConfig, loadWorkOrders, fetchMe, ownerLogin, runPickupNow, saveConfig, type Me } from "./api";
+import { packFeed } from "../modules/01e-crm-export-adapter/compact";
+import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { DEMO_ROLES, demoCategories, demoFeedRows } from "./demo-data";
 import { landingPage, visibleMenu, type PageId } from "./menu";
-import { dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
+import { auditPage, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
 
 const state = {
   live: (): boolean => state.me !== null,
@@ -35,6 +37,7 @@ const state = {
   message: "",
   pendingFiles: [] as File[], // export files chosen but not loaded yet (demo only)
   loadNote: "", // what the last load did, shown in the load card
+  audits: [] as AuditRecord[], // batch audit history (live only)
   loading: "", // what the load is doing right now, "" when idle (shows a spinner)
   me: null as Me | null, // set when signed in from the CRM (live mode)
   run: null as import("../modules/00-platform/store").RunInfo | null,
@@ -61,6 +64,7 @@ async function reloadLive(): Promise<void> {
     state.workOrders = r.workOrders;
     state.review = r.review;
     state.run = r.run;
+    state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
     state.message = "";
   } catch (e) {
     state.message = e instanceof Error ? e.message : "Could not load.";
@@ -123,7 +127,7 @@ function view(): View {
   return {
     workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
-    pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
+    pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
 }
 
@@ -146,6 +150,7 @@ function draw(): void {
   const body = menu.length === 0
     ? `<h1>No access</h1><p class="sub">Your CRM role has no OUTCOMES permission. In the live product you would not have been shown the OUTCOMES button.</p>`
     : state.page === "work-orders" ? workOrdersPage(v)
+    : state.page === "audit" ? auditPage(v)
     : state.page === "dashboard" ? dashboardPage(v)
     : state.page === "categories" ? categoriesPage(v)
     : state.page === "sources" ? sourcesPage()
@@ -194,6 +199,17 @@ document.addEventListener("click", (e) => {
   if (action === "refresh") {
     if (state.live()) return void reloadLive().then(draw);
     refresh();
+  }
+  if (action === "owner-login") {
+    const pass = (document.getElementById("ownerpass") as HTMLInputElement | null)?.value ?? "";
+    void ownerLogin(pass)
+      .then(() => fetchMe())
+      .then((me) => (me ? enterLive(me) : undefined))
+      .catch((e) => {
+        state.message = `Owner sign-in: ${e instanceof Error ? e.message : "it did not work."}`;
+        draw();
+      });
+    return;
   }
   if (action === "load-files") {
     // Rule: read the file box itself if the list of chosen files is empty, so the button works either way.
@@ -260,6 +276,16 @@ async function loadFiles(files: File[]): Promise<void> {
     const r = adaptFiles(parsed);
     if (r.rows.length === 0) {
       state.loadNote = r.issues[0]?.message ?? "The files could not be read.";
+      return;
+    }
+    if (state.live()) {
+      await step(`Sending ${r.counts.lines} lines to your saved data and auditing them...`);
+      const res = await importFeed(packFeed(r.rows), files.map((f) => f.name).join(", "));
+      if (!res.ok) throw new Error(res.error || "The import did not finish.");
+      await reloadLive();
+      state.pendingFiles = [];
+      const a = state.audits[0];
+      state.loadNote = `Imported ${res.rows} lines: ${res.created} new work orders, ${res.unchanged} already saved.${a ? ` Audit: ${a.counts.changed + a.counts.moved} changed or moved, ${a.complete ? a.counts.removed : 0} no longer in the CRM.` : ""} Saved.`;
       return;
     }
     await step(`Making work orders from ${r.counts.lines} lines...`);

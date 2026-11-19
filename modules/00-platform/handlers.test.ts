@@ -9,9 +9,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { PERMISSIONS as P } from "../../app/menu";
 import { rowsReader } from "../01c-crm-connector/reader";
 import { sampleRows } from "../01c-crm-connector/sample";
-import { handleConfig, handleDemoLogin, handleLaunch, handleMe, handlePickup, handleWorkOrders, type Deps, type HttpRequest } from "./handlers";
+import { handleAudits, handleConfig, handleDemoLogin, handleImport, handleOwnerLogin, handleLaunch, handleMe, handlePickup, handleWorkOrders, type Deps, type HttpRequest } from "./handlers";
 import { signToken, verifyToken, type Claims } from "./launch-token";
 import { defaultConfig, memoryStore } from "./store";
+import { packFeed } from "../01e-crm-export-adapter/compact";
 
 const SECRETS = { launch: "launch-secret", session: "session-secret", cron: "cron-secret" };
 const NOW_MS = 1_800_000_000_000;
@@ -191,5 +192,68 @@ describe("test sign-in for the pretend CRM", () => {
     await t.store.putConfig("demo", { ...defaultConfig(), crm: { kind: "api", baseUrl: "x", tokenEnv: "X" } });
     await handleDemoLogin(req(), t);
     expect((await t.store.getConfig("demo"))?.crm.kind).toBe("api");
+  });
+});
+
+describe("owner sign-in", () => {
+  const t = (): Deps => ({ ...d, ownerPassphrase: "a-long-owner-passphrase" });
+  const post = (passphrase: unknown) => req({ method: "POST", body: { passphrase } });
+
+  it("does not exist unless a passphrase is set", async () => {
+    expect((await handleOwnerLogin(post("x"), d)).status).toBe(404);
+  });
+  it("refuses a wrong passphrase and signs the owner in with the right one", async () => {
+    expect((await handleOwnerLogin(post("nope"), t())).status).toBe(401);
+    expect((await handleOwnerLogin(post(123), t())).status).toBe(401);
+    const r = await handleOwnerLogin(post("a-long-owner-passphrase"), t());
+    expect(r.status).toBe(200);
+    const cookie = (r.headers?.["set-cookie"] ?? "").split(";")[0] as string;
+    expect((await handleMe(as(cookie), t())).body).toMatchObject({ org: "mwf", upload: true });
+  });
+  it("answers 404 to anything but POST", async () => {
+    expect((await handleOwnerLogin(req(), t())).status).toBe(404);
+  });
+});
+
+describe("import and batch audit", () => {
+  const feedOf = (rows: Record<string, string>[]) => ({ ...packFeed(rows), source: "export files" });
+  const row = (id: string, over: Record<string, string> = {}) => ({ line_id: id, transaction_ref: `T${id}`, status: "Paid", paid_at: "2026-06-10 10:00:00", supporter_id: "D1", supporter_name: "Sample Supporter", item_id: "I1", item_name: "Water Pump", item_feedback: "2", amount: "100", quantity: "1", ...over });
+
+  it("makes work orders from an upload and keeps an audit for it", async () => {
+    const cookie = await signIn(d);
+    const r = await handleImport(as(cookie, { method: "POST", body: feedOf([row("1"), row("2"), row("3", { item_feedback: "1" })]) }), d);
+    expect(r.body).toMatchObject({ ok: true, rows: 3, created: 2 });
+    const orders = (await handleWorkOrders(as(cookie), d)).body as { workOrders: unknown[] };
+    expect(orders.workOrders).toHaveLength(2);
+    const audits = (await handleAudits(as(cookie), d)).body as { audits: { source: string; counts: { added: number } }[] };
+    expect(audits.audits[0]).toMatchObject({ source: "export files", counts: { added: 2 } });
+  });
+
+  it("on a second upload reports changed and removed lines and keeps the work orders", async () => {
+    const cookie = await signIn(d);
+    await handleImport(as(cookie, { method: "POST", body: feedOf([row("1"), row("2")]) }), d);
+    await handleImport(as(cookie, { method: "POST", body: feedOf([row("1", { amount: "90" }), row("9", { paid_at: "2026-06-30 10:00:00" })]) }), d);
+    const audits = ((await handleAudits(as(cookie), d)).body as { audits: { counts: Record<string, number> }[] }).audits;
+    expect(audits).toHaveLength(2);
+    // Line 2 is dated inside the dates the second upload covers, and is missing from it, so it is reported removed.
+    expect(audits[0]?.counts).toMatchObject({ changed: 1, added: 1, removed: 1 });
+    expect(((await handleWorkOrders(as(cookie), d)).body as { workOrders: unknown[] }).workOrders).toHaveLength(3);
+  });
+
+  it("refuses a bad table, a missing permission and an organisation that reads its CRM directly", async () => {
+    const cookie = await signIn(d);
+    expect((await handleImport(as(cookie, { method: "POST", body: { columns: ["email"], rows: [["a"]] } }), d)).status).toBe(400);
+    expect((await handleImport(as(await signIn(d, { perms: [P.access, P.viewWorkOrders] }), { method: "POST", body: feedOf([row("1")]) }), d)).status).toBe(403);
+    expect((await handleImport(req({ method: "POST", body: feedOf([row("1")]) }), d)).status).toBe(401);
+    await d.store.putConfig("mwf", { ...defaultConfig(), crm: { kind: "api", baseUrl: "x", tokenEnv: "X" } });
+    expect((await handleImport(as(cookie, { method: "POST", body: feedOf([row("1")]) }), d)).status).toBe(409);
+  });
+
+  it("keeps organisations apart", async () => {
+    const mine = await signIn(d);
+    const other = await signIn(d, { org: "other" });
+    await handleImport(as(mine, { method: "POST", body: feedOf([row("1")]) }), d);
+    expect(((await handleAudits(as(other), d)).body as { audits: unknown[] }).audits).toHaveLength(0);
+    expect(((await handleWorkOrders(as(other), d)).body as { workOrders: unknown[] }).workOrders).toHaveLength(0);
   });
 });

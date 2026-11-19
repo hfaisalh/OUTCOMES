@@ -40,6 +40,7 @@ export interface PlanOptions {
   categoryByItem: Record<string, string>; // CRM item id to category id, set in OUTCOMES
   usesFrameworks: boolean; // false for an organisation with no categories set up (DECISIONS 31, 40)
   feedIsComplete?: boolean; // true when the feed is the whole picture, not just recent lines, so missing lines can be spotted
+  coverage?: { from: string; to: string }; // when given, only work orders paid inside these dates can be judged missing (an export covers a date range)
 }
 
 export interface ReviewItem {
@@ -134,7 +135,8 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
 
   if (options.feedIsComplete) {
     for (const w of existing) {
-      if (!seen.has(w.key)) review.push({ key: w.key, reason: "missing_from_feed", message: "The line is no longer in the CRM feed (refunded, deleted or replaced). The work order was kept." });
+      const inside = !options.coverage || (w.paidDate >= options.coverage.from && w.paidDate <= options.coverage.to && w.paidDate !== "");
+      if (!seen.has(w.key) && inside) review.push({ key: w.key, reason: "missing_from_feed", message: "The line is no longer in the CRM feed (refunded, deleted or replaced). The work order was kept." });
     }
   }
   return { created, rerouted, unchanged, review };

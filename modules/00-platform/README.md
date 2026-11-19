@@ -19,6 +19,7 @@ The server side of OUTCOMES: signing people in from the CRM (DECISIONS 32), stor
 | `handlers.ts` | The endpoints as plain functions: launch, logout, me, config, work orders, pick-up |
 | `store.ts` | The storage interface, and a memory version for tests and demos |
 | `pg-store.ts`, `../../sql/001_init.sql` | The Postgres version and its tables |
+| `OWNER_PASSPHRASE` sign-in, `/api/import`, `/api/audits` | Owner sign-in until the CRM sign-in exists, uploads of CRM export files, and the audit history (DECISIONS 43) |
 | `pickup.ts` | One pick-up for one organisation, and rerouting when an item is sorted |
 | `../../api/*.ts` | Thin Vercel files. `_server.ts` reads the environment and wires the database |
 
@@ -32,7 +33,7 @@ The server side of OUTCOMES: signing people in from the CRM (DECISIONS 32), stor
 ## Not built yet
 - Refreshing a session by asking the CRM (needs a CRM endpoint).
 - Writing feedback report links (Module 7 supplies them to the report-back step).
-- Audit log of who changed what, and the batch audit (DECISIONS 21).
+- Audit log of who changed what. (The batch audit is built, see `modules/01f-batch-audit/`.)
 
 ## How to test
 `npm test`. The handlers are tested without a network, using the memory store and invented data.

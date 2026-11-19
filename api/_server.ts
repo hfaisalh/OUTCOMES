@@ -11,6 +11,7 @@
  *   LAUNCH_SECRET   shared with the CRM, signs the launch tokens
  *   SESSION_SECRET  OUTCOMES only, signs the session cookie
  *   CRON_SECRET     lets the scheduled job call /api/pickup
+ *   OWNER_PASSPHRASE  the owner's sign-in passphrase (16+ characters) until the CRM sign-in exists. Unset switches it off
  *   DEMO_LOGIN      set to 1 only on a test server: switches on /api/demo-login (the pretend CRM)
  *   DATABASE_URL    the Postgres database. Without it a memory store is used and nothing is kept
  *   <TOKEN_ENV>     the read token for an organisation's CRM, named in its setup
@@ -44,7 +45,7 @@ function getStore(): { store: Store; kind: Deps["storage"] } {
 function connector(config: OrgConfig): { reader: CrmReader; reporter: CrmReporter } | null {
   // The pretend CRM (Module 1d): new gifts arrive as time passes. It accepts report-back and forgets it.
   if (config.crm.kind === "demo") return { reader: { readFeed: async () => mockFeed(Date.now()) }, reporter: { send: async () => undefined } };
-  if (config.crm.kind !== "api") return null;
+  if (config.crm.kind !== "api") return null; // "upload" and "none" have no connection to read
   const token = process.env[config.crm.tokenEnv] ?? "";
   if (token === "") {
     const fail = () => Promise.reject(new ConnectorError("The CRM access token is not set on the server."));
@@ -65,6 +66,7 @@ export function deps(): Deps {
     newId: () => randomUUID(),
     connector,
     demoLogin: process.env["DEMO_LOGIN"] === "1",
+    ownerPassphrase: process.env["OWNER_PASSPHRASE"] ?? "",
   };
 }
 
