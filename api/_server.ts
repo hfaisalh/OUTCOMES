@@ -18,10 +18,10 @@
 import { neon } from "@neondatabase/serverless";
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { apiReader, apiReporter, ConnectorError, type CrmReader, type CrmReporter } from "../modules/01c-crm-connector/reader";
-import type { Deps, HttpRequest, HttpResponse } from "../modules/00-platform/handlers";
-import { pgStore } from "../modules/00-platform/pg-store";
-import { memoryStore, type OrgConfig, type Store } from "../modules/00-platform/store";
+import { apiReader, apiReporter, ConnectorError, type CrmReader, type CrmReporter } from "../modules/01c-crm-connector/reader.js";
+import type { Deps, HttpRequest, HttpResponse } from "../modules/00-platform/handlers.js";
+import { pgStore } from "../modules/00-platform/pg-store.js";
+import { memoryStore, type OrgConfig, type Store } from "../modules/00-platform/store.js";
 
 // One store per running function. The memory store is only for trying things out.
 let store: Store | null = null;

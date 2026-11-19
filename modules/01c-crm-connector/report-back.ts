@@ -9,7 +9,7 @@
  * Rule: only status and a report link go back. Never money, never contact details, never child data.
  */
 
-import type { WorkOrder, WorkOrderStatus } from "./work-orders";
+import type { WorkOrder, WorkOrderStatus } from "./work-orders.js";
 
 // The only stages the CRM is told about. "unrouted" and "ready" are internal to OUTCOMES.
 export const REPORTABLE: WorkOrderStatus[] = ["in_progress", "delivered", "reported"];

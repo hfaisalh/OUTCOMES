@@ -11,7 +11,7 @@
  * only says whether an item needs feedback.
  */
 
-import type { FeedLine } from "./feed";
+import type { FeedLine } from "./feed.js";
 
 // A work order moves through these stages. The planner only creates the first two.
 export type WorkOrderStatus = "unrouted" | "ready" | "in_progress" | "delivered" | "reported";

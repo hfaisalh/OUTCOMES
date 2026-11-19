@@ -11,11 +11,11 @@
  * permission. A launch token works once. Errors are plain English and never show secrets.
  */
 
-import { PERMISSIONS as P } from "../../app/menu";
-import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader";
-import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSION_SECONDS, verifyToken, signToken, clearSessionCookie, type Claims } from "./launch-token";
-import { rerouteUnrouted, runPickup } from "./pickup";
-import { defaultConfig, type OrgConfig, type Store } from "./store";
+import { PERMISSIONS as P } from "../../app/menu.js";
+import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
+import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSION_SECONDS, verifyToken, signToken, clearSessionCookie, type Claims } from "./launch-token.js";
+import { rerouteUnrouted, runPickup } from "./pickup.js";
+import { defaultConfig, type OrgConfig, type Store } from "./store.js";
 
 export interface HttpRequest {
   method: string;

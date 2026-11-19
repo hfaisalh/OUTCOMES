@@ -12,11 +12,11 @@
  * run only moves forward when a run succeeds, so nothing is skipped after a failure.
  */
 
-import { readFeed } from "../01c-crm-connector/feed";
-import { buildReportBack, REPORTABLE } from "../01c-crm-connector/report-back";
-import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader";
-import { planWorkOrders, type ReviewItem, type WorkOrder } from "../01c-crm-connector/work-orders";
-import type { OrgConfig, RunInfo, Store } from "./store";
+import { readFeed } from "../01c-crm-connector/feed.js";
+import { buildReportBack, REPORTABLE } from "../01c-crm-connector/report-back.js";
+import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
+import { planWorkOrders, type ReviewItem, type WorkOrder } from "../01c-crm-connector/work-orders.js";
+import type { OrgConfig, RunInfo, Store } from "./store.js";
 
 export interface PickupDeps {
   store: Store;

@@ -9,8 +9,8 @@
  * Rule: every query filters by the organisation, passed as the first parameter ($1).
  */
 
-import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders";
-import type { OrgConfig, RunInfo, Store } from "./store";
+import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js";
+import type { OrgConfig, RunInfo, Store } from "./store.js";
 
 export type Query = (sql: string, params: unknown[]) => Promise<Record<string, unknown>[]>;
 

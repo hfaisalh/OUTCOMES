@@ -11,8 +11,8 @@
  * and return the rows as text (see docs/CRM-FEED-SPEC.md). It needs only read access to that view.
  */
 
-import type { FeedRow } from "./feed";
-import type { ReportBackItem } from "./report-back";
+import type { FeedRow } from "./feed.js";
+import type { ReportBackItem } from "./report-back.js";
 
 // The read side: the CRM as the data input.
 export interface CrmReader {

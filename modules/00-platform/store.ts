@@ -11,9 +11,9 @@
  * from the request.
  */
 
-import type { FeedConfig } from "../01c-crm-connector/feed";
-import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders";
-import type { Category, Framework, ItemMap } from "../02-project-rules/frameworks";
+import type { FeedConfig } from "../01c-crm-connector/feed.js";
+import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js";
+import type { Category, Framework, ItemMap } from "../02-project-rules/frameworks.js";
 
 // How this organisation reads its CRM (DECISIONS 30). The token itself is never stored here, only the name of the setting that holds it.
 export type CrmSetting = { kind: "none" } | { kind: "api"; baseUrl: string; tokenEnv: string };

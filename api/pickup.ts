@@ -5,7 +5,7 @@
  * Who calls it: the browser and, for the sign-in, the CRM. Depends on: _server.ts.
  */
 
-import { handlePickup } from "../modules/00-platform/handlers";
-import { node } from "./_server";
+import { handlePickup } from "../modules/00-platform/handlers.js";
+import { node } from "./_server.js";
 
 export default node(handlePickup);
