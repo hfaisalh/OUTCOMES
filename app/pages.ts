@@ -67,14 +67,14 @@ function liveBar(v: View): string {
 // Demo only: load your own CRM export files. They are read in this browser and go nowhere else.
 // Two steps so it is clear what happens: choose the files, then press the button.
 // Demo only: the owner signs in with a passphrase to use saved data. Rule: the passphrase is sent to the server over HTTPS and never kept in the page.
-const ownerCard = (v: View): string => `<div class="card"><h2>Owner sign-in</h2>
-  <p class="muted">Sign in to save your work on the server, so you can come back to it. Without it, everything on this page is forgotten when you close it.</p>
+const ownerCard = (v: View): string => `<div class="card"><h2>Not signed in: nothing is being saved</h2>
+  <div class="note warnnote"><b>Everything on this page is forgotten when you refresh or open a new address.</b> Sign in as the owner first to keep your work on the server, then load your files. Always use the same address, https://outcomes-beryl.vercel.app/app/, because the sign-in belongs to that address.</div>
   <div class="filebox"><input type="password" id="ownerpass" placeholder="Owner passphrase" autocomplete="current-password"></div>
   <div class="actions loadbox"><button data-action="owner-login">Sign in</button></div>
   ${v.message && /passphrase|sign-in/i.test(v.message) ? `<div class="note">${esc(v.message)}</div>` : ""}</div>`;
 
 const loadCard = (v: View): string => `<div class="card"><h2>Use your own CRM export files</h2>
-  <p class="muted">Choose the Donation lines, Catalogue items and (optionally) Recurring plans files from the CRM Export Centre, all at once, then press Load. ${v.live ? "They are read in this browser. Only the lines needed for work orders and the audit are sent to your saved data, with no contact details." : "They are read in this browser only. Nothing is uploaded or saved."}</p>
+  <p class="muted">Choose the Donation lines, Catalogue items and (optionally) Recurring plans files from the CRM Export Centre, all at once, then press Load. ${v.live ? "They are read in this browser. Only the lines needed for work orders and the audit are sent to your saved data, with no contact details." : "They are read in this browser only. Nothing is uploaded or saved, so sign in above first if you want to keep the result."}</p>
   <div class="filebox"><input type="file" id="feedfile" multiple accept=".csv,text/csv"${v.loading ? " disabled" : ""}></div>
   ${v.pendingFiles?.length ? `<p>Chosen: ${v.pendingFiles.map(esc).join(", ")}</p>` : ""}
   <div class="actions loadbox"><button class="primary" data-action="load-files"${v.loading ? " disabled" : ""}>Load the chosen files</button></div>
@@ -104,8 +104,8 @@ export function workOrdersPage(v: View): string {
       ${v.live ? (v.canPickup ? `<button data-action="pickup-now">Run pickup now</button>` : "") : `<button data-action="demo-new">Demo: a new paid line arrives in the CRM</button>
       <button data-action="demo-change">Demo: the CRM changes an amount</button>`}
     </div>
-    ${v.live && !v.upload ? "" : loadCard(v)}
     ${v.live ? "" : ownerCard(v)}
+    ${v.live && !v.upload ? "" : loadCard(v)}
     <div class="tabs">${tab("all", "All")}${tab("ready", "Ready")}${tab("unrouted", "Unrouted")}${tab("review", "To review")}</div>
     <div class="card">${
       rows.length === 0
