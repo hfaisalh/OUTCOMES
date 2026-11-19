@@ -12,6 +12,7 @@ What each field means. Names are generic and say what a thing means (DECISIONS 2
 | Fund | Where the money goes | Designation |
 | Outcome | What is delivered. The routing key (DECISIONS 5) | Outcome Activity |
 | Group | A centre, branch or region a transaction came through (DECISIONS 8) | Centre, Community Centre |
+| Credit chain | The parties a gift is credited to besides the donor, nearest first, such as an agent, then a group, then an organisation above it (DECISIONS 44). Optional | Soft credit, Affiliation |
 | Commitment | A recurring or instalment arrangement | Gift Commitment |
 | Lookup list | Names for fund and outcome IDs, set once | Code book (SF META) |
 

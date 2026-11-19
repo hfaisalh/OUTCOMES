@@ -8,6 +8,7 @@
  * Depends on: the connector types, menu.ts and demo-data.ts (categories list).
  */
 
+import { noIndividualDonor } from "../modules/01c-crm-connector/credits";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import type { MWF_CRM_CONFIG } from "../modules/01c-crm-connector/feed";
 import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-orders";
@@ -78,6 +79,13 @@ const loadCard = (v: View): string => `<div class="card"><h2>Use your own CRM ex
   ${v.loading ? `<div class="progress"><span class="spinner"></span><span>${esc(v.loading)}</span></div>` : ""}
   ${v.loadNote && !v.loading ? `<div class="note">${esc(v.loadNote)}</div>` : ""}</div>`;
 
+// Who else the gift is credited to (agent, group, organisation), and a flag when there is no individual donor (DECISIONS 44). Empty when the feed has neither.
+const creditLine = (w: WorkOrder): string => {
+  const chain = (w.credits ?? []).map((c) => `${c.role ? esc(c.role) + ": " : ""}${esc(c.name || c.id)}`).join(" › ");
+  const flag = noIndividualDonor(w) && (w.credits?.length || w.supporterKind === "group") ? ` <span class="pill review">No individual donor</span>` : "";
+  return chain || flag ? `<div class="muted">${chain ? "Credited: " + chain : ""}${flag}</div>` : "";
+};
+
 export function workOrdersPage(v: View): string {
   const reviewKeys = new Set(v.review.map((r) => r.key));
   const count = (s: string) => v.workOrders.filter((w) => w.status === s).length;
@@ -103,7 +111,7 @@ export function workOrdersPage(v: View): string {
         : `<table><thead><tr><th>Reference</th><th>Supporter</th><th>Item</th><th>Instalment</th><th>Category</th><th>Status</th></tr></thead><tbody>${rows
             .map(
               (w) => `<tr><td>${esc(w.transactionRef)}<div class="muted">${esc(w.paidDate)}</div></td>
-              <td>${esc(w.supporterName)}<div class="muted">${esc(w.supporterId)}${w.group ? " · " + esc(w.group) : ""}</div></td>
+              <td>${esc(w.supporterName)}<div class="muted">${esc(w.supporterId)}${w.group ? " · " + esc(w.group) : ""}</div>${creditLine(w)}</td>
               <td>${esc(w.itemName)}</td><td>${instalment(w)}</td>
               <td>${w.status === "unrouted" ? picker(v.categories, w.itemId, "") : esc(categoryName(v.categories, w.categoryId))}</td>
               <td><span class="pill ${w.status === "unrouted" ? "unrouted" : "ready"}">${w.status === "unrouted" ? "Unrouted" : "Ready"}</span>${reviewKeys.has(w.key) ? ` <span class="pill review">Review</span>` : ""}</td></tr>`,

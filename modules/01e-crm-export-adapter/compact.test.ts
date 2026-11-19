@@ -33,6 +33,18 @@ describe("packFeed and unpackFeed", () => {
     expect(packed.columns).not.toContain("channel");
   });
 
+  it("carries the optional credit chain, and sends its names only for lines that need feedback", () => {
+    const withChain = rows.map((r) => ({ ...r, supporter_kind: "group", credit_1_role: "agent", credit_1_id: "A1", credit_1_name: "Sample Rep", credit_2_role: "group", credit_2_id: "G1", credit_2_name: "Sample Branch" }));
+    const back = unpackFeed(packFeed(withChain));
+    if ("error" in back) throw new Error(back.error);
+    const lines = readFeed(back.rows, MWF_CRM_CONFIG).lines;
+    const needs = lines.find((l) => l.needsFeedback)!;
+    expect(needs.supporterKind).toBe("group");
+    expect(needs.credits.map((c) => c.name)).toEqual(["Sample Rep", "Sample Branch"]);
+    const other = lines.find((l) => !l.needsFeedback)!;
+    expect(other.credits.map((c) => [c.id, c.name])).toEqual([["A1", ""], ["G1", ""]]); // ids stay, names are not sent
+  });
+
   it("is much smaller than plain objects", () => {
     expect(JSON.stringify(packFeed(rows)).length).toBeLessThan(JSON.stringify(rows).length);
   });

@@ -12,7 +12,7 @@ import { auditFeed, coverageOf } from "./audit";
 
 const line = (id: string, over: Partial<FeedLine> = {}): FeedLine => ({
   row: 1, lineId: id, transactionRef: `T${id}`, paidDate: "2026-06-10", supporterId: "D1", supporterName: "Sample", group: "", channel: "", merchant: "", method: "",
-  itemId: "I1", itemName: "Water Pump", amount: 100, quantity: 1, intention: "", subscriptionId: "", instalmentNumber: "", instalmentCount: "", needsFeedback: true, ...over,
+  itemId: "I1", itemName: "Water Pump", amount: 100, quantity: 1, intention: "", subscriptionId: "", instalmentNumber: "", instalmentCount: "", needsFeedback: true, supporterKind: "individual", credits: [], ...over,
 });
 const order = (id: string, over: Partial<WorkOrder> = {}): WorkOrder => ({
   key: `T${id}:${id}`, lineId: id, transactionRef: `T${id}`, paidDate: "2026-06-10", supporterId: "D1", supporterName: "Sample", group: "", itemId: "I1", itemName: "Water Pump", amount: 100,

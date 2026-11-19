@@ -76,3 +76,14 @@ describe("auditPage", () => {
     expect(auditPage(view({ live: true, audits: [{ ...record, complete: false }] }))).toContain("not judged");
   });
 });
+
+describe("credit chain on the work orders page", () => {
+  it("shows who a gift is credited to and flags a group's own gift, and shows nothing when there is no chain", () => {
+    const first = plan.created[0]!;
+    const withChain = { ...first, supporterKind: "group", credits: [{ role: "agent", id: "A1", name: "Sample Rep" }, { role: "group", id: "G1", name: "<b>Branch</b>" }] };
+    const html = workOrdersPage(view({ workOrders: [withChain] }));
+    expect(html).toContain("Credited: agent: Sample Rep › group: &lt;b&gt;Branch&lt;/b&gt;");
+    expect(html).toContain("No individual donor");
+    expect(workOrdersPage(view({ workOrders: [first] }))).not.toContain("Credited:");
+  });
+});

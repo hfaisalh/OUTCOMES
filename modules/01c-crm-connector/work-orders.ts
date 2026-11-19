@@ -11,6 +11,7 @@
  * only says whether an item needs feedback.
  */
 
+import type { Credit } from "./credits.js";
 import type { FeedLine } from "./feed.js";
 
 // A work order moves through these stages. The planner only creates the first two.
@@ -24,6 +25,8 @@ export interface WorkOrder {
   supporterId: string;
   supporterName: string; // display name only (privacy rule)
   group: string;
+  supporterKind?: string; // "organisation" or "group" when the donor is not an individual. Absent on work orders made before DECISIONS 44
+  credits?: Credit[]; // the credit chain, nearest first. Absent when the feed had none
   itemId: string;
   itemName: string;
   amount: number; // for reference only
@@ -104,6 +107,8 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
         supporterId: line.supporterId,
         supporterName: line.supporterName,
         group: line.group,
+        ...(line.supporterKind !== "individual" ? { supporterKind: line.supporterKind } : {}),
+        ...(line.credits.length > 0 ? { credits: line.credits } : {}),
         itemId: line.itemId,
         itemName: line.itemName,
         amount: line.amount,

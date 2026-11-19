@@ -26,6 +26,18 @@ Paid lines only is not required: OUTCOMES filters by status itself. Send all lin
 | `amount`, `quantity` | For reference only. OUTCOMES does not manage money | |
 | `intention` | For example Sadaqah, Zakat | |
 
+## Optional columns: credit chain (planned in the CRM, DECISIONS 44)
+
+Not needed today. OUTCOMES reads them when they appear, so adding them later changes nothing else. They describe who a gift is credited to besides the donor, for example a rep (agent), the branch the rep belongs to (group), and the company above the branch (organisation). The CRM's own links decide the chain, OUTCOMES keeps no second list.
+
+| Column | Meaning | Notes |
+|---|---|---|
+| `supporter_kind` | What the donor on the line is | `individual` (or blank), `organisation` (a donor in its own right, gets the report), or `group` (a group giving on its own name, so the report goes to the nearest credit) |
+| `credit_1_role`, `credit_1_id`, `credit_1_name` | The nearest credited party | For example role `agent`. Id and display name only |
+| `credit_2_...`, `credit_3_...`, `credit_4_...` | The next levels up, in order | For example the group, then the organisation. Up to four. Leave blank when there are none |
+
+The role is the CRM's own word and OUTCOMES does not interpret it. Order matters, nearest first. Where an agent is named the group and organisation follow from the CRM's links, so the feed simply lists them.
+
 ## What the feed must not hold
 
 Email, phone, address, bank details, or any child (beneficiary) data. Contact details stay in the CRM (CLAUDE.md privacy rules). The CRM sends reports and messages to its own donors.

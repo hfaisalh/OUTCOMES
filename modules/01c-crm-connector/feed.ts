@@ -11,6 +11,8 @@
  * are carried for reference only. Contact details are not part of the feed.
  */
 
+import { readCredits, supporterKindOf, type Credit } from "./credits.js";
+
 export type FeedRow = Record<string, string>;
 
 // How this organisation's CRM spells the trigger and the paid status.
@@ -43,6 +45,8 @@ export interface FeedLine {
   supporterId: string;
   supporterName: string; // display name only
   group: string; // centre or branch, "" when none
+  supporterKind: string; // "individual", "organisation" or "group", from the optional supporter_kind column (DECISIONS 44)
+  credits: Credit[]; // the optional credit chain, nearest first, [] when the feed has none (DECISIONS 44)
   channel: string;
   merchant: string;
   method: string;
@@ -158,6 +162,8 @@ export function readFeed(rows: FeedRow[], config: FeedConfig = MWF_CRM_CONFIG): 
       supporterId: (r["supporter_id"] ?? "").trim(),
       supporterName: (r["supporter_name"] ?? "").trim(),
       group: (r["group_name"] ?? "").trim(),
+      supporterKind: supporterKindOf(r["supporter_kind"]),
+      credits: readCredits(r),
       channel: (r["channel"] ?? "").trim(),
       merchant: (r["merchant"] ?? "").trim(),
       method: (r["payment_mode"] ?? "").trim(),

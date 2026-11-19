@@ -70,6 +70,17 @@ describe("planWorkOrders review list", () => {
     expect(planWorkOrders(fewer, made, { ...options, feedIsComplete: true }).review.map((r) => r.reason)).toEqual(["missing_from_feed"]);
   });
 
+  it("keeps the credit chain and the donor kind on the work order when the feed has them, and adds nothing when it does not", () => {
+    const chain = [{ role: "agent", id: "A1", name: "Sample Rep" }, { role: "group", id: "G1", name: "Sample Branch" }];
+    const one = { ...(feed[0] as FeedLine), supporterKind: "group", credits: chain };
+    const made1 = planWorkOrders([one], [], options).created[0]!;
+    expect(made1.credits).toEqual(chain);
+    expect(made1.supporterKind).toBe("group");
+    const plain = planWorkOrders([feed[0] as FeedLine], [], options).created[0]!;
+    expect("credits" in plain).toBe(false);
+    expect("supporterKind" in plain).toBe(false);
+  });
+
   it("judges a vanished line only inside the dates the feed covers", () => {
     const fewer = feed.filter((l) => l.lineId !== "L004");
     const outside = { from: "2020-01-01", to: "2020-12-31" };
