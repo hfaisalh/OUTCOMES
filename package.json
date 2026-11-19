@@ -10,6 +10,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm test",
+    "feed:from-exports": "node scripts/export-to-feed.ts",
     "db:init": "node --env-file=.env.local scripts/db-init.mjs"
   },
   "devDependencies": {

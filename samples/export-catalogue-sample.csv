@@ -1,0 +1,6 @@
+"Item SKU",Item,"Cause SKU",Cause,"Feedback type",Subscription,Instalments,"Continues until cancelled"
+MWF-ORP-001,Orphan Sponsorship Monthly,ORP,Orphans,Feedback report,Yes,12,No
+MWF-ORP-001,Orphan Sponsorship Monthly,ORP,Orphans,Feedback report,Yes,,Yes
+MWF-WAT-001,Water Pump,WAT,Water,Feedback report,No,,
+MWF-GEN-001,General Fund,GEN,General,Acknowledgement only,No,,
+MWF-HIF-001,Hifz Sponsorship,HIF,Hifz,Feedback report,Yes,,Yes

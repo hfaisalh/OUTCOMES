@@ -1,0 +1,169 @@
+/**
+ * export-adapter.ts
+ *
+ * What it does: turns the CRM Export Centre's files (Donation lines, Catalogue items, Recurring
+ * plans) into feed rows in the shape of docs/CRM-FEED-SPEC.md, so OUTCOMES can run on a CRM export
+ * until the CRM has a feed view or API (DECISIONS 42).
+ * Who calls it: scripts/export-to-feed.ts and the tests.
+ * Depends on: only the FeedRow type from Module 1c. Pure functions: no files, no database, no screen.
+ *
+ * The three files are joined like this:
+ *   - Donation lines carry the item code, which equals the catalogue's Item SKU.
+ *   - Catalogue items carry the feedback trigger ("Feedback type") per item.
+ *   - Recurring plans carry the instalment count, joined on the line's Subscription ID = Plan ID.
+ * Contact, address, Gift Aid and card columns are never read, even if present. Only the donor id and
+ * a display name (billing first and last name) go on.
+ */
+
+import type { FeedRow } from "../01c-crm-connector/feed.js";
+
+export type ExportRow = Record<string, string>;
+
+export type AdaptIssueCode = "missing_column" | "item_not_in_catalogue" | "catalogue_conflict" | "bad_date";
+
+export interface AdaptIssue {
+  code: AdaptIssueCode;
+  message: string;
+}
+
+export interface AdaptResult {
+  rows: FeedRow[];
+  issues: AdaptIssue[];
+  // Plain counts for a summary, no donor data.
+  counts: { lines: number; feedbackLines: number; recurringLines: number; recurringWithoutPlan: number };
+}
+
+// Columns the Donation lines export must have. Names are the Export Centre's own labels.
+export const REQUIRED_LINE_COLUMNS = ["Line ID", "Item Code", "Order Reference", "Order Status", "Payment Date"];
+export const REQUIRED_CATALOGUE_COLUMNS = ["Item SKU", "Feedback type"];
+
+const norm = (s: string) => s.trim().toLowerCase();
+
+// Reads a column by its label, ignoring case and spaces around the label. Missing gives "".
+function pick(row: ExportRow, label: string): string {
+  const want = norm(label);
+  for (const key of Object.keys(row)) if (norm(key) === want) return (row[key] ?? "").trim();
+  return "";
+}
+
+const hasColumn = (rows: ExportRow[], label: string): boolean => rows.length === 0 || Object.keys(rows[0] as ExportRow).some((k) => norm(k) === norm(label));
+
+// Rule: the CRM exports dates as "dd/mm/yyyy hh:mm". The feed wants "YYYY-MM-DD hh:mm:ss".
+// An already-ISO date passes through. Anything that is not a real date gives "".
+export function toFeedDate(text: string): string {
+  const t = text.trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(t);
+  const uk = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(t);
+  let y: number, mo: number, d: number, h: number, mi: number, s: number;
+  if (iso) [y, mo, d, h, mi, s] = [Number(iso[1]), Number(iso[2]), Number(iso[3]), Number(iso[4] ?? 0), Number(iso[5] ?? 0), Number(iso[6] ?? 0)];
+  else if (uk) [y, mo, d, h, mi, s] = [Number(uk[3]), Number(uk[2]), Number(uk[1]), Number(uk[4] ?? 0), Number(uk[5] ?? 0), Number(uk[6] ?? 0)];
+  else return "";
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d) return "";
+  const p = (n: number, w = 2) => String(n).padStart(w, "0");
+  return `${p(y, 4)}-${p(mo)}-${p(d)} ${p(h)}:${p(mi)}:${p(s)}`;
+}
+
+// Rule: "Feedback report" (or the CRM's own code 2) means the item needs feedback. Anything else is "1".
+const feedbackCode = (text: string): "1" | "2" => (["feedback report", "2"].includes(norm(text)) ? "2" : "1");
+
+const isYes = (text: string) => ["yes", "y", "1", "true"].includes(norm(text));
+
+/**
+ * Rules:
+ * - The trigger comes from the catalogue, by item code = Item SKU. If an item code appears with
+ *   different feedback types, one issue is raised and "Feedback report" wins, so a report is not
+ *   missed. An item code not in the catalogue is not flagged for feedback and is reported once.
+ * - A line is recurring when it has a subscription id (not blank or 0) or its Period is not "One-time".
+ * - The instalment count comes from the plan (Plan ID = the line's Subscription ID): empty when the
+ *   plan runs until cancelled, the planned number otherwise. No plan row gives empty, which the feed
+ *   reader shows as "Indefinitely" (DECISIONS 18, 41).
+ * - The export holds paid lines and has no deleted or replaced markers, so those stay empty. This is
+ *   a known limit of the export (replaced orders cannot be detected).
+ */
+export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: ExportRow[]): AdaptResult {
+  const issues: AdaptIssue[] = [];
+
+  for (const label of REQUIRED_LINE_COLUMNS)
+    if (!hasColumn(lines, label)) issues.push({ code: "missing_column", message: `The Donation lines file has no "${label}" column.` });
+  for (const label of REQUIRED_CATALOGUE_COLUMNS)
+    if (!hasColumn(catalogue, label)) issues.push({ code: "missing_column", message: `The Catalogue items file has no "${label}" column.` });
+  if (issues.length > 0) return { rows: [], issues, counts: { lines: 0, feedbackLines: 0, recurringLines: 0, recurringWithoutPlan: 0 } };
+
+  // Section: the trigger per item code.
+  const trigger = new Map<string, "1" | "2">();
+  const conflicted = new Set<string>();
+  for (const r of catalogue) {
+    const sku = pick(r, "Item SKU");
+    if (sku === "") continue;
+    const code = feedbackCode(pick(r, "Feedback type"));
+    const seen = trigger.get(sku);
+    if (seen !== undefined && seen !== code) conflicted.add(sku);
+    trigger.set(sku, seen === "2" || code === "2" ? "2" : "1");
+  }
+  for (const sku of conflicted) issues.push({ code: "catalogue_conflict", message: `Item ${sku} has different feedback types in the catalogue. Treated as needing feedback.` });
+
+  // Section: the plans by id.
+  const planById = new Map<string, { untilCancelled: boolean; planned: string }>();
+  for (const r of plans) {
+    const id = pick(r, "Plan ID");
+    if (id !== "") planById.set(id, { untilCancelled: isYes(pick(r, "Until cancelled")), planned: pick(r, "Instalments planned") });
+  }
+
+  const missingItems = new Set<string>();
+  const rows: FeedRow[] = [];
+  let feedbackLines = 0;
+  let recurringLines = 0;
+  let recurringWithoutPlan = 0;
+  let badDates = 0;
+
+  for (const r of lines) {
+    const code = pick(r, "Item Code");
+    const subRaw = pick(r, "Subscription ID");
+    const subscriptionId = subRaw === "0" ? "" : subRaw;
+    const period = norm(pick(r, "Period"));
+    const recurring = subscriptionId !== "" || (period !== "" && period !== "one-time");
+
+    const plan = subscriptionId !== "" ? planById.get(subscriptionId) : undefined;
+    if (recurring && !plan) recurringWithoutPlan++;
+    const instalmentCount = !recurring || !plan || plan.untilCancelled ? "" : plan.planned;
+
+    const feedback = trigger.get(code) ?? "";
+    if (code !== "" && !trigger.has(code)) missingItems.add(code);
+    if (feedback === "2") feedbackLines++;
+    if (recurring) recurringLines++;
+
+    const paidAt = toFeedDate(pick(r, "Payment Date"));
+    if (paidAt === "") badDates++;
+
+    rows.push({
+      line_id: pick(r, "Line ID"),
+      transaction_ref: pick(r, "Order Reference"),
+      status: pick(r, "Order Status"),
+      is_deleted: "",
+      superseded_by: "",
+      paid_at: paidAt,
+      supporter_id: pick(r, "Donor ID"),
+      supporter_name: [pick(r, "First Name (Billing)"), pick(r, "Last Name (Billing)")].filter((x) => x !== "").join(" "),
+      group_name: "",
+      channel: pick(r, "Source"),
+      merchant: pick(r, "Merchant"),
+      payment_mode: pick(r, "Payment Gateway"),
+      item_id: code,
+      item_name: pick(r, "Item Name"),
+      item_feedback: feedback,
+      is_recurring: recurring ? "1" : "0",
+      instalment_count: instalmentCount,
+      subscription_id: subscriptionId,
+      instalment_number: subscriptionId !== "" ? pick(r, "Instalment no") : "",
+      amount: pick(r, "Item Cost"),
+      quantity: pick(r, "Order Quantity"),
+      intention: pick(r, "Intention"),
+    });
+  }
+
+  for (const code of missingItems) issues.push({ code: "item_not_in_catalogue", message: `Item code ${code} is not in the Catalogue items file, so it is not flagged for feedback.` });
+  if (badDates > 0) issues.push({ code: "bad_date", message: `${badDates} line(s) have a Payment Date that is not a real date.` });
+
+  return { rows, issues, counts: { lines: rows.length, feedbackLines, recurringLines, recurringWithoutPlan } };
+}
