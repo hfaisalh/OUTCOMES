@@ -63,3 +63,4 @@ h3.cat{margin:18px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:
 .fwname{margin-bottom:6px}
 .fwgrid .chip{font-size:13px;padding:3px 8px}
 @media(max-width:800px){.unsorted{position:static}.unsorted .card{max-height:none}}
+.fwtitle{margin:12px 0 0;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}

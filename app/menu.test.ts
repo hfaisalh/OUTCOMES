@@ -19,7 +19,7 @@ describe("visibleMenu", () => {
   });
 
   it("lands on the first allowed item", () => {
-    expect(landingPage([P.access, P.settings, P.mapFrameworks])).toBe("frameworks");
+    expect(landingPage([P.access, P.settings, P.mapFrameworks])).toBe("categories");
   });
 
   it("shows everything to a role with every permission", () => {

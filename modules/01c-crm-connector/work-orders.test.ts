@@ -8,11 +8,11 @@
 import { describe, expect, it } from "vitest";
 import { readFeed, type FeedLine } from "./feed";
 import { sampleRows } from "./sample";
-import { DEFAULT_FRAMEWORK, planWorkOrders, type PlanOptions, type WorkOrder } from "./work-orders";
+import { DEFAULT_CATEGORY, planWorkOrders, type PlanOptions, type WorkOrder } from "./work-orders";
 
 const feed = readFeed(sampleRows()).lines;
 // Set in OUTCOMES (DECISIONS 31). The item I14 (Animal Sacrifice) is deliberately not mapped yet.
-const options: PlanOptions = { usesFrameworks: true, frameworkByItem: { I10: "orphan", I11: "water", I13: "hifz" } };
+const options: PlanOptions = { usesFrameworks: true, categoryByItem: { I10: "orphan", I11: "water", I13: "hifz" } };
 
 describe("planWorkOrders", () => {
   const plan = planWorkOrders(feed, [], options);
@@ -22,7 +22,7 @@ describe("planWorkOrders", () => {
   });
 
   it("routes by the framework set in OUTCOMES, and leaves an unmapped item unrouted", () => {
-    const by = Object.fromEntries(plan.created.map((w) => [w.lineId, [w.frameworkId, w.status]]));
+    const by = Object.fromEntries(plan.created.map((w) => [w.lineId, [w.categoryId, w.status]]));
     expect(by).toEqual({ L001: ["orphan", "ready"], L002: ["water", "ready"], L004: ["hifz", "ready"], L008: ["", "unrouted"] });
   });
 
@@ -39,13 +39,13 @@ describe("planWorkOrders", () => {
   });
 
   it("reroutes an unrouted work order once its item is mapped", () => {
-    const later = planWorkOrders(feed, plan.created, { ...options, frameworkByItem: { ...options.frameworkByItem, I14: "qurbani" } });
-    expect(later.rerouted.map((w) => [w.key, w.frameworkId, w.status])).toEqual([["T1008:L008", "qurbani", "ready"]]);
+    const later = planWorkOrders(feed, plan.created, { ...options, categoryByItem: { ...options.categoryByItem, I14: "qurbani" } });
+    expect(later.rerouted.map((w) => [w.key, w.categoryId, w.status])).toEqual([["T1008:L008", "qurbani", "ready"]]);
   });
 
   it("uses the default journey when the organisation has no frameworks", () => {
-    const p = planWorkOrders(feed, [], { usesFrameworks: false, frameworkByItem: {} });
-    expect(p.created.every((w) => w.frameworkId === DEFAULT_FRAMEWORK && w.status === "ready")).toBe(true);
+    const p = planWorkOrders(feed, [], { usesFrameworks: false, categoryByItem: {} });
+    expect(p.created.every((w) => w.categoryId === DEFAULT_CATEGORY && w.status === "ready")).toBe(true);
   });
 });
 

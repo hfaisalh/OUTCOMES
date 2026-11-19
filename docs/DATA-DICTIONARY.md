@@ -118,22 +118,22 @@ A work order is one instruction token: deliver this line and report back to this
 |---|---|
 | `key` | `transactionRef:lineId`. Unique, so a line never makes two work orders |
 | `itemId`, `itemName` | The CRM item. The CRM says whether it needs feedback |
-| `frameworkId` | Set in OUTCOMES. Empty while unrouted. `default` when the organisation has no frameworks |
+| `categoryId` | Set in OUTCOMES. Empty while unrouted. `default` when the organisation has no categories |
 | `status` | `unrouted`, `ready`, `in_progress`, `delivered`, `reported` |
 | `subscriptionId`, `instalmentNumber`, `instalmentCount` | The recurring plan the line belongs to, which instalment, and how many (a number or Indefinitely) |
 | `supporterId`, `supporterName` | The CRM id and a display name only |
 
 The feed columns are listed in `docs/CRM-FEED-SPEC.md`.
 
-## Frameworks (Module 2)
+## Categories and their framework (Module 2)
 
-A **category** (`id`, `name`, `defaultCycle`) groups frameworks, for example Sponsorship or Transactional. A framework has a `categoryId` (blank when none).
+An item belongs to one **category** (for example Sponsorship or Transactional). The category has properties, and one of them is its **framework**: the settings that decide the flow of every order in the category (DECISIONS 40).
 
 | Field | Meaning |
 |---|---|
 | `id`, `name` | Stable id (made from the name) and the name staff see |
-| `keywords` | Words that suggest this framework when found in a CRM item's name |
-| `rules.unit` | What one delivery is, for example child, pump, animal |
-| `rules.cycle` | How often the donor hears back: monthly, quarterly, half_yearly, annual, on_delivery |
-| `rules.reportType` | The report the donor receives |
-| item map | `{ CRM item id: framework id }`. An item not in the map is unrouted |
+| `keywords` | Words that suggest this category when found in a CRM item's name |
+| `framework.unit` | What one delivery is, for example child, pump, animal |
+| `framework.cycle` | How often the donor hears back: monthly, quarterly, half_yearly, annual, on_delivery |
+| `framework.reportType` | The report the donor receives |
+| item map | `{ CRM item id: category id }`. An item not in the map is unrouted |

@@ -13,7 +13,7 @@
 
 import type { FeedConfig } from "../01c-crm-connector/feed.js";
 import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js";
-import type { Category, Framework, ItemMap } from "../02-project-rules/frameworks.js";
+import type { Category, ItemMap } from "../02-project-rules/categories.js";
 
 // How this organisation reads its CRM (DECISIONS 30). The token itself is never stored here, only the name of the setting that holds it.
 // "demo" is the pretend CRM of Module 1d, for testing with live input before a real CRM is connected.
@@ -21,7 +21,6 @@ export type CrmSetting = { kind: "none" } | { kind: "demo" } | { kind: "api"; ba
 
 // Everything an organisation sets up in OUTCOMES.
 export interface OrgConfig {
-  frameworks: Framework[];
   categories: Category[];
   itemMap: ItemMap;
   usesFrameworks: boolean;
@@ -61,7 +60,7 @@ export interface Store {
 export const MWF_FEED: FeedConfig = { triggerColumn: "needs_feedback", yesValues: ["1", "yes", "true", "y"], paidValues: ["paid", "2"] };
 
 // A new organisation starts empty, with no CRM, until an administrator sets it up.
-export const defaultConfig = (): OrgConfig => ({ frameworks: [], categories: [], itemMap: {}, usesFrameworks: true, feed: MWF_FEED, crm: { kind: "none" } });
+export const defaultConfig = (): OrgConfig => ({ categories: [], itemMap: {}, usesFrameworks: true, feed: MWF_FEED, crm: { kind: "none" } });
 
 export function memoryStore(): Store {
   const configs = new Map<string, OrgConfig>();

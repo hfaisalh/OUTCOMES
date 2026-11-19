@@ -1,40 +1,39 @@
-# Module 2: Project Rules (item to framework mapping)
+# Module 2: Project Rules (item to category mapping)
 
 ## Purpose
-Frameworks (Orphan Sponsorship, Hifz, Water and so on) live in OUTCOMES, not in the CRM (DECISIONS 31). The CRM says which items need feedback. This module lets staff sort those items into frameworks, and set each framework's feedback rules.
+Categories (Sponsorship, Transactional, Livelihood and so on) live in OUTCOMES, not in the CRM (DECISIONS 31). The CRM says which items need feedback. This module lets staff sort those items into categories, and set each category's framework.
 
-## Three levels
-Many **items** sit in one **framework**, and frameworks are grouped into **categories** (DECISIONS 36). A category sets the feedback cycle a new framework starts with.
+## Two levels (DECISIONS 40)
+Many **items** sit in one **category**. The category has properties, and one of them is its **framework**: the settings that decide the flow of every order in the category.
 
 ## Inputs
 - The CRM items that need feedback (from the connector, Module 1c).
-- The organisation's frameworks, and the current item to framework map.
+- The organisation's categories, and the current item to category map.
 
 ## Outputs
-- An updated map, `{ CRM item id: framework id }`. The work-order planner uses it. An item not in the map is unrouted, never lost.
-- Categories per organisation, and each framework's category.
-- Per framework: unit (what one delivery is), feedback cycle, report type, and the words that suggest it.
+- An updated map, `{ CRM item id: category id }`. The work-order planner uses it. An item not in the map is unrouted, never lost.
+- Per category: name, the words that suggest it, and its framework (unit, feedback cycle, report type).
 
 ## Rules
-- **Suggest first, staff correct.** A framework is suggested when one of its keywords is a whole word of the item's name. A tie or no match suggests nothing. Suggestions are only applied when staff accept them.
-- **Drag and drop.** Drag an item onto a framework or back to Unsorted. Tapping an item and then a framework does the same on touch screens.
-- **Existing work does not move.** Sorting an item routes its unrouted work orders. Work orders that already have a framework keep it, and the page says how many.
-- **Removing a framework** sends its items back to Unsorted.
+- **Suggest first, staff correct.** A category is suggested when one of its keywords is a whole word of the item's name. A tie or no match suggests nothing. Suggestions are only applied when staff accept them.
+- **Sorted once, then automatic.** The map is saved per item, so every later gift of a sorted item goes to its category at each pick-up. Only a new item needs sorting.
+- **Drag and drop.** Drag an item onto a category or back to Unsorted. Tapping an item and then a category does the same on touch screens.
+- **Existing work does not move.** Sorting an item routes its unrouted work orders. Work orders that already have a category keep it, and the page says how many.
+- **Removing a category** sends its items back to Unsorted.
 - **No duration or instalment counts here.** They come from the CRM item (DECISIONS 18).
-- Missing rules are a reminder ("to fill in"), never a block.
+- A missing framework setting is a reminder ("to fill in"), never a block.
 
 ## Files
 | File | What it does |
 |---|---|
-| `frameworks.ts` | All the rules above as pure functions (no database, no screen) |
-| `frameworks.test.ts` | Tests and examples on invented names |
+| `categories.ts` | All the rules above as pure functions (no database, no screen) |
+| `categories.test.ts` | Tests and examples on invented names |
 
-The screen is the Frameworks page in `app/` (`pages.ts`, `main.ts`). `app/main.test.ts` drives it without a browser.
+The screen is the Categories page in `app/` (`pages.ts`, `main.ts`). `app/main.test.ts` drives it without a browser.
 
 ## Not built yet
-- Saving frameworks and the map on the server (needs the storage decision).
-- Which role may sort items (the permission `outcomes.map_frameworks` exists in the menu rules).
-- Stages and lifecycle per framework (Module 5).
+- What else a category's framework decides: stages, beneficiaries, allocation, renewals (Module 5).
+- An optional setting to accept suggestions automatically.
 
 ## How to test
-`npm test`. To try it: `npm run dev`, open `/app/`, choose Frameworks.
+`npm test`. To try it: `npm run dev`, open `/app/`, choose Categories.

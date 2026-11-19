@@ -13,6 +13,7 @@
 
 import { PERMISSIONS as P } from "../../app/menu.js";
 import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
+import { isCurrentCategory } from "../02-project-rules/categories.js";
 import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSION_SECONDS, verifyToken, signToken, clearSessionCookie, type Claims } from "./launch-token.js";
 import { rerouteUnrouted, runPickup } from "./pickup.js";
 import { defaultConfig, type OrgConfig, type Store } from "./store.js";
@@ -99,16 +100,16 @@ export async function handleMe(req: HttpRequest, d: Deps): Promise<HttpResponse>
   return json(200, { name: c.name, org: c.org, perms: c.perms, expiresAt: c.exp, storage: d.storage, demo });
 }
 
-// GET and PUT /api/config  Frameworks, categories and the item map. PUT needs permission to map frameworks.
+// GET and PUT /api/config  Categories (each with its framework) and the item map. PUT needs permission to map items.
 export async function handleConfig(req: HttpRequest, d: Deps): Promise<HttpResponse> {
   if (req.method === "PUT") {
     const a = need(req, d, P.mapFrameworks);
     if ("response" in a) return a.response;
     const b = req.body as Partial<OrgConfig> | undefined;
-    if (!b || !Array.isArray(b.frameworks) || !Array.isArray(b.categories) || typeof b.itemMap !== "object" || b.itemMap === null) return json(400, { error: "The setup is incomplete." });
+    if (!b || !Array.isArray(b.categories) || !b.categories.every(isCurrentCategory) || typeof b.itemMap !== "object" || b.itemMap === null) return json(400, { error: "The setup is incomplete." });
     // Rule: only the parts staff may change here are taken. The CRM setting and feed settings stay as they are.
     const current = (await d.store.getConfig(a.claims.org)) ?? defaultConfig();
-    const next = { ...current, frameworks: b.frameworks, categories: b.categories, itemMap: b.itemMap as OrgConfig["itemMap"] };
+    const next = { ...current, categories: b.categories, itemMap: b.itemMap as OrgConfig["itemMap"] };
     await d.store.putConfig(a.claims.org, next);
     const routed = rerouteUnrouted(await d.store.listWorkOrders(a.claims.org), next);
     await d.store.saveWorkOrders(a.claims.org, routed);
@@ -118,7 +119,9 @@ export async function handleConfig(req: HttpRequest, d: Deps): Promise<HttpRespo
   if ("response" in a) return a.response;
   const c = (await d.store.getConfig(a.claims.org)) ?? defaultConfig();
   // The CRM setting is not sent to the page, only whether one exists.
-  return json(200, { frameworks: c.frameworks, categories: c.categories, itemMap: c.itemMap, feed: c.feed, crmConnected: c.crm.kind !== "none" });
+  // Rule: a setup saved by an earlier version (before categories held the framework) is shown as empty.
+  const current = c.categories.every(isCurrentCategory);
+  return json(200, { categories: current ? c.categories : [], itemMap: current ? c.itemMap : {}, feed: c.feed, crmConnected: c.crm.kind !== "none" });
 }
 
 // GET /api/work-orders  This organisation's work orders, what is held for review, and the last pick-up.

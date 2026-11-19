@@ -5,7 +5,7 @@
  * lines whose item needs feedback, saves them, holds changes for review, tells the CRM about work
  * that has been delivered or reported, and records what it did.
  * Who calls it: handlers.ts (the scheduled job, and "Run pickup now" on the Settings page).
- * Depends on: store.ts, and the connector (Module 1c) and frameworks (Module 2) logic.
+ * Depends on: store.ts, and the connector (Module 1c) and categories (Module 2) logic.
  *
  * Rules: running it again is safe, because a line already seen never makes a second work order.
  * A failure is recorded in plain English and never loses earlier work. The time of the last good
@@ -33,13 +33,13 @@ export function mergeReview(previous: ReviewItem[], fresh: ReviewItem[], seenKey
   return [...previous.filter((r) => !seenKeys.has(r.key) && !fresh.some((f) => f.key === r.key)), ...fresh];
 }
 
-// Rule: when staff sort an item into a framework, its unrouted work orders are routed straight away.
-// Work orders that already have a framework are never changed here.
+// Rule: when staff sort an item into a category, its unrouted work orders are routed straight away.
+// Work orders that already have a category are never changed here.
 export function rerouteUnrouted(orders: WorkOrder[], config: OrgConfig): WorkOrder[] {
   const out: WorkOrder[] = [];
   for (const w of orders) {
-    const fw = config.itemMap[w.itemId] ?? "";
-    if (w.status === "unrouted" && fw !== "" && config.frameworks.some((f) => f.id === fw)) out.push({ ...w, frameworkId: fw, status: "ready" });
+    const cat = config.itemMap[w.itemId] ?? "";
+    if (w.status === "unrouted" && cat !== "" && config.categories.some((c) => c.id === cat)) out.push({ ...w, categoryId: cat, status: "ready" });
   }
   return out;
 }
@@ -63,7 +63,7 @@ export async function runPickup(org: string, deps: PickupDeps): Promise<RunInfo>
 
     // Plan and save.
     const existing = await store.listWorkOrders(org);
-    const plan = planWorkOrders(feed.lines, existing, { frameworkByItem: config.itemMap, usesFrameworks: config.usesFrameworks, feedIsComplete: since === undefined });
+    const plan = planWorkOrders(feed.lines, existing, { categoryByItem: config.itemMap, usesFrameworks: config.usesFrameworks, feedIsComplete: since === undefined });
     await store.saveWorkOrders(org, [...plan.created, ...plan.rerouted]);
     run.created = plan.created.length;
     run.rerouted = plan.rerouted.length;

@@ -7,7 +7,7 @@
  * Who calls it: the pick-up job (DECISIONS 20) and, later, Module 4 (import and triage).
  * Depends on: feed.ts (pure functions, no database, no screen).
  *
- * Which framework an item belongs to is set in OUTCOMES, not in the CRM (DECISIONS 31). The CRM
+ * Which category an item belongs to is set in OUTCOMES, not in the CRM (DECISIONS 31). The CRM
  * only says whether an item needs feedback.
  */
 
@@ -32,13 +32,13 @@ export interface WorkOrder {
   subscriptionId: string;
   instalmentNumber: string;
   instalmentCount: string;
-  frameworkId: string; // "" while unrouted
+  categoryId: string; // the category it is routed to, "" while unrouted
   status: WorkOrderStatus;
 }
 
 export interface PlanOptions {
-  frameworkByItem: Record<string, string>; // CRM item id to framework id, set in OUTCOMES
-  usesFrameworks: boolean; // false for an organisation with no frameworks (DECISIONS 31)
+  categoryByItem: Record<string, string>; // CRM item id to category id, set in OUTCOMES
+  usesFrameworks: boolean; // false for an organisation with no categories set up (DECISIONS 31, 40)
   feedIsComplete?: boolean; // true when the feed is the whole picture, not just recent lines, so missing lines can be spotted
 }
 
@@ -50,21 +50,21 @@ export interface ReviewItem {
 
 export interface Plan {
   created: WorkOrder[]; // new work orders to save
-  rerouted: WorkOrder[]; // existing unrouted work orders whose item now has a framework (updated copies)
+  rerouted: WorkOrder[]; // existing unrouted work orders whose item now has a category (updated copies)
   unchanged: WorkOrder[];
   review: ReviewItem[]; // held for a person to approve, never changed automatically (DECISIONS 21)
 }
 
-// The framework used when an organisation has none: a simple default journey.
-export const DEFAULT_FRAMEWORK = "default";
+// The category used when an organisation has none: a simple default journey.
+export const DEFAULT_CATEGORY = "default";
 
 export const workOrderKey = (line: Pick<FeedLine, "transactionRef" | "lineId">) => `${line.transactionRef}:${line.lineId}`;
 
-// Rule: where a line goes. No frameworks in use: the default journey. Otherwise the item's framework, or unrouted.
-function route(itemId: string, options: PlanOptions): { frameworkId: string; status: WorkOrderStatus } {
-  if (!options.usesFrameworks) return { frameworkId: DEFAULT_FRAMEWORK, status: "ready" };
-  const frameworkId = options.frameworkByItem[itemId] ?? "";
-  return frameworkId === "" ? { frameworkId: "", status: "unrouted" } : { frameworkId, status: "ready" };
+// Rule: where a line goes. No categories in use: the default journey. Otherwise the item's category, or unrouted.
+function route(itemId: string, options: PlanOptions): { categoryId: string; status: WorkOrderStatus } {
+  if (!options.usesFrameworks) return { categoryId: DEFAULT_CATEGORY, status: "ready" };
+  const categoryId = options.categoryByItem[itemId] ?? "";
+  return categoryId === "" ? { categoryId: "", status: "unrouted" } : { categoryId, status: "ready" };
 }
 
 /**
@@ -73,7 +73,7 @@ function route(itemId: string, options: PlanOptions): { frameworkId: string; sta
  * - One work order per paid line. For recurring giving each paid instalment is its own line, so it
  *   is its own work order, linked to the subscription.
  * - Idempotent: a line that already has a work order is never created again.
- * - Unrouted (item not yet in a framework) is allowed and never blocks. When the item is later
+ * - Unrouted (item not yet in a category) is allowed and never blocks. When the item is later
  *   mapped, the existing work order is rerouted.
  * - A work order is never changed or removed automatically after it exists. If the CRM line has
  *   since changed amount or supporter, lost its trigger, or (with a complete feed) disappeared, it is

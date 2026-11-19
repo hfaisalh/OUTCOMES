@@ -2,45 +2,40 @@
  * demo-data.ts
  *
  * What it does: the invented data behind the demo screens: the sample CRM feed, a short list of
- * frameworks, and three example CRM roles. Nothing here is real, and nothing is saved.
+ * categories, and three example CRM roles. Nothing here is real, and nothing is saved.
  * Who calls it: main.ts.
  * Depends on: samples/crm-feed-sample.csv and the Module 1 csv reader.
  *
- * Frameworks are owned by OUTCOMES (DECISIONS 31). This short list stands in for Module 2.
+ * Categories and their frameworks are owned by OUTCOMES (DECISIONS 31, 40). This short list stands in for Module 2.
  */
 
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import type { FeedRow } from "../modules/01c-crm-connector/feed";
 import feedCsv from "../samples/crm-feed-sample.csv?raw";
-import { addCategory, addFramework, setKeywords, updateRules, type Category, type Cycle, type Framework } from "../modules/02-project-rules/frameworks";
+import { addCategory, setKeywords, updateFramework, type Category, type Cycle } from "../modules/02-project-rules/categories";
 import { PERMISSIONS as P } from "./menu";
 
 export const demoFeedRows = (): FeedRow[] => toRecords(parseCsv(feedCsv)).records;
 
-// MWF's starting categories and frameworks, from the list discussed with Faisal (to be confirmed).
-// Each category sets the feedback cycle a new framework starts with. Staff can change all of it.
-export function demoCategories(): Category[] {
-  let c: Category[] = [];
-  for (const [name, cycle] of [["Sponsorship", "quarterly"], ["Transactional", "on_delivery"], ["Livelihood", "half_yearly"], ["Microfinance", "half_yearly"], ["B2B", "on_delivery"]] as [string, Cycle][]) c = addCategory(c, name, cycle).value;
-  return c;
-}
-
-const STARTER: [string, string, string][] = [
-  ["sponsorship", "Orphan Sponsorship", "orphan"], ["sponsorship", "Hifz", "hifz, quran"], ["sponsorship", "School", "school"],
-  ["sponsorship", "College/Uni", "college, university, uni"], ["sponsorship", "Aalim", "aalim, alim"], ["sponsorship", "Homestay", "homestay"],
-  ["transactional", "Water", "water, well, pump"], ["transactional", "Rebuild/House", "house, rebuild"], ["transactional", "Masjid", "masjid, mosque"],
-  ["transactional", "Collective marriages", "marriage, marriages, wedding"], ["transactional", "Animal Sacrifice", "sacrifice, qurbani, udhiya, aqiqah"],
-  ["livelihood", "Rozgar", "rozgar, livelihood"], ["livelihood", "Rickshaw", "rickshaw"], ["microfinance", "Loans", "loan, loans"],
+// MWF's starting categories, from the list discussed with Faisal (to be confirmed). Each category holds its
+// framework (unit, cycle, report type) and the words that suggest it. Staff can change all of it.
+const STARTER: [string, Cycle, string, string, string][] = [
+  // name, cycle, keywords, unit, report type
+  ["Sponsorship", "quarterly", "orphan, hifz, quran, school, college, university, uni, aalim, alim, homestay, sponsorship", "child", "Quarterly child update"],
+  ["Transactional", "on_delivery", "water, well, pump, house, rebuild, masjid, mosque, marriage, marriages, wedding, sacrifice, qurbani, udhiya, aqiqah", "", ""],
+  ["Livelihood", "half_yearly", "rozgar, livelihood, rickshaw", "", ""],
+  ["Microfinance", "half_yearly", "loan, loans, microfinance", "", ""],
+  ["B2B", "on_delivery", "", "", ""],
 ];
 
-export function demoFrameworks(): Framework[] {
-  const cats = demoCategories();
-  let f: Framework[] = [];
-  for (const [cat, name, words] of STARTER) {
-    f = addFramework(f, name, cats.find((c) => c.id === cat)).value;
-    f = setKeywords(f, f[f.length - 1]?.id ?? "", words);
+export function demoCategories(): Category[] {
+  let c: Category[] = [];
+  for (const [name, cycle, words, unit, reportType] of STARTER) {
+    c = addCategory(c, name, cycle).value;
+    const id = c[c.length - 1]?.id ?? "";
+    c = updateFramework(setKeywords(c, id, words), id, { unit, reportType });
   }
-  return updateRules(f, "orphan-sponsorship", { unit: "child", reportType: "Quarterly child update" });
+  return c;
 }
 
 // What three CRM roles might be allowed to do (DECISIONS 32). Names are invented.

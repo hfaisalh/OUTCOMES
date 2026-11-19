@@ -11,7 +11,7 @@
 
 import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import type { RunInfo } from "../modules/00-platform/store";
-import type { Category, Framework, ItemMap } from "../modules/02-project-rules/frameworks";
+import type { Category, ItemMap } from "../modules/02-project-rules/categories";
 
 export interface Me {
   name: string;
@@ -22,7 +22,6 @@ export interface Me {
   demo?: boolean; // true when the organisation is connected to the pretend CRM
 }
 export interface ServerConfig {
-  frameworks: Framework[];
   categories: Category[];
   itemMap: ItemMap;
   crmConnected: boolean;
@@ -54,6 +53,6 @@ export async function fetchMe(): Promise<Me | null> {
   }
 }
 export const loadConfig = () => call<ServerConfig>("/api/config");
-export const saveConfig = (c: { frameworks: Framework[]; categories: Category[]; itemMap: ItemMap }) => call<{ ok: boolean; routed: number }>("/api/config", { method: "PUT", body: c });
+export const saveConfig = (c: { categories: Category[]; itemMap: ItemMap }) => call<{ ok: boolean; routed: number }>("/api/config", { method: "PUT", body: c });
 export const loadWorkOrders = () => call<WorkOrdersReply>("/api/work-orders");
 export const runPickupNow = () => call<{ ok?: boolean; error?: string; created?: number; rerouted?: number; skipped?: string }>("/api/pickup", { method: "POST" });

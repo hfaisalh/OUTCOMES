@@ -15,7 +15,7 @@ const handlers: Record<string, Handler[]> = {};
 const shell = { innerHTML: "" };
 const calls: { path: string; method: string; body: unknown }[] = [];
 
-const order = (key: string, itemId: string, itemName: string, status: string, frameworkId: string) => ({ key, lineId: key, transactionRef: "T", paidDate: "2026-11-02", supporterId: "D1", supporterName: "Sample Supporter", group: "", itemId, itemName, amount: 10, quantity: 1, intention: "", subscriptionId: "", instalmentNumber: "", instalmentCount: "", frameworkId, status });
+const order = (key: string, itemId: string, itemName: string, status: string, categoryId: string) => ({ key, lineId: key, transactionRef: "T", paidDate: "2026-11-02", supporterId: "D1", supporterName: "Sample Supporter", group: "", itemId, itemName, amount: 10, quantity: 1, intention: "", subscriptionId: "", instalmentNumber: "", instalmentCount: "", categoryId, status });
 
 beforeAll(async () => {
   vi.stubGlobal("document", {
@@ -26,7 +26,7 @@ beforeAll(async () => {
     calls.push({ path, method: init?.method ?? "GET", body: init?.body ? JSON.parse(init.body) : undefined });
     const ok = (b: unknown) => ({ ok: true, status: 200, json: async () => b });
     if (path === "/api/me") return ok({ name: "Real Person", org: "mwf", perms: Object.values(P), expiresAt: 0, storage: "database" });
-    if (path === "/api/config" && !init?.method) return ok({ frameworks: [{ id: "water", name: "Water", categoryId: "", keywords: ["water"], rules: { unit: "", cycle: "on_delivery", reportType: "" } }], categories: [], itemMap: {}, crmConnected: true });
+    if (path === "/api/config" && !init?.method) return ok({ categories: [{ id: "water", name: "Water", keywords: ["water"], framework: { unit: "", cycle: "on_delivery", reportType: "" } }], itemMap: {}, crmConnected: true });
     if (path === "/api/config") return ok({ ok: true, routed: 1 });
     if (path === "/api/work-orders") return ok({ workOrders: [order("T:L1", "I11", "Water Pump", "unrouted", "")], review: [], run: { at: "2026-11-19T09:00:00Z", ok: true, rows: 8, created: 1, rerouted: 0, skipped: 3, issues: [] } });
     if (path === "/api/pickup") return ok({ org: "mwf", ok: true, created: 2, rerouted: 0 });
@@ -52,10 +52,10 @@ describe("live mode", () => {
 
   it("saves the setup when an item is sorted, and says how many work orders were routed", async () => {
     calls.length = 0;
-    fire("change", { target: { id: "", dataset: { assign: "I11" }, value: "water" } });
+    fire("change", { target: { id: "", dataset: { assign: "I11" }, value: "transactional" } });
     await settle();
     const put = calls.find((c) => c.method === "PUT");
-    expect(put?.body).toMatchObject({ itemMap: { I11: "water" } });
+    expect(put?.body).toMatchObject({ itemMap: { I11: "transactional" } });
     expect(shell.innerHTML).toContain("Saved. 1 work order routed.");
   });
 

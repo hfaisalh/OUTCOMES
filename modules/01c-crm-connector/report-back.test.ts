@@ -10,7 +10,7 @@ import { sampleRows } from "./sample";
 import { buildReportBack } from "./report-back";
 import { planWorkOrders, type WorkOrder } from "./work-orders";
 
-const made = planWorkOrders(readFeed(sampleRows()).lines, [], { usesFrameworks: true, frameworkByItem: { I10: "orphan" } }).created;
+const made = planWorkOrders(readFeed(sampleRows()).lines, [], { usesFrameworks: true, categoryByItem: { I10: "orphan" } }).created;
 const withStatus = (i: number, status: WorkOrder["status"]): WorkOrder => ({ ...(made[i] as WorkOrder), status });
 const NOW = "2026-11-19T09:00:00Z";
 

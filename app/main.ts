@@ -12,12 +12,12 @@
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders, type ReviewItem, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
-import { acceptSuggestions, addCategory, addFramework, assignItem, removeCategory, removeFramework, renameFramework, setCategory, setKeywords, suggestAll, updateRules, type Cycle, type FrameworkRules } from "../modules/02-project-rules/frameworks";
+import { acceptSuggestions, addCategory, assignItem, removeCategory, renameCategory, setKeywords, suggestAll, updateFramework, type Cycle, type Framework } from "../modules/02-project-rules/categories";
 import { loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
 import { PERMISSIONS } from "./menu";
-import { DEMO_ROLES, demoCategories, demoFeedRows, demoFrameworks } from "./demo-data";
+import { DEMO_ROLES, demoCategories, demoFeedRows } from "./demo-data";
 import { landingPage, visibleMenu, type PageId } from "./menu";
-import { dashboardPage, esc, frameworksPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
+import { dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
 
 const state = {
   live: (): boolean => state.me !== null,
@@ -26,9 +26,8 @@ const state = {
   feedRows: demoFeedRows() as FeedRow[],
   workOrders: [] as WorkOrder[],
   review: [] as ReviewItem[],
-  itemFrameworks: {} as Record<string, string>, // every item starts unsorted, so the demo shows the whole flow
+  itemCategories: {} as Record<string, string>, // every item starts unsorted, so the demo shows the whole flow
   categories: demoCategories(),
-  frameworks: demoFrameworks(),
   selectedItem: "",
   filter: "all" as Filter,
   message: "",
@@ -41,7 +40,7 @@ const permissions = () => (state.me ? state.me.perms : DEMO_ROLES.find((r) => r.
 // Run the CRM feed through the connector and bring the work orders up to date.
 function refresh(): void {
   const lines = readFeed(state.feedRows, MWF_CRM_CONFIG).lines;
-  const plan = planWorkOrders(lines, state.workOrders, { frameworkByItem: state.itemFrameworks, usesFrameworks: true, feedIsComplete: true });
+  const plan = planWorkOrders(lines, state.workOrders, { categoryByItem: state.itemCategories, usesFrameworks: true, feedIsComplete: true });
   const rerouted = new Map(plan.rerouted.map((w) => [w.key, w]));
   state.workOrders = [...state.workOrders.map((w) => rerouted.get(w.key) ?? w), ...plan.created];
   state.review = plan.review;
@@ -67,7 +66,7 @@ async function reloadLive(): Promise<void> {
 async function persistAndReload(): Promise<void> {
   if (!state.live()) return;
   try {
-    const r = await saveConfig({ frameworks: state.frameworks, categories: state.categories, itemMap: state.itemFrameworks });
+    const r = await saveConfig({ categories: state.categories, itemMap: state.itemCategories });
     await reloadLive();
     state.message = r.routed > 0 ? `Saved. ${r.routed} work order${r.routed === 1 ? "" : "s"} routed.` : "Saved.";
   } catch (e) {
@@ -88,13 +87,10 @@ async function enterLive(me: Me): Promise<void> {
   state.review = [];
   try {
     const c = await loadConfig();
-    // A new organisation has no frameworks yet: start from the MWF starter list and save it, staff then edit it.
-    if (c.frameworks.length === 0 && c.categories.length === 0) await saveConfig({ frameworks: state.frameworks, categories: state.categories, itemMap: {} });
-    else {
-      state.frameworks = c.frameworks;
-      state.categories = c.categories;
-    }
-    state.itemFrameworks = c.itemMap;
+    // A new organisation has no categories yet: start from the MWF starter list and save it, staff then edit it.
+    if (c.categories.length === 0) await saveConfig({ categories: state.categories, itemMap: {} });
+    else state.categories = c.categories;
+    state.itemCategories = c.itemMap;
   } catch (e) {
     state.message = e instanceof Error ? e.message : "Could not load.";
   }
@@ -104,7 +100,7 @@ async function enterLive(me: Me): Promise<void> {
 }
 
 // With the pretend CRM, new gifts arrive all the time, so the page picks them up by itself every minute.
-// Rule: it only redraws on the work orders and dashboard pages, so it never interrupts dragging on the frameworks page.
+// Rule: it only redraws on the work orders and dashboard pages, so it never interrupts dragging on the categories page.
 let demoTimer: ReturnType<typeof setInterval> | undefined;
 function startDemoRefresh(): void {
   if (demoTimer) return;
@@ -120,20 +116,20 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemFrameworks: state.itemFrameworks, flaggedItems, filter: state.filter, message: state.message, config: MWF_CRM_CONFIG,
-    frameworks: state.frameworks, categories: state.categories, suggestions: suggestAll(flaggedItems, state.itemFrameworks, state.frameworks), selectedItem: state.selectedItem,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, message: state.message, config: MWF_CRM_CONFIG,
+    categories: state.categories, suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
 }
 
-// Put an item in a framework (or back to unsorted with ""). Unrouted work orders for it are routed now.
-// Rule: work orders that already have a framework keep it, so work in progress never moves by accident.
-function sortItem(itemId: string, frameworkId: string): void {
-  const keep = state.workOrders.filter((w) => w.itemId === itemId && w.status !== "unrouted" && w.frameworkId !== frameworkId).length;
-  state.itemFrameworks = assignItem(state.itemFrameworks, state.frameworks, itemId, frameworkId);
+// Put an item in a category (or back to unsorted with ""). Unrouted work orders for it are routed now.
+// Rule: work orders that already have a category keep it, so work in progress never moves by accident.
+function sortItem(itemId: string, categoryId: string): void {
+  const keep = state.workOrders.filter((w) => w.itemId === itemId && w.status !== "unrouted" && w.categoryId !== categoryId).length;
+  state.itemCategories = assignItem(state.itemCategories, state.categories, itemId, categoryId);
   if (state.live()) return changed();
   refresh();
-  if (keep > 0) state.message += ` ${keep} existing work order${keep === 1 ? "" : "s"} for this item keep${keep === 1 ? "s" : ""} the framework they already had.`;
+  if (keep > 0) state.message += ` ${keep} existing work order${keep === 1 ? "" : "s"} for this item keep${keep === 1 ? "s" : ""} the category they already had.`;
 }
 
 function draw(): void {
@@ -146,7 +142,7 @@ function draw(): void {
     ? `<h1>No access</h1><p class="sub">Your CRM role has no OUTCOMES permission. In the live product you would not have been shown the OUTCOMES button.</p>`
     : state.page === "work-orders" ? workOrdersPage(v)
     : state.page === "dashboard" ? dashboardPage(v)
-    : state.page === "frameworks" ? frameworksPage(v)
+    : state.page === "categories" ? categoriesPage(v)
     : state.page === "sources" ? sourcesPage()
     : settingsPage(v);
   const sections = ["Work", "Set up"].map((s) => {
@@ -165,7 +161,7 @@ function draw(): void {
 
 document.addEventListener("click", (e) => {
   const target = e.target as HTMLElement;
-  // Tap to sort: tap an item, then tap the framework (or unsorted) it should go to. Same result as dragging.
+  // Tap to sort: tap an item, then tap the category (or unsorted) it should go to. Same result as dragging.
   const zone = target.closest("[data-drop]") as HTMLElement | null;
   const chipEl = target.closest("[data-item]") as HTMLElement | null;
   if (chipEl) {
@@ -179,17 +175,9 @@ document.addEventListener("click", (e) => {
   }
   const rm = target.closest("[data-remove]") as HTMLElement | null;
   if (rm) {
-    const r = removeFramework(state.frameworks, state.itemFrameworks, rm.dataset.remove as string);
-    state.frameworks = r.frameworks;
-    state.itemFrameworks = r.map;
-    afterConfig();
-    return draw();
-  }
-  const rc = target.closest("[data-remove-category]") as HTMLElement | null;
-  if (rc) {
-    const r = removeCategory(state.categories, state.frameworks, rc.dataset.removeCategory as string);
+    const r = removeCategory(state.categories, state.itemCategories, rm.dataset.remove as string);
     state.categories = r.categories;
-    state.frameworks = r.frameworks;
+    state.itemCategories = r.map;
     afterConfig();
     return draw();
   }
@@ -213,16 +201,8 @@ document.addEventListener("click", (e) => {
       .then(draw);
   }
   if (action === "accept-suggestions") {
-    state.itemFrameworks = acceptSuggestions(state.itemFrameworks, view().suggestions);
+    state.itemCategories = acceptSuggestions(state.itemCategories, view().suggestions);
     afterConfig();
-  }
-  if (action === "add-framework") {
-    const input = document.getElementById("newfw") as HTMLInputElement;
-    const cat = state.categories.find((c) => c.id === (document.getElementById("newfwcat") as HTMLSelectElement).value);
-    const r = addFramework(state.frameworks, input.value, cat);
-    state.frameworks = r.value;
-    state.message = r.error ?? "";
-    if (!r.error) afterConfig(false);
   }
   if (action === "add-category") {
     const r = addCategory(state.categories, (document.getElementById("newcat") as HTMLInputElement).value);
@@ -251,20 +231,17 @@ document.addEventListener("change", (e) => {
     state.page = landingPage(permissions()) ?? state.page;
   } else if (t.dataset.assign !== undefined && t.value !== "") {
     sortItem(t.dataset.assign, t.value);
-  } else if (t.dataset.fwcat) {
-    state.frameworks = setCategory(state.frameworks, state.categories, t.dataset.fwcat, t.value);
-    afterConfig(false);
   } else if (t.dataset.rename) {
-    const r = renameFramework(state.frameworks, t.dataset.rename, t.value);
-    state.frameworks = r.value;
+    const r = renameCategory(state.categories, t.dataset.rename, t.value);
+    state.categories = r.value;
     state.message = r.error ?? "";
     if (!r.error) afterConfig(false);
   } else if (t.dataset.rule && t.dataset.fw) {
-    const key = t.dataset.rule as keyof FrameworkRules;
-    state.frameworks = updateRules(state.frameworks, t.dataset.fw, { [key]: key === "cycle" ? (t.value as Cycle) : t.value });
+    const key = t.dataset.rule as keyof Framework;
+    state.categories = updateFramework(state.categories, t.dataset.fw, { [key]: key === "cycle" ? (t.value as Cycle) : t.value });
     afterConfig(false);
   } else if (t.dataset.keywords) {
-    state.frameworks = setKeywords(state.frameworks, t.dataset.keywords, t.value);
+    state.categories = setKeywords(state.categories, t.dataset.keywords, t.value);
     afterConfig(false);
   }
   draw();
@@ -276,7 +253,7 @@ draw();
 // If the person arrived from the CRM there is a session: switch from demo to live data.
 void fetchMe().then((me) => (me ? enterLive(me) : undefined));
 
-// Drag and drop: drag an item chip onto a framework or onto Unsorted.
+// Drag and drop: drag an item chip onto a category or onto Unsorted.
 document.addEventListener("dragstart", (e) => {
   const c = (e.target as HTMLElement).closest("[data-item]") as HTMLElement | null;
   if (c && e.dataTransfer) {

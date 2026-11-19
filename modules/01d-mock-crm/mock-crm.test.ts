@@ -67,7 +67,7 @@ describe("mock CRM feed", () => {
   });
 
   it("turns into work orders, and a feed read twice makes no duplicates", () => {
-    const opts = { frameworkByItem: {}, usesFrameworks: true, feedIsComplete: true };
+    const opts = { categoryByItem: {}, usesFrameworks: true, feedIsComplete: true };
     const first = planWorkOrders(readFeed(mockFeed(at(120)), MWF_CRM_CONFIG).lines, [], opts);
     expect(first.created.length).toBeGreaterThan(20);
     expect(first.created.every((w) => w.status === "unrouted")).toBe(true); // nothing is sorted yet

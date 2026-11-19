@@ -86,7 +86,7 @@ describe("permissions", () => {
   it("lets a viewer read but not change the setup", async () => {
     const cookie = await signIn(d, { perms: [P.access, P.viewWorkOrders] });
     expect((await handleConfig(as(cookie), d)).status).toBe(200);
-    expect((await handleConfig(as(cookie, { method: "PUT", body: { frameworks: [], categories: [], itemMap: {} } }), d)).status).toBe(403);
+    expect((await handleConfig(as(cookie, { method: "PUT", body: { categories: [], itemMap: {} } }), d)).status).toBe(403);
     expect((await handlePickup(as(cookie, { method: "POST" }), d)).status).toBe(403);
   });
   it("refuses everything without a session", async () => {
@@ -95,11 +95,11 @@ describe("permissions", () => {
 });
 
 describe("setup and organisations", () => {
-  it("saves frameworks and the item map, and rejects an incomplete setup", async () => {
+  it("saves categories and the item map, and rejects an incomplete setup", async () => {
     const cookie = await signIn(d);
-    const bad = await handleConfig(as(cookie, { method: "PUT", body: { frameworks: [] } }), d);
+    const bad = await handleConfig(as(cookie, { method: "PUT", body: { categories: [] } }), d);
     expect(bad.status).toBe(400);
-    const ok = await handleConfig(as(cookie, { method: "PUT", body: { frameworks: [{ id: "water", name: "Water" }], categories: [], itemMap: { I11: "water" } } }), d);
+    const ok = await handleConfig(as(cookie, { method: "PUT", body: { categories: [{ id: "water", name: "Water", keywords: ["water"], framework: { unit: "", cycle: "on_delivery", reportType: "" } }], itemMap: { I11: "water" } } }), d);
     expect(ok.status).toBe(200);
     expect((await handleConfig(as(cookie), d)).body).toMatchObject({ itemMap: { I11: "water" } });
   });
@@ -108,7 +108,7 @@ describe("setup and organisations", () => {
     await d.store.putConfig("mwf", { ...defaultConfig(), crm: { kind: "api", baseUrl: "x", tokenEnv: "X" } });
     const cookie = await signIn(d);
     await handlePickup(as(cookie, { method: "POST" }), d); // nothing is mapped, so all four are unrouted
-    const put = await handleConfig(as(cookie, { method: "PUT", body: { frameworks: [{ id: "water", name: "Water" }], categories: [], itemMap: { I11: "water" } } }), d);
+    const put = await handleConfig(as(cookie, { method: "PUT", body: { categories: [{ id: "water", name: "Water", keywords: ["water"], framework: { unit: "", cycle: "on_delivery", reportType: "" } }], itemMap: { I11: "water" } } }), d);
     expect(put.body).toEqual({ ok: true, routed: 1 });
     const orders = ((await handleWorkOrders(as(cookie), d)).body as { workOrders: { itemId: string; status: string }[] }).workOrders;
     expect(orders.find((o) => o.itemId === "I11")?.status).toBe("ready");

@@ -12,12 +12,11 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 type Handler = (e: unknown) => void;
 const handlers: Record<string, Handler[]> = {};
 const shell = { innerHTML: "" };
-let input = { value: "" };
 let category = { value: "" };
 
 beforeAll(async () => {
   vi.stubGlobal("document", {
-    getElementById: (id: string) => (id === "shell" ? shell : id === "newfw" ? input : id === "newfwcat" ? { value: "sponsorship" } : id === "newcat" ? category : null),
+    getElementById: (id: string) => (id === "shell" ? shell : id === "newcat" ? category : null),
     addEventListener: (type: string, h: Handler) => ((handlers[type] ??= []).push(h)),
   });
   await import("./main");
@@ -39,53 +38,47 @@ describe("the shell", () => {
     expect(shell.innerHTML).toContain('data-assign="I14"');
   });
 
-  it("shows the framework board with suggestions", () => {
-    click({ page: "frameworks" }, "data-page");
+  it("shows the category board with suggestions", () => {
+    click({ page: "categories" }, "data-page");
     expect(shell.innerHTML).toContain("Unsorted items");
-    expect(shell.innerHTML).toContain("suggested: Animal Sacrifice");
+    expect(shell.innerHTML).toContain("suggested: Transactional");
   });
 
-  it("drags an item onto a framework and the work order is routed", () => {
-    fire("drop", { target: el({ drop: "animal-sacrifice" }, ["data-drop"]), preventDefault() {}, dataTransfer: { getData: () => "I14" } });
+  it("drags an item onto a category and the work order is routed", () => {
+    fire("drop", { target: el({ drop: "transactional" }, ["data-drop"]), preventDefault() {}, dataTransfer: { getData: () => "I14" } });
     click({ page: "work-orders" }, "data-page");
     expect(shell.innerHTML).not.toContain('data-assign="I14"');
     expect(shell.innerHTML).toContain("Animal Sacrifice");
   });
 
-  it("taps an item then a framework (the touch path)", () => {
-    click({ page: "frameworks" }, "data-page");
+  it("taps an item then a category (the touch path)", () => {
+    click({ page: "categories" }, "data-page");
     click({ item: "I11" }, "data-item");
     expect(shell.innerHTML).toContain('class="chip sel"');
-    click({ drop: "water" }, "data-drop");
+    click({ drop: "transactional" }, "data-drop");
     click({ page: "work-orders" }, "data-page");
     expect(shell.innerHTML).not.toContain('data-assign="I11"');
   });
 
   it("accepts the remaining suggestions in one click", () => {
-    click({ page: "frameworks" }, "data-page");
+    click({ page: "categories" }, "data-page");
     click({ action: "accept-suggestions" }, "data-action");
     expect(shell.innerHTML).toContain("Everything is sorted.");
   });
 
-  it("adds a framework, and refuses an empty name with a message", () => {
-    input = { value: "Education" };
-    click({ action: "add-framework" }, "data-action");
-    expect(shell.innerHTML).toContain('data-drop="education"');
-    input = { value: "" };
-    click({ action: "add-framework" }, "data-action");
-    expect(shell.innerHTML).toContain("Give the framework a name.");
-  });
-
-  it("groups frameworks under categories and adds a category", () => {
+  it("shows the starter categories, adds a category, and refuses an empty name with a message", () => {
     expect(shell.innerHTML).toContain("Sponsorship");
     expect(shell.innerHTML).toContain("Transactional");
     category = { value: "Education" };
     click({ action: "add-category" }, "data-action");
-    expect(shell.innerHTML).toContain("Education");
+    expect(shell.innerHTML).toContain('data-drop="education"');
+    category = { value: "" };
+    click({ action: "add-category" }, "data-action");
+    expect(shell.innerHTML).toContain("Give the category a name.");
   });
 
-  it("moves a framework to another category", () => {
-    fire("change", { target: { id: "", dataset: { fwcat: "education" }, value: "transactional" } });
-    expect(shell.innerHTML).toContain('data-fwcat="education"');
+  it("changes the framework of a category", () => {
+    fire("change", { target: { id: "", dataset: { rule: "unit", fw: "education" }, value: "student" } });
+    expect(shell.innerHTML).toContain('value="student"');
   });
 });
