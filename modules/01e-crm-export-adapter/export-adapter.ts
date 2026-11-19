@@ -19,7 +19,7 @@ import type { FeedRow } from "../01c-crm-connector/feed.js";
 
 export type ExportRow = Record<string, string>;
 
-export type AdaptIssueCode = "missing_column" | "item_not_in_catalogue" | "catalogue_conflict" | "bad_date" | "recurring_count_unknown" | "missing_order_reference";
+export type AdaptIssueCode = "missing_column" | "item_not_in_catalogue" | "catalogue_conflict" | "bad_date" | "recurring_count_unknown" | "recurring_count_guessed" | "missing_order_reference";
 
 export interface AdaptIssue {
   code: AdaptIssueCode;
@@ -133,6 +133,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
   let recurringLines = 0;
   let recurringWithoutPlan = 0;
   let recurringCountUnknown = 0;
+  let recurringCountGuessed = 0;
   let badDates = 0;
   let blankReferences = 0;
 
@@ -154,6 +155,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
       else if (period === "recurring") {
         instalmentCount = onlyLength(code);
         if (instalmentCount === "") recurringCountUnknown++;
+        else recurringCountGuessed++; // Rule: a count taken from the catalogue is a guess, so it is reported (DECISIONS 47)
       }
     }
 
@@ -193,6 +195,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
   }
 
   for (const code of missingItems) issues.push({ code: "item_not_in_catalogue", message: `Item code ${code} is not in the Catalogue items file, so it is not flagged for feedback.` });
+  if (recurringCountGuessed > 0) issues.push({ code: "recurring_count_guessed", message: `${recurringCountGuessed} recurring line(s) have no plan row, so their instalment count was guessed from the catalogue and may be wrong. A count from a real plan is always used when there is one.` });
   if (recurringCountUnknown > 0) issues.push({ code: "recurring_count_unknown", message: `${recurringCountUnknown} limited recurring line(s) have no plan row, no Frequency and no single plan length in the catalogue, so their instalment count is unknown (shown as Indefinitely).` });
   if (blankReferences > 0) issues.push({ code: "missing_order_reference", message: `${blankReferences} of ${rows.length} lines have a blank Order Reference in the export. Each is still identified by its Line ID, so work orders are made. If the Export Centre offers a Donation ID or Order ID field, adding it would give every line a reference.` });
   if (badDates > 0) issues.push({ code: "bad_date", message: `${badDates} line(s) have a Payment Date that is not a real date.` });

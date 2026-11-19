@@ -15,7 +15,16 @@ import type { Credit } from "./credits.js";
 import type { FeedLine } from "./feed.js";
 
 // A work order moves through these stages. The planner only creates the first two.
-export type WorkOrderStatus = "unrouted" | "ready" | "in_progress" | "delivered" | "reported";
+// "excluded" is set by a person (DECISIONS 47): the work order is kept on file but is out of the active list.
+export type WorkOrderStatus = "unrouted" | "ready" | "in_progress" | "delivered" | "reported" | "excluded";
+
+// Why, by whom and when a work order was excluded, and the status to return to when it is restored.
+export interface Exclusion {
+  reason: string;
+  by: string;
+  at: string;
+  was: "unrouted" | "ready";
+}
 
 export interface WorkOrder {
   key: string; // the CRM line id, unique and never reused, so it is the guard against duplicates (DECISIONS 46)
@@ -37,6 +46,7 @@ export interface WorkOrder {
   instalmentCount: string;
   categoryId: string; // the category it is routed to, "" while unrouted
   status: WorkOrderStatus;
+  exclusion?: Exclusion; // present only while status is "excluded"
 }
 
 export interface PlanOptions {
@@ -124,6 +134,12 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
       continue;
     }
 
+    // Rule: an excluded work order is left alone. It is never reviewed, rerouted or recreated (DECISIONS 47).
+    if (current.status === "excluded") {
+      unchanged.push(current);
+      continue;
+    }
+
     if (!line.needsFeedback) {
       review.push({ key, reason: "no_longer_needs_feedback", message: "The CRM item no longer says it needs feedback. The work order was kept." });
     } else if (current.amount !== line.amount || current.supporterId !== line.supporterId) {
@@ -143,8 +159,25 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
   if (options.feedIsComplete) {
     for (const w of existing) {
       const inside = !options.coverage || (w.paidDate >= options.coverage.from && w.paidDate <= options.coverage.to && w.paidDate !== "");
-      if (!seen.has(w.key) && inside) review.push({ key: w.key, reason: "missing_from_feed", message: "The line is no longer in the CRM feed (refunded, deleted or replaced). The work order was kept." });
+      if (!seen.has(w.key) && inside && w.status !== "excluded") review.push({ key: w.key, reason: "missing_from_feed", message: "The line is no longer in the CRM feed (refunded, deleted or replaced). The work order was kept." });
     }
   }
   return { created, rerouted, unchanged, review };
+}
+
+// Rule (DECISIONS 47): a person can exclude a work order that has not started (unrouted or ready), for a stated reason.
+// The work order stays on file so the import never recreates it. Returns the updated copy, or an error in plain English.
+export function excludeWorkOrder(w: WorkOrder, reason: string, by: string, at: string): { order: WorkOrder } | { error: string } {
+  const why = reason.trim();
+  if (w.status === "excluded") return { error: "That work order is already excluded." };
+  if (w.status !== "unrouted" && w.status !== "ready") return { error: "Work has already started on this one, so it cannot be excluded." };
+  if (why.length < 3) return { error: "Give a reason for excluding it." };
+  return { order: { ...w, status: "excluded", exclusion: { reason: why.slice(0, 300), by, at, was: w.status } } };
+}
+
+// Rule: restoring puts it back where it was (unrouted or ready). An unrouted one is rerouted by the normal rules.
+export function restoreWorkOrder(w: WorkOrder): { order: WorkOrder } | { error: string } {
+  if (w.status !== "excluded" || !w.exclusion) return { error: "That work order is not excluded." };
+  const { exclusion, ...rest } = w;
+  return { order: { ...rest, status: exclusion.was } };
 }

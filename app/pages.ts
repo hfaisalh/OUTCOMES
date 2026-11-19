@@ -16,7 +16,7 @@ import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-or
 import type { RunInfo } from "../modules/00-platform/store";
 import { CYCLE_LABELS, groupItems, missingFramework, type Category, type Cycle, type ItemInfo } from "../modules/02-project-rules/categories";
 
-export type Filter = "all" | "ready" | "unrouted" | "review";
+export type Filter = "all" | "ready" | "unrouted" | "review" | "excluded";
 
 export interface View {
   workOrders: WorkOrder[];
@@ -96,14 +96,16 @@ const creditLine = (w: WorkOrder): string => {
 
 export function workOrdersPage(v: View): string {
   const reviewKeys = new Set(v.review.map((r) => r.key));
+  // Rule: excluded work orders are out of the active list and the counts. They show only under the Excluded tab (DECISIONS 47).
+  const active = v.workOrders.filter((w) => w.status !== "excluded");
   const count = (s: string) => v.workOrders.filter((w) => w.status === s).length;
-  const rows = v.workOrders.filter((w) => (v.filter === "all" ? true : v.filter === "review" ? reviewKeys.has(w.key) : w.status === v.filter));
+  const rows = v.workOrders.filter((w) => (v.filter === "all" ? w.status !== "excluded" : v.filter === "review" ? reviewKeys.has(w.key) && w.status !== "excluded" : w.status === v.filter));
   const tab = (id: Filter, label: string) => `<button data-filter="${id}" class="${v.filter === id ? "on" : ""}">${label}</button>`;
   return `
     <h1>Work orders</h1>
     <p class="sub">Arrive from the CRM feed. Only items the CRM marks as needing feedback appear here, so nothing is imported by hand.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
-    <div class="metrics">${metric(v.workOrders.length, "Work orders")}${metric(count("ready"), "Ready", "ok")}${metric(count("unrouted"), "Unrouted", count("unrouted") ? "warn" : "")}${metric(v.review.length, "To review", v.review.length ? "warn" : "")}</div>
+    <div class="metrics">${metric(active.length, "Work orders")}${metric(count("ready"), "Ready", "ok")}${metric(count("unrouted"), "Unrouted", count("unrouted") ? "warn" : "")}${metric(v.review.length, "To review", v.review.length ? "warn" : "")}</div>
     ${v.live ? liveBar(v) : ""}
     <div class="actions">
       <button class="primary" data-action="refresh">${v.live ? "Reload" : "Refresh from CRM"}</button>
@@ -112,17 +114,18 @@ export function workOrdersPage(v: View): string {
     </div>
     ${v.live ? "" : ownerCard(v)}
     ${v.live && !v.upload ? "" : loadCard(v)}
-    <div class="tabs">${tab("all", "All")}${tab("ready", "Ready")}${tab("unrouted", "Unrouted")}${tab("review", "To review")}</div>
+    <div class="tabs">${tab("all", "All")}${tab("ready", "Ready")}${tab("unrouted", "Unrouted")}${tab("review", "To review")}${tab("excluded", `Excluded (${count("excluded")})`)}</div>
     <div class="card">${
       rows.length === 0
         ? `<div class="empty">No work orders in this list.</div>`
-        : `<table><thead><tr><th>Reference</th><th>Supporter</th><th>Item</th><th>Instalment</th><th>Category</th><th>Status</th></tr></thead><tbody>${rows
+        : `<table><thead><tr><th>Reference</th><th>Supporter</th><th>Item</th><th>Instalment</th><th>Category</th><th>Status</th><th></th></tr></thead><tbody>${rows
             .map(
               (w) => `<tr><td>${esc(w.transactionRef)}<div class="muted">${esc(w.paidDate)}</div></td>
               <td>${esc(w.supporterName)}<div class="muted">${esc(w.supporterId)}${w.group ? " · " + esc(w.group) : ""}</div>${creditLine(w)}</td>
               <td>${esc(w.itemName)}</td><td>${instalment(w)}</td>
               <td>${w.status === "unrouted" ? picker(v.categories, w.itemId, "") : esc(categoryName(v.categories, w.categoryId))}</td>
-              <td><span class="pill ${w.status === "unrouted" ? "unrouted" : "ready"}">${w.status === "unrouted" ? "Unrouted" : "Ready"}</span>${reviewKeys.has(w.key) ? ` <span class="pill review">Review</span>` : ""}</td></tr>`,
+              <td>${w.status === "excluded" ? "" : `<span class="pill ${w.status === "unrouted" ? "unrouted" : "ready"}">${w.status === "unrouted" ? "Unrouted" : "Ready"}</span>`}${reviewKeys.has(w.key) ? ` <span class="pill review">Review</span>` : ""}${w.status === "excluded" ? `<span class="pill unrouted">Excluded</span><div class="muted">${esc(w.exclusion?.reason ?? "")}${w.exclusion ? ` (${esc(w.exclusion.by)}, ${esc(w.exclusion.at.slice(0, 10))})` : ""}</div>` : ""}</td>
+              <td>${w.status === "excluded" ? `<button data-excl="${esc(w.key)}" data-excl-action="restore">Restore</button>` : w.status === "unrouted" || w.status === "ready" ? `<button data-excl="${esc(w.key)}" data-excl-action="exclude">Exclude</button>` : ""}</td></tr>`,
             )
             .join("")}</tbody></table>`
     }</div>
@@ -134,9 +137,9 @@ export function workOrdersPage(v: View): string {
 }
 
 export function dashboardPage(v: View): string {
-  const total = Math.max(v.workOrders.length, 1);
+  const total = Math.max(v.workOrders.filter((w) => w.status !== "excluded").length, 1);
   const byFw = new Map<string, number>();
-  for (const w of v.workOrders) byFw.set(w.categoryId || "", (byFw.get(w.categoryId || "") ?? 0) + 1);
+  for (const w of v.workOrders.filter((x) => x.status !== "excluded")) byFw.set(w.categoryId || "", (byFw.get(w.categoryId || "") ?? 0) + 1);
   return `
     <h1>Dashboard</h1><p class="sub">A first view of the work. More dashboards (coverage, compliance, outstanding feedback) come with the later modules.</p>
     <div class="card"><h2>Work orders by category</h2>${[...byFw.entries()]

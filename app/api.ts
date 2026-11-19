@@ -69,3 +69,4 @@ export const importFeed = (feed: CompactFeed, source: string, notes: string[] = 
 export const ownerLogin = (passphrase: string) => call<{ ok: boolean }>("/api/owner-login", { method: "POST", body: { passphrase } });
 export const loadAttention = () => call<{ items: AttentionItem[] }>("/api/triage");
 export const decideAttention = (id: string, action: "review" | "reopen", note = "") => call<{ items: AttentionItem[] }>("/api/triage", { method: "POST", body: { id, action, note } });
+export const setExcluded = (key: string, action: "exclude" | "restore", reason = "") => call<{ ok: boolean; workOrder: WorkOrder }>("/api/exclude", { method: "POST", body: { key, action, reason } });

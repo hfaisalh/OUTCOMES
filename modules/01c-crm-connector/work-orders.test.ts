@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { readFeed, type FeedLine } from "./feed";
 import { sampleRows } from "./sample";
-import { DEFAULT_CATEGORY, planWorkOrders, type PlanOptions, type WorkOrder } from "./work-orders";
+import { DEFAULT_CATEGORY, excludeWorkOrder, planWorkOrders, restoreWorkOrder, type PlanOptions, type WorkOrder } from "./work-orders";
 
 const feed = readFeed(sampleRows()).lines;
 // Set in OUTCOMES (DECISIONS 31). The item I14 (Animal Sacrifice) is deliberately not mapped yet.
@@ -89,5 +89,39 @@ describe("planWorkOrders review list", () => {
 
   it("does not create a second work order for a line repeated in one feed", () => {
     expect(planWorkOrders([...feed, feed[0] as FeedLine], [], options).created).toHaveLength(4);
+  });
+});
+
+describe("excluding a work order (DECISIONS 47)", () => {
+  const opts: PlanOptions = { categoryByItem: {}, usesFrameworks: false, feedIsComplete: true };
+  const lines = feed;
+  const made = planWorkOrders(lines, [], opts).created;
+
+  it("needs a reason and refuses started work", () => {
+    const w = made[0] as WorkOrder;
+    expect("error" in excludeWorkOrder(w, " ", "A", "2026-11-19")).toBe(true);
+    expect("error" in excludeWorkOrder({ ...w, status: "delivered" }, "test", "A", "2026-11-19")).toBe(true);
+  });
+
+  it("keeps it on file, and a re-import neither recreates nor reviews it", () => {
+    const w = made[0] as WorkOrder;
+    const r = excludeWorkOrder(w, "Made during bug fixing", "Owner", "2026-11-19T10:00:00Z");
+    if (!("order" in r)) throw new Error("expected an order");
+    expect(r.order.status).toBe("excluded");
+    const again = planWorkOrders(lines, [r.order, ...made.slice(1)], opts);
+    expect(again.created).toHaveLength(0);
+    expect(again.review).toHaveLength(0);
+    const gone = planWorkOrders([], [r.order], opts);
+    expect(gone.review).toHaveLength(0);
+  });
+
+  it("restores to where it was", () => {
+    const w = made[0] as WorkOrder;
+    const r = excludeWorkOrder(w, "test", "Owner", "2026-11-19");
+    if (!("order" in r)) throw new Error("expected an order");
+    const back = restoreWorkOrder(r.order);
+    if (!("order" in back)) throw new Error("expected an order");
+    expect(back.order.status).toBe(w.status);
+    expect(back.order.exclusion).toBeUndefined();
   });
 });

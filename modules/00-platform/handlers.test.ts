@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { PERMISSIONS as P } from "../../app/menu";
 import { rowsReader } from "../01c-crm-connector/reader";
 import { sampleRows } from "../01c-crm-connector/sample";
-import { handleAudits, handleConfig, handleDemoLogin, handleImport, handleOwnerLogin, handleTriage, handleLaunch, handleMe, handlePickup, handleWorkOrders, type Deps, type HttpRequest } from "./handlers";
+import { handleAudits, handleConfig, handleDemoLogin, handleExclude, handleImport, handleOwnerLogin, handleTriage, handleLaunch, handleMe, handlePickup, handleWorkOrders, type Deps, type HttpRequest } from "./handlers";
 import { signToken, verifyToken, type Claims } from "./launch-token";
 import { defaultConfig, memoryStore } from "./store";
 import { packFeed } from "../01e-crm-export-adapter/compact";
@@ -301,5 +301,35 @@ describe("needs attention", () => {
     const mine = await signIn(d);
     await handleImport(as(mine, { method: "POST", body: up([row("1")], ["a problem"]) }), d);
     expect(await items(await signIn(d, { org: "other" }))).toEqual([]);
+  });
+});
+
+describe("excluding a work order", () => {
+  const row = (id: string) => ({ line_id: id, transaction_ref: `T${id}`, status: "Paid", paid_at: "2026-06-10 10:00:00", supporter_id: "D1", supporter_name: "Sample Supporter", item_id: "I1", item_name: "Water Pump", item_feedback: "2", amount: "100", quantity: "1" });
+  const up = (rows: Record<string, string>[]) => ({ ...packFeed(rows), source: "files", notes: [] });
+  const post = (cookie: string, body: unknown) => handleExclude(as(cookie, { method: "POST", body }), d);
+  const orders = async (cookie: string) => ((await handleWorkOrders(as(cookie), d)).body as { workOrders: { key: string; status: string }[] }).workOrders;
+
+  it("needs a reason, keeps the work order, survives a re-import, and can be restored", async () => {
+    const cookie = await signIn(d);
+    await handleImport(as(cookie, { method: "POST", body: up([row("1"), row("2")]) }), d);
+    expect((await post(cookie, { key: "1", action: "exclude", reason: "" })).status).toBe(400);
+    expect((await post(cookie, { key: "1", action: "exclude", reason: "Made during bug fixing" })).status).toBe(200);
+    expect((await orders(cookie)).find((w) => w.key === "1")?.status).toBe("excluded");
+    const again = await handleImport(as(cookie, { method: "POST", body: up([row("1"), row("2")]) }), d);
+    expect((again.body as { created: number }).created).toBe(0);
+    expect((await orders(cookie)).filter((w) => w.status === "excluded")).toHaveLength(1);
+    expect((await post(cookie, { key: "1", action: "restore" })).status).toBe(200);
+    expect((await orders(cookie)).find((w) => w.key === "1")?.status).toBe("unrouted");
+  });
+
+  it("refuses a missing work order, a signed-out caller, a viewer, and another organisation", async () => {
+    const cookie = await signIn(d);
+    await handleImport(as(cookie, { method: "POST", body: up([row("1")]) }), d);
+    expect((await post(cookie, { key: "nope", action: "exclude", reason: "test" })).status).toBe(404);
+    expect((await handleExclude(req({ method: "POST", body: {} }), d)).status).toBe(401);
+    const viewer = await signIn(d, { perms: [P.access, P.viewWorkOrders] });
+    expect((await post(viewer, { key: "1", action: "exclude", reason: "test" })).status).toBe(403);
+    expect((await post(await signIn(d, { org: "other" }), { key: "1", action: "exclude", reason: "test" })).status).toBe(404);
   });
 });

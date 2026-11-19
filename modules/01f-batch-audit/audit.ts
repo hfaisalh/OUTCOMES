@@ -90,6 +90,7 @@ export function auditFeed(lines: FeedLine[], stored: WorkOrder[], options: { com
     const key = workOrderKey(line);
     seen.add(key);
     const had = byKey.get(key);
+    if (had?.status === "excluded") continue; // Rule: an excluded work order is not audited (DECISIONS 47)
     if (!had) {
       if (!line.needsFeedback) continue;
       counts.added++;
@@ -104,7 +105,7 @@ export function auditFeed(lines: FeedLine[], stored: WorkOrder[], options: { com
 
   if (options.complete) {
     for (const w of stored) {
-      if (!seen.has(w.key) && inCoverage(w.paidDate, coverage)) add({ key: w.key, kind: "removed", message: "The line is no longer in the CRM (refunded, deleted or replaced). The work order was kept." });
+      if (w.status !== "excluded" && !seen.has(w.key) && inCoverage(w.paidDate, coverage)) add({ key: w.key, kind: "removed", message: "The line is no longer in the CRM (refunded, deleted or replaced). The work order was kept." });
     }
   }
   return { coverage, counts, findings, addedSample };

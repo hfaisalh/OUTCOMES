@@ -11,12 +11,12 @@
  */
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
-import { planWorkOrders, type ReviewItem, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
+import { excludeWorkOrder, planWorkOrders, restoreWorkOrder, type ReviewItem, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { acceptSuggestions, addCategory, assignItem, removeCategory, renameCategory, setKeywords, suggestAll, updateFramework, type Cycle, type Framework } from "../modules/02-project-rules/categories";
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
 import { buildAttention, type AttentionItem } from "../modules/04-triage/triage";
-import { decideAttention, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
+import { decideAttention, setExcluded, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
 import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
@@ -204,6 +204,26 @@ document.addEventListener("click", (e) => {
       .catch((e) => (state.message = e instanceof Error ? e.message : "That did not work."))
       .then(draw);
     return;
+  }
+  // Exclude a work order (with a reason) or restore it. Saved on the server when live.
+  const excl = target.closest("[data-excl]") as HTMLElement | null;
+  if (excl && excl.dataset.excl) {
+    const key = excl.dataset.excl;
+    const restoring = excl.dataset.exclAction === "restore";
+    const reason = restoring ? "" : window.prompt("Why exclude this work order? (kept on file, you can restore it later)") ?? "";
+    if (!restoring && reason.trim() === "") return;
+    if (state.live()) {
+      void setExcluded(key, restoring ? "restore" : "exclude", reason)
+        .then((r) => { state.workOrders = state.workOrders.map((w) => (w.key === key ? r.workOrder : w)); state.review = state.review.filter((x) => !(x.key === key && !restoring)); })
+        .catch((e) => (state.message = e instanceof Error ? e.message : "That did not work."))
+        .then(draw);
+      return;
+    }
+    const w = state.workOrders.find((x) => x.key === key);
+    const r = w ? (restoring ? restoreWorkOrder(w) : excludeWorkOrder(w, reason, "Sample User", new Date().toISOString())) : { error: "Not found." };
+    if ("order" in r) state.workOrders = state.workOrders.map((x) => (x.key === key ? r.order : x));
+    else state.message = r.error;
+    return draw();
   }
   const el = target.closest("[data-page],[data-filter],[data-action]") as HTMLElement | null;
   if (!el) return;
