@@ -247,7 +247,7 @@ export async function handleTriage(req: HttpRequest, d: Deps): Promise<HttpRespo
   return json(200, { items: buildAttention({ workOrders, review, notes, marks }) });
 }
 
-// POST /api/exclude  { key | keys, action: "exclude" | "restore", reason }  A person takes work orders out of the active list, or puts them back, one or many at once.
+// POST /api/work-orders  { key | keys, action: "exclude" | "restore", reason }  A person takes work orders out of the active list, or puts them back, one or many at once.
 // Needs permission to map items. Rule (DECISIONS 47, 49): a reason is required to exclude, only unstarted work orders can be excluded, nothing is deleted.
 // Rule: in a bulk change each work order is judged on its own. The ones that cannot change are skipped and counted, the rest are saved together.
 export const MAX_BULK = 1000;
