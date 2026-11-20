@@ -14,10 +14,10 @@ Framework templates (Module 2), outcomes and allocations (Module 5), commitments
 - A roll-up for every place and project: beneficiaries, units, and how many are sponsored.
 
 ## Rules
-- A project defines its own levels as one chain from the top down (for example Branch, Block, Class). Names and depth are the project's own, up to 8 levels. A level that is in use cannot be removed.
-- A place sits at one level, under a place of the level above (or directly under the project for the first level). Its profile fields, such as a branch's Location, are free text for now.
-- A type of beneficiary (child, teacher, warden) lives at one level and has one framework. Two types in one project sharing a framework give a warning, because a gift could land on either.
-- Beneficiaries are added in numbers to a place of the level their type lives at, as numbered test records (profile fields come later). They take the type's framework.
+- A partner defines its own levels (up to 8). The first is the place (a branch or site, and there may be many). The others sit under a level as ways of grouping people inside it (Class, House, School) and are not a chain (DECISIONS 71). A level can be moved while it has no places, and cannot be removed while it is in use.
+- A place or group sits at one level, inside a place of the level above (or at the top for the first level). Its profile fields, such as a branch's Location, are free text for now.
+- A type of beneficiary (child, teacher, warden) belongs to one level, is grouped by some levels under it, and has one framework. Two types in one partner sharing a framework give a warning, because a gift could land on either.
+- Beneficiaries are added in numbers to a place of the level their type belongs to, in the groups they are in (at most one of each kind, inside that place), as numbered test records (profile fields come later). They take the type's framework.
 - A gift's project name is matched to a project by its name or an alias. No match means a general gift.
 - A partner's profile is one record with the groups of decision 69. Only the name and the type are required. Types and extra fields are the organisation's own lists. A partner can be active only while its due diligence is approved and in date, and only active partners that deliver a gift's item are offered the gift.
 - Nothing is removed while it is in use: a place with places or beneficiaries, a type with beneficiaries.
@@ -38,4 +38,4 @@ Framework templates (Module 2), outcomes and allocations (Module 5), commitments
 The screens are `app/projects-page.ts` (the table of partners and the CRM names), `app/partner-window.ts` and `app/partner-form.ts` (one partner's window: profile, structure, beneficiaries) and `app/allocation-page.ts` (Allocation, Place gifts). The server actions are on `/api/outcomes` (Vercel's Hobby plan allows only 12 functions).
 
 ## How to test
-`npm test`. To try it: Partners, New partner (name and type), Save. Then on its Structure tab add levels (Branch, Block, Class), a type (Child, at Class, sponsored as shared parts) and places (Branch 1, Block A, Class 5A). Then on its Beneficiaries tab add 20 to Class 5A.
+`npm test`. To try it: Partners, New partner (name and type), Save. Then on its Structure tab add the levels (Branch, then Class and House under it), a type (Child, belongs to Branch, grouped by Class and House, sponsored as shared parts) and a place (Branch 1) with its groups (Class 5A, Rose House). Then on its Beneficiaries tab add 20 to Branch 1 in Class 5A and Rose House.
