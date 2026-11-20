@@ -78,6 +78,8 @@ export interface OutcomesReply {
   outcomes: Outcome[];
   allocations: Allocation[];
   placed?: number;
+  removed?: number;
+  kept?: number;
   released?: number;
   unplaced?: { commitmentKey: string; why: string }[];
 }

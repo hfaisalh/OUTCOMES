@@ -465,6 +465,8 @@ export function outcomesPage(v: View): string {
   const types = [...new Set(outcomes.map((o) => o.type))].filter((t) => t !== "").sort();
   const shown = outcomes.filter((o) => (f0.cohort === "" || o.cohort === f0.cohort) && (f0.type === "" || o.type === f0.type) && (f0.status === "" || fills.get(o.id)?.state === f0.status));
   const MAXROWS = 300;
+  const heldIds = new Set(allocations.map((a) => a.outcomeId));
+  const unusedShown = shown.filter((o) => !heldIds.has(o.id));
   const head = `<thead><tr><th>Outcome</th><th>Cohort</th><th>Type</th>${months.map((m) => `<th class="m${m === today.slice(0, 7) ? " now" : ""}">${NAME[Number(m.slice(5, 7)) - 1]}</th>`).join("")}<th>Now</th><th></th></tr></thead>`;
 
   // One line per outcome: name, cohort, type, a pie per month, availability. The slices are the units the framework gives it (DECISIONS 62, 63).
@@ -513,6 +515,7 @@ export function outcomesPage(v: View): string {
     <div class="actions"><button class="primary" data-action="auto-allocate"${outcomes.length ? "" : " disabled"}>Allocate automatically</button>
       <span class="muted">Releases what no longer holds, then places each waiting commitment in the first outcome with room. Nothing already allocated is moved.</span></div>
     ${holdNote}
+    ${unusedShown.length ? `<div class="actions"><button data-action="remove-unused" data-ids="${esc(unusedShown.slice(0, 1000).map((o) => o.id).join(","))}" title="Removes the outcomes in the list below that hold no commitments. Use the filters to choose which">Remove ${Math.min(unusedShown.length, 1000)} unused outcome${unusedShown.length === 1 ? "" : "s"} in the list</button></div>` : ""}
     ${detail}
     ${waiting.length ? `<div class="card"><h2>Commitments waiting <span class="muted">(${waiting.length})</span></h2><table><tbody>${waiting.slice(0, 50).map((w) => { const c = byKey.get(w.commitmentKey); return `<tr><td><button class="linkbtn" data-open-commit="${esc(w.commitmentKey)}">Commitment ${esc(w.commitmentKey)}</button></td><td>${esc(c?.itemName ?? "")} <span class="muted">${c?.partsPerInstalment ?? 0} part${c?.partsPerInstalment === 1 ? "" : "s"}</span></td><td class="muted">${esc(w.why)}</td></tr>`; }).join("")}</tbody></table>${waiting.length > 50 ? `<p class="muted">Showing 50 of ${waiting.length}.</p>` : ""}</div>` : ""}
     ${outcomes.length === 0 ? `<div class="card empty">No outcomes yet. Add some above, choosing a framework for them.</div>` : `<h2>12-month status</h2>${filters}<div class="card octablewrap">${shown.length === 0 ? `<div class="empty">No outcomes match the filters.</div>` : `<table class="octable">${head}<tbody>${shown.slice(0, MAXROWS).map(row).join("")}</tbody></table>${shown.length > MAXROWS ? `<p class="muted">Showing ${MAXROWS} of ${shown.length}. Use the filters to narrow the list.</p>` : ""}`}</div>`}`;

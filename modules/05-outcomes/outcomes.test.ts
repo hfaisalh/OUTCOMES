@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Commitment } from "../04b-commitments/commitments";
-import { addOutcomes, autoAllocate, capacityOf, fillOf, moveAllocation, releaseAllocation, removeOutcome, setActive, monthStatus, holdingReport, monthsAround, timelineOf, takesCapacity, type Allocation, type Outcome } from "./outcomes";
+import { addOutcomes, autoAllocate, capacityOf, fillOf, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, monthStatus, holdingReport, monthsAround, timelineOf, takesCapacity, type Allocation, type Outcome } from "./outcomes";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -214,5 +214,15 @@ describe("why commitments are not asking for capacity", () => {
     const noRule: FrameworkTemplate = { id: "norule", name: "No rule", unit: "x", cycle: "quarterly", reportType: "Q", unitsPerBeneficiary: 1 };
     const list = [com("1", 3), com("2", 3, { frameworkId: "" }), com("3", 3, { frameworkId: "norule" }), com("4", 3, { planStatus: "cancelled" }), com("5", 3, { state: "complete" })];
     expect(holdingReport(list, [...FW, noRule])).toEqual({ total: 5, holding: 1, noFramework: 1, noRule: 1, cancelled: 1, finished: 1 });
+  });
+});
+
+describe("removing unused outcomes", () => {
+  it("removes those with no allocations and keeps the ones that hold a commitment", () => {
+    const os = orphans(3);
+    const held: Allocation = { commitmentKey: "1", outcomeId: os[1]!.id, parts: 3, how: "auto", at: AT };
+    const r = removeUnused(os, [held], os.map((o) => o.id));
+    expect(r.value.map((o) => o.name)).toEqual(["Orphan 2"]);
+    expect(r).toMatchObject({ removed: 2, kept: 1 });
   });
 });

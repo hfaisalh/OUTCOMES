@@ -11,7 +11,7 @@
  */
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
-import { addOutcomes, autoAllocate, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, setActive, type Allocation, type Outcome } from "../modules/05-outcomes/outcomes";
+import { addOutcomes, autoAllocate, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, type Allocation, type Outcome } from "../modules/05-outcomes/outcomes";
 import { allocatable } from "../modules/04b-commitments/commitments";
 import { filterWorkOrders, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { excludeWorkOrder, planWorkOrders, restoreWorkOrder, type ReviewItem, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
@@ -175,7 +175,8 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       const r = await changeOutcomes(body);
       state.outcomes = r.outcomes;
       state.allocations = r.allocations;
-      if (body["action"] === "auto") state.message = `Placed ${r.placed ?? 0}, released ${r.released ?? 0}, ${r.unplaced?.length ?? 0} waiting.`;
+      if (body["action"] === "remove-many") state.message = `Removed ${r.removed ?? 0}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`;
+      else if (body["action"] === "auto") state.message = `Placed ${r.placed ?? 0}, released ${r.released ?? 0}, ${r.unplaced?.length ?? 0} waiting.`;
       else state.message = "";
     } else {
       const commitments = allocatable(state.workOrders, perPeriodRule(state.frameworks), new Date().toISOString().slice(0, 10));
@@ -188,6 +189,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "remove": { const r = removeOutcome(state.outcomes, state.allocations, str("id")); if (r.error) error = r.error; else state.outcomes = r.value; break; }
         case "auto": { const r = autoAllocate(commitments, state.outcomes, state.frameworks, state.allocations, at); state.allocations = r.allocations; state.message = `Placed ${r.placed}, released ${r.released}, ${r.unplaced.length} waiting.`; break; }
         case "move": { const r = moveAllocation(state.allocations, commitments, state.outcomes, state.frameworks, str("commitmentKey"), str("outcomeId"), at); if (r.error) error = r.error; else state.allocations = r.value; break; }
+        case "remove-many": { const r = removeUnused(state.outcomes, state.allocations, Array.isArray(body["ids"]) ? (body["ids"] as string[]) : []); state.outcomes = r.value; state.message = `Removed ${r.removed}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`; break; }
         case "release": state.allocations = releaseAllocation(state.allocations, str("commitmentKey")); break;
       }
       state.message = error ?? (body["action"] === "auto" ? state.message : "");
@@ -399,6 +401,11 @@ document.addEventListener("click", (e) => {
   if (action === "add-outcomes") {
     const val = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value ?? "";
     void outcomeChange({ action: "add", name: val("oc-name"), count: Number(val("oc-count") || 1), type: val("oc-type"), cohort: val("oc-cohort"), frameworkId: val("oc-fw") });
+    return;
+  }
+  if (action === "remove-unused") {
+    const ids = (el.dataset.ids ?? "").split(",").filter((x) => x !== "");
+    if (ids.length > 0 && window.confirm(`Remove ${ids.length} outcome${ids.length === 1 ? "" : "s"} that hold no commitments? This cannot be undone.`)) void outcomeChange({ action: "remove-many", ids });
     return;
   }
   if (action === "auto-allocate") {

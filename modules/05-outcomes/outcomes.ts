@@ -141,6 +141,14 @@ export function removeOutcome(outcomes: Outcome[], allocations: Allocation[], id
   return { value: outcomes.filter((o) => o.id !== id) };
 }
 
+// Rule: remove many at once, only those with no allocations at all. Ones that hold something stay, and the count of those is reported.
+export function removeUnused(outcomes: Outcome[], allocations: Allocation[], ids: string[]): { value: Outcome[]; removed: number; kept: number } {
+  const want = new Set(ids);
+  const held = new Set(allocations.map((a) => a.outcomeId));
+  const drop = new Set(outcomes.filter((o) => want.has(o.id) && !held.has(o.id)).map((o) => o.id));
+  return { value: outcomes.filter((o) => !drop.has(o.id)), removed: drop.size, kept: want.size - drop.size };
+}
+
 // ---- Allocation ----
 
 export interface AutoResult {

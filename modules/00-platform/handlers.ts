@@ -19,7 +19,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSION_SECONDS, verifyToken, signToken, clearSessionCookie, type Claims } from "./launch-token.js";
 import { excludeWorkOrder, restoreWorkOrder, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import { allocatable } from "../04b-commitments/commitments.js";
-import { addOutcomes, autoAllocate, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, setActive } from "../05-outcomes/outcomes.js";
+import { addOutcomes, autoAllocate, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive } from "../05-outcomes/outcomes.js";
 import { applyDecision, buildAttention } from "../04-triage/triage.js";
 import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
 import { backfillFrameworks, reapplyFrameworks, rerouteUnrouted, runPickup } from "./pickup.js";
@@ -326,6 +326,14 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
         if (!outcomes.some((o) => o.id === str("id")) || typeof b["active"] !== "boolean") return fail("That outcome was not found.");
         outcomes = setActive(outcomes, str("id"), b["active"]);
         break;
+      case "remove-many": {
+        const ids = Array.isArray(b["ids"]) ? (b["ids"] as unknown[]).filter((x): x is string => typeof x === "string").slice(0, MAX_OUTCOMES) : [];
+        if (ids.length === 0) return fail("Nothing to remove.");
+        const r = removeUnused(outcomes, allocations, ids);
+        outcomes = r.value;
+        extra = { removed: r.removed, kept: r.kept };
+        break;
+      }
       case "remove": {
         const r = removeOutcome(outcomes, allocations, str("id"));
         if (r.error) return fail(r.error);
