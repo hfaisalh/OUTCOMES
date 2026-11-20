@@ -56,6 +56,23 @@ describe("allocationPage", () => {
     expect(noDd).toContain("No: due diligence is not approved");
     expect(allocationPage(base({ projects: projects.map((p) => ({ ...p, itemIds: ["A", "B"] })), nodes, outcomes, workOrders: orders }))).toContain("Yes, 2 items");
   });
+  it("offers partners as places to drop a gift on, even when no beneficiary has a branch", () => {
+    const { projects, nodes, outcomes } = built();
+    const bare = outcomes.map(({ nodeId: _n, ...o }) => o);
+    const html = allocationPage(base({ projects, nodes: [], outcomes: bare, workOrders: [order("1", "S1", "")] }));
+    expect(html).toContain('data-drop-partner="aghosh-orphan-homes"');
+    expect(html).toContain("anyone in this partner");
+    expect(html).toContain('value="partner:aghosh-orphan-homes"');
+  });
+  it("explains beneficiaries that belong to no partner and offers to move or remove them", () => {
+    const { projects, nodes, outcomes } = built();
+    const old = [{ id: "abc-1", name: "ABC 1", type: "child", cohort: "", frameworkId: shared.id, active: true }];
+    const html = allocationPage(base({ projects, nodes, outcomes: [...outcomes, ...old] }));
+    expect(html).toContain("Beneficiaries not in a partner");
+    expect(html).toContain('data-action="adopt-legacy"');
+    expect(html).toContain('data-action="clear-legacy"');
+    expect(allocationPage(base({ projects, nodes, outcomes }))).not.toContain("Beneficiaries not in a partner");
+  });
   it("says so when there is nothing to place, and when there are no partners", () => {
     expect(allocationPage(base())).toContain("No partners yet");
     const { projects, nodes, outcomes } = built();

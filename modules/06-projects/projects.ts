@@ -550,21 +550,51 @@ export function placesUnder(nodes: Node[], nodeId: string): Set<string> {
  * that is their decision.
  */
 export function placeInNode(allocations: Allocation[], commitments: Commitment[], outcomes: Outcome[], nodes: Node[], fw: FrameworkTemplate[], commitmentKey: string, nodeId: string, at: string, policy?: Policy): Changed<Allocation[]> {
-  const c = commitments.find((x) => x.subscriptionId === commitmentKey);
   const node = nodes.find((x) => x.id === nodeId);
-  if (!c) return { value: allocations, error: "That gift was not found." };
   if (!node) return { value: allocations, error: "That place was not found." };
-  if (!takesCapacity(c, fw, policy)) return { value: allocations, error: "That gift no longer holds a place." };
   const under = placesUnder(nodes, nodeId);
   // A beneficiary is in a place when it belongs to it, or to a group of it, or is in the place or group dropped on.
-  const candidates = outcomes.filter((o) => o.active && o.frameworkId === c.frameworkId && ((o.nodeId !== undefined && under.has(o.nodeId)) || (o.groupIds ?? []).some((g) => under.has(g))));
+  return placeAmong(allocations, commitments, outcomes, fw, commitmentKey, (o) => (o.nodeId !== undefined && under.has(o.nodeId)) || (o.groupIds ?? []).some((g) => under.has(g)), node.name, at, policy);
+}
+
+// Rule (DECISIONS 73): a person drops a gift on a partner as a whole, for beneficiaries that are not placed in a branch or group. It goes to one of that partner's beneficiaries with room.
+export function placeInPartner(allocations: Allocation[], commitments: Commitment[], outcomes: Outcome[], projects: Project[], fw: FrameworkTemplate[], commitmentKey: string, projectId: string, at: string, policy?: Policy): Changed<Allocation[]> {
+  const p = projects.find((x) => x.id === projectId);
+  if (!p) return { value: allocations, error: "That partner was not found." };
+  return placeAmong(allocations, commitments, outcomes, fw, commitmentKey, (o) => o.projectId === projectId, p.name, at, policy);
+}
+
+// The shared part: put one gift into one of the beneficiaries that fit, chosen as in automatic allocation. A gift already placed is moved.
+function placeAmong(allocations: Allocation[], commitments: Commitment[], outcomes: Outcome[], fw: FrameworkTemplate[], commitmentKey: string, fits: (o: Outcome) => boolean, where: string, at: string, policy?: Policy): Changed<Allocation[]> {
+  const c = commitments.find((x) => x.subscriptionId === commitmentKey);
+  if (!c) return { value: allocations, error: "That gift was not found." };
+  if (!takesCapacity(c, fw, policy)) return { value: allocations, error: "That gift no longer holds a place." };
+  const candidates = outcomes.filter((o) => o.active && o.frameworkId === c.frameworkId && fits(o));
   const others = allocations.filter((a) => a.commitmentKey !== commitmentKey);
   const live = new Set(commitments.filter((x) => takesCapacity(x, fw, policy)).map((x) => x.subscriptionId));
   const used = new Map<string, number>();
   for (const a of others) if (live.has(a.commitmentKey)) used.set(a.outcomeId, (used.get(a.outcomeId) ?? 0) + a.parts);
   const target = pickOutcome(candidates, fw, used, c.partsPerInstalment);
-  if (!target) return { value: allocations, error: `${node.name} has no room for ${c.partsPerInstalment} part${c.partsPerInstalment === 1 ? "" : "s"} of this kind.` };
+  if (!target) return { value: allocations, error: `${where} has no room for ${c.partsPerInstalment} part${c.partsPerInstalment === 1 ? "" : "s"} of this kind.` };
   return { value: [...others, { commitmentKey, outcomeId: target.id, parts: c.partsPerInstalment, how: "manual", at }] };
+}
+
+// ---- Beneficiaries made before partners existed (DECISIONS 73) ----
+
+export const isLegacy = (o: Outcome): boolean => o.projectId === undefined;
+
+// Rule: move every beneficiary that belongs to no partner into one, keeping what is allocated to them. They keep their framework and name.
+export function adoptLegacy(outcomes: Outcome[], projects: Project[], projectId: string): Changed<Outcome[]> & { moved: number } {
+  if (!projects.some((p) => p.id === projectId)) return { value: outcomes, error: "Choose a partner.", moved: 0 };
+  const moved = outcomes.filter(isLegacy).length;
+  return { value: outcomes.map((o) => (isLegacy(o) ? { ...o, projectId } : o)), moved };
+}
+
+// Rule: remove every beneficiary that belongs to no partner, and release the gifts that were allocated to them, so the next allocation places those gifts again.
+export function clearLegacy(outcomes: Outcome[], allocations: Allocation[]): { outcomes: Outcome[]; allocations: Allocation[]; removed: number; released: number } {
+  const gone = new Set(outcomes.filter(isLegacy).map((o) => o.id));
+  const kept = allocations.filter((a) => !gone.has(a.outcomeId));
+  return { outcomes: outcomes.filter((o) => !gone.has(o.id)), allocations: kept, removed: gone.size, released: allocations.length - kept.length };
 }
 
 // Where automatic allocation would put each waiting gift, shown as a suggestion. Nothing is changed.

@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Allocation } from "../05-outcomes/outcomes";
 import type { Commitment } from "../04b-commitments/commitments";
-import { applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, setCrmName, crmProjectNames, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
+import { adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, setCrmName, crmProjectNames, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -391,6 +391,34 @@ describe("adding beneficiaries with the fewest steps (DECISIONS 72)", () => {
     const r = addType(projects, projects[0]!.id, { name: "Cook", levelId: "", frameworkId: "whole" }, FW);
     expect(r.error).toBeUndefined();
     expect(addType(projects, projects[0]!.id, { name: "Cook", levelId: "", frameworkId: "whole", groupingIds: ["class"] }, FW).error).toContain("belong to first");
+  });
+});
+
+describe("beneficiaries made before partners existed, and placing a gift on a partner (DECISIONS 73)", () => {
+  const out = (id: string, projectId?: string) => ({ id, name: id, type: "child", cohort: "", frameworkId: "shared", active: true, ...(projectId ? { projectId } : {}) });
+  const gift = (sub: string, parts = 3) => ({ subscriptionId: sub, frameworkId: "shared", partsPerInstalment: parts, state: "in_progress", planStatus: "", projectName: "", firstPaid: "2026-01-01", planned: 12, paid: 1, nextDue: "", planPaid: null }) as unknown as Commitment;
+
+  it("moves every beneficiary that belongs to no partner into one, and keeps what is allocated to them", () => {
+    const { projects } = sample();
+    const r = adoptLegacy([out("a"), out("b"), out("c", projects[0]!.id)], projects, projects[0]!.id);
+    expect(r.moved).toBe(2);
+    expect(r.value.every((o) => o.projectId === projects[0]!.id)).toBe(true);
+    expect(adoptLegacy([out("a")], projects, "nope").error).toContain("Choose a partner");
+  });
+  it("removes them and releases the gifts that were on them", () => {
+    const allocations = [{ commitmentKey: "1", outcomeId: "a", parts: 3, how: "auto" as const, at: "t" }, { commitmentKey: "2", outcomeId: "c", parts: 3, how: "auto" as const, at: "t" }];
+    const r = clearLegacy([out("a"), out("c", "p")], allocations);
+    expect(r).toMatchObject({ removed: 1, released: 1 });
+    expect(r.outcomes.map((o) => o.id)).toEqual(["c"]);
+    expect(r.allocations.map((a) => a.commitmentKey)).toEqual(["2"]);
+  });
+  it("places a gift on a partner as a whole, only among its own beneficiaries", () => {
+    const { projects } = sample();
+    const outcomes = [out("x", "other"), out("a", projects[0]!.id)];
+    const r = placeInPartner([], [gift("1")], outcomes, projects, FW, "1", projects[0]!.id, "t");
+    expect(r.value[0]).toMatchObject({ outcomeId: "a", how: "manual" });
+    expect(placeInPartner([], [gift("1")], [out("x", "other")], projects, FW, "1", projects[0]!.id, "t").error).toContain("no room");
+    expect(placeInPartner([], [gift("1")], outcomes, projects, FW, "1", "nope", "t").error).toContain("not found");
   });
 });
 

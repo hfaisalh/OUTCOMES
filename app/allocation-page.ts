@@ -10,7 +10,7 @@
 
 import { allocatable } from "../modules/04b-commitments/commitments";
 import { autoAllocate, holdingReport, perPeriodRule, takesCapacity } from "../modules/05-outcomes/outcomes";
-import { allocationSummary, allocOptions, isActivePartner, pathOf, rollupOf, suggestions, type Project } from "../modules/06-projects/projects";
+import { allocationSummary, allocOptions, isActivePartner, isLegacy, pathOf, rollupOf, suggestions, type Project } from "../modules/06-projects/projects";
 import { esc, type View } from "./pages";
 
 const meter = (used: number, places: number) => `<span class="meter" aria-hidden="true"><i style="width:${places > 0 ? Math.min(Math.round((used / places) * 100), 100) : 0}%"></i></span>`;
@@ -39,7 +39,8 @@ export function allocationPage(v: View): string {
   const waitingParts = waiting.reduce((n, c) => n + c.partsPerInstalment, 0);
 
   const nodeLabel = (id: string) => pathOf(nodes, projects, id).slice(1).join(" > ") || id;
-  const placeOptions = nodes.filter((n) => (roll.byNode.get(n.id)?.places ?? 0) > 0).slice(0, MAX_PLACES).map((n) => `<option value="${esc(n.id)}">${esc(nodeLabel(n.id))} (${(roll.byNode.get(n.id)?.places ?? 0) - (roll.byNode.get(n.id)?.used ?? 0)} free)</option>`).join("");
+  const partnerRows = sum.rows.filter((r) => r.projectId !== "" && r.beneficiaries > 0);
+  const placeOptions = partnerRows.map((r) => `<option value="partner:${esc(r.projectId)}">${esc(r.name)}, anyone (${r.free} free)</option>`).join("") + nodes.filter((n) => (roll.byNode.get(n.id)?.places ?? 0) > 0).slice(0, MAX_PLACES).map((n) => `<option value="${esc(n.id)}">${esc(nodeLabel(n.id))} (${(roll.byNode.get(n.id)?.places ?? 0) - (roll.byNode.get(n.id)?.used ?? 0)} free)</option>`).join("");
 
   const head = `<h1>Place gifts</h1>
     <p class="sub">Gifts that are waiting for a place, and where there is room. The suggestion for each gift is only a starting point: drag a gift onto a place, or choose a place from its list. A gift for a particular project goes to that project's partners, and a general gift is spread across places so more are sponsored.</p>
@@ -80,9 +81,17 @@ export function allocationPage(v: View): string {
     ${waiting.length ? waiting.slice(0, MAX_GIFTS).map(gift).join("") + (waiting.length > MAX_GIFTS ? `<p class="muted">Showing ${MAX_GIFTS} of ${waiting.length}, oldest first.</p>` : "") : `<div class="empty">Nothing is waiting. Every gift that holds a place has one.</div>`}</div>`;
 
   const placeRows = nodes.map((n) => ({ n, r: roll.byNode.get(n.id) })).filter((x) => (x.r?.places ?? 0) > 0).slice(0, MAX_PLACES);
+  const partnerDrops = partnerRows.map((r) => `<div class="place" data-drop-partner="${esc(r.projectId)}"><span><b>${esc(r.name)}</b> <small>anyone in this partner</small></span><span>${meter(r.used, r.capacity)} ${r.free} free</span></div>`).join("");
   const right = `<div class="card"><h2>Places <span class="muted">(drop a gift on one)</span></h2>
-    ${placeRows.length ? placeRows.map(({ n, r }) => `<div class="place" data-drop-node="${esc(n.id)}"><span><b>${esc(n.name)}</b> <small>${esc(nodeLabel(n.id))}</small></span><span>${meter(r?.used ?? 0, r?.places ?? 0)} ${(r?.places ?? 0) - (r?.used ?? 0)} free</span></div>`).join("") : `<div class="empty">No places with beneficiaries yet. Add them on the Partners page.</div>`}
+    ${partnerDrops}
+    ${placeRows.length ? placeRows.map(({ n, r }) => `<div class="place" data-drop-node="${esc(n.id)}"><span><b>${esc(n.name)}</b> <small>${esc(nodeLabel(n.id))}</small></span><span>${meter(r?.used ?? 0, r?.places ?? 0)} ${(r?.places ?? 0) - (r?.used ?? 0)} free</span></div>`).join("") : partnerRows.length ? "" : `<div class="empty">No beneficiaries yet. Add them on the Partners page.</div>`}
     ${nodes.length > MAX_PLACES ? `<p class="muted">Showing ${MAX_PLACES} places.</p>` : ""}</div>`;
 
-  return `${head}${summary}<div class="cols2">${left}${right}</div>`;
+  // Beneficiaries made before partners existed keep the gifts that were placed on them, so new partners get nothing until these are dealt with (DECISIONS 73).
+  const legacy = outcomes.filter(isLegacy);
+  const legacyUsed = sum.rows.find((r) => r.projectId === "")?.used ?? 0;
+  const legacyCard = legacy.length ? `<div class="card"><h2>Beneficiaries not in a partner <span class="muted">(${legacy.length})</span></h2>
+    <p class="muted">These were added before partners existed, and ${legacyUsed} of their units are sponsored. Gifts already placed on them stay there, so a new partner gets none of those. Move them into a partner (the gifts stay with them), or remove them and release their gifts so they can be placed again.</p>
+    <div class="actions"><select id="al-adopt" aria-label="Partner"><option value="">Move them into...</option>${projects.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("")}</select><button data-action="adopt-legacy">Move them</button><button data-action="clear-legacy">Remove them and release their gifts</button></div></div>` : "";
+  return `${head}${summary}${legacyCard}<div class="cols2">${left}${right}</div>`;
 }

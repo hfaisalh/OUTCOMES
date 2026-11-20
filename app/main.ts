@@ -11,7 +11,7 @@
  */
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
-import { allocOptions, applyProjectAction, placeInNode, type Node, type Project } from "../modules/06-projects/projects";
+import { adoptLegacy, allocOptions, applyProjectAction, clearLegacy, placeInNode, placeInPartner, type Node, type Project } from "../modules/06-projects/projects";
 import { projectsPage } from "./projects-page";
 import { NEW_CONTACT_ROW, NEW_DOC_ROW, readPartnerForm } from "./partner-form";
 import { partnerWindowHtml, type PartnerTab } from "./partner-window";
@@ -197,6 +197,8 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.partnerTypes = r.partnerTypes ?? state.partnerTypes;
       state.partnerFields = r.partnerFields ?? state.partnerFields;
       if (body["action"] === "remove-many") state.message = `Removed ${r.removed ?? 0}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`;
+      else if (body["action"] === "adopt-legacy") state.message = `Moved ${(r as unknown as { moved?: number }).moved ?? 0} into the partner.`;
+      else if (body["action"] === "clear-legacy") state.message = `Removed ${(r as unknown as { removed?: number }).removed ?? 0} and released ${(r as unknown as { released?: number }).released ?? 0} gifts.`;
       else if (body["action"] === "auto") state.message = `Placed ${r.placed ?? 0}, released ${r.released ?? 0}, ${r.unplaced?.length ?? 0} waiting.`;
       else state.message = r.warning ?? "";
     } else {
@@ -212,6 +214,9 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "move": { const r = moveAllocation(state.allocations, commitments, state.outcomes, state.frameworks, str("commitmentKey"), str("outcomeId"), at, allocOptions(state.projects, state.bufferMonths, at.slice(0, 10)).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
         case "remove-many": { const r = removeUnused(state.outcomes, state.allocations, Array.isArray(body["ids"]) ? (body["ids"] as string[]) : []); state.outcomes = r.value; state.message = `Removed ${r.removed}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`; break; }
         case "place-in-node": { const r = placeInNode(state.allocations, commitments, state.outcomes, state.nodes, state.frameworks, str("commitmentKey"), str("nodeId"), at, allocOptions(state.projects, state.bufferMonths, at.slice(0, 10)).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
+        case "place-in-partner": { const r = placeInPartner(state.allocations, commitments, state.outcomes, state.projects, state.frameworks, str("commitmentKey"), str("projectId"), at, allocOptions(state.projects, state.bufferMonths, at.slice(0, 10)).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
+        case "adopt-legacy": { const r = adoptLegacy(state.outcomes, state.projects, str("projectId")); if (r.error) error = r.error; else { state.outcomes = r.value; state.message = `Moved ${r.moved} into the partner.`; } break; }
+        case "clear-legacy": { const r = clearLegacy(state.outcomes, state.allocations); state.outcomes = r.outcomes; state.allocations = r.allocations; state.message = `Removed ${r.removed} and released ${r.released} gift${r.released === 1 ? "" : "s"}.`; break; }
         case "set-buffer": { const n = Number(body["months"]); if (!Number.isInteger(n) || n < 0 || n > 12) error = "The buffer is a whole number of months, from 0 to 12."; else state.bufferMonths = n; break; }
         case "release": state.allocations = releaseAllocation(state.allocations, str("commitmentKey")); break;
         default: {
@@ -465,6 +470,12 @@ document.addEventListener("click", (e) => {
     void outcomeChange({ action: "add", name: val("oc-name"), count: Number(val("oc-count") || 1), type: val("oc-type"), cohort: val("oc-cohort"), frameworkId: val("oc-fw") });
     return;
   }
+  // Beneficiaries made before partners existed (DECISIONS 73).
+  if (action === "adopt-legacy") return void outcomeChange({ action: "adopt-legacy", projectId: (document.getElementById("al-adopt") as HTMLSelectElement | null)?.value ?? "" });
+  if (action === "clear-legacy") {
+    if (window.confirm("Remove the beneficiaries that are not in a partner and release their gifts? The gifts can then be placed again. This cannot be undone.")) void outcomeChange({ action: "clear-legacy" });
+    return;
+  }
   if (action === "remove-unused") {
     const ids = (el.dataset.ids ?? "").split(",").filter((x) => x !== "");
     if (ids.length > 0 && window.confirm(`Remove ${ids.length} outcome${ids.length === 1 ? "" : "s"} that hold no commitments? This cannot be undone.`)) void outcomeChange({ action: "remove-many", ids });
@@ -658,7 +669,8 @@ document.addEventListener("change", (e) => {
   // A level moved under another, or to the top (DECISIONS 71).
   if (t.dataset.levelParent !== undefined) return void outcomeChange({ action: "move-level", projectId: state.openProject, levelId: t.dataset.levelParent, parentId: t.value });
   if (t.dataset.placeSelect !== undefined) {
-    if (t.value !== "") void outcomeChange({ action: "place-in-node", commitmentKey: t.dataset.placeSelect, nodeId: t.value });
+    if (t.value.startsWith("partner:")) void outcomeChange({ action: "place-in-partner", commitmentKey: t.dataset.placeSelect, projectId: t.value.slice(8) });
+    else if (t.value !== "") void outcomeChange({ action: "place-in-node", commitmentKey: t.dataset.placeSelect, nodeId: t.value });
     return;
   }
   if (t.dataset.buffer !== undefined) return void outcomeChange({ action: "set-buffer", months: Number(t.value) });
@@ -755,9 +767,15 @@ document.addEventListener("dragstart", (e) => {
   }
 });
 document.addEventListener("dragover", (e) => {
-  if ((e.target as HTMLElement).closest("[data-drop-node]")) e.preventDefault();
+  if ((e.target as HTMLElement).closest("[data-drop-node],[data-drop-partner]")) e.preventDefault();
 });
 document.addEventListener("drop", (e) => {
+  const partner = (e.target as HTMLElement).closest("[data-drop-partner]") as HTMLElement | null;
+  const gift = e.dataTransfer?.getData("text/plain") ?? "";
+  if (partner && gift !== "") {
+    e.preventDefault();
+    return void outcomeChange({ action: "place-in-partner", commitmentKey: gift, projectId: partner.dataset.dropPartner });
+  }
   const place = (e.target as HTMLElement).closest("[data-drop-node]") as HTMLElement | null;
   const key = e.dataTransfer?.getData("text/plain") ?? "";
   if (place && key !== "") {
