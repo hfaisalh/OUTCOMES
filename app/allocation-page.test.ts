@@ -43,6 +43,19 @@ describe("allocationPage", () => {
     expect(html).toContain('data-place-select="S1"');
     expect(html).toContain("data-buffer");
   });
+  it("says whether each partner takes gifts and why not, and how many gifts are asking for a place", () => {
+    const { projects, nodes, outcomes } = built();
+    const orders = [order("1", "S1", "Aghosh")];
+    const active = allocationPage(base({ projects, nodes, outcomes, workOrders: orders }));
+    expect(active).toContain("<th>Takes gifts</th>");
+    expect(active).toContain("Yes, any item");
+    expect(active).toContain("1 gift in all, 1 asking for a place");
+    const pending = allocationPage(base({ projects: projects.map((p) => ({ ...p, status: "pending" as const })), nodes, outcomes, workOrders: orders }));
+    expect(pending).toContain("No: status is pending");
+    const noDd = allocationPage(base({ projects: projects.map((p) => ({ ...p, ddStatus: "pending" as const })), nodes, outcomes, workOrders: orders }));
+    expect(noDd).toContain("No: due diligence is not approved");
+    expect(allocationPage(base({ projects: projects.map((p) => ({ ...p, itemIds: ["A", "B"] })), nodes, outcomes, workOrders: orders }))).toContain("Yes, 2 items");
+  });
   it("says so when there is nothing to place, and when there are no partners", () => {
     expect(allocationPage(base())).toContain("No partners yet");
     const { projects, nodes, outcomes } = built();

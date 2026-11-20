@@ -9,8 +9,8 @@
  */
 
 import { allocatable } from "../modules/04b-commitments/commitments";
-import { autoAllocate, perPeriodRule, takesCapacity } from "../modules/05-outcomes/outcomes";
-import { allocationSummary, allocOptions, pathOf, rollupOf, suggestions } from "../modules/06-projects/projects";
+import { autoAllocate, holdingReport, perPeriodRule, takesCapacity } from "../modules/05-outcomes/outcomes";
+import { allocationSummary, allocOptions, isActivePartner, pathOf, rollupOf, suggestions, type Project } from "../modules/06-projects/projects";
 import { esc, type View } from "./pages";
 
 const meter = (used: number, places: number) => `<span class="meter" aria-hidden="true"><i style="width:${places > 0 ? Math.min(Math.round((used / places) * 100), 100) : 0}%"></i></span>`;
@@ -46,11 +46,23 @@ export function allocationPage(v: View): string {
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics"><div class="metric"><b>${waiting.length}</b><span>Gifts waiting (${waitingParts} parts)</span></div><div class="metric"><b>${totals.free}</b><span>Units with no sponsor</span></div><div class="metric"><b>${totals.buffer}</b><span>Sponsors inside the buffer</span></div><div class="metric ${totals.free - waitingParts >= 0 ? "ok" : "warn"}"><b>${signed(totals.free - waitingParts)}</b><span>Surplus or deficit of places</span></div></div>`;
 
-  const rows = sum.rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${r.beneficiaries}</td><td>${r.capacity}</td><td>${r.used} ${meter(r.used, r.capacity)}</td><td>${r.free}</td><td>${r.inBuffer}</td><td>${r.waitingParts}</td><td class="${r.free - r.waitingParts >= 0 ? "" : "bad"}">${signed(r.free - r.waitingParts)}</td></tr>`).join("");
+  // Whether each partner takes gifts, and if not, why, so "nothing is placed" is never a mystery (DECISIONS 69).
+  const takes = (p: Project | undefined): string => {
+    if (!p) return "";
+    if (isActivePartner(p, today)) return (p.itemIds ?? []).length ? `Yes, ${(p.itemIds ?? []).length} item${(p.itemIds ?? []).length === 1 ? "" : "s"}` : "Yes, any item";
+    if ((p.status ?? "pending") !== "active") return `No: status is ${(p.status ?? "pending").replace("_", " ")}`;
+    if (p.ddStatus !== "approved") return "No: due diligence is not approved";
+    return "No: the approval is past its review date";
+  };
+  const hold = holdingReport(commitments, fws, opts.policy);
+  const notAsking = [hold.noFramework ? `${hold.noFramework} have no framework (set one for the item or its category)` : "", hold.noRule ? `${hold.noRule} are on a framework that does not say how an instalment counts` : "", hold.cancelled ? `${hold.cancelled} are cancelled in the CRM` : "", hold.lapsed ? `${hold.lapsed} have missed more payments than the buffer` : "", hold.finished ? `${hold.finished} are fully paid` : ""].filter((x) => x !== "");
+  const holdNote = `<p class="muted">${hold.total} gift${hold.total === 1 ? "" : "s"} in all, ${hold.holding} asking for a place${notAsking.length ? `. Not asking: ${notAsking.join("; ")}` : ""}.</p>`;
+  const rows = sum.rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${r.beneficiaries}</td><td>${r.capacity}</td><td>${r.used} ${meter(r.used, r.capacity)}</td><td>${r.free}</td><td>${r.inBuffer}</td><td>${r.waitingParts}</td><td class="${r.free - r.waitingParts >= 0 ? "" : "bad"}">${signed(r.free - r.waitingParts)}</td><td>${esc(takes(projects.find((p) => p.id === r.projectId)))}</td></tr>`).join("");
   const buffer = `<label class="muted">A plan that misses payments keeps its place for <select data-buffer aria-label="Payment buffer">${[0, 1, 2, 3, 6].map((n) => `<option value="${n}"${n === (v.bufferMonths ?? 1) ? " selected" : ""}>${n}</option>`).join("")}</select> missed payment${(v.bufferMonths ?? 1) === 1 ? "" : "s"}, then the place is released.</label>`;
   const summary = `<div class="card"><h2>By partner</h2>
-    ${sum.rows.length ? `<div class="twrap"><table><thead><tr><th>Partner</th><th>Beneficiaries</th><th>Units</th><th>Sponsored</th><th>Free</th><th>In buffer</th><th>Waiting (parts)</th><th>Surplus or deficit</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">No partners yet. Create one on the Partners page.</div>`}
+    ${sum.rows.length ? `<div class="twrap"><table><thead><tr><th>Partner</th><th>Beneficiaries</th><th>Units</th><th>Sponsored</th><th>Free</th><th>In buffer</th><th>Waiting (parts)</th><th>Surplus or deficit</th><th>Takes gifts</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">No partners yet. Create one on the Partners page.</div>`}
     <p class="muted">${sum.generalWaiting.gifts} general gift${sum.generalWaiting.gifts === 1 ? "" : "s"} waiting (${sum.generalWaiting.parts} parts), which can go to any partner. Surplus or deficit is the free units minus the parts of waiting gifts.</p>
+    ${holdNote}
     ${buffer}</div>`;
 
   const gift = (c: (typeof waiting)[number]) => {
