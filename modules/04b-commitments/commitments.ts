@@ -33,6 +33,7 @@ export interface Commitment {
   itemId: string;
   itemName: string;
   categoryId: string;
+  frameworkId: string; // the framework the first instalment was routed under ("" when none), which decides how units count
   partsPerInstalment: number; // from the first instalment. See partsVary
   partsVary: boolean; // true when the instalments do not all have the same parts, which needs a look
   planned: number | null; // null when the plan runs until cancelled or the count is unknown
@@ -98,6 +99,7 @@ export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
       itemId: first.itemId,
       itemName: first.itemName,
       categoryId: first.categoryId,
+      frameworkId: first.frameworkId ?? "",
       partsPerInstalment: partsOf(first),
       partsVary: sorted.some((w) => partsOf(w) !== partsOf(first)),
       planned,

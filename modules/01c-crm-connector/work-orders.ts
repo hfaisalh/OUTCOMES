@@ -46,6 +46,7 @@ export interface WorkOrder {
   subscriptionId: string;
   instalmentNumber: string;
   instalmentCount: string;
+  frameworkId?: string; // the framework template it was routed under (DECISIONS 59). Set when routed and kept: changing an item's framework later does not move work already made
   categoryId: string; // the category it is routed to, "" while unrouted
   status: WorkOrderStatus;
   exclusion?: Exclusion; // present only while status is "excluded"
@@ -56,6 +57,7 @@ export const partsOf = (w: Pick<WorkOrder, "quantity" | "bundleQty">): number =>
 
 export interface PlanOptions {
   categoryByItem: Record<string, string>; // CRM item id to category id, set in OUTCOMES
+  frameworkByItem?: Record<string, string>; // CRM item id to the framework template that applies to it (its own, else its category's). DECISIONS 59
   usesFrameworks: boolean; // false for an organisation with no categories set up (DECISIONS 31, 40)
   feedIsComplete?: boolean; // true when the feed is the whole picture, not just recent lines, so missing lines can be spotted
   coverage?: { from: string; to: string }; // when given, only work orders paid inside these dates can be judged missing (an export covers a date range)
@@ -83,6 +85,12 @@ export const DEFAULT_CATEGORY = "default";
 // Rule: a work order is identified by its CRM line id alone (DECISIONS 46). The line id is unique and never reused, while the
 // order reference can be blank or appear later, which would otherwise change the key and make a duplicate.
 export const workOrderKey = (line: Pick<FeedLine, "lineId">) => line.lineId;
+
+// Rule: the framework a work order is routed under, kept on it from then on (DECISIONS 59). Nothing when the item has none.
+const fwOf = (itemId: string, options: PlanOptions): { frameworkId?: string } => {
+  const id = options.frameworkByItem?.[itemId] ?? "";
+  return id === "" ? {} : { frameworkId: id };
+};
 
 // Rule: where a line goes. No categories in use: the default journey. Otherwise the item's category, or unrouted.
 function route(itemId: string, options: PlanOptions): { categoryId: string; status: WorkOrderStatus } {
@@ -141,6 +149,7 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
         instalmentNumber: line.instalmentNumber,
         instalmentCount: line.instalmentCount,
         ...route(line.itemId, options),
+        ...fwOf(line.itemId, options),
       });
       continue;
     }
@@ -152,14 +161,18 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
     }
 
     // Rule: the bundle quantity and the legacy-upload mark come from the catalogue and the reference, not from the donor, so a work order made before they were known is given them quietly, and so is the plan link. Never reviewed.
+    // A work order made before frameworks existed is given its framework once. One that already has a framework keeps it.
+    const fwMissing = current.frameworkId === undefined && (options.frameworkByItem?.[current.itemId] ?? "") !== "";
+
     // Also the plan link (subscription, instalment number and count), which comes from the plans file and can be completed later (DECISIONS 56).
     let have = current;
     const refFilled = current.transactionRef === "" && line.transactionRef !== "";
     const planChanged = refFilled || current.subscriptionId !== line.subscriptionId || current.instalmentNumber !== line.instalmentNumber || current.instalmentCount !== line.instalmentCount;
-    if ((current.bundleQty ?? 1) !== line.bundleQty || (current.legacyUpload === true) !== line.legacyUpload || planChanged) {
+    if (fwMissing || (current.bundleQty ?? 1) !== line.bundleQty || (current.legacyUpload === true) !== line.legacyUpload || planChanged) {
       const { bundleQty: _b, legacyUpload: _l, ...rest } = current;
       have = {
         ...rest,
+        ...(fwMissing ? fwOf(current.itemId, options) : {}),
         transactionRef: current.transactionRef || line.transactionRef,
         subscriptionId: line.subscriptionId,
         instalmentNumber: line.instalmentNumber,
@@ -179,7 +192,7 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
     if (current.status === "unrouted") {
       const r = route(current.itemId, options);
       if (r.status === "ready") {
-        rerouted.push({ ...have, ...r });
+        rerouted.push({ ...have, ...r, ...(have.frameworkId === undefined ? fwOf(have.itemId, options) : {}) });
         if (have !== current) updated.pop();
         continue;
       }

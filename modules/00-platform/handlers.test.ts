@@ -358,3 +358,49 @@ describe("excluding and restoring many at once", () => {
     expect((await handleExclude(as(viewer, { method: "POST", body: { keys: ["1"], action: "exclude", reason: "x" } }), d)).status).toBe(403);
   });
 });
+
+describe("framework templates (DECISIONS 59)", () => {
+  const tpl = (id: string, over: Record<string, unknown> = {}) => ({ id, name: id, unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3, ...over });
+  const row = (id: string, item: string) => ({ line_id: id, transaction_ref: `T${id}`, status: "Paid", paid_at: "2026-06-10 10:00:00", supporter_id: "D1", supporter_name: "Sample", item_id: item, item_name: item, item_feedback: "2", amount: "100", quantity: "1" });
+  const up = (rows: Record<string, string>[]) => ({ ...packFeed(rows), source: "files", notes: [] });
+  const orders = async (cookie: string) => ((await handleWorkOrders(as(cookie), d)).body as { workOrders: { key: string; frameworkId?: string }[] }).workOrders;
+  const put = (cookie: string, body: unknown) => handleConfig(as(cookie, { method: "PUT", body }), d);
+  const cats = [{ id: "spons", name: "Sponsorship", keywords: [], frameworkId: "shared" }];
+
+  it("saves templates, and reads an older setup (a framework inside each category) as templates", async () => {
+    const cookie = await signIn(d);
+    expect((await put(cookie, { categories: cats, itemMap: { A: "spons" }, frameworks: [tpl("shared")], itemFramework: {} })).status).toBe(200);
+    expect((await handleConfig(as(cookie), d)).body).toMatchObject({ frameworks: [{ id: "shared", unitsPerBeneficiary: 3 }] });
+    const other = await signIn(d, { org: "old" });
+    await put(other, { categories: [{ id: "w", name: "Water", keywords: [], framework: { unit: "pump", cycle: "on_delivery", reportType: "" } }], itemMap: {} });
+    expect((await handleConfig(as(other), d)).body).toMatchObject({ categories: [{ id: "w", frameworkId: "water" }], frameworks: [{ id: "water", name: "Water", unit: "pump" }] });
+  });
+
+  it("refuses a category or item that points to a framework that does not exist, and an invalid template", async () => {
+    const cookie = await signIn(d);
+    expect((await put(cookie, { categories: [{ ...cats[0], frameworkId: "ghost" }], itemMap: {}, frameworks: [tpl("shared")] })).status).toBe(400);
+    expect((await put(cookie, { categories: cats, itemMap: {}, frameworks: [tpl("shared")], itemFramework: { A: "ghost" } })).status).toBe(400);
+    expect((await put(cookie, { categories: cats, itemMap: {}, frameworks: [tpl("shared", { unitsPerBeneficiary: 0 })] })).status).toBe(400);
+  });
+
+  it("gives work orders the framework that applies to their item, and an item's own framework wins", async () => {
+    const cookie = await signIn(d);
+    await handleImport(as(cookie, { method: "POST", body: up([row("1", "ORP"), row("2", "HIFZ")]) }), d);
+    await put(cookie, { categories: cats, itemMap: { ORP: "spons", HIFZ: "spons" }, frameworks: [tpl("shared"), tpl("whole", { unitsPerBeneficiary: 1 })], itemFramework: { HIFZ: "whole" } });
+    const o = await orders(cookie);
+    expect(o.find((x) => x.key === "1")?.frameworkId).toBe("shared");
+    expect(o.find((x) => x.key === "2")?.frameworkId).toBe("whole");
+  });
+
+  it("does not move a work order when an item's framework changes later, but a new one follows the change", async () => {
+    const cookie = await signIn(d);
+    const frameworks = [tpl("shared"), tpl("whole", { unitsPerBeneficiary: 1 })];
+    await handleImport(as(cookie, { method: "POST", body: up([row("1", "HIFZ")]) }), d);
+    await put(cookie, { categories: cats, itemMap: { HIFZ: "spons" }, frameworks, itemFramework: {} });
+    expect((await orders(cookie))[0]?.frameworkId).toBe("shared");
+    await put(cookie, { categories: cats, itemMap: { HIFZ: "spons" }, frameworks, itemFramework: { HIFZ: "whole" } });
+    expect((await orders(cookie))[0]?.frameworkId).toBe("shared"); // work already made keeps its framework
+    await handleImport(as(cookie, { method: "POST", body: up([row("1", "HIFZ"), row("2", "HIFZ")]) }), d);
+    expect((await orders(cookie)).find((x) => x.key === "2")?.frameworkId).toBe("whole"); // new work follows the change
+  });
+});

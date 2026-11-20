@@ -14,7 +14,7 @@ import type { RunInfo } from "../modules/00-platform/store";
 import type { AttentionItem } from "../modules/04-triage/triage";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import type { CompactFeed } from "../modules/01e-crm-export-adapter/compact";
-import type { Category, ItemMap } from "../modules/02-project-rules/categories";
+import type { Category, FrameworkTemplate, ItemMap } from "../modules/02-project-rules/categories";
 
 export interface Me {
   name: string;
@@ -28,6 +28,8 @@ export interface Me {
 export interface ServerConfig {
   categories: Category[];
   itemMap: ItemMap;
+  frameworks: FrameworkTemplate[];
+  itemFramework: Record<string, string>;
   crmConnected: boolean;
 }
 export interface WorkOrdersReply {
@@ -60,7 +62,7 @@ export async function fetchMe(): Promise<Me | null> {
   }
 }
 export const loadConfig = () => call<ServerConfig>("/api/config");
-export const saveConfig = (c: { categories: Category[]; itemMap: ItemMap }) => call<{ ok: boolean; routed: number }>("/api/config", { method: "PUT", body: c });
+export const saveConfig = (c: { categories: Category[]; itemMap: ItemMap; frameworks: FrameworkTemplate[]; itemFramework: Record<string, string> }) => call<{ ok: boolean; routed: number }>("/api/config", { method: "PUT", body: c });
 export const loadWorkOrders = () => call<WorkOrdersReply>("/api/work-orders");
 export const runPickupNow = () => call<{ ok?: boolean; error?: string; created?: number; rerouted?: number; skipped?: string }>("/api/pickup", { method: "POST" });
 

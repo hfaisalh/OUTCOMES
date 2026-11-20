@@ -193,3 +193,23 @@ describe("plan link completed later (DECISIONS 56)", () => {
     expect(planWorkOrders(linked, before, opts).updated).toHaveLength(0);
   });
 });
+
+describe("framework on a work order (DECISIONS 59)", () => {
+  const item = feed[0]!.itemId;
+  const opts = (fw: string): PlanOptions => ({ categoryByItem: { [item]: "c1" }, frameworkByItem: { [item]: fw }, usesFrameworks: true, feedIsComplete: true });
+
+  it("routes a new work order under the framework that applies to its item", () => {
+    const made = planWorkOrders(feed, [], opts("shared")).created;
+    expect(made.find((w) => w.itemId === item)?.frameworkId).toBe("shared");
+    expect(planWorkOrders(feed, [], { categoryByItem: {}, usesFrameworks: true, feedIsComplete: true }).created.every((w) => w.frameworkId === undefined)).toBe(true);
+  });
+
+  it("gives an older work order its framework once, quietly, and then never moves it", () => {
+    const old = planWorkOrders(feed, [], { categoryByItem: { [item]: "c1" }, usesFrameworks: true, feedIsComplete: true }).created;
+    const filled = planWorkOrders(feed, old, opts("shared"));
+    expect(filled.updated.find((w) => w.itemId === item)?.frameworkId).toBe("shared");
+    expect(filled.review).toHaveLength(0);
+    const again = planWorkOrders(feed, [...filled.updated, ...old.filter((o) => !filled.updated.some((u) => u.key === o.key))], opts("whole"));
+    expect(again.updated.filter((w) => w.itemId === item)).toHaveLength(0); // already has one: unchanged
+  });
+});

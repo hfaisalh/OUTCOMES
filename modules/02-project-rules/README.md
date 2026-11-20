@@ -3,8 +3,8 @@
 ## Purpose
 Categories (Sponsorship, Transactional, Livelihood and so on) live in OUTCOMES, not in the CRM (DECISIONS 31). The CRM says which items need feedback. This module lets staff sort those items into categories, and set each category's framework.
 
-## Two levels (DECISIONS 40)
-Many **items** sit in one **category**. The category has properties, and one of them is its **framework**: the settings that decide the flow of every order in the category.
+## Items, categories and framework templates (DECISIONS 59)
+Many **items** sit in one **category**. A **framework** is a reusable template (unit, units per beneficiary, how an instalment counts, feedback cycle, report type). A category has a default framework and an item can pick its own: the item's own applies, otherwise its category's. A work order keeps the framework it was routed under.
 
 ## Inputs
 - The CRM items that need feedback (from the connector, Module 1c).
@@ -21,7 +21,7 @@ Many **items** sit in one **category**. The category has properties, and one of 
 - **Existing work does not move.** Sorting an item routes its unrouted work orders. Work orders that already have a category keep it, and the page says how many.
 - **Removing a category** sends its items back to Unsorted.
 - **No duration or instalment counts here.** They come from the CRM item (DECISIONS 18).
-- **How an instalment counts** is a setting of the category (DECISIONS 58): one period of the item, or a share of one whole item. It is never guessed. It gives the Units column on the Commitments page.
+- **How an instalment counts** is a setting of the framework (DECISIONS 58, 59): one period of the item, or a share of one whole item. It is never guessed. It gives the Units column on the Commitments page.
 - A missing framework setting is a reminder ("to fill in"), never a block.
 
 ## Files

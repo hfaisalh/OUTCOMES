@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { MWF_CRM_CONFIG, readFeed } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
-import { demoCategories, demoFeedRows } from "./demo-data";
+import { demoCategories, demoFeedRows, starterFrameworks } from "./demo-data";
 import { suggestAll } from "../modules/02-project-rules/categories";
 import { signinNote, attentionPage, auditPage, esc, categoriesPage, commitmentsPage, workOrderList, workOrdersPage, type View } from "./pages";
 
@@ -82,18 +82,33 @@ describe("workOrdersPage", () => {
     expect(commitmentsPage(view({ workOrders: orders, commitTab: "complete" }))).toContain("No commitments in this list.");
   });
 
-  it("shows units from the category's rule, and asks for the rule when it is not set", () => {
+  it("shows units from the framework's rule, who they go to, and asks for the framework when there is none", () => {
     const base = plan.created[0] as WorkOrder;
-    const cat = demoCategories()[0]!;
-    const orders = [1, 2, 3, 4].map((n) => ({ ...base, key: `u${n}`, categoryId: cat.id, subscriptionId: "S7", instalmentNumber: String(n), instalmentCount: "12" }));
-    const per = commitmentsPage(view({ workOrders: orders, categories: [{ ...cat, framework: { ...cat.framework, instalment: "per_period" } }] }));
+    const fws = starterFrameworks();
+    const mk = (frameworkId: string, over: Partial<WorkOrder> = {}) => [1, 2, 3, 4].map((n) => ({ ...base, key: `u${n}`, subscriptionId: "S7", instalmentNumber: String(n), instalmentCount: "12", frameworkId, ...over }));
+    const per = commitmentsPage(view({ workOrders: mk("sponsorship-whole"), frameworks: fws }));
     expect(per).toContain("4 of 12");
     expect(per).toContain("month");
-    const share = commitmentsPage(view({ workOrders: orders, categories: [{ ...cat, framework: { ...cat.framework, instalment: "share_of_whole" } }] }));
-    expect(share).toContain("1.33 of 1".replace("1.33", "0.33"));
+    const orphan = commitmentsPage(view({ workOrders: mk("sponsorship-shared-parts"), frameworks: fws }));
+    expect(orphan).toContain("1 of 3 parts: shared with other donors");
+    const bundle = commitmentsPage(view({ workOrders: mk("sponsorship-shared-parts", { bundleQty: 3 }), frameworks: fws }));
+    expect(bundle).toContain("1 dedicated child each month");
+    const share = commitmentsPage(view({ workOrders: mk("delivered-once"), frameworks: fws }));
+    expect(share).toContain("0.33 of 1");
     expect(share).toContain("whole item not paid yet");
-    const unset = commitmentsPage(view({ workOrders: orders, categories: [{ ...cat, framework: { ...cat.framework, instalment: undefined } }] }));
-    expect(unset).toContain("Set how an instalment counts");
+    expect(commitmentsPage(view({ workOrders: mk(""), frameworks: fws }))).toContain("No framework chosen");
+    expect(commitmentsPage(view({ workOrders: mk("x"), frameworks: [{ ...fws[0]!, id: "x", instalment: undefined }] }))).toContain("Set how an instalment counts in the framework");
+  });
+
+  it("lists frameworks, lets a category pick one and an item differ, and says where each is used", () => {
+    const fws = starterFrameworks();
+    const cats = demoCategories();
+    const html = categoriesPage(view({ frameworks: fws, categories: cats, itemFramework: { "MWF-EDU-003": "sponsorship-whole" } }));
+    expect(html).toContain("Sponsorship: shared parts");
+    expect(html).toContain("Units that make one beneficiary");
+    expect(html).toContain("data-catfw=");
+    expect(html).toContain("Add the starting frameworks");
+    expect(categoriesPage(view({ frameworks: [], categories: cats }))).toContain("No frameworks yet");
   });
 
   it("never lets CRM text become HTML", () => {

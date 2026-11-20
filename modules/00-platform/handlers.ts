@@ -14,14 +14,14 @@
 import { PERMISSIONS as P } from "../../app/menu.js";
 import { currentFeedConfig } from "../01c-crm-connector/feed.js";
 import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
-import { isCurrentCategory } from "../02-project-rules/categories.js";
+import { isCurrentCategory, isFrameworkTemplate, migrateSetup, type Category, type FrameworkTemplate } from "../02-project-rules/categories.js";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSION_SECONDS, verifyToken, signToken, clearSessionCookie, type Claims } from "./launch-token.js";
 import { excludeWorkOrder, restoreWorkOrder, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import { applyDecision, buildAttention } from "../04-triage/triage.js";
 import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
-import { rerouteUnrouted, runPickup } from "./pickup.js";
-import { defaultConfig, type OrgConfig, type Store } from "./store.js";
+import { backfillFrameworks, rerouteUnrouted, runPickup } from "./pickup.js";
+import { defaultConfig, setupOf, type OrgConfig, type Store } from "./store.js";
 
 export interface HttpRequest {
   method: string;
@@ -106,28 +106,41 @@ export async function handleMe(req: HttpRequest, d: Deps): Promise<HttpResponse>
   return json(200, { name: c.name, org: c.org, perms: c.perms, expiresAt: c.exp, storage: d.storage, demo: kind === "demo", upload: kind === "upload" });
 }
 
-// GET and PUT /api/config  Categories (each with its framework) and the item map. PUT needs permission to map items.
+// GET and PUT /api/config  Categories, framework templates, and the item maps. PUT needs permission to map items.
+// Rule (DECISIONS 59): an older setup (a framework inside each category) is migrated to templates when read or saved, so both shapes are accepted.
 export async function handleConfig(req: HttpRequest, d: Deps): Promise<HttpResponse> {
   if (req.method === "PUT") {
     const a = need(req, d, P.mapFrameworks);
     if ("response" in a) return a.response;
-    const b = req.body as Partial<OrgConfig> | undefined;
+    const b = req.body as { categories?: unknown; itemMap?: unknown; frameworks?: unknown; itemFramework?: unknown } | undefined;
     if (!b || !Array.isArray(b.categories) || !b.categories.every(isCurrentCategory) || typeof b.itemMap !== "object" || b.itemMap === null) return json(400, { error: "The setup is incomplete." });
+    if (b.frameworks !== undefined && (!Array.isArray(b.frameworks) || !b.frameworks.every(isFrameworkTemplate))) return json(400, { error: "A framework in the setup is not valid." });
+    if (b.itemFramework !== undefined && (typeof b.itemFramework !== "object" || b.itemFramework === null || !Object.values(b.itemFramework).every((x) => typeof x === "string"))) return json(400, { error: "The item frameworks are not valid." });
+    const setup = migrateSetup({ categories: b.categories as Category[], itemMap: b.itemMap as OrgConfig["itemMap"], ...(b.frameworks ? { frameworks: b.frameworks as FrameworkTemplate[] } : {}), ...(b.itemFramework ? { itemFramework: b.itemFramework as Record<string, string> } : {}) });
+    const ids = new Set(setup.frameworks.map((f) => f.id));
+    if (setup.categories.some((c) => c.frameworkId !== "" && !ids.has(c.frameworkId)) || Object.values(setup.itemFramework).some((f) => !ids.has(f))) return json(400, { error: "A category or item points to a framework that does not exist." });
     // Rule: only the parts staff may change here are taken. The CRM setting and feed settings stay as they are.
     const current = (await d.store.getConfig(a.claims.org)) ?? defaultConfig();
-    const next = { ...current, categories: b.categories, itemMap: b.itemMap as OrgConfig["itemMap"] };
+    const next: OrgConfig = { ...current, categories: setup.categories, itemMap: setup.itemMap, frameworks: setup.frameworks, itemFramework: setup.itemFramework };
     await d.store.putConfig(a.claims.org, next);
-    const routed = rerouteUnrouted(await d.store.listWorkOrders(a.claims.org), next);
-    await d.store.saveWorkOrders(a.claims.org, routed);
-    return json(200, { ok: true, routed: routed.length });
+    // Unrouted work orders are routed, then every work order still without a framework is given the one that applies to its item.
+    const all = await d.store.listWorkOrders(a.claims.org);
+    const rerouted = rerouteUnrouted(all, next);
+    const after = all.map((w) => rerouted.find((r) => r.key === w.key) ?? w);
+    const filled = backfillFrameworks(after, next);
+    const changed = new Map([...rerouted, ...filled].map((w) => [w.key, w]));
+    for (const w of filled) changed.set(w.key, { ...(rerouted.find((r) => r.key === w.key) ?? {}), ...w });
+    await d.store.saveWorkOrders(a.claims.org, [...changed.values()]);
+    return json(200, { ok: true, routed: rerouted.length });
   }
   const a = need(req, d, P.viewWorkOrders);
   if ("response" in a) return a.response;
   const c = (await d.store.getConfig(a.claims.org)) ?? defaultConfig();
   // The CRM setting is not sent to the page, only whether one exists.
-  // Rule: a setup saved by an earlier version (before categories held the framework) is shown as empty.
+  // Rule: a setup in a shape that is not understood at all is shown as empty. An older shape is migrated.
   const current = c.categories.every(isCurrentCategory);
-  return json(200, { categories: current ? c.categories : [], itemMap: current ? c.itemMap : {}, feed: currentFeedConfig(c.feed), crmConnected: c.crm.kind !== "none" });
+  const setup = current ? setupOf(c) : { categories: [], itemMap: {}, frameworks: [], itemFramework: {} };
+  return json(200, { categories: setup.categories, itemMap: setup.itemMap, frameworks: setup.frameworks, itemFramework: setup.itemFramework, feed: currentFeedConfig(c.feed), crmConnected: c.crm.kind !== "none" });
 }
 
 // GET /api/work-orders  This organisation's work orders, what is held for review, and the last pick-up.

@@ -8,10 +8,11 @@
  * Depends on: nothing (pure functions, no database, no screen). Every function returns a new value
  * and leaves its input unchanged, so it ports easily to Apex or another stack.
  *
- * Two levels (DECISIONS 40): many CRM **items** sit in one **category**. The category has properties
- * (its name, the words that suggest it) and one of them is its **framework**: the settings that
- * decide the flow of every order in the category (what one delivery is, how often the donor hears
- * back, which report they receive).
+ * Frameworks are reusable **templates** (DECISIONS 59, replacing the embedded framework of decision 40). A
+ * template holds the settings that decide the flow of an order: what one delivery is, how often the donor hears
+ * back, which report they receive, how an instalment counts and how many units make one beneficiary. A **category**
+ * has a default template, and an **item** can pick a different one. The template that applies to an item is its
+ * own if it has one, otherwise its category's.
  *
  * Rule: categories live in OUTCOMES, not in the CRM. The CRM only says whether an item needs
  * feedback (DECISIONS 31). An item with no category is unrouted, never lost.
@@ -41,7 +42,7 @@ export const INSTALMENT_LABELS: Record<InstalmentRule, string> = {
   share_of_whole: "A share of one whole item (for example 1/10 of a pump)",
 };
 
-// The framework: the settings that decide the flow of the orders in a category.
+// The settings that decide the flow of an order. Before decision 59 these were held inside each category (the "legacy" shape, still read and migrated).
 export interface Framework {
   unit: string; // what one thing delivered is, for example "child", "pump", "animal"
   cycle: Cycle;
@@ -49,17 +50,33 @@ export interface Framework {
   instalment?: InstalmentRule; // how an instalment counts toward a unit. Absent means not set yet
 }
 
+// A framework template (DECISIONS 59): defined once, used by any number of categories and items.
+export interface FrameworkTemplate extends Framework {
+  id: string; // stable, made from the name when added
+  name: string;
+  unitsPerBeneficiary: number; // units that make one whole beneficiary: 3 parts for an orphan, 1 for a scholarship (a whole number, 1 or more)
+}
+
 export interface Category {
   id: string; // stable, saved with the map. Made from the name when added
   name: string;
   keywords: string[]; // lower case words that suggest this category when found in an item's name
-  framework: Framework;
+  frameworkId: string; // the category's default framework template, "" when not chosen yet
+  framework?: Framework; // legacy: a setup saved before decision 59. Migrated to a template by migrateSetup
+}
+
+// Everything an organisation sets up here.
+export interface Setup {
+  categories: Category[];
+  itemMap: ItemMap; // CRM item id to category id
+  frameworks: FrameworkTemplate[];
+  itemFramework: Record<string, string>; // CRM item id to a framework template id, only for items that differ from their category
 }
 
 // CRM item id to category id. An item that is not in the map is unrouted.
 export type ItemMap = Record<string, string>;
 
-export const emptyFramework = (cycle: Cycle = "on_delivery"): Framework => ({ unit: "", cycle, reportType: "" });
+export const emptyTemplate = (id: string, name: string, cycle: Cycle = "on_delivery"): FrameworkTemplate => ({ id, name, unit: "", cycle, reportType: "", unitsPerBeneficiary: 1 });
 
 // Lower case, letters and numbers joined by hyphens: "Orphan Sponsorship" becomes "orphan-sponsorship".
 export const slugify = (name: string): string =>
@@ -76,14 +93,14 @@ const tidy = (name: string) => name.trim().replace(/\s+/g, " ");
  * Rule: a category needs a name, and no two categories may share a name (ignoring case) or an id.
  * The name's words become its first keywords so "Sponsorship" suggests itself.
  */
-export function addCategory(categories: Category[], name: string, cycle: Cycle = "on_delivery"): Changed<Category[]> {
+export function addCategory(categories: Category[], name: string, frameworkId = ""): Changed<Category[]> {
   const clean = tidy(name);
   if (clean === "") return { value: categories, error: "Give the category a name." };
   if (categories.some((c) => c.name.toLowerCase() === clean.toLowerCase())) return { value: categories, error: `There is already a category called "${clean}".` };
   const base = slugify(clean) || "category";
   let id = base;
   for (let n = 2; categories.some((c) => c.id === id); n++) id = `${base}-${n}`;
-  return { value: [...categories, { id, name: clean, keywords: clean.toLowerCase().split(" ").filter((w) => w.length > 2), framework: emptyFramework(cycle) }] };
+  return { value: [...categories, { id, name: clean, keywords: clean.toLowerCase().split(" ").filter((w) => w.length > 2), frameworkId }] };
 }
 
 export function renameCategory(categories: Category[], id: string, name: string): Changed<Category[]> {
@@ -98,8 +115,118 @@ export function removeCategory(categories: Category[], map: ItemMap, id: string)
   return { categories: categories.filter((c) => c.id !== id), map: Object.fromEntries(Object.entries(map).filter(([, cat]) => cat !== id)) };
 }
 
-export const updateFramework = (categories: Category[], id: string, framework: Partial<Framework>): Category[] =>
-  categories.map((c) => (c.id === id ? { ...c, framework: { ...c.framework, ...framework } } : c));
+// ---- Framework templates (DECISIONS 59) ----
+
+const freshId = (name: string, taken: string[]): string => {
+  const base = slugify(name) || "framework";
+  let id = base;
+  for (let n = 2; taken.includes(id); n++) id = `${base}-${n}`;
+  return id;
+};
+
+// Rule: a template needs a name, and no two templates share a name (ignoring case).
+export function addFramework(frameworks: FrameworkTemplate[], name: string, cycle: Cycle = "on_delivery"): Changed<FrameworkTemplate[]> {
+  const clean = tidy(name);
+  if (clean === "") return { value: frameworks, error: "Give the framework a name." };
+  if (frameworks.some((f) => f.name.toLowerCase() === clean.toLowerCase())) return { value: frameworks, error: `There is already a framework called "${clean}".` };
+  return { value: [...frameworks, emptyTemplate(freshId(clean, frameworks.map((f) => f.id)), clean, cycle)] };
+}
+
+// Rule: a copy starts the same and has its own name, so a small difference is a copy with one field changed.
+export function duplicateFramework(frameworks: FrameworkTemplate[], id: string): Changed<FrameworkTemplate[]> {
+  const from = frameworks.find((f) => f.id === id);
+  if (!from) return { value: frameworks, error: "That framework was not found." };
+  let name = `${from.name} (copy)`;
+  for (let n = 2; frameworks.some((f) => f.name.toLowerCase() === name.toLowerCase()); n++) name = `${from.name} (copy ${n})`;
+  return { value: [...frameworks, { ...from, id: freshId(name, frameworks.map((f) => f.id)), name }] };
+}
+
+export function renameFramework(frameworks: FrameworkTemplate[], id: string, name: string): Changed<FrameworkTemplate[]> {
+  const clean = tidy(name);
+  if (clean === "") return { value: frameworks, error: "Give the framework a name." };
+  if (frameworks.some((f) => f.id !== id && f.name.toLowerCase() === clean.toLowerCase())) return { value: frameworks, error: `There is already a framework called "${clean}".` };
+  return { value: frameworks.map((f) => (f.id === id ? { ...f, name: clean } : f)) };
+}
+
+// Rule: units per beneficiary is a whole number of 1 or more. Anything else is kept as it was.
+export const updateTemplate = (frameworks: FrameworkTemplate[], id: string, patch: Partial<Omit<FrameworkTemplate, "id">>): FrameworkTemplate[] =>
+  frameworks.map((f) => {
+    if (f.id !== id) return f;
+    const next = { ...f, ...patch };
+    if (!Number.isInteger(next.unitsPerBeneficiary) || next.unitsPerBeneficiary < 1) next.unitsPerBeneficiary = f.unitsPerBeneficiary;
+    return next;
+  });
+
+// Rule: a framework that a category or an item uses cannot be removed. Say where it is used instead.
+export function removeFramework(s: Setup, id: string): Changed<Setup> {
+  const cats = s.categories.filter((c) => c.frameworkId === id).map((c) => c.name);
+  const items = Object.values(s.itemFramework).filter((f) => f === id).length;
+  if (cats.length > 0 || items > 0) {
+    const where = [cats.length ? `the categories ${cats.join(", ")}` : "", items ? `${items} item${items === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ");
+    return { value: s, error: `This framework is used by ${where}. Choose another framework for them first.` };
+  }
+  return { value: { ...s, frameworks: s.frameworks.filter((f) => f.id !== id) } };
+}
+
+// A category's default framework. An id that is not a template is ignored.
+export const setCategoryFramework = (categories: Category[], frameworks: FrameworkTemplate[], categoryId: string, frameworkId: string): Category[] =>
+  frameworkId !== "" && !frameworks.some((f) => f.id === frameworkId) ? categories : categories.map((c) => (c.id === categoryId ? { ...c, frameworkId } : c));
+
+// An item's own framework. An empty id clears it, so the item follows its category again.
+export function setItemFramework(itemFramework: Record<string, string>, frameworks: FrameworkTemplate[], itemId: string, frameworkId: string): Record<string, string> {
+  const { [itemId]: _old, ...rest } = itemFramework;
+  if (frameworkId === "") return rest;
+  return frameworks.some((f) => f.id === frameworkId) ? { ...rest, [itemId]: frameworkId } : itemFramework;
+}
+
+// Rule: the framework of an item is its own if it has one, otherwise its category's, otherwise none ("").
+export function resolveFrameworkId(s: Setup, itemId: string): string {
+  const own = s.itemFramework[itemId];
+  if (own !== undefined && s.frameworks.some((f) => f.id === own)) return own;
+  const cat = s.categories.find((c) => c.id === s.itemMap[itemId]);
+  return cat && s.frameworks.some((f) => f.id === cat.frameworkId) ? cat.frameworkId : "";
+}
+
+// The resolved framework of every item that has a category or its own framework (the planner uses it).
+export function frameworkByItem(s: Setup): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const id of new Set([...Object.keys(s.itemMap), ...Object.keys(s.itemFramework)])) {
+    const f = resolveFrameworkId(s, id);
+    if (f !== "") out[id] = f;
+  }
+  return out;
+}
+
+/**
+ * Rule: a setup saved before decision 59 holds a framework inside each category. It is moved to templates: categories whose
+ * frameworks are identical share one template, otherwise each category gets a template with its own name. Nothing is lost
+ * and nothing an organisation sorted moves. Safe to run on a current setup: it returns it as it is.
+ */
+export function migrateSetup(raw: { categories: Category[]; itemMap: ItemMap; frameworks?: FrameworkTemplate[]; itemFramework?: Record<string, string> }): Setup {
+  const frameworks = [...(raw.frameworks ?? [])];
+  const seen = new Map<string, string>(); // legacy content to template id
+  const categories = raw.categories.map((c) => {
+    if (c.frameworkId !== undefined && c.frameworkId !== "") {
+      const { framework: _legacy, ...rest } = c;
+      return rest as Category;
+    }
+    if (!c.framework) return { id: c.id, name: c.name, keywords: c.keywords, frameworkId: "" };
+    const key = JSON.stringify([c.framework.unit, c.framework.cycle, c.framework.reportType, c.framework.instalment ?? null]);
+    let id = seen.get(key);
+    if (id === undefined) {
+      id = freshId(c.name, frameworks.map((f) => f.id));
+      const name = frameworks.some((f) => f.name.toLowerCase() === c.name.toLowerCase()) ? `${c.name} framework` : c.name;
+      frameworks.push({ ...c.framework, id, name, unitsPerBeneficiary: 1 });
+      seen.set(key, id);
+    }
+    return { id: c.id, name: c.name, keywords: c.keywords, frameworkId: id };
+  });
+  return { categories, itemMap: raw.itemMap, frameworks, itemFramework: raw.itemFramework ?? {} };
+}
+
+// Rule: how a number of units splits into whole beneficiaries and a shared remainder. 3 parts of a 3 part orphan is one dedicated orphan,
+// 1 part is a share pooled with other donors' parts, 4 parts is one dedicated and one shared part. The pooling itself is the allocation module's.
+export const allocationShape = (units: number, perBeneficiary: number): { dedicated: number; shared: number } => ({ dedicated: Math.floor(units / perBeneficiary), shared: units % perBeneficiary });
 
 export const setKeywords = (categories: Category[], id: string, text: string): Category[] =>
   categories.map((c) => (c.id === id ? { ...c, keywords: text.toLowerCase().split(/[,\n]/).map((w) => w.trim()).filter(Boolean) } : c));
@@ -181,17 +308,25 @@ export function unitsForCommitment(rule: InstalmentRule, o: { parts: number; pai
 // Rule: the units in one payment made at once. `monthsCovered` is how many periods the item's plan has (for a per_period item). A share_of_whole item is 1 whole.
 export const unitsForSinglePayment = (rule: InstalmentRule, parts: number, monthsCovered: number): number => (rule === "per_period" ? parts * monthsCovered : parts);
 
-// A category is ready to run when its framework is filled in. Staff see this as a reminder, never a block.
-export function missingFramework(c: Category): string[] {
+// A framework is ready to run when its settings are filled in. Staff see this as a reminder, never a block.
+export function missingFramework(f: FrameworkTemplate): string[] {
   const missing: string[] = [];
-  if (c.framework.unit.trim() === "") missing.push("what one delivery is (unit)");
-  if (c.framework.reportType.trim() === "") missing.push("report type");
-  if (c.framework.instalment === undefined) missing.push("how an instalment counts");
+  if (f.unit.trim() === "") missing.push("what one delivery is (unit)");
+  if (f.reportType.trim() === "") missing.push("report type");
+  if (f.instalment === undefined) missing.push("how an instalment counts");
   return missing;
 }
 
-// Rule: setup saved by an earlier version (frameworks as a separate list) is not understood, so it is treated as empty.
+// Rule: a saved category is understood in the current shape (a framework id) or the legacy one (a framework inside it). Anything else is treated as empty.
 export const isCurrentCategory = (x: unknown): x is Category => {
   const c = x as Category | null;
-  return !!c && typeof c.id === "string" && typeof c.name === "string" && Array.isArray(c.keywords) && !!c.framework && typeof c.framework === "object" && (c.framework.instalment === undefined || c.framework.instalment === "per_period" || c.framework.instalment === "share_of_whole");
+  if (!c || typeof c.id !== "string" || typeof c.name !== "string" || !Array.isArray(c.keywords)) return false;
+  const legacy = !!c.framework && typeof c.framework === "object" && (c.framework.instalment === undefined || c.framework.instalment === "per_period" || c.framework.instalment === "share_of_whole");
+  return typeof c.frameworkId === "string" || legacy;
+};
+
+export const isFrameworkTemplate = (x: unknown): x is FrameworkTemplate => {
+  const f = x as FrameworkTemplate | null;
+  return !!f && typeof f.id === "string" && f.id !== "" && typeof f.name === "string" && typeof f.unit === "string" && typeof f.reportType === "string" && typeof f.cycle === "string" && f.cycle in CYCLE_LABELS
+    && Number.isInteger(f.unitsPerBeneficiary) && f.unitsPerBeneficiary >= 1 && (f.instalment === undefined || f.instalment === "per_period" || f.instalment === "share_of_whole");
 };

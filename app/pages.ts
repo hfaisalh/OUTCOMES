@@ -17,7 +17,7 @@ import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import type { MWF_CRM_CONFIG } from "../modules/01c-crm-connector/feed";
 import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import type { RunInfo } from "../modules/00-platform/store";
-import { CYCLE_LABELS, groupItems, INSTALMENT_LABELS, missingFramework, unitsForCommitment, type Category, type Cycle, type InstalmentRule, type ItemInfo } from "../modules/02-project-rules/categories";
+import { allocationShape, CYCLE_LABELS, groupItems, INSTALMENT_LABELS, missingFramework, unitsForCommitment, type Category, type Cycle, type FrameworkTemplate, type InstalmentRule, type ItemInfo } from "../modules/02-project-rules/categories";
 
 export type Filter = "all" | "ready" | "unrouted" | "review" | "excluded";
 
@@ -36,6 +36,9 @@ export interface View {
   message: string;
   config: typeof MWF_CRM_CONFIG;
   categories: Category[];
+  frameworks?: FrameworkTemplate[]; // framework templates (DECISIONS 59)
+  itemFramework?: Record<string, string>; // an item's own framework, where it differs from its category
+  itemFrameworkSuggestions?: Record<string, string>; // suggested item frameworks, for a person to accept
   suggestions: Record<string, string>; // item id to suggested category id, for items not yet sorted
   live: boolean; // true when signed in from the CRM, false for the demo
   canPickup: boolean; // the person may run a pick-up now
@@ -234,30 +237,55 @@ const chip = (i: ItemInfo, v: View, hint = "") =>
 
 const field = (label: string, control: string) => `<label class="fld"><span>${label}</span>${control}</label>`;
 
+// A framework template: defined once, used by any number of categories and items (DECISIONS 59).
+const frameworkCard = (f: FrameworkTemplate, v: View): string => {
+  const missing = missingFramework(f);
+  const cats = v.categories.filter((c) => c.frameworkId === f.id).map((c) => c.name);
+  const items = Object.values(v.itemFramework ?? {}).filter((x) => x === f.id).length;
+  const used = [cats.length ? `categories: ${cats.map(esc).join(", ")}` : "", items ? `${items} item${items === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ");
+  const t = `data-tplid="${esc(f.id)}"`;
+  return `<details class="card fwtpl"><summary><b>${esc(f.name)}</b> <span class="muted">${used ? "used by " + used : "not used yet"}</span>${missing.length ? ` <span class="pill unrouted">to fill in</span>` : ""}</summary>
+    <div class="fwhead"><input class="title" data-fwrename="${esc(f.id)}" value="${esc(f.name)}" /><button data-action="dup-framework" data-id="${esc(f.id)}" title="Copy this framework, then change what differs">Duplicate</button><button data-action="remove-framework" data-id="${esc(f.id)}" title="Remove this framework (only when nothing uses it)">Remove</button></div>
+    ${field("What one delivery is (unit)", `<input data-tpl="unit" ${t} value="${esc(f.unit)}" placeholder="for example child, pump, animal" />`)}
+    ${field("Units that make one beneficiary", `<input type="number" min="1" step="1" data-tpl="unitsPerBeneficiary" ${t} value="${f.unitsPerBeneficiary}" title="3 parts make one orphan, 1 for a whole scholarship" />`)}
+    ${field("How an instalment counts toward a unit", `<select data-tpl="instalment" ${t}>${f.instalment === undefined ? `<option value="" selected>Choose...</option>` : ""}${(Object.keys(INSTALMENT_LABELS) as InstalmentRule[]).map((y) => `<option value="${y}"${y === f.instalment ? " selected" : ""}>${INSTALMENT_LABELS[y]}</option>`).join("")}</select>`)}
+    ${field("How often the donor hears back", `<select data-tpl="cycle" ${t}>${(Object.keys(CYCLE_LABELS) as Cycle[]).map((y) => `<option value="${y}"${y === f.cycle ? " selected" : ""}>${CYCLE_LABELS[y]}</option>`).join("")}</select>`)}
+    ${field("Report the donor receives", `<input data-tpl="reportType" ${t} value="${esc(f.reportType)}" placeholder="for example Quarterly update" />`)}
+    <p class="muted">Duration and instalment counts are not set here. They come from the CRM item. A bundle multiplies the units of the same framework.</p></details>`;
+};
+
 export function categoriesPage(v: View): string {
   const items: ItemInfo[] = v.flaggedItems.map((i) => ({ id: i.id, name: i.name }));
   const { unsorted, byCategory } = groupItems(items, v.itemCategories, v.categories);
   const nSuggest = Object.keys(v.suggestions).length;
-  // A category tile: name, how many items, the drop zone. The framework (the flow settings) is under "Edit".
+  const frameworks = v.frameworks ?? [];
+  const itemFw = v.itemFramework ?? {};
+  const fwName = (id: string) => frameworks.find((f) => f.id === id)?.name ?? "";
+  const fwOptions = (cur: string, blank: string) => `<option value="">${esc(blank)}</option>${frameworks.map((f) => `<option value="${esc(f.id)}"${f.id === cur ? " selected" : ""}>${esc(f.name)}</option>`).join("")}`;
+  const nItemSuggest = Object.keys(v.itemFrameworkSuggestions ?? {}).length;
+  // A category tile: name, how many items, the drop zone. Its default framework is chosen under "Edit". An item can have its own framework.
   const card = (c: Category) => {
-    const missing = missingFramework(c);
     const list = byCategory[c.id] ?? [];
-    return `<div class="card fw"><div class="fwname"><b>${esc(c.name)}</b> <span class="muted">(${list.length})</span></div>
-      <div class="zone" data-drop="${c.id}">${list.map((i) => chip(i, v)).join("") || `<span class="muted">Drop items here</span>`}</div>
-      <details><summary>Edit and framework${missing.length ? ` <span class="pill unrouted">to fill in</span>` : ""}</summary>
+    const own = list.filter((i) => itemFw[i.id] !== undefined).length;
+    return `<div class="card fw"><div class="fwname"><b>${esc(c.name)}</b> <span class="muted">(${list.length})</span>${c.frameworkId === "" ? ` <span class="pill unrouted">choose a framework</span>` : ` <span class="muted">· ${esc(fwName(c.frameworkId))}</span>`}</div>
+      <div class="zone" data-drop="${c.id}">${list.map((i) => chip(i, v) + (itemFw[i.id] !== undefined ? ` <small class="muted">${esc(fwName(itemFw[i.id] as string))}</small>` : "")).join("") || `<span class="muted">Drop items here</span>`}</div>
+      <details><summary>Edit${own ? ` <span class="muted">(${own} item${own === 1 ? "" : "s"} with its own framework)</span>` : ""}</summary>
         <div class="fwhead"><input class="title" data-rename="${c.id}" value="${esc(c.name)}" /><button data-remove="${c.id}" title="Remove this category (its items go back to unsorted)">Remove</button></div>
         ${field("Words that suggest this category", `<input data-keywords="${c.id}" value="${esc(c.keywords.join(", "))}" />`)}
-        <h4 class="fwtitle">Framework: the flow of every order in this category</h4>
-        ${field("What one delivery is (unit)", `<input data-rule="unit" data-fw="${c.id}" value="${esc(c.framework.unit)}" placeholder="for example child, pump, animal" />`)}
-        ${field("How often the donor hears back", `<select data-rule="cycle" data-fw="${c.id}">${(Object.keys(CYCLE_LABELS) as Cycle[]).map((y) => `<option value="${y}"${y === c.framework.cycle ? " selected" : ""}>${CYCLE_LABELS[y]}</option>`).join("")}</select>`)}
-        ${field("How an instalment counts toward a unit", `<select data-rule="instalment" data-fw="${c.id}">${c.framework.instalment === undefined ? `<option value="" selected>Choose...</option>` : ""}${(Object.keys(INSTALMENT_LABELS) as InstalmentRule[]).map((y) => `<option value="${y}"${y === c.framework.instalment ? " selected" : ""}>${INSTALMENT_LABELS[y]}</option>`).join("")}</select>`)}
-        ${field("Report the donor receives", `<input data-rule="reportType" data-fw="${c.id}" value="${esc(c.framework.reportType)}" placeholder="for example Quarterly update" />`)}
-        <p class="muted">Duration and instalments are not set here. They come from the CRM item.</p></details></div>`;
+        ${field("Default framework for the items in this category", `<select data-catfw="${c.id}">${fwOptions(c.frameworkId, "Choose...")}</select>`)}
+        ${list.length ? `<h4 class="fwtitle">Items that differ from the category</h4><p class="muted">An item follows the category's framework unless you choose another here.</p>
+        <table class="inner"><tbody>${list.map((i) => `<tr><td>${esc(i.name)} <span class="muted">${esc(i.id)}</span></td><td><select data-itemfw="${esc(i.id)}">${fwOptions(itemFw[i.id] ?? "", `Same as category${c.frameworkId ? ` (${fwName(c.frameworkId)})` : ""}`)}</select></td></tr>`).join("")}</tbody></table>` : ""}
+      </details></div>`;
   };
   return `
     <h1>Categories</h1>
-    <p class="sub">The CRM says which items need feedback. Drag each item into its category (or tap an item, then tap a category). A category's framework decides the flow of every order in it. Categories are kept in OUTCOMES, not in the CRM.</p>
+    <p class="sub">The CRM says which items need feedback. Drag each item into its category (or tap an item, then tap a category). A framework is defined once and used by any category or item: the item's own framework applies, otherwise its category's. Categories and frameworks are kept in OUTCOMES, not in the CRM.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
+    <div class="card"><h2>Frameworks <span class="muted">(${frameworks.length})</span></h2>
+      <p class="muted">What an order in a category goes through: the unit, how many units make one beneficiary, how an instalment counts, and the report. Define each once, then choose it for a category or an item. For a small difference, duplicate one and change that setting.</p>
+      <div class="actions"><input id="newfw" placeholder="New framework name" /><button data-action="add-framework">Add framework</button><button data-action="add-starters" title="Adds the sponsorship frameworks (shared parts, whole), delivered once, and livelihood">Add the starting frameworks</button>
+        <button data-action="suggest-item-frameworks"${nItemSuggest ? "" : " disabled"}>Suggest ${nItemSuggest} item framework${nItemSuggest === 1 ? "" : "s"} (Hifz, school and similar)</button></div>
+      ${frameworks.length ? frameworks.map((f) => frameworkCard(f, v)).join("") : `<div class="empty">No frameworks yet. Add the starting frameworks, or add your own.</div>`}</div>
     <div class="actions"><button class="primary" data-action="accept-suggestions"${nSuggest ? "" : " disabled"}>Accept ${nSuggest} suggestion${nSuggest === 1 ? "" : "s"}</button>
       <input id="newcat" placeholder="New category name" /><button data-action="add-category">Add category</button></div>
     <div class="board"><div class="unsorted"><div class="card"><h2>Unsorted items <span class="muted">(${unsorted.length})</span></h2><p class="muted">Work orders for these stay unrouted. Nothing is lost.</p>
@@ -356,11 +384,16 @@ export function commitmentList(v: View): string {
   // Units, from the category's rule for how an instalment counts (DECISIONS 52, 58). No rule set, no guess.
   const num = (n: number) => String(Math.round(n * 100) / 100);
   const unitsCell = (c: Commitment): string => {
-    const rule = v.categories.find((x) => x.id === c.categoryId)?.framework.instalment;
-    if (rule === undefined) return `<span class="muted">${c.categoryId === "" ? "Not in a category" : "Set how an instalment counts in the category"}</span>`;
+    const fw = (v.frameworks ?? []).find((x) => x.id === c.frameworkId);
+    const rule = fw?.instalment;
+    if (fw === undefined) return `<span class="muted">${c.categoryId === "" ? "Not in a category" : "No framework chosen for this item or its category"}</span>`;
+    if (rule === undefined) return `<span class="muted">Set how an instalment counts in the framework ${esc(fw.name)}</span>`;
     const u = unitsForCommitment(rule, { parts: c.partsPerInstalment, paid: c.paid, planned: c.planned });
     if (rule === "share_of_whole") return u.target === null ? `<span class="muted">Count unknown</span>` : `${num(u.units)} of ${num(u.target)}${u.complete ? ` <span class="pill ready">Complete, can be delivered</span>` : ` <span class="muted">(whole item not paid yet)</span>`}`;
-    return `${num(u.units)}${u.target === null ? "" : ` of ${num(u.target)}`} <span class="muted">${c.partsPerInstalment === 1 ? "month" : "part-months"}</span>`;
+    // Who the units go to: whole beneficiaries (dedicated) and a shared remainder, from the framework's units per beneficiary.
+    const shape = allocationShape(c.partsPerInstalment, fw.unitsPerBeneficiary);
+    const who = fw.unitsPerBeneficiary <= 1 ? "" : shape.dedicated > 0 ? `<div class="muted">${shape.dedicated} dedicated ${esc(fw.unit || "beneficiary")}${shape.dedicated === 1 ? "" : "s"}${shape.shared ? ` and ${shape.shared} shared part${shape.shared === 1 ? "" : "s"}` : ""} each month</div>` : `<div class="muted">${shape.shared} of ${fw.unitsPerBeneficiary} parts: shared with other donors</div>`;
+    return `${num(u.units)}${u.target === null ? "" : ` of ${num(u.target)}`} <span class="muted">${c.partsPerInstalment === 1 ? "month" : "part-months"}</span>${who}`;
   };
   const progress = (c: Commitment) => `${c.paid} of ${c.planned ?? "ongoing"}${c.planned ? `<div class="bar"><span style="width:${Math.min(100, Math.round((c.paid / c.planned) * 100))}%"></span></div>` : ""}`;
   const row = (c: Commitment) => `<tr><td>${esc(c.subscriptionId)}</td>

@@ -17,7 +17,8 @@ import { buildReportBack, REPORTABLE } from "../01c-crm-connector/report-back.js
 import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
 import { auditFeed, auditRecord } from "../01f-batch-audit/audit.js";
 import { planWorkOrders, type ReviewItem, type WorkOrder } from "../01c-crm-connector/work-orders.js";
-import type { OrgConfig, RunInfo, Store } from "./store.js";
+import { frameworkByItem } from "../02-project-rules/categories.js";
+import { setupOf, type OrgConfig, type RunInfo, type Store } from "./store.js";
 
 export interface PickupDeps {
   store: Store;
@@ -62,15 +63,24 @@ export function rekeyLegacy(orders: WorkOrder[], review: ReviewItem[]): { orders
   return { orders: [...kept, ...moved], review: review.map((r) => (renamed.has(r.key) ? { ...r, key: renamed.get(r.key) as string } : r)), moved, oldKeys };
 }
 
-// Rule: when staff sort an item into a category, its unrouted work orders are routed straight away.
+// Rule: when staff sort an item into a category, its unrouted work orders are routed straight away, under the framework that applies to the item.
 // Work orders that already have a category are never changed here.
 export function rerouteUnrouted(orders: WorkOrder[], config: OrgConfig): WorkOrder[] {
+  const setup = setupOf(config);
+  const fw = frameworkByItem(setup);
   const out: WorkOrder[] = [];
   for (const w of orders) {
     const cat = config.itemMap[w.itemId] ?? "";
-    if (w.status === "unrouted" && cat !== "" && config.categories.some((c) => c.id === cat)) out.push({ ...w, categoryId: cat, status: "ready" });
+    if (w.status === "unrouted" && cat !== "" && config.categories.some((c) => c.id === cat)) out.push({ ...w, categoryId: cat, status: "ready", ...(w.frameworkId === undefined && fw[w.itemId] ? { frameworkId: fw[w.itemId] as string } : {}) });
   }
   return out;
+}
+
+// Rule (DECISIONS 59): a work order made before frameworks existed is given the framework that applies to its item, once. One that has a framework keeps it,
+// so changing an item's framework later never moves work already made. Excluded work orders are left alone.
+export function backfillFrameworks(orders: WorkOrder[], config: OrgConfig): WorkOrder[] {
+  const fw = frameworkByItem(setupOf(config));
+  return orders.filter((w) => w.status !== "excluded" && w.frameworkId === undefined && fw[w.itemId] !== undefined).map((w) => ({ ...w, frameworkId: fw[w.itemId] as string }));
 }
 
 export async function runPickup(org: string, deps: PickupDeps): Promise<RunInfo> {
@@ -104,7 +114,7 @@ export async function runPickup(org: string, deps: PickupDeps): Promise<RunInfo>
     // Batch audit (DECISIONS 21, 43): compare this import with what is saved and keep the report. It changes nothing.
     const audit = auditFeed(feed.lines, existing, { complete });
     await store.addAudit(org, auditRecord(deps.newId?.() ?? nowIso, nowIso, deps.source ?? (since === undefined ? "Full read of the CRM" : "Pick-up since the last one"), feed.lines.length, complete, audit, deps.notes));
-    const plan = planWorkOrders(feed.lines, existing, { categoryByItem: config.itemMap, usesFrameworks: config.usesFrameworks, feedIsComplete: complete, coverage: audit.coverage });
+    const plan = planWorkOrders(feed.lines, existing, { categoryByItem: config.itemMap, frameworkByItem: frameworkByItem(setupOf(config)), usesFrameworks: config.usesFrameworks, feedIsComplete: complete, coverage: audit.coverage });
     await store.saveWorkOrders(org, [...plan.created, ...plan.updated, ...plan.rerouted]);
     run.created = plan.created.length;
     run.rerouted = plan.rerouted.length;

@@ -7,19 +7,19 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { acceptSuggestions, addCategory, assignItem, groupItems, isCurrentCategory, missingFramework, removeCategory, renameCategory, setKeywords, suggestAll, suggestCategory, unitsForCommitment, unitsForSinglePayment, updateFramework, type Category } from "./categories";
+import { acceptSuggestions, addCategory, addFramework, allocationShape, assignItem, duplicateFramework, frameworkByItem, groupItems, isCurrentCategory, isFrameworkTemplate, migrateSetup, missingFramework, removeCategory, removeFramework, renameCategory, renameFramework, resolveFrameworkId, setCategoryFramework, setItemFramework, setKeywords, suggestAll, suggestCategory, unitsForCommitment, unitsForSinglePayment, updateTemplate, type Category, type FrameworkTemplate, type Setup } from "./categories";
 
 const make = (): Category[] => {
   let c: Category[] = [];
-  c = addCategory(c, "Sponsorship", "quarterly").value;
-  c = addCategory(c, "Water", "on_delivery").value;
+  c = addCategory(c, "Sponsorship", "shared").value;
+  c = addCategory(c, "Water", "once").value;
   return setKeywords(c, "sponsorship", "orphan, hifz, sponsorship");
 };
 
 describe("adding and renaming", () => {
-  it("makes an id from the name, starts the framework from the cycle, and uses the name as a keyword", () => {
-    const c = addCategory([], "Orphan Care", "monthly").value[0] as Category;
-    expect([c.id, c.framework.cycle, c.keywords]).toEqual(["orphan-care", "monthly", ["orphan", "care"]]);
+  it("makes an id from the name, starts with the given framework id, and uses the name as a keyword", () => {
+    const c = addCategory([], "Orphan Care", "shared").value[0] as Category;
+    expect([c.id, c.frameworkId, c.keywords]).toEqual(["orphan-care", "shared", ["orphan", "care"]]);
   });
   it("refuses an empty name and a repeated name", () => {
     expect(addCategory([], "  ").error).toBe("Give the category a name.");
@@ -69,17 +69,93 @@ describe("suggesting", () => {
   });
 });
 
-describe("the framework", () => {
-  it("is changed part by part and reminds when unit, report type or the instalment rule is missing", () => {
-    let c = make();
-    expect(missingFramework(c[0] as Category)).toHaveLength(3);
-    c = updateFramework(c, "sponsorship", { unit: "child", reportType: "Quarterly child update", instalment: "per_period" });
-    expect(missingFramework(c[0] as Category)).toEqual([]);
-    expect(c[0]?.framework.cycle).toBe("quarterly");
+describe("framework templates (DECISIONS 59)", () => {
+  const two = (): FrameworkTemplate[] => {
+    let f: FrameworkTemplate[] = [];
+    f = addFramework(f, "Sponsorship: shared parts", "quarterly").value;
+    f = addFramework(f, "Sponsorship: whole", "quarterly").value;
+    return updateTemplate(updateTemplate(f, "sponsorship-shared-parts", { unitsPerBeneficiary: 3, instalment: "per_period", unit: "child", reportType: "Quarterly update" }), "sponsorship-whole", { instalment: "per_period", unit: "student", reportType: "Quarterly update" });
+  };
+  const setup = (): Setup => ({
+    categories: [{ id: "sponsorship", name: "Sponsorship", keywords: [], frameworkId: "sponsorship-shared-parts" }, { id: "water", name: "Water", keywords: [], frameworkId: "" }],
+    itemMap: { ORP: "sponsorship", HIFZ: "sponsorship", PUMP: "water" },
+    frameworks: two(),
+    itemFramework: { HIFZ: "sponsorship-whole" },
   });
-  it("recognises the current shape and rejects an older saved one", () => {
+
+  it("adds, renames and duplicates templates with unique names and ids", () => {
+    const f = two();
+    expect(f.map((x) => x.id)).toEqual(["sponsorship-shared-parts", "sponsorship-whole"]);
+    expect(addFramework(f, "sponsorship: WHOLE").error).toContain("already");
+    expect(renameFramework(f, "sponsorship-whole", "Sponsorship: shared parts").error).toContain("already");
+    const copy = duplicateFramework(f, "sponsorship-shared-parts").value;
+    expect(copy[2]).toMatchObject({ name: "Sponsorship: shared parts (copy)", unitsPerBeneficiary: 3 });
+    expect(copy[2]?.id).not.toBe("sponsorship-shared-parts");
+  });
+
+  it("keeps units per beneficiary a whole number of 1 or more", () => {
+    const f = two();
+    expect(updateTemplate(f, "sponsorship-whole", { unitsPerBeneficiary: 0 })[1]?.unitsPerBeneficiary).toBe(1);
+    expect(updateTemplate(f, "sponsorship-whole", { unitsPerBeneficiary: 2.5 })[1]?.unitsPerBeneficiary).toBe(1);
+    expect(updateTemplate(f, "sponsorship-whole", { unitsPerBeneficiary: 4 })[1]?.unitsPerBeneficiary).toBe(4);
+  });
+
+  it("applies an item's own framework, otherwise its category's, otherwise none", () => {
+    const s = setup();
+    expect(resolveFrameworkId(s, "ORP")).toBe("sponsorship-shared-parts"); // follows the category
+    expect(resolveFrameworkId(s, "HIFZ")).toBe("sponsorship-whole"); // its own
+    expect(resolveFrameworkId(s, "PUMP")).toBe(""); // category has none yet
+    expect(frameworkByItem(s)).toEqual({ ORP: "sponsorship-shared-parts", HIFZ: "sponsorship-whole" });
+  });
+
+  it("sets a category default and an item override, ignoring a template that does not exist, and clears an override", () => {
+    const s = setup();
+    expect(setCategoryFramework(s.categories, s.frameworks, "water", "sponsorship-whole")[1]?.frameworkId).toBe("sponsorship-whole");
+    expect(setCategoryFramework(s.categories, s.frameworks, "water", "nope")[1]?.frameworkId).toBe("");
+    expect(setItemFramework({}, s.frameworks, "PUMP", "sponsorship-whole")).toEqual({ PUMP: "sponsorship-whole" });
+    expect(setItemFramework({}, s.frameworks, "PUMP", "nope")).toEqual({});
+    expect(setItemFramework({ PUMP: "sponsorship-whole" }, s.frameworks, "PUMP", "")).toEqual({});
+  });
+
+  it("will not remove a template something uses, and says where", () => {
+    const s = setup();
+    expect(removeFramework(s, "sponsorship-shared-parts").error).toContain("Sponsorship");
+    expect(removeFramework(s, "sponsorship-whole").error).toContain("1 item");
+    expect(removeFramework({ ...s, itemFramework: {} }, "sponsorship-whole").value.frameworks.map((f) => f.id)).toEqual(["sponsorship-shared-parts"]);
+  });
+
+  it("migrates a setup with a framework inside each category, sharing identical ones, and leaves a current setup alone", () => {
+    const legacy = { unit: "child", cycle: "quarterly" as const, reportType: "Q", instalment: "per_period" as const };
+    const old = {
+      categories: [
+        { id: "a", name: "Sponsorship", keywords: [], framework: legacy },
+        { id: "b", name: "Water", keywords: [], framework: { unit: "", cycle: "on_delivery" as const, reportType: "" } },
+        { id: "c", name: "B2B", keywords: [], framework: { unit: "", cycle: "on_delivery" as const, reportType: "" } },
+      ] as unknown as Category[],
+      itemMap: { X: "a" },
+    };
+    const m = migrateSetup(old);
+    expect(m.frameworks.map((f) => f.name)).toEqual(["Sponsorship", "Water"]); // B2B has the same framework as Water, so they share one
+    expect(m.categories.map((c) => c.frameworkId)).toEqual(["sponsorship", "water", "water"]);
+    expect(m.categories.every((c) => c.framework === undefined)).toBe(true);
+    expect(m.frameworks[0]).toMatchObject({ unit: "child", instalment: "per_period", unitsPerBeneficiary: 1 });
+    expect(migrateSetup(m)).toEqual(m); // safe to run again
+  });
+
+  it("recognises current and legacy categories and valid templates", () => {
     expect(isCurrentCategory(make()[0])).toBe(true);
+    expect(isCurrentCategory({ id: "x", name: "X", keywords: [], framework: { unit: "", cycle: "monthly", reportType: "" } })).toBe(true);
     expect(isCurrentCategory({ id: "x", name: "X", defaultCycle: "monthly" })).toBe(false);
+    expect(isFrameworkTemplate(two()[0])).toBe(true);
+    expect(isFrameworkTemplate({ ...two()[0], unitsPerBeneficiary: 0 })).toBe(false);
+    expect(isFrameworkTemplate({ ...two()[0], instalment: "sometimes" })).toBe(false);
+  });
+
+  it("splits units into dedicated beneficiaries and a shared remainder", () => {
+    expect(allocationShape(3, 3)).toEqual({ dedicated: 1, shared: 0 });
+    expect(allocationShape(1, 3)).toEqual({ dedicated: 0, shared: 1 });
+    expect(allocationShape(4, 3)).toEqual({ dedicated: 1, shared: 1 });
+    expect(allocationShape(2, 1)).toEqual({ dedicated: 2, shared: 0 });
   });
 });
 
@@ -100,11 +176,9 @@ describe("how an instalment counts (DECISIONS 52, 58)", () => {
     expect(unitsForSinglePayment("share_of_whole", 1, 10)).toBe(1);
   });
 
-  it("is a reminder when not set, and a saved setup with a wrong value is not understood", () => {
-    const c = addCategory([], "Pumps").value[0] as Category;
-    expect(missingFramework(c)).toContain("how an instalment counts");
-    expect(missingFramework({ ...c, framework: { ...c.framework, unit: "pump", reportType: "r", instalment: "share_of_whole" } })).toEqual([]);
-    expect(isCurrentCategory({ ...c, framework: { ...c.framework, instalment: "sometimes" } })).toBe(false);
-    expect(isCurrentCategory(c)).toBe(true); // a setup saved before the setting existed still loads
+  it("is a reminder when not set", () => {
+    const f = addFramework([], "Pumps").value[0] as FrameworkTemplate;
+    expect(missingFramework(f)).toEqual(["what one delivery is (unit)", "report type", "how an instalment counts"]);
+    expect(missingFramework({ ...f, unit: "pump", reportType: "r", instalment: "share_of_whole" })).toEqual([]);
   });
 });

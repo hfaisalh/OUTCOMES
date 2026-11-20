@@ -13,7 +13,7 @@
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { filterWorkOrders, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { excludeWorkOrder, planWorkOrders, restoreWorkOrder, type ReviewItem, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
-import { acceptSuggestions, addCategory, assignItem, removeCategory, renameCategory, setKeywords, suggestAll, updateFramework, type Cycle, type Framework } from "../modules/02-project-rules/categories";
+import { acceptSuggestions, addCategory, addFramework, assignItem, duplicateFramework, frameworkByItem, removeCategory, removeFramework, renameCategory, renameFramework, setCategoryFramework, setItemFramework, setKeywords, suggestAll, updateTemplate, type Cycle, type FrameworkTemplate, type InstalmentRule, type Setup } from "../modules/02-project-rules/categories";
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
 import { buildAttention, type AttentionItem } from "../modules/04-triage/triage";
@@ -21,7 +21,7 @@ import { decideAttention, setExcluded, importFeed, loadAttention, loadAudits, lo
 import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
-import { DEMO_ROLES, demoCategories, demoFeedRows } from "./demo-data";
+import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
 import { landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
 import { commitmentsPage, commitmentList, listBlock, listHtml, listBase, workOrderList, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
 
@@ -34,6 +34,8 @@ const state = {
   review: [] as ReviewItem[],
   itemCategories: {} as Record<string, string>, // every item starts unsorted, so the demo shows the whole flow
   categories: demoCategories(),
+  frameworks: starterFrameworks() as FrameworkTemplate[], // framework templates (DECISIONS 59)
+  itemFramework: {} as Record<string, string>, // an item's own framework, where it differs from its category
   selectedItem: "",
   filter: "all" as Filter,
   criteria: { ...NO_CRITERIA } as Criteria, // the Work orders filter boxes
@@ -58,7 +60,7 @@ const permissions = () => (state.me ? state.me.perms : DEMO_ROLES.find((r) => r.
 // Run the CRM feed through the connector and bring the work orders up to date.
 function refresh(): void {
   const lines = readFeed(state.feedRows, MWF_CRM_CONFIG).lines;
-  const plan = planWorkOrders(lines, state.workOrders, { categoryByItem: state.itemCategories, usesFrameworks: true, feedIsComplete: true });
+  const plan = planWorkOrders(lines, state.workOrders, { categoryByItem: state.itemCategories, frameworkByItem: frameworkByItem(setupNow()), usesFrameworks: true, feedIsComplete: true });
   const rerouted = new Map(plan.rerouted.map((w) => [w.key, w]));
   state.workOrders = [...state.workOrders.map((w) => rerouted.get(w.key) ?? w), ...plan.created];
   state.review = plan.review;
@@ -82,11 +84,14 @@ async function reloadLive(): Promise<void> {
   }
 }
 
+// The setup as one value, for the pure functions.
+const setupNow = (): Setup => ({ categories: state.categories, itemMap: state.itemCategories, frameworks: state.frameworks, itemFramework: state.itemFramework });
+
 // Save the setup after any change, then reload so newly routed work orders show.
 async function persistAndReload(): Promise<void> {
   if (!state.live()) return;
   try {
-    const r = await saveConfig({ categories: state.categories, itemMap: state.itemCategories });
+    const r = await saveConfig({ categories: state.categories, itemMap: state.itemCategories, frameworks: state.frameworks, itemFramework: state.itemFramework });
     await reloadLive();
     state.message = r.routed > 0 ? `Saved. ${r.routed} work order${r.routed === 1 ? "" : "s"} routed.` : "Saved.";
   } catch (e) {
@@ -108,8 +113,12 @@ async function enterLive(me: Me): Promise<void> {
   try {
     const c = await loadConfig();
     // A new organisation has no categories yet: start from the MWF starter list and save it, staff then edit it.
-    if (c.categories.length === 0) await saveConfig({ categories: state.categories, itemMap: {} });
-    else state.categories = c.categories;
+    if (c.categories.length === 0) await saveConfig({ categories: state.categories, itemMap: {}, frameworks: state.frameworks, itemFramework: {} });
+    else {
+      state.categories = c.categories;
+      state.frameworks = c.frameworks ?? [];
+      state.itemFramework = c.itemFramework ?? {};
+    }
     state.itemCategories = c.itemMap;
   } catch (e) {
     state.message = e instanceof Error ? e.message : "Could not load.";
@@ -137,7 +146,7 @@ function view(): View {
   const flaggedItems = [...items.values()];
   return {
     workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
-    categories: state.categories, suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
+    categories: state.categories, frameworks: state.frameworks, itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
 }
@@ -333,6 +342,35 @@ document.addEventListener("click", (e) => {
     state.itemCategories = acceptSuggestions(state.itemCategories, view().suggestions);
     afterConfig();
   }
+  // Framework templates (DECISIONS 59).
+  if (action === "add-framework") {
+    const r = addFramework(state.frameworks, (document.getElementById("newfw") as HTMLInputElement).value);
+    state.frameworks = r.value;
+    state.message = r.error ?? "";
+    if (!r.error) afterConfig(false);
+  }
+  if (action === "add-starters") {
+    const have = new Set(state.frameworks.map((f) => f.id));
+    state.frameworks = [...state.frameworks, ...starterFrameworks().filter((f) => !have.has(f.id) && !state.frameworks.some((x) => x.name.toLowerCase() === f.name.toLowerCase()))];
+    state.message = "The starting frameworks are added. Choose a default framework for each category below.";
+    afterConfig(false);
+  }
+  if (action === "dup-framework" && el.dataset.id) {
+    state.frameworks = duplicateFramework(state.frameworks, el.dataset.id).value;
+    afterConfig(false);
+  }
+  if (action === "remove-framework" && el.dataset.id) {
+    const r = removeFramework(setupNow(), el.dataset.id);
+    state.message = r.error ?? "";
+    if (!r.error) {
+      state.frameworks = r.value.frameworks;
+      afterConfig(false);
+    }
+  }
+  if (action === "suggest-item-frameworks") {
+    state.itemFramework = { ...state.itemFramework, ...view().itemFrameworkSuggestions };
+    afterConfig(false);
+  }
   if (action === "add-category") {
     const r = addCategory(state.categories, (document.getElementById("newcat") as HTMLInputElement).value);
     state.categories = r.value;
@@ -461,7 +499,7 @@ document.addEventListener("change", (e) => {
   }
   // Rule: only a field the page knows about causes a redraw. Any other field (the owner passphrase box, for example)
   // must be left alone, because a redraw would wipe what was typed and replace the button the person is about to press.
-  const known = t.id === "role" || t.dataset.assign !== undefined || !!t.dataset.rename || !!(t.dataset.rule && t.dataset.fw) || !!t.dataset.keywords;
+  const known = t.id === "role" || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords;
   if (!known) return;
   if (t.id === "role") {
     state.roleId = t.value;
@@ -473,9 +511,22 @@ document.addEventListener("change", (e) => {
     state.categories = r.value;
     state.message = r.error ?? "";
     if (!r.error) afterConfig(false);
-  } else if (t.dataset.rule && t.dataset.fw) {
-    const key = t.dataset.rule as keyof Framework;
-    state.categories = updateFramework(state.categories, t.dataset.fw, { [key]: key === "cycle" ? (t.value as Cycle) : key === "instalment" && t.value === "" ? undefined : t.value });
+  } else if (t.dataset.fwrename) {
+    const r = renameFramework(state.frameworks, t.dataset.fwrename, t.value);
+    state.frameworks = r.value;
+    state.message = r.error ?? "";
+    if (!r.error) afterConfig(false);
+  } else if (t.dataset.tpl && t.dataset.tplid) {
+    // One setting of one framework template. Empty "how an instalment counts" clears it.
+    const field = t.dataset.tpl;
+    const value = field === "unitsPerBeneficiary" ? Number(t.value) : field === "instalment" && t.value === "" ? undefined : t.value;
+    state.frameworks = updateTemplate(state.frameworks, t.dataset.tplid, { [field]: value } as Partial<FrameworkTemplate>);
+    afterConfig(false);
+  } else if (t.dataset.catfw !== undefined) {
+    state.categories = setCategoryFramework(state.categories, state.frameworks, t.dataset.catfw, t.value);
+    afterConfig(false);
+  } else if (t.dataset.itemfw !== undefined) {
+    state.itemFramework = setItemFramework(state.itemFramework, state.frameworks, t.dataset.itemfw, t.value);
     afterConfig(false);
   } else if (t.dataset.keywords) {
     state.categories = setKeywords(state.categories, t.dataset.keywords, t.value);
