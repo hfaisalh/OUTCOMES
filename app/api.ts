@@ -14,6 +14,7 @@ import type { RunInfo } from "../modules/00-platform/store";
 import type { AttentionItem } from "../modules/04-triage/triage";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import type { CompactFeed } from "../modules/01e-crm-export-adapter/compact";
+import type { Allocation, Outcome } from "../modules/05-outcomes/outcomes";
 import type { Category, FrameworkTemplate, ItemMap } from "../modules/02-project-rules/categories";
 
 export interface Me {
@@ -72,3 +73,13 @@ export const ownerLogin = (passphrase: string) => call<{ ok: boolean }>("/api/ow
 export const loadAttention = () => call<{ items: AttentionItem[] }>("/api/triage");
 export const decideAttention = (id: string, action: "review" | "reopen", note = "") => call<{ items: AttentionItem[] }>("/api/triage", { method: "POST", body: { id, action, note } });
 export const setExcluded = (keys: string[], action: "exclude" | "restore", reason = "") => call<{ ok: boolean; workOrders: WorkOrder[]; skipped: number; firstError?: string }>("/api/exclude", { method: "POST", body: { keys, action, reason } });
+
+export interface OutcomesReply {
+  outcomes: Outcome[];
+  allocations: Allocation[];
+  placed?: number;
+  released?: number;
+  unplaced?: { commitmentKey: string; why: string }[];
+}
+export const loadOutcomes = () => call<OutcomesReply>("/api/outcomes");
+export const changeOutcomes = (body: Record<string, unknown>) => call<OutcomesReply>("/api/outcomes", { method: "POST", body });

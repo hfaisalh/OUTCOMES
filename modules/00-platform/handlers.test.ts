@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { PERMISSIONS as P } from "../../app/menu";
 import { rowsReader } from "../01c-crm-connector/reader";
 import { sampleRows } from "../01c-crm-connector/sample";
-import { handleAudits, handleConfig, handleDemoLogin, handleExclude, handleImport, handleOwnerLogin, handleTriage, handleLaunch, handleMe, handlePickup, handleWorkOrders, type Deps, type HttpRequest } from "./handlers";
+import { handleAudits, handleConfig, handleOutcomes, handleDemoLogin, handleExclude, handleImport, handleOwnerLogin, handleTriage, handleLaunch, handleMe, handlePickup, handleWorkOrders, type Deps, type HttpRequest } from "./handlers";
 import { signToken, verifyToken, type Claims } from "./launch-token";
 import { defaultConfig, memoryStore } from "./store";
 import { packFeed } from "../01e-crm-export-adapter/compact";
@@ -402,5 +402,50 @@ describe("framework templates (DECISIONS 59)", () => {
     expect((await orders(cookie))[0]?.frameworkId).toBe("shared"); // work already made keeps its framework
     await handleImport(as(cookie, { method: "POST", body: up([row("1", "HIFZ"), row("2", "HIFZ")]) }), d);
     expect((await orders(cookie)).find((x) => x.key === "2")?.frameworkId).toBe("whole"); // new work follows the change
+  });
+});
+
+describe("outcomes (DECISIONS 61)", () => {
+  const post = (cookie: string, body: unknown) => handleOutcomes(as(cookie, { method: "POST", body }), d);
+  const fwSetup = { categories: [{ id: "spons", name: "Sponsorship", keywords: [], frameworkId: "shared" }], itemMap: { ORP: "spons" }, frameworks: [{ id: "shared", name: "Shared", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 }], itemFramework: {} };
+  const line = (id: string, sub: string, n: string, qty = "1") => ({ line_id: id, transaction_ref: `T${id}`, status: "Paid", paid_at: `2026-0${id}-10 10:00:00`, supporter_id: `D${sub}`, supporter_name: "Sample", item_id: "ORP", item_name: "Orphan", item_feedback: "2", amount: "40", quantity: qty, is_recurring: "1", subscription_id: sub, instalment_number: n, instalment_count: "12" });
+  const up = (rows: Record<string, string>[]) => ({ ...packFeed(rows), source: "files", notes: [] });
+
+  it("adds outcomes, allocates commitments automatically, and shows the result", async () => {
+    const cookie = await signIn(d);
+    await handleImport(as(cookie, { method: "POST", body: up([line("1", "501", "1"), line("2", "502", "1")]) }), d);
+    await handleConfig(as(cookie, { method: "PUT", body: fwSetup }), d);
+    expect((await post(cookie, { action: "add", name: "Orphan", count: 2, type: "child", cohort: "A", frameworkId: "shared" })).status).toBe(200);
+    const r = (await post(cookie, { action: "auto" })).body as { placed: number; allocations: { commitmentKey: string; outcomeId: string }[] };
+    expect(r.placed).toBe(2);
+    expect(r.allocations.map((a) => a.outcomeId)).toEqual(["orphan-1", "orphan-1"]); // two single parts share the first orphan
+    expect(((await handleOutcomes(as(cookie), d)).body as { outcomes: unknown[] }).outcomes).toHaveLength(2);
+  });
+
+  it("moves, releases, switches off and refuses removal while allocated", async () => {
+    const cookie = await signIn(d);
+    await handleImport(as(cookie, { method: "POST", body: up([line("1", "501", "1")]) }), d);
+    await handleConfig(as(cookie, { method: "PUT", body: fwSetup }), d);
+    await post(cookie, { action: "add", name: "Orphan", count: 2, type: "child", cohort: "", frameworkId: "shared" });
+    await post(cookie, { action: "auto" });
+    expect((await post(cookie, { action: "move", commitmentKey: "501", outcomeId: "orphan-2" })).status).toBe(200);
+    expect((await post(cookie, { action: "remove", id: "orphan-2" })).status).toBe(400);
+    expect((await post(cookie, { action: "active", id: "orphan-2", active: false })).status).toBe(200);
+    const again = (await post(cookie, { action: "auto" })).body as { released: number; allocations: { outcomeId: string }[] };
+    expect([again.released, again.allocations[0]?.outcomeId]).toEqual([1, "orphan-1"]); // released from the inactive one, placed in the active one
+    expect((await post(cookie, { action: "release", commitmentKey: "501" })).body).toMatchObject({ allocations: [] });
+  });
+
+  it("refuses a missing framework, a bad action, a viewer and a signed-out caller, and keeps organisations apart", async () => {
+    const cookie = await signIn(d);
+    expect((await post(cookie, { action: "add", name: "Orphan", count: 1, type: "", cohort: "", frameworkId: "ghost" })).status).toBe(400);
+    expect((await post(cookie, { action: "explode" })).status).toBe(400);
+    const viewer = await signIn(d, { perms: [P.access, P.viewWorkOrders] });
+    expect((await handleOutcomes(as(viewer), d)).status).toBe(200);
+    expect((await post(viewer, { action: "auto" })).status).toBe(403);
+    expect((await handleOutcomes(req(), d)).status).toBe(401);
+    await handleConfig(as(cookie, { method: "PUT", body: fwSetup }), d);
+    await post(cookie, { action: "add", name: "Orphan", count: 1, type: "", cohort: "", frameworkId: "shared" });
+    expect(((await handleOutcomes(as(await signIn(d, { org: "other" })), d)).body as { outcomes: unknown[] }).outcomes).toEqual([]);
   });
 });

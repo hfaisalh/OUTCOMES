@@ -11,6 +11,7 @@
 import type { AttentionItem } from "../modules/04-triage/triage";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { partsOf } from "../modules/01c-crm-connector/work-orders";
+import { autoAllocate, fillOf, statusSplit, type Allocation, type Availability, type Outcome } from "../modules/05-outcomes/outcomes";
 import { buildCommitments, needsLook, type Commitment } from "../modules/04b-commitments/commitments";
 import { noIndividualDonor } from "../modules/01c-crm-connector/credits";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
@@ -31,6 +32,10 @@ export interface View {
   scopeCriteria?: Record<string, Criteria>; // the filter boxes inside each Needs attention entry, by list id
   selected?: string[]; // work order keys ticked for a bulk exclude or restore (DECISIONS 49)
   openAttn?: string[]; // Needs attention entries whose lines are open
+  outcomes?: Outcome[]; // what gifts are allocated to (DECISIONS 61)
+  allocations?: Allocation[];
+  openSeg?: string; // the pie slice that is open on the Outcomes page, as "outcome id|status"
+  openCommit?: string; // the commitment whose details are open on the Outcomes page ("" when none)
   commitTab?: string; // Commitments page tab: all, progress, complete, open, look
   commitText?: string; // Commitments page search text
   message: string;
@@ -416,4 +421,86 @@ export function commitmentsPage(v: View): string {
     <p class="sub">Each recurring gift as one record: its paid instalments grouped by subscription. Read only. It shows what is paid out of what is planned, so you can see a sponsorship or an instalment plan before anything is allocated.</p>
     <div class="card filters"><input type="search" data-cf="text" placeholder="Search subscription, supporter, item, line id..." value="${esc(v.commitText ?? "")}"></div>
     <div id="commit-list">${commitmentList(v)}</div>`;
+}
+
+// Outcomes (Module 5): what the gifts are for, how full each outcome is, and which commitment fills it. Colours show fulfilment, never donors:
+// a click on a filled cell opens the commitment, which holds the donor (DECISIONS 61).
+const AVAIL: Record<Availability, [string, string]> = { open: ["Open", "ready"], part: ["Part funded, has capacity", "review"], full: ["Full", "ok"], inactive: ["Inactive", "unrouted"] };
+
+export function outcomesPage(v: View): string {
+  const outcomes = v.outcomes ?? [];
+  const allocations = v.allocations ?? [];
+  const fws = v.frameworks ?? [];
+  const commitments = buildCommitments(v.workOrders).commitments;
+  const byKey = new Map(commitments.map((c) => [c.subscriptionId, c]));
+  const fills = new Map(outcomes.map((o) => [o.id, fillOf(o, fws, allocations, commitments)]));
+  const waiting = autoAllocate(commitments, outcomes, fws, allocations, "").unplaced; // a dry run: nothing is saved
+  const count = (s: Availability) => outcomes.filter((o) => fills.get(o.id)?.state === s).length;
+  const fwName = (id: string) => fws.find((f) => f.id === id)?.name ?? "No framework";
+  const cohorts = [...new Set(outcomes.map((o) => o.cohort))];
+
+  // One pie per outcome, so one glyph shows every status: paid, expected, missed and free. A slice is a button that lists its commitments.
+  const STATUS: [keyof ReturnType<typeof statusSplit>, string, string][] = [["paid", "p", "Paid"], ["expected", "e", "Expected"], ["missed", "m", "Missed"], ["free", "f", "Free"]];
+  const pie = (o: Outcome, f: ReturnType<typeof fillOf>): string => {
+    const split = statusSplit(f);
+    const total = Math.max(f.capacity, split.paid + split.expected + split.missed + split.free, 1);
+    const R = 30, W = 12, C = 2 * Math.PI * R;
+    let offset = 0;
+    const parts = STATUS.filter(([k]) => split[k] > 0).map(([k, cls, label]) => {
+      const len = (split[k] / total) * C;
+      const only = split[k] === total;
+      const seg = `<circle class="seg ${cls}" cx="40" cy="40" r="${R}" fill="none" stroke-width="${W}" stroke-dasharray="${only ? C : Math.max(len - 1.5, 0.5)} ${C}" stroke-dashoffset="${-offset}" transform="rotate(-90 40 40)" data-seg="${esc(o.id)}|${cls}" tabindex="0" role="button"><title>${label}: ${split[k]} of ${total}</title></circle>`;
+      offset += len;
+      return seg;
+    });
+    return `<svg class="pie" viewBox="0 0 80 80" width="76" height="76" role="img" aria-label="${f.used} of ${f.capacity} units used">${parts.join("")}<text x="40" y="44" text-anchor="middle" class="pietext">${f.used}/${f.capacity}</text></svg>`;
+  };
+  const legend = (f: ReturnType<typeof fillOf>): string => {
+    const split = statusSplit(f);
+    return STATUS.filter(([k]) => split[k] > 0).map(([k, cls, label]) => `<span class="lg"><i class="sw ${cls}"></i>${label} ${split[k]}</span>`).join("");
+  };
+
+  const card = (o: Outcome) => {
+    const f = fills.get(o.id) as ReturnType<typeof fillOf>;
+    const [label, cls] = AVAIL[f.state];
+    const mine = allocations.filter((a) => a.outcomeId === o.id && byKey.has(a.commitmentKey));
+    // The open slice lists the commitments in it. Paid is every live allocation to this outcome.
+    const [seg, segStatus] = (v.openSeg ?? "").split("|");
+    const list = seg === o.id && segStatus === "p" ? `<div class="seglist">${mine.map((a) => { const c = byKey.get(a.commitmentKey); return `<div><button class="linkbtn" data-open-commit="${esc(a.commitmentKey)}">Commitment ${esc(a.commitmentKey)}</button> <span class="muted">${esc(c?.itemName ?? "")}, ${a.parts} part${a.parts === 1 ? "" : "s"}</span></div>`; }).join("") || `<span class="muted">Nothing is allocated yet.</span>`}</div>` : seg === o.id ? `<div class="seglist muted">${segStatus === "f" ? `${f.free} unit${f.free === 1 ? "" : "s"} of free capacity.` : "Nothing in this status yet."}</div>` : "";
+    return `<div class="card oc"><div class="fwname"><b>${esc(o.name)}</b> <span class="muted">${esc(o.type)} · ${esc(fwName(o.frameworkId))}</span> <span class="pill ${cls}">${label}</span></div>
+      <div class="piewrap">${pie(o, f)}<div class="piekey">${legend(f)}<span class="muted">${f.used} of ${f.capacity} units used${f.capacity === 0 ? " (choose a framework with units per beneficiary)" : ""}</span></div></div>${list}
+      <div class="actions"><button data-oc-active="${esc(o.id)}" data-active="${o.active ? "0" : "1"}">${o.active ? "Make inactive" : "Make active"}</button>${mine.length === 0 ? `<button data-oc-remove="${esc(o.id)}">Remove</button>` : ""}</div></div>`;
+  };
+
+  // The commitment that is open: who it is from, what it is, where it is allocated, and how to move or release it.
+  const open = byKey.get(v.openCommit ?? "");
+  const alloc = open ? allocations.find((a) => a.commitmentKey === open.subscriptionId) : undefined;
+  const moveTargets = open ? outcomes.filter((o) => o.active && o.frameworkId === open.frameworkId && o.id !== alloc?.outcomeId) : [];
+  const detail = open
+    ? `<div class="card detailcard"><h2>Commitment ${esc(open.subscriptionId)}</h2>
+        <dl class="dl"><dt>Donor</dt><dd>${esc(open.supporterName)} <span class="muted">${esc(open.supporterId)}</span></dd>
+        <dt>Item</dt><dd>${esc(open.itemName)}</dd>
+        <dt>Plan</dt><dd>${open.partsPerInstalment} part${open.partsPerInstalment === 1 ? "" : "s"} each instalment, ${open.paid} of ${open.planned ?? "ongoing"} paid${open.legacyOpening ? " (plus earlier instalments paid on the old website)" : ""}</dd>
+        <dt>Paid</dt><dd>${open.firstPaid ? `${esc(open.firstPaid)} to ${esc(open.lastPaid)}` : "none since the load"}</dd>
+        <dt>Framework</dt><dd>${esc(fwName(open.frameworkId))}</dd>
+        <dt>Allocated to</dt><dd>${alloc ? `${esc(outcomes.find((o) => o.id === alloc.outcomeId)?.name ?? alloc.outcomeId)} <span class="muted">(${alloc.how === "auto" ? "automatically" : "moved by a person"})</span>` : `<span class="muted">Not allocated</span>`}</dd></dl>
+        ${alloc ? `<div class="actions"><select data-oc-move="${esc(open.subscriptionId)}"><option value="">Move to another outcome...</option>${moveTargets.map((o) => `<option value="${esc(o.id)}">${esc(o.name)} (${fills.get(o.id)?.free ?? 0} free)</option>`).join("")}</select><button data-oc-release="${esc(open.subscriptionId)}">Release</button><button data-oc-close>Close</button></div>` : `<div class="actions"><button data-oc-close>Close</button></div>`}</div>`
+    : "";
+
+  return `
+    <h1>Outcomes</h1>
+    <p class="sub">What the gifts are for: a child, a student, a widow, a building, an activity. Each outcome has a framework, which gives it a capacity in units. Recurring commitments fill that capacity automatically, oldest first. Each outcome is one pie of its units by status: paid (green), expected (orange), missed (red) and free (grey). Click a slice to list its commitments, then a commitment to open it, which holds the donor.</p>
+    ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
+    <div class="metrics">${metric(outcomes.length, "Outcomes")}${metric(count("open"), "Open")}${metric(count("part"), "Part funded")}${metric(count("full"), "Full", "ok")}${metric(waiting.length, "Commitments waiting", waiting.length ? "warn" : "")}</div>
+    <div class="card"><h2>Add outcomes</h2>
+      <div class="actions"><input id="oc-name" placeholder="Name, for example Orphan" /><input id="oc-count" type="number" min="1" max="500" value="1" style="width:80px" title="How many to add. More than one are numbered." />
+        <input id="oc-type" placeholder="Type, for example child" /><input id="oc-cohort" placeholder="Cohort (optional)" />
+        <select id="oc-fw"><option value="">Framework...</option>${fws.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>
+        <button class="primary" data-action="add-outcomes">Add</button></div>
+      <p class="muted">Several at once are numbered: Orphan 1, Orphan 2 and so on. Cohort management comes later.</p></div>
+    <div class="actions"><button class="primary" data-action="auto-allocate"${outcomes.length ? "" : " disabled"}>Allocate automatically</button>
+      <span class="muted">Releases what no longer holds, then places each waiting commitment in the first outcome with room. Nothing already allocated is moved.</span></div>
+    ${detail}
+    ${waiting.length ? `<div class="card"><h2>Commitments waiting <span class="muted">(${waiting.length})</span></h2><table><tbody>${waiting.slice(0, 50).map((w) => { const c = byKey.get(w.commitmentKey); return `<tr><td><button class="linkbtn" data-open-commit="${esc(w.commitmentKey)}">Commitment ${esc(w.commitmentKey)}</button></td><td>${esc(c?.itemName ?? "")} <span class="muted">${c?.partsPerInstalment ?? 0} part${c?.partsPerInstalment === 1 ? "" : "s"}</span></td><td class="muted">${esc(w.why)}</td></tr>`; }).join("")}</tbody></table>${waiting.length > 50 ? `<p class="muted">Showing 50 of ${waiting.length}.</p>` : ""}</div>` : ""}
+    ${outcomes.length === 0 ? `<div class="card empty">No outcomes yet. Add some above, choosing a framework for them.</div>` : cohorts.map((c) => `<h2 class="cohort">${esc(c || "No cohort")}</h2><div class="fwgrid">${outcomes.filter((o) => o.cohort === c).map(card).join("")}</div>`).join("")}`;
 }

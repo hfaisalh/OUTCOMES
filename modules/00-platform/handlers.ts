@@ -18,6 +18,8 @@ import { isCurrentCategory, isFrameworkTemplate, migrateSetup, type Category, ty
 import { createHash, timingSafeEqual } from "node:crypto";
 import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSION_SECONDS, verifyToken, signToken, clearSessionCookie, type Claims } from "./launch-token.js";
 import { excludeWorkOrder, restoreWorkOrder, type WorkOrder } from "../01c-crm-connector/work-orders.js";
+import { buildCommitments } from "../04b-commitments/commitments.js";
+import { addOutcomes, autoAllocate, moveAllocation, releaseAllocation, removeOutcome, setActive } from "../05-outcomes/outcomes.js";
 import { applyDecision, buildAttention } from "../04-triage/triage.js";
 import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
 import { backfillFrameworks, rerouteUnrouted, runPickup } from "./pickup.js";
@@ -283,4 +285,69 @@ export async function handleExclude(req: HttpRequest, d: Deps): Promise<HttpResp
     await d.store.putReview(org, (await d.store.getReview(org)).filter((x) => !gone.has(x.key)));
   }
   return json(200, { ok: true, workOrders: done, workOrder: done[0], skipped, ...(firstError ? { firstError } : {}) });
+}
+
+// GET /api/outcomes   The outcomes and what is allocated to them.
+// POST /api/outcomes  { action, ... }  add (name, count, type, cohort, frameworkId), active (id, active), remove (id), auto, move (commitmentKey, outcomeId), release (commitmentKey).
+// Needs permission to map items to change anything. Rule (DECISIONS 61): the server works out the commitments itself from the saved work orders, so a request cannot invent one.
+export const MAX_OUTCOMES = 5000;
+export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpResponse> {
+  const write = req.method === "POST";
+  if (req.method !== "GET" && !write) return text(404, "Not found.");
+  const a = need(req, d, write ? P.mapFrameworks : P.viewWorkOrders);
+  if ("response" in a) return a.response;
+  const org = a.claims.org;
+  const config = (await d.store.getConfig(org)) ?? defaultConfig();
+  let outcomes = config.outcomes ?? [];
+  let allocations = config.allocations ?? [];
+  let extra: Record<string, unknown> = {};
+
+  if (write) {
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const str = (k: string) => (typeof b[k] === "string" ? (b[k] as string) : "");
+    const fw = setupOf(config).frameworks;
+    const commitments = () => d.store.listWorkOrders(org).then((w) => buildCommitments(w).commitments);
+    const at = new Date(d.nowMs()).toISOString();
+    const fail = (error: string) => json(400, { error });
+
+    switch (b["action"]) {
+      case "add": {
+        if (!fw.some((f) => f.id === str("frameworkId"))) return fail("Choose a framework for the outcome.");
+        const r = addOutcomes(outcomes, { name: str("name").slice(0, 100), count: Number(b["count"] ?? 1), type: str("type").slice(0, 60), cohort: str("cohort").slice(0, 100), frameworkId: str("frameworkId") });
+        if (r.error) return fail(r.error);
+        if (r.value.length > MAX_OUTCOMES) return fail(`There can be at most ${MAX_OUTCOMES} outcomes.`);
+        outcomes = r.value;
+        break;
+      }
+      case "active":
+        if (!outcomes.some((o) => o.id === str("id")) || typeof b["active"] !== "boolean") return fail("That outcome was not found.");
+        outcomes = setActive(outcomes, str("id"), b["active"]);
+        break;
+      case "remove": {
+        const r = removeOutcome(outcomes, allocations, str("id"));
+        if (r.error) return fail(r.error);
+        outcomes = r.value;
+        break;
+      }
+      case "auto": {
+        const r = autoAllocate(await commitments(), outcomes, fw, allocations, at);
+        allocations = r.allocations;
+        extra = { placed: r.placed, released: r.released, unplaced: r.unplaced };
+        break;
+      }
+      case "move": {
+        const r = moveAllocation(allocations, await commitments(), outcomes, fw, str("commitmentKey"), str("outcomeId"), at);
+        if (r.error) return fail(r.error);
+        allocations = r.value;
+        break;
+      }
+      case "release":
+        allocations = releaseAllocation(allocations, str("commitmentKey"));
+        break;
+      default:
+        return fail("That request is not understood.");
+    }
+    await d.store.putConfig(org, { ...config, outcomes, allocations });
+  }
+  return json(200, { outcomes, allocations, ...extra });
 }

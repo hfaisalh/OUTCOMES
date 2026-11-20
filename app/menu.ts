@@ -21,7 +21,7 @@ export const PERMISSIONS = {
   settings: "outcomes.settings",
 } as const;
 
-export type PageId = "work-orders" | "attention" | "commitments" | "audit" | "categories" | "dashboard" | "sources" | "settings";
+export type PageId = "work-orders" | "attention" | "commitments" | "outcomes" | "audit" | "categories" | "dashboard" | "sources" | "settings";
 
 export interface MenuItem {
   id: PageId;
@@ -49,6 +49,7 @@ export const MENU: MenuItem[] = [
   { id: "work-orders", label: "Work orders", icon: "☰", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "intake" },
   { id: "attention", label: "Needs attention", icon: "!", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "intake" },
   { id: "commitments", label: "Commitments", icon: "↻", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "intake" },
+  { id: "outcomes", label: "Outcomes", icon: "◎", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "intake" },
   { id: "audit", label: "Audit", icon: "✓", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "intake" },
   { id: "dashboard", label: "Dashboard", icon: "◔", permission: PERMISSIONS.dashboards, section: "Work" },
   { id: "categories", label: "Categories", icon: "▦", permission: PERMISSIONS.mapFrameworks, section: "Set up", module: "intake" },

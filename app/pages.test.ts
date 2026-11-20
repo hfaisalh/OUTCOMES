@@ -10,7 +10,7 @@ import { MWF_CRM_CONFIG, readFeed } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { demoCategories, demoFeedRows, starterFrameworks } from "./demo-data";
 import { suggestAll } from "../modules/02-project-rules/categories";
-import { signinNote, attentionPage, auditPage, esc, categoriesPage, commitmentsPage, workOrderList, workOrdersPage, type View } from "./pages";
+import { signinNote, attentionPage, auditPage, esc, categoriesPage, commitmentsPage, outcomesPage, workOrderList, workOrdersPage, type View } from "./pages";
 
 const lines = readFeed(demoFeedRows(), MWF_CRM_CONFIG).lines;
 const MAP = { I10: "sponsorship", I11: "transactional", I13: "sponsorship" }; // the item "I14" is left unsorted on purpose
@@ -109,6 +109,34 @@ describe("workOrdersPage", () => {
     expect(html).toContain("data-catfw=");
     expect(html).toContain("Add the starting frameworks");
     expect(categoriesPage(view({ frameworks: [], categories: cats }))).toContain("No frameworks yet");
+  });
+
+  it("shows each outcome as one pie by status, lists a slice's commitments, and opens a commitment with its donor", () => {
+    const base = plan.created[0] as WorkOrder;
+    const fws = starterFrameworks();
+    const orders = [1, 2].map((n) => ({ ...base, key: `o${n}`, subscriptionId: "S1", instalmentNumber: String(n), instalmentCount: "12", frameworkId: "sponsorship-shared-parts", supporterName: "Sample Donor", supporterId: "D77" }));
+    const outcomes = [{ id: "orphan-1", name: "Orphan 1", type: "child", cohort: "Cohort A", frameworkId: "sponsorship-shared-parts", active: true }];
+    const allocations = [{ commitmentKey: "S1", outcomeId: "orphan-1", parts: 1, how: "auto" as const, at: "t" }];
+    const html = outcomesPage(view({ workOrders: orders, frameworks: fws, outcomes, allocations }));
+    expect(html).toContain("Orphan 1");
+    expect(html).toContain('data-seg="orphan-1|p"'); // the paid slice
+    expect(html).toContain('data-seg="orphan-1|f"'); // the free slice
+    expect(html).not.toContain("Sample Donor"); // the donor is behind a click, not in the colours
+    const slice = outcomesPage(view({ workOrders: orders, frameworks: fws, outcomes, allocations, openSeg: "orphan-1|p" }));
+    expect(slice).toContain('data-open-commit="S1"');
+    const detail = outcomesPage(view({ workOrders: orders, frameworks: fws, outcomes, allocations, openCommit: "S1" }));
+    expect(detail).toContain("Sample Donor");
+    expect(detail).toContain("D77");
+    expect(detail).toContain("Orphan 1");
+  });
+
+  it("asks for outcomes when there are none, and lists commitments waiting with the reason", () => {
+    const base = plan.created[0] as WorkOrder;
+    const orders = [{ ...base, key: "w1", subscriptionId: "S2", instalmentNumber: "1", instalmentCount: "12", frameworkId: "sponsorship-shared-parts" }];
+    expect(outcomesPage(view({ workOrders: orders, frameworks: starterFrameworks() }))).toContain("No outcomes yet");
+    const waiting = outcomesPage(view({ workOrders: orders, frameworks: starterFrameworks(), outcomes: [{ id: "x", name: "X", type: "", cohort: "", frameworkId: "livelihood", active: true }] }));
+    expect(waiting).toContain("Commitments waiting");
+    expect(waiting).toContain("No active outcome uses its framework.");
   });
 
   it("never lets CRM text become HTML", () => {

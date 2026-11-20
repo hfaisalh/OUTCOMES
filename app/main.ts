@@ -11,19 +11,21 @@
  */
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
+import { addOutcomes, autoAllocate, moveAllocation, releaseAllocation, removeOutcome, setActive, type Allocation, type Outcome } from "../modules/05-outcomes/outcomes";
+import { buildCommitments } from "../modules/04b-commitments/commitments";
 import { filterWorkOrders, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { excludeWorkOrder, planWorkOrders, restoreWorkOrder, type ReviewItem, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { acceptSuggestions, addCategory, addFramework, assignItem, duplicateFramework, frameworkByItem, removeCategory, removeFramework, renameCategory, renameFramework, setCategoryFramework, setItemFramework, setKeywords, suggestAll, updateTemplate, type Cycle, type FrameworkTemplate, type InstalmentRule, type Setup } from "../modules/02-project-rules/categories";
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
 import { buildAttention, type AttentionItem } from "../modules/04-triage/triage";
-import { decideAttention, setExcluded, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
+import { changeOutcomes, loadOutcomes, decideAttention, setExcluded, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
 import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
 import { landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
-import { commitmentsPage, commitmentList, listBlock, listHtml, listBase, workOrderList, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
+import { outcomesPage, commitmentsPage, commitmentList, listBlock, listHtml, listBase, workOrderList, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
 
 const state = {
   live: (): boolean => state.me !== null,
@@ -42,6 +44,10 @@ const state = {
   scopeCriteria: {} as Record<string, Criteria>, // the filter boxes inside Needs attention entries, by list id
   selected: [] as string[], // work orders ticked for a bulk exclude or restore
   openAttn: [] as string[], // Needs attention entries whose lines are open
+  outcomes: [] as Outcome[], // what gifts are allocated to (DECISIONS 61)
+  allocations: [] as Allocation[],
+  openSeg: "", // the pie slice open on the Outcomes page
+  openCommit: "", // the commitment whose details are open on the Outcomes page
   commitTab: "all", // Commitments page tab
   commitText: "", // Commitments page search text
   message: "",
@@ -77,6 +83,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
     state.message = "";
   } catch (e) {
@@ -145,7 +152,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, openSeg: state.openSeg, openCommit: state.openCommit, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -159,6 +166,36 @@ function sortItem(itemId: string, categoryId: string): void {
   if (state.live()) return changed();
   refresh();
   if (keep > 0) state.message += ` ${keep} existing work order${keep === 1 ? "" : "s"} for this item keep${keep === 1 ? "s" : ""} the category they already had.`;
+}
+
+// One change to the outcomes. Live: the server does it and answers with the new state. Demo: the same pure functions run here.
+async function outcomeChange(body: Record<string, unknown>): Promise<void> {
+  try {
+    if (state.live()) {
+      const r = await changeOutcomes(body);
+      state.outcomes = r.outcomes;
+      state.allocations = r.allocations;
+      if (body["action"] === "auto") state.message = `Placed ${r.placed ?? 0}, released ${r.released ?? 0}, ${r.unplaced?.length ?? 0} waiting.`;
+      else state.message = "";
+    } else {
+      const commitments = buildCommitments(state.workOrders).commitments;
+      const at = new Date().toISOString();
+      const str = (k: string) => String(body[k] ?? "");
+      let error: string | undefined;
+      switch (body["action"]) {
+        case "add": { const r = addOutcomes(state.outcomes, { name: str("name"), count: Number(body["count"] ?? 1), type: str("type"), cohort: str("cohort"), frameworkId: str("frameworkId") }); if (!state.frameworks.some((f) => f.id === str("frameworkId"))) error = "Choose a framework for the outcome."; else if (r.error) error = r.error; else state.outcomes = r.value; break; }
+        case "active": state.outcomes = setActive(state.outcomes, str("id"), body["active"] === true); break;
+        case "remove": { const r = removeOutcome(state.outcomes, state.allocations, str("id")); if (r.error) error = r.error; else state.outcomes = r.value; break; }
+        case "auto": { const r = autoAllocate(commitments, state.outcomes, state.frameworks, state.allocations, at); state.allocations = r.allocations; state.message = `Placed ${r.placed}, released ${r.released}, ${r.unplaced.length} waiting.`; break; }
+        case "move": { const r = moveAllocation(state.allocations, commitments, state.outcomes, state.frameworks, str("commitmentKey"), str("outcomeId"), at); if (r.error) error = r.error; else state.allocations = r.value; break; }
+        case "release": state.allocations = releaseAllocation(state.allocations, str("commitmentKey")); break;
+      }
+      state.message = error ?? (body["action"] === "auto" ? state.message : "");
+    }
+  } catch (e) {
+    state.message = e instanceof Error ? e.message : "That did not work.";
+  }
+  draw();
 }
 
 // Applies an exclude or restore to the chosen work orders, on the server when live, in the browser in the demo.
@@ -214,6 +251,7 @@ function draw(): void {
     : state.page === "work-orders" ? workOrdersPage(v)
     : state.page === "attention" ? attentionPage(v)
     : state.page === "commitments" ? commitmentsPage(v)
+    : state.page === "outcomes" ? outcomesPage(v)
     : state.page === "audit" ? auditPage(v)
     : state.page === "dashboard" ? dashboardPage(v)
     : state.page === "categories" ? categoriesPage(v)
@@ -288,6 +326,27 @@ document.addEventListener("click", (e) => {
     void applyExclusion(keys, restoring, reason);
     return;
   }
+  // Outcomes: open a commitment's details, make an outcome active or inactive, remove, release, close.
+  const slice = target.closest("[data-seg]") as HTMLElement | null;
+  if (slice) {
+    state.openSeg = state.openSeg === slice.dataset.seg ? "" : (slice.dataset.seg as string);
+    return draw();
+  }
+  const openC = target.closest("[data-open-commit]") as HTMLElement | null;
+  if (openC) {
+    state.openCommit = openC.dataset.openCommit as string;
+    return draw();
+  }
+  if (target.closest("[data-oc-close]")) {
+    state.openCommit = "";
+    return draw();
+  }
+  const ocActive = target.closest("[data-oc-active]") as HTMLElement | null;
+  if (ocActive) return void outcomeChange({ action: "active", id: ocActive.dataset.ocActive, active: ocActive.dataset.active === "1" });
+  const ocRemove = target.closest("[data-oc-remove]") as HTMLElement | null;
+  if (ocRemove) return void outcomeChange({ action: "remove", id: ocRemove.dataset.ocRemove });
+  const ocRelease = target.closest("[data-oc-release]") as HTMLElement | null;
+  if (ocRelease) return void outcomeChange({ action: "release", commitmentKey: ocRelease.dataset.ocRelease });
   // Commitments tabs.
   const ctab = target.closest("[data-ctab]") as HTMLElement | null;
   if (ctab) {
@@ -341,6 +400,15 @@ document.addEventListener("click", (e) => {
   if (action === "accept-suggestions") {
     state.itemCategories = acceptSuggestions(state.itemCategories, view().suggestions);
     afterConfig();
+  }
+  if (action === "add-outcomes") {
+    const val = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value ?? "";
+    void outcomeChange({ action: "add", name: val("oc-name"), count: Number(val("oc-count") || 1), type: val("oc-type"), cohort: val("oc-cohort"), frameworkId: val("oc-fw") });
+    return;
+  }
+  if (action === "auto-allocate") {
+    void outcomeChange({ action: "auto" });
+    return;
   }
   // Framework templates (DECISIONS 59).
   if (action === "add-framework") {
@@ -499,8 +567,12 @@ document.addEventListener("change", (e) => {
   }
   // Rule: only a field the page knows about causes a redraw. Any other field (the owner passphrase box, for example)
   // must be left alone, because a redraw would wipe what was typed and replace the button the person is about to press.
-  const known = t.id === "role" || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords;
+  const known = t.id === "role" || t.dataset.ocMove !== undefined || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords;
   if (!known) return;
+  if (t.dataset.ocMove !== undefined) {
+    if (t.value !== "") void outcomeChange({ action: "move", commitmentKey: t.dataset.ocMove, outcomeId: t.value });
+    return;
+  }
   if (t.id === "role") {
     state.roleId = t.value;
     state.page = landingPage(permissions()) ?? state.page;

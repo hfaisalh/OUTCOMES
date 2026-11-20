@@ -13,6 +13,7 @@
 
 import { MWF_CRM_CONFIG, type FeedConfig } from "../01c-crm-connector/feed.js";
 import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js";
+import type { Allocation, Outcome } from "../05-outcomes/outcomes.js";
 import { migrateSetup, type Category, type FrameworkTemplate, type ItemMap, type Setup } from "../02-project-rules/categories.js";
 import type { AuditRecord } from "../01f-batch-audit/audit.js";
 import type { TriageMark } from "../04-triage/triage.js";
@@ -28,6 +29,8 @@ export interface OrgConfig {
   itemMap: ItemMap;
   frameworks?: FrameworkTemplate[]; // framework templates (DECISIONS 59). Absent in a setup saved before them
   itemFramework?: Record<string, string>; // an item's own framework, only where it differs from its category
+  outcomes?: Outcome[]; // what gifts are allocated to (DECISIONS 61). Kept in the setup for now, to move to their own table when there are many
+  allocations?: Allocation[];
   usesFrameworks: boolean;
   feed: FeedConfig;
   crm: CrmSetting;
