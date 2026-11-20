@@ -70,6 +70,29 @@ export function takesCapacity(c: Commitment, fw: FrameworkTemplate[]): boolean {
   return f.instalment === "per_period" ? c.state !== "complete" : true;
 }
 
+export interface HoldingReport {
+  total: number; // commitments (subscriptions and one-off payments)
+  holding: number; // those that ask for capacity
+  noFramework: number; // no framework on them, so nothing to allocate to
+  noRule: number; // their framework does not say how an instalment counts
+  cancelled: number; // the CRM plan is cancelled
+  finished: number; // fully paid and per period, so the capacity is free
+}
+
+// Rule: say why commitments are not asking for capacity, so "0 waiting" is never a mystery.
+export function holdingReport(commitments: Commitment[], fw: FrameworkTemplate[]): HoldingReport {
+  const r: HoldingReport = { total: commitments.length, holding: 0, noFramework: 0, noRule: 0, cancelled: 0, finished: 0 };
+  for (const c of commitments) {
+    const f = frameworkOf(fw, c.frameworkId);
+    if (!f) r.noFramework++;
+    else if (f.instalment === undefined) r.noRule++;
+    else if (c.planStatus === "cancelled") r.cancelled++;
+    else if (!takesCapacity(c, fw)) r.finished++;
+    else r.holding++;
+  }
+  return r;
+}
+
 // How full one outcome is, from the allocations that are still live.
 export function fillOf(o: Outcome, fw: FrameworkTemplate[], allocations: Allocation[], commitments: Commitment[]): Fill {
   const capacity = capacityOf(o, fw);

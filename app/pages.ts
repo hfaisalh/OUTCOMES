@@ -11,7 +11,7 @@
 import type { AttentionItem } from "../modules/04-triage/triage";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { partsOf } from "../modules/01c-crm-connector/work-orders";
-import { autoAllocate, fillOf, monthsAround, perPeriodRule, timelineOf, type UnitStatus, type Allocation, type Availability, type Outcome } from "../modules/05-outcomes/outcomes";
+import { autoAllocate, fillOf, holdingReport, monthsAround, perPeriodRule, timelineOf, type UnitStatus, type Allocation, type Availability, type Outcome } from "../modules/05-outcomes/outcomes";
 import { allocatable, buildCommitments, needsLook, type Commitment } from "../modules/04b-commitments/commitments";
 import { noIndividualDonor } from "../modules/01c-crm-connector/credits";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
@@ -437,6 +437,9 @@ export function outcomesPage(v: View): string {
   const byKey = new Map(commitments.map((c) => [c.subscriptionId, c]));
   const fills = new Map(outcomes.map((o) => [o.id, fillOf(o, fws, allocations, commitments)]));
   const waiting = autoAllocate(commitments, outcomes, fws, allocations, "").unplaced; // a dry run: nothing is saved
+  const hold = holdingReport(commitments, fws);
+  const why = [hold.noFramework ? `${hold.noFramework} have no framework (set one for the item or its category on the Categories tab)` : "", hold.noRule ? `${hold.noRule} are on a framework that does not say how an instalment counts (open it on the Categories tab and set it)` : "", hold.cancelled ? `${hold.cancelled} are cancelled in the CRM` : "", hold.finished ? `${hold.finished} are fully paid` : ""].filter((x) => x !== "");
+  const holdNote = `<p class="muted">${hold.total} commitment${hold.total === 1 ? "" : "s"}, ${hold.holding} asking for capacity${why.length ? `. Not asking: ${why.join("; ")}` : ""}.</p>`;
   const count = (s: Availability) => outcomes.filter((o) => fills.get(o.id)?.state === s).length;
   const fwName = (id: string) => fws.find((f) => f.id === id)?.name ?? "No framework";
   const cohorts = [...new Set(outcomes.map((o) => o.cohort))];
@@ -508,6 +511,7 @@ export function outcomesPage(v: View): string {
       <p class="muted">Several at once are numbered: Orphan 1, Orphan 2 and so on. Cohort management comes later.</p></div>
     <div class="actions"><button class="primary" data-action="auto-allocate"${outcomes.length ? "" : " disabled"}>Allocate automatically</button>
       <span class="muted">Releases what no longer holds, then places each waiting commitment in the first outcome with room. Nothing already allocated is moved.</span></div>
+    ${holdNote}
     ${detail}
     ${waiting.length ? `<div class="card"><h2>Commitments waiting <span class="muted">(${waiting.length})</span></h2><table><tbody>${waiting.slice(0, 50).map((w) => { const c = byKey.get(w.commitmentKey); return `<tr><td><button class="linkbtn" data-open-commit="${esc(w.commitmentKey)}">Commitment ${esc(w.commitmentKey)}</button></td><td>${esc(c?.itemName ?? "")} <span class="muted">${c?.partsPerInstalment ?? 0} part${c?.partsPerInstalment === 1 ? "" : "s"}</span></td><td class="muted">${esc(w.why)}</td></tr>`; }).join("")}</tbody></table>${waiting.length > 50 ? `<p class="muted">Showing 50 of ${waiting.length}.</p>` : ""}</div>` : ""}
     ${outcomes.length === 0 ? `<div class="card empty">No outcomes yet. Add some above, choosing a framework for them.</div>` : `<h2>12-month status</h2>${filters}<div class="card octablewrap">${shown.length === 0 ? `<div class="empty">No outcomes match the filters.</div>` : `<table class="octable">${head}<tbody>${shown.slice(0, MAXROWS).map(row).join("")}</tbody></table>${shown.length > MAXROWS ? `<p class="muted">Showing ${MAXROWS} of ${shown.length}. Use the filters to narrow the list.</p>` : ""}`}</div>`}`;

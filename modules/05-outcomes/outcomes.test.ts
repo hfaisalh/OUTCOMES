@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Commitment } from "../04b-commitments/commitments";
-import { addOutcomes, autoAllocate, capacityOf, fillOf, moveAllocation, releaseAllocation, removeOutcome, setActive, monthStatus, monthsAround, timelineOf, takesCapacity, type Allocation, type Outcome } from "./outcomes";
+import { addOutcomes, autoAllocate, capacityOf, fillOf, moveAllocation, releaseAllocation, removeOutcome, setActive, monthStatus, holdingReport, monthsAround, timelineOf, takesCapacity, type Allocation, type Outcome } from "./outcomes";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -206,5 +206,13 @@ describe("one-off payments in outcomes (DECISIONS 64)", () => {
     const allocation: Allocation = { commitmentKey: "once-A1", outcomeId: o!.id, parts: 3, how: "auto", at: AT };
     expect(fillOf(o!, FW, [allocation], [done]).free).toBe(3);
     expect(monthStatus(done, "2027-11", "2027-11-15")).toBe("f");
+  });
+});
+
+describe("why commitments are not asking for capacity", () => {
+  it("counts those with no framework, no instalment rule, cancelled, finished and holding", () => {
+    const noRule: FrameworkTemplate = { id: "norule", name: "No rule", unit: "x", cycle: "quarterly", reportType: "Q", unitsPerBeneficiary: 1 };
+    const list = [com("1", 3), com("2", 3, { frameworkId: "" }), com("3", 3, { frameworkId: "norule" }), com("4", 3, { planStatus: "cancelled" }), com("5", 3, { state: "complete" })];
+    expect(holdingReport(list, [...FW, noRule])).toEqual({ total: 5, holding: 1, noFramework: 1, noRule: 1, cancelled: 1, finished: 1 });
   });
 });
