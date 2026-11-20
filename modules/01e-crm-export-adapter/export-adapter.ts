@@ -134,10 +134,10 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
   let bundleLines = 0;
 
   // Section: the plans by id.
-  const planById = new Map<string, { untilCancelled: boolean; planned: string }>();
+  const planById = new Map<string, { untilCancelled: boolean; planned: string; status: string; nextDue: string; paid: string }>();
   for (const r of plans) {
     const id = pick(r, "Plan ID");
-    if (id !== "") planById.set(id, { untilCancelled: isYes(pick(r, "Until cancelled")), planned: pick(r, "Instalments planned") });
+    if (id !== "") planById.set(id, { untilCancelled: isYes(pick(r, "Until cancelled")), planned: pick(r, "Instalments planned"), status: norm(pick(r, "Plan status")), nextDue: toFeedDate(pick(r, "Next due")).slice(0, 10), paid: pick(r, "Instalments paid") });
   }
 
   // Section: opening orders (DECISIONS 56). A plan's Opening order ID is the donation that started it, which the lines file
@@ -249,6 +249,9 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
       item_feedback: feedback,
       is_recurring: recurring ? "1" : "0",
       instalment_count: instalmentCount,
+      plan_status: plan?.status ?? "", // the plan's own status, next due date and instalments paid, for the forecast (DECISIONS 62)
+      plan_next_due: plan?.nextDue ?? "",
+      plan_paid: plan?.paid ?? "",
       subscription_id: subscriptionId,
       instalment_number: subscriptionId !== "" ? pick(r, "Instalment no") : "",
       amount: pick(r, "Item Cost"),

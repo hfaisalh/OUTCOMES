@@ -46,6 +46,9 @@ export interface WorkOrder {
   subscriptionId: string;
   instalmentNumber: string;
   instalmentCount: string;
+  planStatus?: string; // the plan's status, next due date and instalments paid in the CRM. They change as the plan goes on, so they are refreshed quietly at each import (DECISIONS 62)
+  planNextDue?: string;
+  planPaid?: number;
   frameworkId?: string; // the framework template it was routed under (DECISIONS 59). Set when routed and kept: changing an item's framework later does not move work already made
   categoryId: string; // the category it is routed to, "" while unrouted
   status: WorkOrderStatus;
@@ -85,6 +88,13 @@ export const DEFAULT_CATEGORY = "default";
 // Rule: a work order is identified by its CRM line id alone (DECISIONS 46). The line id is unique and never reused, while the
 // order reference can be blank or appear later, which would otherwise change the key and make a duplicate.
 export const workOrderKey = (line: Pick<FeedLine, "lineId">) => line.lineId;
+
+// The plan facts a line carries, only when it has them.
+const planFacts = (line: FeedLine): Pick<WorkOrder, "planStatus" | "planNextDue" | "planPaid"> => ({
+  ...(line.planStatus !== "" ? { planStatus: line.planStatus } : {}),
+  ...(line.planNextDue !== "" ? { planNextDue: line.planNextDue } : {}),
+  ...(line.planPaid !== null ? { planPaid: line.planPaid } : {}),
+});
 
 // Rule: the framework a work order is routed under, kept on it from then on (DECISIONS 59). Nothing when the item has none.
 const fwOf = (itemId: string, options: PlanOptions): { frameworkId?: string } => {
@@ -148,6 +158,7 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
         subscriptionId: line.subscriptionId,
         instalmentNumber: line.instalmentNumber,
         instalmentCount: line.instalmentCount,
+        ...planFacts(line),
         ...route(line.itemId, options),
         ...fwOf(line.itemId, options),
       });
@@ -167,9 +178,10 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
     // Also the plan link (subscription, instalment number and count), which comes from the plans file and can be completed later (DECISIONS 56).
     let have = current;
     const refFilled = current.transactionRef === "" && line.transactionRef !== "";
-    const planChanged = refFilled || current.subscriptionId !== line.subscriptionId || current.instalmentNumber !== line.instalmentNumber || current.instalmentCount !== line.instalmentCount;
+    const planFactsChanged = (current.planStatus ?? "") !== line.planStatus || (current.planNextDue ?? "") !== line.planNextDue || (current.planPaid ?? null) !== line.planPaid;
+    const planChanged = refFilled || planFactsChanged || current.subscriptionId !== line.subscriptionId || current.instalmentNumber !== line.instalmentNumber || current.instalmentCount !== line.instalmentCount;
     if (fwMissing || (current.bundleQty ?? 1) !== line.bundleQty || (current.legacyUpload === true) !== line.legacyUpload || planChanged) {
-      const { bundleQty: _b, legacyUpload: _l, ...rest } = current;
+      const { bundleQty: _b, legacyUpload: _l, planStatus: _s, planNextDue: _n, planPaid: _p, ...rest } = current;
       have = {
         ...rest,
         ...(fwMissing ? fwOf(current.itemId, options) : {}),
@@ -177,6 +189,7 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
         subscriptionId: line.subscriptionId,
         instalmentNumber: line.instalmentNumber,
         instalmentCount: line.instalmentCount,
+        ...planFacts(line),
         ...(line.bundleQty !== 1 ? { bundleQty: line.bundleQty } : {}),
         ...(line.legacyUpload ? { legacyUpload: true as const } : {}),
       };

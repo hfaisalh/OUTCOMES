@@ -11,7 +11,7 @@
 import type { AttentionItem } from "../modules/04-triage/triage";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { partsOf } from "../modules/01c-crm-connector/work-orders";
-import { autoAllocate, fillOf, statusSplit, type Allocation, type Availability, type Outcome } from "../modules/05-outcomes/outcomes";
+import { autoAllocate, fillOf, monthsAround, timelineOf, type UnitStatus, type Allocation, type Availability, type Outcome } from "../modules/05-outcomes/outcomes";
 import { buildCommitments, needsLook, type Commitment } from "../modules/04b-commitments/commitments";
 import { noIndividualDonor } from "../modules/01c-crm-connector/credits";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
@@ -34,7 +34,7 @@ export interface View {
   openAttn?: string[]; // Needs attention entries whose lines are open
   outcomes?: Outcome[]; // what gifts are allocated to (DECISIONS 61)
   allocations?: Allocation[];
-  openSeg?: string; // the pie slice that is open on the Outcomes page, as "outcome id|status"
+  today?: string; // today as YYYY-MM-DD, so the month by month view can be drawn and tested for any date
   openCommit?: string; // the commitment whose details are open on the Outcomes page ("" when none)
   commitTab?: string; // Commitments page tab: all, progress, complete, open, look
   commitText?: string; // Commitments page search text
@@ -439,36 +439,32 @@ export function outcomesPage(v: View): string {
   const fwName = (id: string) => fws.find((f) => f.id === id)?.name ?? "No framework";
   const cohorts = [...new Set(outcomes.map((o) => o.cohort))];
 
-  // One pie per outcome, so one glyph shows every status: paid, expected, missed and free. A slice is a button that lists its commitments.
-  const STATUS: [keyof ReturnType<typeof statusSplit>, string, string][] = [["paid", "p", "Paid"], ["expected", "e", "Expected"], ["missed", "m", "Missed"], ["free", "f", "Free"]];
-  const pie = (o: Outcome, f: ReturnType<typeof fillOf>): string => {
-    const split = statusSplit(f);
-    const total = Math.max(f.capacity, split.paid + split.expected + split.missed + split.free, 1);
-    const R = 30, W = 12, C = 2 * Math.PI * R;
-    let offset = 0;
-    const parts = STATUS.filter(([k]) => split[k] > 0).map(([k, cls, label]) => {
-      const len = (split[k] / total) * C;
-      const only = split[k] === total;
-      const seg = `<circle class="seg ${cls}" cx="40" cy="40" r="${R}" fill="none" stroke-width="${W}" stroke-dasharray="${only ? C : Math.max(len - 1.5, 0.5)} ${C}" stroke-dashoffset="${-offset}" transform="rotate(-90 40 40)" data-seg="${esc(o.id)}|${cls}" tabindex="0" role="button"><title>${label}: ${split[k]} of ${total}</title></circle>`;
-      offset += len;
-      return seg;
+  // One row per outcome, one small pie per month. A pie has a slice for each unit of capacity (3 parts, 3 slices), coloured by status:
+  // paid green, expected orange, missed red, nothing expected grey. A slice that holds a commitment is a button that opens it (DECISIONS 62).
+  const today = v.today ?? "2026-01-01";
+  const months = monthsAround(today, 5, 6);
+  const NAME = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const monthPie = (slots: { status: UnitStatus; commitmentKey: string }[], label: string): string => {
+    const n = slots.length;
+    if (n === 0) return "";
+    const R = 9, C = 2 * Math.PI * R;
+    const arcs = slots.map((sl, i) => {
+      const len = C / n;
+      const on = sl.commitmentKey !== "";
+      const attrs = on ? ` data-open-commit="${esc(sl.commitmentKey)}" tabindex="0" role="button"` : "";
+      return `<circle class="seg ${sl.status}" cx="12" cy="12" r="${R}" fill="none" stroke-width="6" stroke-dasharray="${n === 1 ? C : Math.max(len - (n > 1 ? 1.2 : 0), 0.5)} ${C}" stroke-dashoffset="${-i * len}" transform="rotate(-90 12 12)"${attrs}><title>${esc(label)}: ${{ p: "paid", e: "expected", m: "missed", f: "nothing expected" }[sl.status]}${on ? ", commitment " + esc(sl.commitmentKey) : ""}</title></circle>`;
     });
-    return `<svg class="pie" viewBox="0 0 80 80" width="76" height="76" role="img" aria-label="${f.used} of ${f.capacity} units used">${parts.join("")}<text x="40" y="44" text-anchor="middle" class="pietext">${f.used}/${f.capacity}</text></svg>`;
+    return `<svg class="mpie" viewBox="0 0 24 24" width="26" height="26" role="img" aria-label="${esc(label)}">${arcs.join("")}</svg>`;
   };
-  const legend = (f: ReturnType<typeof fillOf>): string => {
-    const split = statusSplit(f);
-    return STATUS.filter(([k]) => split[k] > 0).map(([k, cls, label]) => `<span class="lg"><i class="sw ${cls}"></i>${label} ${split[k]}</span>`).join("");
-  };
+  const head = `<div class="mrow mhead">${months.map((m) => `<span class="${m === today.slice(0, 7) ? "now" : ""}">${NAME[Number(m.slice(5, 7)) - 1]}</span>`).join("")}<span>Now</span></div>`;
 
   const card = (o: Outcome) => {
     const f = fills.get(o.id) as ReturnType<typeof fillOf>;
     const [label, cls] = AVAIL[f.state];
     const mine = allocations.filter((a) => a.outcomeId === o.id && byKey.has(a.commitmentKey));
-    // The open slice lists the commitments in it. Paid is every live allocation to this outcome.
-    const [seg, segStatus] = (v.openSeg ?? "").split("|");
-    const list = seg === o.id && segStatus === "p" ? `<div class="seglist">${mine.map((a) => { const c = byKey.get(a.commitmentKey); return `<div><button class="linkbtn" data-open-commit="${esc(a.commitmentKey)}">Commitment ${esc(a.commitmentKey)}</button> <span class="muted">${esc(c?.itemName ?? "")}, ${a.parts} part${a.parts === 1 ? "" : "s"}</span></div>`; }).join("") || `<span class="muted">Nothing is allocated yet.</span>`}</div>` : seg === o.id ? `<div class="seglist muted">${segStatus === "f" ? `${f.free} unit${f.free === 1 ? "" : "s"} of free capacity.` : "Nothing in this status yet."}</div>` : "";
-    return `<div class="card oc"><div class="fwname"><b>${esc(o.name)}</b> <span class="muted">${esc(o.type)} · ${esc(fwName(o.frameworkId))}</span> <span class="pill ${cls}">${label}</span></div>
-      <div class="piewrap">${pie(o, f)}<div class="piekey">${legend(f)}<span class="muted">${f.used} of ${f.capacity} units used${f.capacity === 0 ? " (choose a framework with units per beneficiary)" : ""}</span></div></div>${list}
+    const rowMonths = timelineOf(o, fws, allocations, commitments, months, today);
+    return `<div class="card oc"><div class="fwname"><b>${esc(o.name)}</b> <span class="muted">${esc(o.type)} · ${esc(fwName(o.frameworkId))} · ${f.used} of ${f.capacity} units used${f.capacity === 0 ? " (choose a framework with units per beneficiary)" : ""}</span></div>
+      <div class="mrow">${rowMonths.map((m) => `<span>${monthPie(m.slots, `${NAME[Number(m.month.slice(5, 7)) - 1]} ${m.month.slice(0, 4)}`)}</span>`).join("")}<span><span class="pill ${cls}">${label}</span></span></div>
       <div class="actions"><button data-oc-active="${esc(o.id)}" data-active="${o.active ? "0" : "1"}">${o.active ? "Make inactive" : "Make active"}</button>${mine.length === 0 ? `<button data-oc-remove="${esc(o.id)}">Remove</button>` : ""}</div></div>`;
   };
 
@@ -489,7 +485,7 @@ export function outcomesPage(v: View): string {
 
   return `
     <h1>Outcomes</h1>
-    <p class="sub">What the gifts are for: a child, a student, a widow, a building, an activity. Each outcome has a framework, which gives it a capacity in units. Recurring commitments fill that capacity automatically, oldest first. Each outcome is one pie of its units by status: paid (green), expected (orange), missed (red) and free (grey). Click a slice to list its commitments, then a commitment to open it, which holds the donor.</p>
+    <p class="sub">What the gifts are for: a child, a student, a widow, a building, an activity. Each outcome has a framework, which gives it a capacity in units. Recurring commitments fill that capacity automatically, oldest first. Each outcome is one row of months. Each month is a small pie with a slice for every unit of capacity (an orphan has 3 parts, so 3 slices), coloured by status: paid (green), expected (orange), missed (red), nothing expected (grey). Click a slice to open its commitment, which holds the donor.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics">${metric(outcomes.length, "Outcomes")}${metric(count("open"), "Open")}${metric(count("part"), "Part funded")}${metric(count("full"), "Full", "ok")}${metric(waiting.length, "Commitments waiting", waiting.length ? "warn" : "")}</div>
     <div class="card"><h2>Add outcomes</h2>
@@ -502,5 +498,5 @@ export function outcomesPage(v: View): string {
       <span class="muted">Releases what no longer holds, then places each waiting commitment in the first outcome with room. Nothing already allocated is moved.</span></div>
     ${detail}
     ${waiting.length ? `<div class="card"><h2>Commitments waiting <span class="muted">(${waiting.length})</span></h2><table><tbody>${waiting.slice(0, 50).map((w) => { const c = byKey.get(w.commitmentKey); return `<tr><td><button class="linkbtn" data-open-commit="${esc(w.commitmentKey)}">Commitment ${esc(w.commitmentKey)}</button></td><td>${esc(c?.itemName ?? "")} <span class="muted">${c?.partsPerInstalment ?? 0} part${c?.partsPerInstalment === 1 ? "" : "s"}</span></td><td class="muted">${esc(w.why)}</td></tr>`; }).join("")}</tbody></table>${waiting.length > 50 ? `<p class="muted">Showing 50 of ${waiting.length}.</p>` : ""}</div>` : ""}
-    ${outcomes.length === 0 ? `<div class="card empty">No outcomes yet. Add some above, choosing a framework for them.</div>` : cohorts.map((c) => `<h2 class="cohort">${esc(c || "No cohort")}</h2><div class="fwgrid">${outcomes.filter((o) => o.cohort === c).map(card).join("")}</div>`).join("")}`;
+    ${outcomes.length === 0 ? `<div class="card empty">No outcomes yet. Add some above, choosing a framework for them.</div>` : `<div class="legendrow"><span class="lg"><i class="sw p"></i>Paid</span><span class="lg"><i class="sw e"></i>Expected</span><span class="lg"><i class="sw m"></i>Missed</span><span class="lg"><i class="sw f"></i>Nothing expected</span></div>${head}` + cohorts.map((c) => `<h2 class="cohort">${esc(c || "No cohort")}</h2><div class="ocgrid">${outcomes.filter((o) => o.cohort === c).map(card).join("")}</div>`).join("")}`;
 }

@@ -44,6 +44,10 @@ export interface Commitment {
   numbers: number[]; // instalment numbers held, ascending
   gaps: number[]; // instalment numbers missing between the lowest and highest held
   legacyOpening: boolean; // the first record is a legacy upload: the instalments paid on the old website are not in our data and are not counted
+  planStatus: string; // the CRM plan's own status (active, paused, cancelled, completed, pending, past_due), "" when unknown (DECISIONS 62)
+  nextDue: string; // the plan's next due date, YYYY-MM-DD, "" when unknown
+  planPaid: number | null; // instalments the CRM says are paid
+  paidMonths: string[]; // the months (YYYY-MM) in which a real instalment was paid, legacy uploads left out
   startsLate: boolean; // the lowest number held is above 1
   conflict: boolean; // the lines do not agree on supporter or item, which needs a look
   lines: { key: string; paidDate: string; instalmentNumber: string; transactionRef: string; legacyUpload: boolean }[]; // oldest first
@@ -83,6 +87,8 @@ export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
     const real = sortedAll.filter((w) => w.legacyUpload !== true);
     const sorted = real.length > 0 ? real : sortedAll;
     const first = sorted[0] as WorkOrder;
+    // The plan facts are the same on every line of a subscription. Take the newest line, since they are refreshed at each import.
+    const latest = [...sortedAll].reverse().find((w) => w.planStatus !== undefined || w.planNextDue !== undefined) ?? first;
     const count = Number(first.instalmentCount);
     const planned = Number.isInteger(count) && count > 0 ? count : null;
     const numbers = sorted.map((w) => Number(w.instalmentNumber)).filter((n) => Number.isInteger(n) && n > 0).sort((a, b) => a - b);
@@ -109,6 +115,10 @@ export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
       lastPaid: real.length > 0 ? (sorted[sorted.length - 1] as WorkOrder).paidDate.slice(0, 10) : "",
       numbers,
       gaps,
+      planStatus: latest.planStatus ?? "",
+      nextDue: latest.planNextDue ?? "",
+      planPaid: latest.planPaid ?? null,
+      paidMonths: [...new Set(real.map((w) => w.paidDate.slice(0, 7)).filter((m) => m !== ""))].sort(),
       legacyOpening: sortedAll.length > real.length,
       startsLate: numbers.length > 0 && (numbers[0] as number) > 1,
       conflict: sortedAll.some((w) => w.supporterId !== first.supporterId || w.itemId !== first.itemId),

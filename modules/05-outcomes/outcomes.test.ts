@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Commitment } from "../04b-commitments/commitments";
-import { addOutcomes, autoAllocate, capacityOf, fillOf, moveAllocation, releaseAllocation, removeOutcome, setActive, statusSplit, takesCapacity, type Allocation, type Outcome } from "./outcomes";
+import { addOutcomes, autoAllocate, capacityOf, fillOf, moveAllocation, releaseAllocation, removeOutcome, setActive, monthStatus, monthsAround, timelineOf, takesCapacity, type Allocation, type Outcome } from "./outcomes";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -16,6 +16,7 @@ const FW: FrameworkTemplate[] = [
   { id: "once", name: "Delivered once", unit: "pump", cycle: "on_delivery", reportType: "", instalment: "share_of_whole", unitsPerBeneficiary: 1 },
 ];
 const com = (sub: string, parts: number, over: Partial<Commitment> = {}): Commitment => ({
+  planStatus: "", nextDue: "", planPaid: null, paidMonths: [],
   subscriptionId: sub, supporterId: "D1", supporterName: "Sample", itemId: "I1", itemName: "Item", categoryId: "c", frameworkId: "shared", partsPerInstalment: parts, partsVary: false, planned: 12, paid: 2,
   state: "in_progress", firstPaid: `2026-0${Math.min(Number(sub) % 9 + 1, 9)}-01`, lastPaid: "2026-10-01", numbers: [], gaps: [], legacyOpening: false, startsLate: false, conflict: false, lines: [], ...over,
 });
@@ -134,10 +135,53 @@ describe("reallocation and removal", () => {
   });
 });
 
-describe("fulfilment by status (DECISIONS 61)", () => {
-  it("splits units into paid, expected, missed and free, with every allocated unit paid for now", () => {
+describe("the month by month view (DECISIONS 62)", () => {
+  const TODAY = "2026-11-20";
+  const plan = (over: Partial<Commitment>): Commitment => com("1", 1, { planned: 12, planPaid: 3, paidMonths: ["2026-08", "2026-09", "2026-10"], nextDue: "2026-11-29", planStatus: "active", ...over });
+  const row = (c: Commitment, months: string[]) => months.map((m) => monthStatus(c, m, TODAY)).join("");
+  const MONTHS = ["2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12", "2027-01"];
+
+  it("lists the months around today", () => {
+    expect(monthsAround(TODAY, 2, 2)).toEqual(["2026-09", "2026-10", "2026-11", "2026-12", "2027-01"]);
+    expect(monthsAround("2026-01-05", 2, 0)).toEqual(["2025-11", "2025-12", "2026-01"]);
+  });
+
+  it("marks paid months, then the months still expected (orange), starting at the next due date", () => {
+    expect(row(plan({}), MONTHS)).toBe("fpppeee"); // July is before the plan, Aug to Oct paid, Nov (due 29th) and later expected
+  });
+
+  it("stops expecting after the instalments left: 12 planned and 3 paid leaves 9, from November to July", () => {
+    expect(monthStatus(plan({}), "2027-07", TODAY)).toBe("e");
+    expect(monthStatus(plan({}), "2027-08", TODAY)).toBe("f");
+  });
+
+  it("marks months missed (red) when the due date has passed and nothing was paid", () => {
+    const overdue = plan({ nextDue: "2026-10-29", paidMonths: ["2026-08", "2026-09"], planPaid: 2 });
+    expect(row(overdue, MONTHS)).toBe("fppmmee"); // October and the current November are missed, December is still expected
+  });
+
+  it("expects nothing ahead from a paused plan, and nothing from a cancelled or completed one", () => {
+    expect(row(plan({ planStatus: "paused", nextDue: "2026-10-29", paidMonths: ["2026-08", "2026-09"], planPaid: 2 }), MONTHS)).toBe("fppmmff");
+    expect(row(plan({ planStatus: "cancelled" }), MONTHS)).toBe("fpppfff");
+    expect(row(plan({ planStatus: "completed" }), MONTHS)).toBe("fpppfff");
+  });
+
+  it("expects for ever when the plan has no limit", () => {
+    expect(monthStatus(plan({ planned: null }), "2028-05", TODAY)).toBe("e");
+  });
+
+  it("draws a row per outcome: one slot per unit of capacity, filled by its allocations", () => {
     const [o] = orphans(1) as [Outcome];
-    const f = fillOf(o, FW, [{ commitmentKey: "1", outcomeId: o.id, parts: 2, how: "auto", at: AT }], [com("1", 2)]);
-    expect(statusSplit(f)).toEqual({ paid: 2, expected: 0, missed: 0, free: 1 });
+    const c = plan({ subscriptionId: "7", partsPerInstalment: 1 });
+    const t = timelineOf(o, FW, [{ commitmentKey: "7", outcomeId: o.id, parts: 1, how: "auto", at: AT }], [c], ["2026-10", "2026-12"], TODAY);
+    expect(t.map((m) => m.slots.map((s) => s.status).join(""))).toEqual(["pff", "eff"]);
+    expect(t[0]?.slots.map((s) => s.commitmentKey)).toEqual(["7", "", ""]);
+    const whole = timelineOf(o, FW, [{ commitmentKey: "7", outcomeId: o.id, parts: 3, how: "auto", at: AT }], [{ ...c, partsPerInstalment: 3 }], ["2026-10"], TODAY);
+    expect(whole[0]?.slots.map((s) => s.status).join("")).toBe("ppp");
+  });
+
+  it("no longer holds capacity for a plan the CRM has cancelled", () => {
+    expect(takesCapacity(plan({ planStatus: "cancelled" }), FW)).toBe(false);
+    expect(takesCapacity(plan({ planStatus: "paused" }), FW)).toBe(true);
   });
 });

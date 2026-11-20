@@ -46,7 +46,6 @@ const state = {
   openAttn: [] as string[], // Needs attention entries whose lines are open
   outcomes: [] as Outcome[], // what gifts are allocated to (DECISIONS 61)
   allocations: [] as Allocation[],
-  openSeg: "", // the pie slice open on the Outcomes page
   openCommit: "", // the commitment whose details are open on the Outcomes page
   commitTab: "all", // Commitments page tab
   commitText: "", // Commitments page search text
@@ -152,7 +151,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, openSeg: state.openSeg, openCommit: state.openCommit, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, today: new Date().toISOString().slice(0, 10), openCommit: state.openCommit, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -327,11 +326,6 @@ document.addEventListener("click", (e) => {
     return;
   }
   // Outcomes: open a commitment's details, make an outcome active or inactive, remove, release, close.
-  const slice = target.closest("[data-seg]") as HTMLElement | null;
-  if (slice) {
-    state.openSeg = state.openSeg === slice.dataset.seg ? "" : (slice.dataset.seg as string);
-    return draw();
-  }
   const openC = target.closest("[data-open-commit]") as HTMLElement | null;
   if (openC) {
     state.openCommit = openC.dataset.openCommit as string;

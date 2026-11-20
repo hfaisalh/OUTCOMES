@@ -111,23 +111,24 @@ describe("workOrdersPage", () => {
     expect(categoriesPage(view({ frameworks: [], categories: cats }))).toContain("No frameworks yet");
   });
 
-  it("shows each outcome as one pie by status, lists a slice's commitments, and opens a commitment with its donor", () => {
+  it("shows each outcome as a row of months, a pie per month with a slice per unit, coloured by status, and opens a commitment with its donor", () => {
     const base = plan.created[0] as WorkOrder;
     const fws = starterFrameworks();
-    const orders = [1, 2].map((n) => ({ ...base, key: `o${n}`, subscriptionId: "S1", instalmentNumber: String(n), instalmentCount: "12", frameworkId: "sponsorship-shared-parts", supporterName: "Sample Donor", supporterId: "D77" }));
+    const orders = [8, 9, 10].map((m) => ({ ...base, key: `o${m}`, subscriptionId: "S1", instalmentNumber: String(m - 7), instalmentCount: "12", paidDate: `2026-${String(m).padStart(2, "0")}-29 10:00:00`, frameworkId: "sponsorship-shared-parts", supporterName: "Sample Donor", supporterId: "D77", planStatus: "active", planNextDue: "2026-10-29", planPaid: 3 }));
     const outcomes = [{ id: "orphan-1", name: "Orphan 1", type: "child", cohort: "Cohort A", frameworkId: "sponsorship-shared-parts", active: true }];
     const allocations = [{ commitmentKey: "S1", outcomeId: "orphan-1", parts: 1, how: "auto" as const, at: "t" }];
-    const html = outcomesPage(view({ workOrders: orders, frameworks: fws, outcomes, allocations }));
+    const html = outcomesPage(view({ workOrders: orders, frameworks: fws, outcomes, allocations, today: "2026-11-20" }));
     expect(html).toContain("Orphan 1");
-    expect(html).toContain('data-seg="orphan-1|p"'); // the paid slice
-    expect(html).toContain('data-seg="orphan-1|f"'); // the free slice
+    expect((html.match(/class="mpie"/g) ?? []).length).toBe(12); // twelve months: 5 back, this one, 6 ahead
+    expect(html).toContain('class="seg p"'); // paid months
+    expect(html).toContain('class="seg e"'); // expected months
+    expect(html).toContain('class="seg m"'); // this month is missed: the payment due on 29 October has not come
+    expect(html).toContain('class="seg f"'); // the two free parts
+    expect(html).toContain('data-open-commit="S1"');
     expect(html).not.toContain("Sample Donor"); // the donor is behind a click, not in the colours
-    const slice = outcomesPage(view({ workOrders: orders, frameworks: fws, outcomes, allocations, openSeg: "orphan-1|p" }));
-    expect(slice).toContain('data-open-commit="S1"');
-    const detail = outcomesPage(view({ workOrders: orders, frameworks: fws, outcomes, allocations, openCommit: "S1" }));
+    const detail = outcomesPage(view({ workOrders: orders, frameworks: fws, outcomes, allocations, openCommit: "S1", today: "2026-11-20" }));
     expect(detail).toContain("Sample Donor");
     expect(detail).toContain("D77");
-    expect(detail).toContain("Orphan 1");
   });
 
   it("asks for outcomes when there are none, and lists commitments waiting with the reason", () => {

@@ -18,10 +18,10 @@ Commitments (Module 4b), framework templates (Module 2), and the person's outcom
 - Making an outcome inactive releases what was allocated to it, and the next automatic allocation places it elsewhere.
 - A person can move a commitment to another active outcome with room, or release it.
 - An outcome with allocations cannot be removed.
-- The screen shows one pie per outcome by status: paid (green), expected (orange), missed (red), free (grey). It never colours by donor. Clicking a slice lists its commitments, and a commitment opens to show the donor and the plan.
+- The screen is one row per outcome, months across, a small pie per month with a slice for each unit of capacity, coloured by status: paid (green), expected (orange), missed (red), nothing expected (grey). It never colours by donor. A slice opens its commitment, which shows the donor and the plan (DECISIONS 62).
+- Status comes from the plan: a month with a real payment is paid, then the plan's next due date starts a run of expected months for the instalments left. Passed months in that run are missed. A paused plan expects nothing ahead, and a cancelled one stops holding capacity.
 
 ## Not built yet
-- Expected and missed need the plan's status and next due date in the feed, so every allocated unit counts as paid today.
 - One-off payments (they need the months an item's plan covers), reminders before a subscription ends, cohort management, and moving outcomes and allocations to their own table when there are thousands.
 
 ## Files

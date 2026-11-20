@@ -64,6 +64,9 @@ export interface FeedLine {
   intention: string;
   subscriptionId: string; // "" for a one-off
   instalmentNumber: string; // "" for a one-off
+  planStatus: string; // the plan's own status in the CRM (active, paused, cancelled, completed...), "" when the line has no plan row (DECISIONS 62)
+  planNextDue: string; // the plan's next due date, YYYY-MM-DD, "" when unknown
+  planPaid: number | null; // instalments the CRM says are paid, null when unknown
   instalmentCount: string; // a number, "Indefinitely" for recurring with no count, "" for a one-off (DECISIONS 18)
   needsFeedback: boolean;
   legacyUpload: boolean; // uploaded from an old system: the paid date is the upload date, not the real payment date (DECISIONS 55)
@@ -190,6 +193,9 @@ export function readFeed(rows: FeedRow[], config: FeedConfig = MWF_CRM_CONFIG): 
       subscriptionId: (r["subscription_id"] ?? "").trim(),
       instalmentNumber: (r["instalment_number"] ?? "").trim(),
       instalmentCount,
+      planStatus: (r["plan_status"] ?? "").trim().toLowerCase(),
+      planNextDue: dayOf(r["plan_next_due"] ?? ""),
+      planPaid: num(r["plan_paid"]),
       needsFeedback: isYes(r[config.triggerColumn], config.yesValues),
       legacyUpload: (config.legacyRefPrefixes ?? []).some((p) => p !== "" && lower(transactionRef).startsWith(lower(p))),
     });

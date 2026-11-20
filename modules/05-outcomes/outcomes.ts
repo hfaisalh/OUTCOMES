@@ -62,6 +62,8 @@ export const capacityOf = (o: Outcome, fw: FrameworkTemplate[]): number => frame
 export function takesCapacity(c: Commitment, fw: FrameworkTemplate[]): boolean {
   const f = frameworkOf(fw, c.frameworkId);
   if (!f || f.instalment === undefined) return false;
+  // Rule (DECISIONS 60, 62): a plan the CRM has cancelled no longer holds capacity, so it reopens for someone else.
+  if (c.planStatus === "cancelled") return false;
   return f.instalment === "per_period" ? c.state !== "complete" : true;
 }
 
@@ -174,12 +176,57 @@ export function moveAllocation(allocations: Allocation[], commitments: Commitmen
 // Rule: release one allocation, so the next automatic allocation places the commitment again.
 export const releaseAllocation = (allocations: Allocation[], commitmentKey: string): Allocation[] => allocations.filter((a) => a.commitmentKey !== commitmentKey);
 
-// Rule: the fulfilment of an outcome as units by status, for one pie: paid, expected (scheduled, not due yet), missed (expected but not received) and free.
-// Today every allocated unit counts as paid. Expected and missed come with the plan's status and next due date (DECISIONS 60b), so they are 0 here for now.
-export interface StatusSplit {
-  paid: number;
-  expected: number;
-  missed: number;
-  free: number;
+// ---- The month by month view (DECISIONS 62) ----
+
+// A month is "YYYY-MM". These helpers keep month arithmetic in one place.
+const monthOf = (date: string): string => date.slice(0, 7);
+function addMonths(month: string, n: number): string {
+  const y = Number(month.slice(0, 4));
+  const m = Number(month.slice(5, 7)) - 1 + n;
+  return `${y + Math.floor(m / 12)}-${String(((m % 12) + 12) % 12 + 1).padStart(2, "0")}`;
 }
-export const statusSplit = (f: Fill): StatusSplit => ({ paid: f.used, expected: 0, missed: 0, free: f.free });
+const monthIndex = (month: string): number => Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7));
+
+// The months to show: some behind, this one, some ahead.
+export const monthsAround = (today: string, back: number, ahead: number): string[] => Array.from({ length: back + ahead + 1 }, (_, i) => addMonths(monthOf(today), i - back));
+
+// Status of one commitment in one month: p paid, e expected (scheduled, not due yet), m missed (expected and not received), f nothing expected.
+export type UnitStatus = "p" | "e" | "m" | "f";
+
+/**
+ * Rule: a month with a real payment is paid. Otherwise a plan that is still going has a run of expected months, starting at its
+ * next due date and lasting for the instalments it still has to pay (for ever when it has no limit). In that run, a month that has
+ * passed, or this month once the due date has come, is missed, and a later month is expected (orange). A paused plan expects nothing
+ * ahead. A cancelled or completed plan expects nothing. Everything else is nothing expected.
+ */
+export function monthStatus(c: Commitment, month: string, today: string): UnitStatus {
+  if (c.paidMonths.includes(month)) return "p";
+  if (c.planStatus === "cancelled" || c.planStatus === "completed" || c.state === "complete") return "f";
+  const last = c.paidMonths[c.paidMonths.length - 1] ?? "";
+  const start = c.nextDue !== "" ? monthOf(c.nextDue) : last !== "" ? addMonths(last, 1) : monthOf(today);
+  const remaining = c.planned === null ? Infinity : Math.max(c.planned - (c.planPaid ?? c.paid), 0);
+  const offset = monthIndex(month) - monthIndex(start);
+  if (offset < 0 || offset >= remaining) return "f";
+  const now = monthOf(today);
+  if (month < now) return "m";
+  if (month === now) return c.nextDue !== "" && c.nextDue <= today ? "m" : "e";
+  return c.planStatus === "paused" ? "f" : "e";
+}
+
+export interface MonthSlots {
+  month: string;
+  slots: { status: UnitStatus; commitmentKey: string }[]; // one slot per unit of capacity, "" key when nothing is allocated to it
+}
+
+// Rule: the row for one outcome. Its capacity is a number of slots, filled in order by the live allocations, and each slot takes the status of its commitment in each month.
+export function timelineOf(o: Outcome, fw: FrameworkTemplate[], allocations: Allocation[], commitments: Commitment[], months: string[], today: string): MonthSlots[] {
+  const byKey = new Map(commitments.filter((c) => takesCapacity(c, fw)).map((c) => [c.subscriptionId, c]));
+  const slots: (Commitment | null)[] = [];
+  for (const a of allocations.filter((x) => x.outcomeId === o.id).sort((x, y) => x.commitmentKey.localeCompare(y.commitmentKey))) {
+    const c = byKey.get(a.commitmentKey);
+    if (c) for (let i = 0; i < a.parts; i++) slots.push(c);
+  }
+  const cap = capacityOf(o, fw);
+  while (slots.length < cap) slots.push(null);
+  return months.map((month) => ({ month, slots: slots.slice(0, Math.max(cap, 0)).map((c) => ({ status: c ? monthStatus(c, month, today) : "f", commitmentKey: c?.subscriptionId ?? "" })) }));
+}
