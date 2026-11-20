@@ -235,7 +235,7 @@ export function addBeneficiaries(outcomes: Outcome[], projects: Project[], nodes
   const node = nodes.find((x) => x.id === o.nodeId && x.projectId === o.projectId);
   if (!p || !type) return { value: outcomes, error: "Choose a type of beneficiary." };
   if (!node) return { value: outcomes, error: "Choose the place to add them to." };
-  if (node.levelId !== type.levelId) return { value: outcomes, error: `${type.name} beneficiaries live at the ${p.levels.find((l) => l.id === type.levelId)?.name ?? "level"} level, not ${p.levels.find((l) => l.id === node.levelId)?.name ?? "this one"}.` };
+  if (node.levelId !== type.levelId) return { value: outcomes, error: `${type.name} beneficiaries live at the ${p.levels.find((l) => l.id === type.levelId)?.name ?? "level"} level, not ${p.levels.find((l) => l.id === node.levelId)?.name ?? "this one"}. Choose a place at that level, or add one on the Structure tab.` };
   const r = addOutcomes(outcomes, { name: o.name, count: o.count, type: type.name, cohort: node.name, frameworkId: type.frameworkId });
   if (r.error) return r;
   const added = r.value.slice(outcomes.length).map((x) => ({ ...x, projectId: o.projectId, nodeId: o.nodeId, typeId: o.typeId }));

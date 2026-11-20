@@ -79,11 +79,11 @@ function beneficiariesHtml(v: View, project: Project): string {
   }).join("");
   const unused = outcomes.filter((o) => !held.has(o.id)).map((o) => o.id);
   return `<section><h3>Add beneficiaries <span class="muted">(numbered test records)</span></h3>
-    <div class="actions"><select id="pj-ben-type" aria-label="Type"><option value="">Type...</option>${project.types.map((t) => `<option value="${esc(t.id)}">${esc(t.name)} (at ${esc(levelName(t.levelId))})</option>`).join("")}</select>
-      <select id="pj-ben-node" aria-label="Place"><option value="">Place...</option>${nodes.map((n) => `<option value="${esc(n.id)}">${esc(n.name)} (${esc(levelName(n.levelId))})</option>`).join("")}</select>
+    <div class="actions"><select id="pj-ben-type" aria-label="Type"><option value="">Type...</option>${project.types.map((t) => `<option value="${esc(t.id)}" data-level="${esc(t.levelId)}">${esc(t.name)} (at ${esc(levelName(t.levelId))})</option>`).join("")}</select>
+      <select id="pj-ben-node" aria-label="Place"><option value="">Place...</option>${nodes.map((n) => `<option value="${esc(n.id)}" data-level="${esc(n.levelId)}">${esc(n.name)} (${esc(levelName(n.levelId))})</option>`).join("")}</select>
       <input id="pj-ben-name" placeholder="Name, for example Orphan" /><input id="pj-ben-count" type="number" min="1" max="500" value="10" aria-label="How many" />
       <button class="primary" data-action="add-beneficiaries"${project.types.length && nodes.length ? "" : " disabled"}>Add</button></div>
-    <p class="muted">Several at once are numbered: Orphan 1, Orphan 2 and so on. Add the types and places on the Structure tab first.</p></section>
+    <p class="muted">Several at once are numbered: Orphan 1, Orphan 2 and so on. Choose the type first, and the places that type can live at are offered. Add the types and places on the Structure tab first.</p></section>
   <section><h3>Beneficiaries <span class="muted">(${outcomes.length})</span></h3>
     ${unused.length ? `<div class="actions"><button data-action="remove-unused" data-ids="${esc(unused.slice(0, 1000).join(","))}">Remove ${Math.min(unused.length, 1000)} with no sponsor</button></div>` : ""}
     ${outcomes.length ? `<div class="twrap"><table><thead><tr><th>Name</th><th>Type</th><th>Place</th><th>Sponsored of units</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${outcomes.length > MAX_ROWS ? `<p class="muted">Showing ${MAX_ROWS} of ${outcomes.length}.</p>` : ""}` : `<div class="empty">No beneficiaries yet.</div>`}</section>`;

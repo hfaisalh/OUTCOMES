@@ -807,8 +807,27 @@ function syncNewType(): void {
 }
 const readForm = () => readPartnerForm(document.getElementById("modal-root") as HTMLElement);
 
+// Adding beneficiaries: only the places at the level the chosen type lives at are offered (DECISIONS 70).
+function filterPlaces(): void {
+  const type = document.getElementById("pj-ben-type") as HTMLSelectElement | null;
+  const place = document.getElementById("pj-ben-node") as HTMLSelectElement | null;
+  if (!type || !place) return;
+  const level = (type.selectedOptions[0] as HTMLOptionElement | undefined)?.dataset.level ?? "";
+  let shown = 0;
+  for (const o of [...place.options]) {
+    if (o.value === "") continue;
+    const ok = level === "" || o.dataset.level === level;
+    o.hidden = !ok;
+    o.disabled = !ok;
+    if (ok) shown++;
+  }
+  if (place.selectedOptions[0]?.disabled) place.value = "";
+  const first = place.options[0] as HTMLOptionElement;
+  first.textContent = level !== "" && shown === 0 ? "No place at this level yet. Add one on the Structure tab." : "Place...";
+}
 document.addEventListener("change", (e) => {
   if ((e.target as HTMLElement).id === "pf-type") syncNewType();
+  if ((e.target as HTMLElement).id === "pj-ben-type") filterPlaces();
 });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && state.partnerWin.open) closePartnerWindow();

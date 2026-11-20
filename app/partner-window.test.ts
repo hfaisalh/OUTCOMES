@@ -65,6 +65,8 @@ describe("partnerWindowHtml", () => {
     expect(html).toContain('data-action="add-beneficiaries"');
     expect(html).toContain("Remove 3 with no sponsor");
     expect(html).toContain('data-oc-remove="orphan-1"');
+    expect(html).toContain('<option value="child" data-level="class">'); // the type says which level it lives at
+    expect(html).toContain('<option value="aghosh-orphan-homes-branch-1" data-level="branch">'); // so only places of that level are offered
   });
   it("never trusts names as HTML", () => {
     const { projects, nodes, outcomes, id } = built();
