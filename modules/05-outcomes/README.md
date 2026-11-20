@@ -13,7 +13,8 @@ Commitments (Module 4b), framework templates (Module 2), and the person's outcom
 
 ## Rules
 - Capacity of an outcome = the framework's units per beneficiary (3 parts for an orphan, 1 for a scholarship, 1 whole for a pump).
-- A commitment takes its parts per instalment from the first active outcome with the same framework and room, oldest commitment first. A bundle of 3 takes a whole orphan. One already placed is never moved by automatic allocation.
+- A commitment takes its parts per instalment from an active outcome with the same framework and room, oldest commitment first. A gift directed to a project fills that project only and waits when it is full. A general gift is spread: the place with the lowest share sponsored gets it, and inside it the beneficiary with the least room that fits (DECISIONS 66). A bundle of 3 takes a whole orphan. One already placed is never moved by automatic allocation.
+- A plan that has missed more payments than the buffer (default 1) no longer holds its place (DECISIONS 66).
 - A fully paid limited per-period commitment stops taking capacity. A commitment to a whole item keeps it.
 - Making an outcome inactive releases what was allocated to it, and the next automatic allocation places it elsewhere.
 - A person can move a commitment to another active outcome with room, or release it.
@@ -30,7 +31,7 @@ Commitments (Module 4b), framework templates (Module 2), and the person's outcom
 | `outcomes.ts` | All the rules above as pure functions |
 | `outcomes.test.ts` | Tests and examples on invented data |
 
-The endpoint is `/api/outcomes` (`handleOutcomes`), the screen is the Outcomes tab in Intake.
+The endpoint is `/api/outcomes` (`handleOutcomes`), the screens are Allocation, Place gifts (`app/allocation-page.ts`) and Month by month.
 
 ## How to test
-`npm test`. To try it: open Intake, then Outcomes, add outcomes with a framework (for example 10 orphans on Sponsorship: shared parts), press Allocate automatically, then click a slice and a commitment.
+`npm test`. To try it: create a project and add beneficiaries on the Projects page, open Allocation, Place gifts, click Place all suggestions, then open Month by month and click a slice and a commitment.

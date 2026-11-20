@@ -478,3 +478,17 @@ describe("projects (DECISIONS 65)", () => {
     expect(other.nodes).toEqual([]);
   });
 });
+
+describe("placing gifts and the payment buffer (DECISIONS 66)", () => {
+  const post = (cookie: string, body: unknown) => handleOutcomes(as(cookie, { method: "POST", body }), d);
+  it("sets the buffer, refuses a bad one, and reports it", async () => {
+    const cookie = await signIn(d);
+    expect((await post(cookie, { action: "set-buffer", months: 2 })).status).toBe(200);
+    expect((await post(cookie, { action: "set-buffer", months: 40 })).status).toBe(400);
+    expect(((await handleOutcomes(as(cookie), d)).body as { bufferMonths: number }).bufferMonths).toBe(2);
+  });
+  it("answers a plain error when a gift is placed in a place that does not exist", async () => {
+    const cookie = await signIn(d);
+    expect((await post(cookie, { action: "place-in-node", commitmentKey: "nope", nodeId: "nope" })).status).toBe(400);
+  });
+});

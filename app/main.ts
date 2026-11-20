@@ -11,8 +11,9 @@
  */
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
-import { allocOptions, applyProjectAction, type Node, type Project } from "../modules/06-projects/projects";
+import { allocOptions, applyProjectAction, placeInNode, type Node, type Project } from "../modules/06-projects/projects";
 import { PROJECT_TEMPLATES, projectsPage } from "./projects-page";
+import { allocationPage } from "./allocation-page";
 import { addOutcomes, autoAllocate, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, type Allocation, type Outcome } from "../modules/05-outcomes/outcomes";
 import { allocatable } from "../modules/04b-commitments/commitments";
 import { filterWorkOrders, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
@@ -200,6 +201,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "auto": { const r = autoAllocate(commitments, state.outcomes, state.frameworks, state.allocations, at, allocOptions(state.projects, state.bufferMonths, at.slice(0, 10))); state.allocations = r.allocations; state.message = `Placed ${r.placed}, released ${r.released}, ${r.unplaced.length} waiting.`; break; }
         case "move": { const r = moveAllocation(state.allocations, commitments, state.outcomes, state.frameworks, str("commitmentKey"), str("outcomeId"), at, allocOptions(state.projects, state.bufferMonths, at.slice(0, 10)).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
         case "remove-many": { const r = removeUnused(state.outcomes, state.allocations, Array.isArray(body["ids"]) ? (body["ids"] as string[]) : []); state.outcomes = r.value; state.message = `Removed ${r.removed}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`; break; }
+        case "place-in-node": { const r = placeInNode(state.allocations, commitments, state.outcomes, state.nodes, state.frameworks, str("commitmentKey"), str("nodeId"), at, allocOptions(state.projects, state.bufferMonths, at.slice(0, 10)).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
         case "set-buffer": { const n = Number(body["months"]); if (!Number.isInteger(n) || n < 0 || n > 12) error = "The buffer is a whole number of months, from 0 to 12."; else state.bufferMonths = n; break; }
         case "release": state.allocations = releaseAllocation(state.allocations, str("commitmentKey")); break;
         default: {
@@ -271,7 +273,7 @@ function draw(): void {
     : state.page === "work-orders" ? giftsPage(v)
     : state.page === "attention" ? attentionPage(v)
     : state.page === "commitments" ? commitmentsPage(v)
-    : state.page === "allocation" ? outcomesPage(v)
+    : state.page === "allocation" ? allocationPage(v)
     : state.page === "outcomes" ? outcomesPage(v)
     : state.page === "projects" ? projectsPage(v)
     : state.page === "audit" ? auditPage(v)
@@ -643,8 +645,13 @@ document.addEventListener("change", (e) => {
   }
   // Rule: only a field the page knows about causes a redraw. Any other field (the owner passphrase box, for example)
   // must be left alone, because a redraw would wipe what was typed and replace the button the person is about to press.
-  const known = t.id === "role" || t.dataset.ocMove !== undefined || t.dataset.ocf !== undefined || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords || t.dataset.pjOpen !== undefined;
+  const known = t.id === "role" || t.dataset.ocMove !== undefined || t.dataset.ocf !== undefined || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords || t.dataset.pjOpen !== undefined || t.dataset.placeSelect !== undefined || t.dataset.buffer !== undefined;
   if (!known) return;
+  if (t.dataset.placeSelect !== undefined) {
+    if (t.value !== "") void outcomeChange({ action: "place-in-node", commitmentKey: t.dataset.placeSelect, nodeId: t.value });
+    return;
+  }
+  if (t.dataset.buffer !== undefined) return void outcomeChange({ action: "set-buffer", months: Number(t.value) });
   if (t.dataset.pjOpen !== undefined) {
     state.openProject = t.value;
     return draw();
@@ -727,4 +734,24 @@ document.addEventListener("drop", (e) => {
   sortItem(id, z.dataset.drop as string);
   state.selectedItem = "";
   draw();
+});
+
+// Drag a waiting gift onto a place (DECISIONS 66). The same change as choosing the place from the gift's list.
+document.addEventListener("dragstart", (e) => {
+  const gift = (e.target as HTMLElement).closest("[data-drag-key]") as HTMLElement | null;
+  if (gift && e.dataTransfer) {
+    e.dataTransfer.setData("text/plain", gift.dataset.dragKey as string);
+    e.dataTransfer.effectAllowed = "move";
+  }
+});
+document.addEventListener("dragover", (e) => {
+  if ((e.target as HTMLElement).closest("[data-drop-node]")) e.preventDefault();
+});
+document.addEventListener("drop", (e) => {
+  const place = (e.target as HTMLElement).closest("[data-drop-node]") as HTMLElement | null;
+  const key = e.dataTransfer?.getData("text/plain") ?? "";
+  if (place && key !== "") {
+    e.preventDefault();
+    void outcomeChange({ action: "place-in-node", commitmentKey: key, nodeId: place.dataset.dropNode });
+  }
 });

@@ -19,8 +19,11 @@ Framework templates (Module 2), outcomes and allocations (Module 5), commitments
 - A gift's project name is matched to a project by its name or an alias. No match means a general gift.
 - Nothing is removed while it is in use: a place with places or beneficiaries, a type with beneficiaries.
 
+- A gift's project (the CRM's Project on the line) decides where it can go: a match makes it directed, anything else is general.
+- General gifts are spread across places, and a directed gift whose project is full waits for a person (DECISIONS 66).
+- The summary per project (beneficiaries, units, sponsored, free, in buffer, waiting, surplus or deficit), suggestions, and placing a gift by hand into a place are pure functions here too.
+
 ## Not built yet
-- Directed and general allocation across projects, spread order, and the Allocation screen (next).
 - Activities (one-offs with stages and reports), profile fields, vendor updates and the vendor portal.
 
 ## Files
@@ -29,7 +32,7 @@ Framework templates (Module 2), outcomes and allocations (Module 5), commitments
 | `projects.ts` | All the rules above as pure functions, and `applyProjectAction`, which the server and the demo both use |
 | `projects.test.ts` | Tests and examples on invented data |
 
-The screen is `app/projects-page.ts` (the Projects tab in Intake). The server actions are on `/api/outcomes` (Vercel's Hobby plan allows only 12 functions).
+The screens are `app/projects-page.ts` (Projects) and `app/allocation-page.ts` (Allocation, Place gifts). The server actions are on `/api/outcomes` (Vercel's Hobby plan allows only 12 functions).
 
 ## How to test
-`npm test`. To try it: Intake, Projects, create a project from the school template, add a type (Child, at Class, sponsored as shared parts), add places (Branch 1, then Block A, then Class 5A), then add 20 beneficiaries to Class 5A.
+`npm test`. To try it: Projects, create a project from the school template, add a type (Child, at Class, sponsored as shared parts), add places (Branch 1, then Block A, then Class 5A), then add 20 beneficiaries to Class 5A.

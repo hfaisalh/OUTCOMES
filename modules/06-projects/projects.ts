@@ -17,7 +17,7 @@
  */
 
 import { slugify, type FrameworkTemplate } from "../02-project-rules/categories.js";
-import { addOutcomes, capacityOf, DEFAULT_BUFFER_MONTHS, fillOf, type AllocOptions, type Allocation, type Outcome, type Policy } from "../05-outcomes/outcomes.js";
+import { addOutcomes, autoAllocate, capacityOf, DEFAULT_BUFFER_MONTHS, fillOf, inBuffer, pickOutcome, takesCapacity, type AllocOptions, type Allocation, type Outcome, type Policy } from "../05-outcomes/outcomes.js";
 import type { Commitment } from "../04b-commitments/commitments.js";
 
 export interface Level {
@@ -306,3 +306,91 @@ export const allocOptions = (projects: Project[], bufferMonths: number | undefin
   policy: { today, bufferMonths: bufferMonths ?? DEFAULT_BUFFER_MONTHS },
   projectIdFor: (name) => matchProject(projects, name)?.id,
 });
+
+// ---- The allocation summary (the sheet's Step 1, 3, 5 and 6 for every project, DECISIONS 66) ----
+
+export interface ProjectSummary {
+  projectId: string; // "" for beneficiaries that belong to no project (made before projects existed)
+  name: string;
+  beneficiaries: number; // active ones
+  capacity: number; // units
+  used: number; // sponsored units
+  free: number; // units with no sponsor
+  inBuffer: number; // allocated commitments that are behind but still inside the buffer
+  waitingParts: number; // parts of gifts directed to this project that have no place yet
+}
+
+export interface AllocationSummary {
+  rows: ProjectSummary[];
+  generalWaiting: { gifts: number; parts: number }; // gifts that can go to any project and have no place yet
+  waitingGifts: number; // every gift that holds capacity and has no place
+}
+
+/**
+ * Rule: for each project, how many beneficiaries and units there are, how many are sponsored and free, how many sponsors are inside the buffer,
+ * and the parts of gifts directed to it that wait. Surplus or deficit is free minus waiting (the sheet's Step 6). A gift that names no known
+ * project is general and counted on its own line, since it can go anywhere.
+ */
+export function allocationSummary(projects: Project[], outcomes: Outcome[], fw: FrameworkTemplate[], allocations: Allocation[], commitments: Commitment[], opts: AllocOptions): AllocationSummary {
+  const holding = commitments.filter((c) => takesCapacity(c, fw, opts.policy));
+  const placed = new Set(allocations.map((a) => a.commitmentKey));
+  const waiting = holding.filter((c) => !placed.has(c.subscriptionId));
+  const projectOfOutcome = new Map(outcomes.map((o) => [o.id, o.projectId ?? ""]));
+  const byId = new Map(commitments.map((c) => [c.subscriptionId, c]));
+  const keys = [...projects.map((p) => p.id), ...(outcomes.some((o) => !o.projectId) ? [""] : [])];
+  const rows = keys.map((id): ProjectSummary => {
+    const mine = outcomes.filter((o) => (o.projectId ?? "") === id && o.active);
+    let capacity = 0;
+    let used = 0;
+    for (const o of mine) {
+      capacity += capacityOf(o, fw);
+      used += fillOf(o, fw, allocations, commitments, opts.policy).used;
+    }
+    const buffered = allocations.filter((a) => projectOfOutcome.get(a.outcomeId) === id && byId.has(a.commitmentKey) && opts.policy && inBuffer(byId.get(a.commitmentKey) as Commitment, opts.policy)).length;
+    const waitingParts = waiting.filter((c) => (opts.projectIdFor?.(c.projectName) ?? "") === id && id !== "").reduce((n, c) => n + c.partsPerInstalment, 0);
+    return { projectId: id, name: id === "" ? "Not in a project" : (projects.find((p) => p.id === id)?.name ?? id), beneficiaries: mine.length, capacity, used, free: Math.max(capacity - used, 0), inBuffer: buffered, waitingParts };
+  });
+  const general = waiting.filter((c) => !opts.projectIdFor?.(c.projectName));
+  return { rows, generalWaiting: { gifts: general.length, parts: general.reduce((n, c) => n + c.partsPerInstalment, 0) }, waitingGifts: waiting.length };
+}
+
+// ---- Placing a gift by hand into a place ----
+
+// The place and every place under it.
+export function placesUnder(nodes: Node[], nodeId: string): Set<string> {
+  const out = new Set<string>([nodeId]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const n of nodes) if (!out.has(n.id) && out.has(n.parentId)) { out.add(n.id); grew = true; }
+  }
+  return out;
+}
+
+/**
+ * Rule: a person drops a gift on a place. It goes to a beneficiary in that place, or under it, that uses the gift's framework and has room,
+ * chosen the same way as automatic allocation. A gift already placed is moved. A person may place a directed gift outside its project:
+ * that is their decision.
+ */
+export function placeInNode(allocations: Allocation[], commitments: Commitment[], outcomes: Outcome[], nodes: Node[], fw: FrameworkTemplate[], commitmentKey: string, nodeId: string, at: string, policy?: Policy): Changed<Allocation[]> {
+  const c = commitments.find((x) => x.subscriptionId === commitmentKey);
+  const node = nodes.find((x) => x.id === nodeId);
+  if (!c) return { value: allocations, error: "That gift was not found." };
+  if (!node) return { value: allocations, error: "That place was not found." };
+  if (!takesCapacity(c, fw, policy)) return { value: allocations, error: "That gift no longer holds a place." };
+  const under = placesUnder(nodes, nodeId);
+  const candidates = outcomes.filter((o) => o.active && o.frameworkId === c.frameworkId && o.nodeId !== undefined && under.has(o.nodeId));
+  const others = allocations.filter((a) => a.commitmentKey !== commitmentKey);
+  const live = new Set(commitments.filter((x) => takesCapacity(x, fw, policy)).map((x) => x.subscriptionId));
+  const used = new Map<string, number>();
+  for (const a of others) if (live.has(a.commitmentKey)) used.set(a.outcomeId, (used.get(a.outcomeId) ?? 0) + a.parts);
+  const target = pickOutcome(candidates, fw, used, c.partsPerInstalment);
+  if (!target) return { value: allocations, error: `${node.name} has no room for ${c.partsPerInstalment} part${c.partsPerInstalment === 1 ? "" : "s"} of this kind.` };
+  return { value: [...others, { commitmentKey, outcomeId: target.id, parts: c.partsPerInstalment, how: "manual", at }] };
+}
+
+// Where automatic allocation would put each waiting gift, shown as a suggestion. Nothing is changed.
+export function suggestions(commitments: Commitment[], outcomes: Outcome[], fw: FrameworkTemplate[], allocations: Allocation[], opts: AllocOptions): Map<string, string> {
+  const before = new Set(allocations.map((a) => a.commitmentKey));
+  const r = autoAllocate(commitments, outcomes, fw, allocations, "", opts);
+  return new Map(r.allocations.filter((a) => !before.has(a.commitmentKey)).map((a) => [a.commitmentKey, a.outcomeId]));
+}

@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Allocation } from "../05-outcomes/outcomes";
 import type { Commitment } from "../04b-commitments/commitments";
-import { addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
+import { allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -132,5 +132,50 @@ describe("beneficiaries and the roll-up", () => {
     expect(r.byNode.get(nodes[1]!.id)).toEqual({ places: 6, used: 3, beneficiaries: 2 });
     expect(r.byNode.get(nodes[0]!.id)).toEqual({ places: 8, used: 3, beneficiaries: 4 });
     expect(r.byProject.get(pid)).toEqual({ places: 8, used: 3, beneficiaries: 4 });
+  });
+});
+
+describe("the allocation summary, suggestions, and placing a gift by hand (DECISIONS 66)", () => {
+  const gift = (sub: string, parts: number, projectName = "", over: Partial<Commitment> = {}) => ({ subscriptionId: sub, frameworkId: "shared", partsPerInstalment: parts, state: "in_progress", planStatus: "", projectName, firstPaid: `2026-01-0${sub}`, planned: 12, paid: 2, nextDue: "", planPaid: null, ...over }) as unknown as Commitment;
+  function world() {
+    const { projects, nodes } = sample();
+    const pid = projects[0]!.id;
+    const kids = addBeneficiaries([], projects, nodes, { projectId: pid, nodeId: nodes[2]!.id, typeId: "child", name: "Orphan", count: 2 }).value;
+    return { projects, nodes, kids, pid, opts: allocOptions(projects, 1, "2026-11-20") };
+  }
+
+  it("totals each project, with waiting gifts directed to it and general ones counted on their own", () => {
+    const { projects, kids, opts } = world();
+    const gifts = [gift("1", 3, "Aghosh"), gift("2", 3, "Aghosh"), gift("3", 3, "Aghosh"), gift("4", 1, "Where Needed Most")];
+    const alloc: Allocation[] = [{ commitmentKey: "1", outcomeId: kids[0]!.id, parts: 3, how: "auto", at: "x" }];
+    const sum = allocationSummary(projects, kids, FW, alloc, gifts, opts);
+    expect(sum.rows[0]).toMatchObject({ name: "Aghosh Orphan Homes", beneficiaries: 2, capacity: 6, used: 3, free: 3, waitingParts: 6, inBuffer: 0 });
+    expect(sum.generalWaiting).toEqual({ gifts: 1, parts: 1 });
+    expect(sum.waitingGifts).toBe(3);
+  });
+  it("counts a sponsor who is behind but inside the buffer", () => {
+    const { projects, kids, opts } = world();
+    const late = gift("1", 3, "Aghosh", { planStatus: "active", nextDue: "2026-11-05", planned: 12, planPaid: 2 });
+    const alloc: Allocation[] = [{ commitmentKey: "1", outcomeId: kids[0]!.id, parts: 3, how: "auto", at: "x" }];
+    expect(allocationSummary(projects, kids, FW, alloc, [late], opts).rows[0]?.inBuffer).toBe(1);
+  });
+  it("suggests where each waiting gift would go, without changing anything", () => {
+    const { kids, opts } = world();
+    const s = suggestions([gift("1", 3, "Aghosh"), gift("2", 3, "Aghosh"), gift("3", 3, "Aghosh")], kids, FW, [], opts);
+    expect([...s.values()]).toEqual([kids[0]!.id, kids[1]!.id]); // two children, so the third gift has no suggestion
+    expect(s.has("3")).toBe(false);
+  });
+  it("places a gift in a place or under it, moves one already placed, and says when there is no room", () => {
+    const { projects, nodes, kids, opts } = world();
+    const gifts = [gift("1", 3, "Aghosh"), gift("2", 3, "Aghosh"), gift("3", 3, "Aghosh")];
+    expect(placesUnder(nodes, nodes[0]!.id).size).toBe(3);
+    const a = placeInNode([], gifts, kids, nodes, FW, "1", nodes[0]!.id, "t", opts.policy); // dropped on the branch, lands on a child in its class
+    expect(a.value).toHaveLength(1);
+    expect(a.value[0]).toMatchObject({ how: "manual", parts: 3 });
+    const b = placeInNode(a.value, gifts, kids, nodes, FW, "2", nodes[2]!.id, "t", opts.policy);
+    expect(b.value).toHaveLength(2);
+    expect(placeInNode(b.value, gifts, kids, nodes, FW, "3", nodes[2]!.id, "t", opts.policy).error).toContain("no room");
+    expect(placeInNode([], gifts, kids, nodes, FW, "9", nodes[2]!.id, "t").error).toContain("not found");
+    void projects;
   });
 });

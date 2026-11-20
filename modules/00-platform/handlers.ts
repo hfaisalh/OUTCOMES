@@ -19,7 +19,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSION_SECONDS, verifyToken, signToken, clearSessionCookie, type Claims } from "./launch-token.js";
 import { excludeWorkOrder, restoreWorkOrder, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import { allocatable } from "../04b-commitments/commitments.js";
-import { allocOptions, applyProjectAction } from "../06-projects/projects.js";
+import { allocOptions, applyProjectAction, placeInNode } from "../06-projects/projects.js";
 import { addOutcomes, autoAllocate, DEFAULT_BUFFER_MONTHS, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive } from "../05-outcomes/outcomes.js";
 import { applyDecision, buildAttention } from "../04-triage/triage.js";
 import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
@@ -352,6 +352,12 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       }
       case "move": {
         const r = moveAllocation(allocations, await commitments(), outcomes, fw, str("commitmentKey"), str("outcomeId"), at, allocOptions(projects, bufferMonths, at.slice(0, 10)).policy);
+        if (r.error) return fail(r.error);
+        allocations = r.value;
+        break;
+      }
+      case "place-in-node": {
+        const r = placeInNode(allocations, await commitments(), outcomes, nodes, fw, str("commitmentKey"), str("nodeId"), at, allocOptions(projects, bufferMonths, at.slice(0, 10)).policy);
         if (r.error) return fail(r.error);
         allocations = r.value;
         break;
