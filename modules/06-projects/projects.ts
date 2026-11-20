@@ -244,7 +244,7 @@ export interface ProjectState {
   outcomes: Outcome[];
 }
 
-export const PROJECT_ACTIONS = ["add-project", "add-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "set-field", "add-beneficiaries"];
+export const PROJECT_ACTIONS = ["assign-crm-name", "add-project", "add-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "set-field", "add-beneficiaries"];
 export const MAX_RECORDS = 5000;
 
 /**
@@ -258,6 +258,10 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
   const done = (state: ProjectState, warning?: string) => ({ state, ...(warning ? { warning } : {}) });
   const fail = (error: string) => ({ state: s, error });
   switch (action) {
+    case "assign-crm-name": {
+      const r = assignCrmName(s.projects, str("name", 200), str("projectId"));
+      return r.error ? fail(r.error) : done({ ...s, projects: r.value });
+    }
     case "add-project": {
       const r = addProject(s.projects, str("name"), str("aliases", 400).split(",").slice(0, 20));
       return r.error ? fail(r.error) : done({ ...s, projects: r.value });
@@ -393,4 +397,46 @@ export function suggestions(commitments: Commitment[], outcomes: Outcome[], fw: 
   const before = new Set(allocations.map((a) => a.commitmentKey));
   const r = autoAllocate(commitments, outcomes, fw, allocations, "", opts);
   return new Map(r.allocations.filter((a) => !before.has(a.commitmentKey)).map((a) => [a.commitmentKey, a.outcomeId]));
+}
+
+// ---- Matching the names the CRM uses to projects (DECISIONS 67) ----
+
+export interface CrmName {
+  name: string; // as the CRM spells it on the donation lines
+  gifts: number; // how many gifts carry it
+  projectId: string; // the project it goes to, "" for general (any project)
+  suggestion: string; // a project id that looks like the same thing, "" when none. Only for names not matched yet
+}
+
+const words = (s: string): string[] => s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
+
+/**
+ * Rule: the names the CRM uses on gifts, with how many gifts each has and where each goes now. Names are read from the work orders, so the
+ * list is always real. A name that already matches a project (by its name or an alias) shows that project. For one that does not, a project
+ * that shares a whole word with it is suggested (Aghosh with Aghosh Orphan Homes). A person decides: nothing is matched by itself.
+ */
+export function crmProjectNames(workOrders: { projectName?: string; status: string }[], projects: Project[]): CrmName[] {
+  const count = new Map<string, number>();
+  for (const w of workOrders) {
+    const n = clean(w.projectName ?? "");
+    if (n !== "" && w.status !== "excluded") count.set(n, (count.get(n) ?? 0) + 1);
+  }
+  return [...count.entries()].map(([name, gifts]): CrmName => {
+    const matched = matchProject(projects, name);
+    const suggestion = matched ? "" : (projects.find((p) => words(p.name).some((w) => words(name).includes(w)))?.id ?? "");
+    return { name, gifts, projectId: matched?.id ?? "", suggestion };
+  }).sort((a, b) => b.gifts - a.gifts || a.name.localeCompare(b.name));
+}
+
+// Rule: point a CRM name at one project, or at none (general). The name is taken off every other project first, so it goes to one place only.
+export function assignCrmName(projects: Project[], crmName: string, projectId: string): Changed<Project[]> {
+  const name = clean(crmName);
+  if (name === "") return { value: projects, error: "That name is empty." };
+  if (projectId !== "" && !projects.some((p) => p.id === projectId)) return { value: projects, error: "That project was not found." };
+  const value = projects.map((p) => {
+    const aliases = p.aliases.filter((a) => !same(a, name));
+    // A project already answers to its own name, so nothing is added for that.
+    return p.id === projectId && !same(p.name, name) ? { ...p, aliases: [...aliases, name] } : { ...p, aliases };
+  });
+  return { value };
 }

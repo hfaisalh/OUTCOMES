@@ -19,7 +19,7 @@ Framework templates (Module 2), outcomes and allocations (Module 5), commitments
 - A gift's project name is matched to a project by its name or an alias. No match means a general gift.
 - Nothing is removed while it is in use: a place with places or beneficiaries, a type with beneficiaries.
 
-- A gift's project (the CRM's Project on the line) decides where it can go: a match makes it directed, anything else is general.
+- A gift's project (the CRM's Project on the line) decides where it can go: a match makes it directed, anything else is general. The Projects page lists the names the CRM uses with their counts, and a person chooses where each goes (a name goes to one project only). A suggestion is offered for a name that shares a whole word with a project (DECISIONS 67).
 - General gifts are spread across places, and a directed gift whose project is full waits for a person (DECISIONS 66).
 - The summary per project (beneficiaries, units, sponsored, free, in buffer, waiting, surplus or deficit), suggestions, and placing a gift by hand into a place are pure functions here too.
 

@@ -9,7 +9,7 @@
 
 import { allocatable } from "../modules/04b-commitments/commitments";
 import { perPeriodRule } from "../modules/05-outcomes/outcomes";
-import { allocOptions, orderedLevels, rollupOf, type Node, type Project } from "../modules/06-projects/projects";
+import { allocOptions, crmProjectNames, orderedLevels, rollupOf, type Node, type Project } from "../modules/06-projects/projects";
 import { esc, type View } from "./pages";
 
 // Starting shapes for a new project, so nobody builds the structure from nothing.
@@ -29,14 +29,23 @@ export function projectsPage(v: View): string {
   const project = projects.find((p) => p.id === v.openProject) ?? projects[0];
 
   const create = `<div class="card"><h2>New project</h2>
-    <div class="actions"><input id="pj-name" placeholder="Project name, for example Aghosh Orphan Homes" /><input id="pj-aliases" placeholder="Names the CRM uses, separated by commas (optional)" />
+    <div class="actions"><input id="pj-name" placeholder="Project name, for example Aghosh Orphan Homes" />
       <select id="pj-template" aria-label="Start from">${PROJECT_TEMPLATES.map((t) => `<option value="${t.id}">${esc(t.label)}</option>`).join("")}</select>
       <button class="primary" data-action="add-project">Create project</button></div>
-    <p class="muted">A gift that names one of these CRM names goes to this project. A gift that names none is general and can go to any project.</p></div>`;
+    <p class="muted">After creating a project, match the names the CRM uses to it in the list below.</p></div>`;
+
+  // The names the CRM uses on gifts, matched to projects by choosing from a list (DECISIONS 67). A person decides, and a suggestion is only a starting point.
+  const names = crmProjectNames(v.workOrders, projects);
+  const suggestable = names.filter((n) => n.suggestion !== "");
+  const projectName = (id: string) => projects.find((p) => p.id === id)?.name ?? id;
+  const crmCard = names.length ? `<div class="card"><h2>Names the CRM uses <span class="muted">(${names.length})</span></h2>
+    <p class="muted">The project a donor chose at checkout, counted on your gifts. Choose where each one goes. A gift that names a project here goes to that project only (a directed gift). "Any project" is a general gift, which can go anywhere. Where Needed Most should stay general.</p>
+    ${suggestable.length ? `<div class="actions"><button class="primary" data-action="assign-crm-all" data-pairs="${esc(JSON.stringify(suggestable.map((n) => [n.name, n.suggestion])))}">Use ${suggestable.length} suggestion${suggestable.length === 1 ? "" : "s"}</button></div>` : ""}
+    <div class="twrap"><table><thead><tr><th>CRM name</th><th>Gifts</th><th>Goes to</th></tr></thead><tbody>${names.map((n) => `<tr><td>${esc(n.name)}</td><td>${n.gifts}</td><td><select data-crm-name="${esc(n.name)}" aria-label="Where ${esc(n.name)} goes"><option value="">Any project (general)</option>${projects.map((p) => `<option value="${esc(p.id)}"${p.id === n.projectId ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</select>${n.suggestion ? ` <button data-action="assign-crm" data-name="${esc(n.name)}" data-project="${esc(n.suggestion)}">Use ${esc(projectName(n.suggestion))}</button> <span class="muted">suggested</span>` : ""}</td></tr>`).join("")}</tbody></table></div></div>` : `<div class="card"><h2>Names the CRM uses</h2><div class="empty">No gifts carry a project name yet. Load the donation lines with the Project column ticked.</div></div>`;
   const head = `<h1>Projects</h1>
     <p class="sub">A project is somewhere that sponsors people or things, such as an orphan home. Build the structure it uses, say who lives at each level and how they are sponsored, then add them. Test records are numbered for now. Profile details come later.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}`;
-  if (!project) return `${head}${create}<div class="card empty">No projects yet. Create the first one above.</div>`;
+  if (!project) return `${head}${create}${crmCard}<div class="card empty">No projects yet. Create the first one above.</div>`;
 
   const levels = orderedLevels(project);
   const mine = nodes.filter((n) => n.projectId === project.id);
@@ -92,5 +101,7 @@ export function projectsPage(v: View): string {
       <button class="primary" data-action="add-beneficiaries"${project.types.length && mine.length ? "" : " disabled"}>Add</button></div>
     <p class="muted">Several at once are numbered: Orphan 1, Orphan 2 and so on. ${total.beneficiaries} in ${esc(project.name)}, ${total.used} of ${total.places} units sponsored.</p></div>`;
 
-  return `${head}${create}${picker}${levelCard}${typeCard}${placeCard}${benCard}`;
+  const answersTo = [project.name, ...project.aliases].map((n) => `<b>${esc(n)}</b>`).join(", ");
+  const goes = `<p class="muted">Gifts that name ${answersTo} in the CRM go to ${esc(project.name)}. Change this in the list of CRM names above.</p>`;
+  return `${head}${create}${crmCard}${picker}${goes}${levelCard}${typeCard}${placeCard}${benCard}`;
 }

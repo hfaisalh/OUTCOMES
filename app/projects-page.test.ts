@@ -51,3 +51,18 @@ describe("projectsPage", () => {
     expect(html).toContain("&lt;img");
   });
 });
+  it("lists the names the CRM uses with their counts, a place to choose where each goes, and a suggestion", () => {
+    const { projects, nodes, outcomes } = built();
+    const wo = (n: string) => ({ key: n, projectName: n, status: "ready" }) as never;
+    const html = projectsPage(base({ projects, nodes, outcomes, workOrders: [wo("Where Needed Most"), wo("Where Needed Most"), wo("Aghosh"), wo("Aghosh Girls Home")] }));
+    expect(html).toContain("Names the CRM uses");
+    expect(html).toContain('data-crm-name="Where Needed Most"');
+    expect(html).toContain("Any project (general)");
+    expect(html).toContain('data-action="assign-crm"');
+    expect(html).toContain("Use 1 suggestion");
+    expect(html).toContain("Gifts that name <b>Aghosh Orphan Homes</b>, <b>Aghosh</b> in the CRM go to Aghosh Orphan Homes");
+  });
+  it("says so when no gift carries a project name", () => {
+    expect(projectsPage(base())).toContain("No gifts carry a project name yet");
+  });
+});

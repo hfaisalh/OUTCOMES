@@ -426,6 +426,13 @@ document.addEventListener("click", (e) => {
     state.itemCategories = acceptSuggestions(state.itemCategories, view().suggestions);
     afterConfig();
   }
+  // Matching a CRM project name to a project (DECISIONS 67).
+  if (action === "assign-crm") return void outcomeChange({ action: "assign-crm-name", name: el.dataset.name, projectId: el.dataset.project });
+  if (action === "assign-crm-all") {
+    const pairs = JSON.parse(el.dataset.pairs ?? "[]") as [string, string][];
+    void (async () => { for (const [name, projectId] of pairs) await outcomeChange({ action: "assign-crm-name", name, projectId }); })();
+    return;
+  }
   // Projects (DECISIONS 65).
   if (["add-project", "add-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "add-beneficiaries"].includes(action ?? "")) {
     const val = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value ?? "";
@@ -645,8 +652,9 @@ document.addEventListener("change", (e) => {
   }
   // Rule: only a field the page knows about causes a redraw. Any other field (the owner passphrase box, for example)
   // must be left alone, because a redraw would wipe what was typed and replace the button the person is about to press.
-  const known = t.id === "role" || t.dataset.ocMove !== undefined || t.dataset.ocf !== undefined || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords || t.dataset.pjOpen !== undefined || t.dataset.placeSelect !== undefined || t.dataset.buffer !== undefined;
+  const known = t.id === "role" || t.dataset.ocMove !== undefined || t.dataset.ocf !== undefined || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords || t.dataset.pjOpen !== undefined || t.dataset.crmName !== undefined || t.dataset.placeSelect !== undefined || t.dataset.buffer !== undefined;
   if (!known) return;
+  if (t.dataset.crmName !== undefined) return void outcomeChange({ action: "assign-crm-name", name: t.dataset.crmName, projectId: t.value });
   if (t.dataset.placeSelect !== undefined) {
     if (t.value !== "") void outcomeChange({ action: "place-in-node", commitmentKey: t.dataset.placeSelect, nodeId: t.value });
     return;
