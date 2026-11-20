@@ -22,7 +22,7 @@ import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { DEMO_ROLES, demoCategories, demoFeedRows } from "./demo-data";
-import { landingPage, visibleMenu, type PageId } from "./menu";
+import { landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
 import { commitmentsPage, commitmentList, listBlock, listHtml, listBase, workOrderList, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
 
 const state = {
@@ -210,17 +210,24 @@ function draw(): void {
     : state.page === "categories" ? categoriesPage(v)
     : state.page === "sources" ? sourcesPage()
     : settingsPage(v);
+  // Side menu: a module (Intake) is one entry, its pages are tabs above the page (DECISIONS 54).
+  const entries = menuEntries(permissions());
   const sections = ["Work", "Set up"].map((s) => {
-    const items = menu.filter((m) => m.section === s);
-    return items.length ? `<h4>${s}</h4>${items.map((m) => `<a data-page="${m.id}" class="${m.id === state.page ? "on" : ""}"><span class="ico">${m.icon}</span>${m.label}</a>`).join("")}` : "";
+    const items = entries.filter((e) => e.section === s);
+    return items.length ? `<h4>${s}</h4>${items.map((e) => `<a data-page="${(e.pages[0] as { id: string }).id}" class="${e.pages.some((p) => p.id === state.page) ? "on" : ""}"><span class="ico">${e.icon}</span>${e.label}</a>`).join("")}` : "";
   }).join("");
+  const current = entries.find((e) => e.pages.some((p) => p.id === state.page));
+  const openCount = (state.live() ? state.attention : view().attention ?? []).filter((i) => i.status === "open").length;
+  const moduleTabs = current?.module && current.pages.length > 1
+    ? `<div class="modhead"><b>${esc(current.module.label)}</b><span class="muted">${esc(current.module.blurb)}</span></div><div class="modtabs">${current.pages.map((p) => `<button data-page="${p.id}" class="${p.id === state.page ? "on" : ""}">${esc(p.label)}${p.id === "attention" && openCount > 0 ? ` <span class="pill review">${openCount}</span>` : ""}</button>`).join("")}</div>`
+    : "";
   const shell = document.getElementById("shell") as HTMLElement;
   shell.innerHTML = `<div class="app">
     <aside class="side"><div class="brand">OUTCOMES<small>Minhaj Welfare Foundation</small></div><nav class="nav">${sections}</nav><div class="foot">${state.me ? "Live data from your CRM." : "Demo with invented data. Nothing is saved."}</div></aside>
     <header class="top">${state.me ? `<span class="badge-demo">Signed in from the CRM${state.me.storage === "memory" ? " · TEMPORARY STORAGE, nothing is kept" : ""}</span>
       <div class="who"><span>${esc(state.me.name)} · ${esc(state.me.org)}</span></div>` : `<span class="badge-demo">Opened from the CRM (imitated)</span>
       <div class="who"><span>Signed in as Sample User</span><select id="role" title="Pretend to hold this CRM role">${DEMO_ROLES.map((r) => `<option value="${r.id}"${r.id === state.roleId ? " selected" : ""}>${esc(r.name)}</option>`).join("")}</select></div>`}</header>
-    <main class="content">${body}</main></div>`;
+    <main class="content">${moduleTabs}${body}</main></div>`;
   void role;
 }
 
