@@ -7,13 +7,13 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { partnerFormHtml } from "./partner-form";
+import { partnerProfileHtml } from "./partner-form";
 
 const ctx = { types: ["Institute", "Contractor"], fields: ["Registration no."], items: [{ id: "MWF-WAT-001", name: "Small Water Pump" }, { id: "MWF-ORP-001", name: "Orphan Sponsorship" }], others: [{ id: "aghosh", name: "Aghosh" }] };
 
-describe("partnerFormHtml", () => {
+describe("partnerProfileHtml", () => {
   it("asks for the whole profile, with the organisation's own types, items and extra fields", () => {
-    const html = partnerFormHtml({}, "", ctx);
+    const html = partnerProfileHtml({}, "", ctx);
     for (const w of ["Who they are", "Contacts", "Where they work", "What they deliver", "How they report", "Due diligence", "Notes and documents", "Extra fields", "Structure"]) expect(html).toContain(w);
     expect(html).toContain("New type...");
     expect(html).toContain(">Contractor<");
@@ -23,13 +23,12 @@ describe("partnerFormHtml", () => {
     expect(html).toContain("Only the name and the type are required");
   });
   it("has no fixed list of types of its own", () => {
-    const html = partnerFormHtml({}, "", { ...ctx, types: [] });
+    const html = partnerProfileHtml({}, "", { ...ctx, types: [] });
     expect(html).not.toContain("Institute");
     expect(html).toContain("New type...");
   });
   it("fills in a partner being edited, ticks its items, keeps a type that is not in the list, and offers no structure copy", () => {
-    const html = partnerFormHtml({ name: "SDO", type: "Supplier", itemIds: ["MWF-WAT-001"], capacity: 40, ddStatus: "approved", custom: { "Registration no.": "R9" }, contacts: [{ name: "A Person", position: "", phone: "", mobile: "", email: "a@example.org", handles: "" }] }, "sdo", ctx);
-    expect(html).toContain("Edit partner");
+    const html = partnerProfileHtml({ name: "SDO", type: "Supplier", itemIds: ["MWF-WAT-001"], capacity: 40, ddStatus: "approved", custom: { "Registration no.": "R9" }, contacts: [{ name: "A Person", position: "", phone: "", mobile: "", email: "a@example.org", handles: "" }] }, "sdo", ctx);
     expect(html).toContain('value="SDO"');
     expect(html).toContain('<option value="Supplier" selected>');
     expect(html).toMatch(/value="MWF-WAT-001" checked/);
@@ -41,7 +40,7 @@ describe("partnerFormHtml", () => {
     expect(html).not.toContain("A copy of Aghosh");
   });
   it("shows an error where the person is looking, and never trusts text as HTML", () => {
-    const html = partnerFormHtml({ name: "<img src=x onerror=alert(1)>", notes: "<script>alert(1)</script>" }, "", ctx, "Give the partner a name.");
+    const html = partnerProfileHtml({ name: "<img src=x onerror=alert(1)>", notes: "<script>alert(1)</script>" }, "", ctx, "Give the partner a name.");
     expect(html).toContain("Give the partner a name.");
     expect(html).not.toContain("<img");
     expect(html).not.toContain("<script>");

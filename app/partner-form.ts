@@ -1,7 +1,7 @@
 /**
  * partner-form.ts
  *
- * What it does: draws the partner profile pop-up (one form for creating a partner or editing one) and reads it back (DECISIONS 69).
+ * What it does: draws the partner profile form, which is the first tab of the partner window (DECISIONS 69, 70), and reads it back.
  * The profile covers identity, contacts, where the partner works, the items it delivers and its capacity, how it reports, the result of its
  * due diligence (done in a separate tool) and the organisation's own extra fields. Only the name and the type are required.
  * Who calls it: app/main.ts. Depends on: Module 6 (statuses and due diligence results) and esc from pages.ts. The HTML builder is pure. The reader needs a page.
@@ -28,13 +28,13 @@ const docRow = (d: { title?: string; url?: string } = {}) => `<div class="pf-row
 export const NEW_CONTACT_ROW = contactRow();
 export const NEW_DOC_ROW = docRow();
 
-export function partnerFormHtml(p: Partial<Project>, id: string, ctx: FormContext, error = ""): string {
+// The profile form as the body of the partner window: the fields, then the Save button (DECISIONS 69, 70).
+export function partnerProfileHtml(p: Partial<Project>, id: string, ctx: FormContext, error = ""): string {
   const types = [...new Set([...(p.type && !ctx.types.includes(p.type) ? [p.type] : []), ...ctx.types])];
   const picked = new Set(p.itemIds ?? []);
   const contacts = p.contacts && p.contacts.length ? p.contacts : [{}, {}];
   const docs = p.documents && p.documents.length ? p.documents : [{}];
-  return `<div class="pf-overlay" role="dialog" aria-modal="true" aria-label="${id ? "Edit partner" : "New partner"}"><div class="pf-box">
-    <header><h2>${id ? "Edit partner" : "New partner"}</h2><button data-pf="cancel" aria-label="Close">Close</button></header>
+  return `<div class="pf-profile">
     <div class="pf-body">
       <p class="muted">Only the name and the type are required. The rest can be filled in later.</p>
       <section><h3>Who they are</h3><div class="pf-grid">
@@ -59,8 +59,8 @@ export function partnerFormHtml(p: Partial<Project>, id: string, ctx: FormContex
         <div class="actions"><input id="pf-newfield" placeholder="Name of a new field" /><button data-pf="add-field">Add field</button></div></section>
       ${id ? "" : `<section><h3>Structure</h3><label class="pf-field"><span>Start the structure from</span><select id="pf-copy"><option value="">Nothing, I will build it</option>${ctx.others.map((o) => `<option value="${esc(o.id)}">A copy of ${esc(o.name)}</option>`).join("")}</select></label></section>`}
     </div>
-    <footer><span id="pf-error" class="pf-error" role="alert">${esc(error)}</span><button data-pf="cancel">Cancel</button><button class="primary" data-pf="save">Save partner</button></footer>
-  </div></div>`;
+    <footer><span id="pf-error" class="pf-error" role="alert">${esc(error)}</span><button data-pf="cancel">Close</button><button class="primary" data-pf="save">Save partner</button></footer>
+  </div>`;
 }
 
 // Reads the form back as the profile the server expects. Needs a page.

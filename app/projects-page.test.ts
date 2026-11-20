@@ -1,7 +1,7 @@
 /**
  * projects-page.test.ts
  *
- * What it does: tests the Projects page on an invented project: the empty start, the steps once a project is built, and that names are never trusted as HTML.
+ * What it does: tests the Partners page on invented partners: the empty start, the table of partners with one line each, the CRM names list, and escaping.
  * Who calls it: vitest. Depends on: projects-page.ts and Module 6.
  */
 
@@ -33,17 +33,22 @@ describe("projectsPage", () => {
     expect(html).toContain("No partners yet");
     expect(html).toContain('data-pf="new"');
     expect(html).not.toContain("Another charity");
-    expect(html).not.toContain("Orphan home or school");
   });
-  it("shows the levels, the types, the places with their roll-up, and the add forms", () => {
+  it("lists the partners as a table, one line each, that opens the partner's window", () => {
     const { projects, nodes, outcomes } = built();
-    const html = projectsPage(base({ projects, nodes, outcomes }));
-    expect(html).toContain("<b>Branch</b> &gt; <b>Class</b>");
-    expect(html).toContain("Child");
-    expect(html).toContain("Branch 1");
-    expect(html).toContain("Location: Lahore");
-    expect(html).toContain("4 beneficiaries, 0 of 12 units sponsored");
-    expect(html).toContain('data-action="add-beneficiaries"');
+    const html = projectsPage(base({ projects: [{ ...projects[0]!, type: "Institute", status: "pending", ddStatus: "pending", capacity: 40, itemIds: ["A", "B"], contacts: [{ name: "A Person", position: "", phone: "", mobile: "", email: "", handles: "" }] }], nodes, outcomes }));
+    expect(html).toContain('class="ptable"');
+    expect(html).toContain('data-pf="open" data-id="aghosh-orphan-homes"');
+    for (const w of ["Aghosh Orphan Homes", "Institute", "Pending", "2 items", "40", "4", "0 of 12", "A Person"]) expect(html).toContain(w);
+    expect(html).toContain("A partner takes gifts only when it is Active");
+    expect(html).not.toContain("Levels"); // the structure is in the partner's window now
+    expect(html).not.toContain("Add beneficiaries");
+  });
+  it("shows an active, approved partner as Active", () => {
+    const { projects, nodes, outcomes } = built();
+    const html = projectsPage(base({ projects: [{ ...projects[0]!, status: "active", ddStatus: "approved" }], nodes, outcomes, today: "2026-11-20" }));
+    expect(html).toContain('<span class="pill ok">Active</span>');
+    expect(html).toContain('<span class="pill ok">Approved</span>');
   });
   it("never trusts a name as HTML", () => {
     const projects = addProject([], "<img src=x onerror=alert(1)>").value;
@@ -51,7 +56,7 @@ describe("projectsPage", () => {
     expect(html).not.toContain("<img");
     expect(html).toContain("&lt;img");
   });
-  it("lists the names the CRM uses with their counts, a place to choose where each goes, and a suggestion", () => {
+  it("lists the names the CRM uses with their counts and a tick box for every partner, and a suggestion", () => {
     const { projects, nodes, outcomes } = built();
     const wo = (n: string) => ({ key: n, projectName: n, status: "ready", subscriptionId: "", instalmentCount: "", paidDate: "" }) as never;
     const html = projectsPage(base({ projects, nodes, outcomes, workOrders: [wo("Where Needed Most"), wo("Where Needed Most"), wo("Aghosh"), wo("Aghosh Girls Home")] }));
@@ -61,19 +66,6 @@ describe("projectsPage", () => {
     expect(html).toContain("General, any partner.");
     expect(html).toContain('data-action="assign-crm"');
     expect(html).toContain("Use 1 suggestion");
-    expect(html).toContain("Gifts that name <b>Aghosh Orphan Homes</b>, <b>Aghosh</b> in the CRM go to this partner");
-  });
-  it("shows the partner's type, status, due diligence, capacity and what it delivers, with an Edit profile button", () => {
-    const { projects, nodes, outcomes } = built();
-    const html = projectsPage(base({ projects: [{ ...projects[0]!, type: "Contractor", status: "pending", ddStatus: "pending", capacity: 40, capacityNote: "two crews", reportVia: "WhatsApp", itemIds: ["A", "B"] }], nodes, outcomes }));
-    expect(html).toContain("Contractor");
-    expect(html).toContain("Pending");
-    expect(html).toContain("Due diligence: Pending");
-    expect(html).toContain("capacity 40 jobs (two crews)");
-    expect(html).toContain("reports by WhatsApp");
-    expect(html).toContain("delivers 2 items");
-    expect(html).toContain("takes no new gifts until it is active");
-    expect(html).toContain('data-pf="edit"');
   });
   it("says so when no gift carries a project name", () => {
     expect(projectsPage(base())).toContain("No gifts carry a project name yet");

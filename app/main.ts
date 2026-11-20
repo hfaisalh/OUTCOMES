@@ -13,7 +13,8 @@
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { allocOptions, applyProjectAction, placeInNode, type Node, type Project } from "../modules/06-projects/projects";
 import { projectsPage } from "./projects-page";
-import { NEW_CONTACT_ROW, NEW_DOC_ROW, partnerFormHtml, readPartnerForm } from "./partner-form";
+import { NEW_CONTACT_ROW, NEW_DOC_ROW, readPartnerForm } from "./partner-form";
+import { partnerWindowHtml, type PartnerTab } from "./partner-window";
 import { allocationPage } from "./allocation-page";
 import { addOutcomes, autoAllocate, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, type Allocation, type Outcome } from "../modules/05-outcomes/outcomes";
 import { allocatable } from "../modules/04b-commitments/commitments";
@@ -52,6 +53,7 @@ const state = {
   allocations: [] as Allocation[],
   projects: [] as Project[], // the projects and the places in them (DECISIONS 65)
   nodes: [] as Node[],
+  partnerWin: { open: false, id: "", tab: "profile" as PartnerTab, draft: null as Record<string, unknown> | null }, // the partner window (DECISIONS 70)
   partnerTypes: [] as string[], // the organisation's own list of partner types (DECISIONS 69)
   partnerFields: [] as string[], // and its own extra partner fields
   bufferMonths: 1, // payments a plan may miss and still hold its place (DECISIONS 66)
@@ -310,6 +312,8 @@ function draw(): void {
       <div class="who"><span>Signed in as Sample User</span><select id="role" title="Pretend to hold this CRM role">${DEMO_ROLES.map((r) => `<option value="${r.id}"${r.id === state.roleId ? " selected" : ""}>${esc(r.name)}</option>`).join("")}</select>${gear}</div>`}</header>
     <main class="content">${moduleTabs}${body}</main></div>`;
   void role;
+  // The partner window sits outside the page, so it is drawn again from the new state, except on the profile tab, which keeps what is being typed.
+  if (state.partnerWin.open && state.partnerWin.tab !== "profile") renderPartnerWindow();
 }
 
 document.addEventListener("click", (e) => {
@@ -760,26 +764,38 @@ document.addEventListener("drop", (e) => {
   }
 });
 
-// ---- The partner profile pop-up (DECISIONS 69) ----
-// It lives outside the page that is redrawn, so nothing typed in it is lost when the page behind it refreshes.
+// ---- The partner window (DECISIONS 69, 70) ----
+// It lives outside the page that is redrawn, so nothing typed in the profile is lost when the page behind it refreshes.
 function partnerCtx() {
   const v = view();
   return { types: state.partnerTypes, fields: state.partnerFields, items: v.flaggedItems.map((i) => ({ id: i.id, name: i.name })), others: state.projects.filter((p) => p.levels.length > 0).map((p) => ({ id: p.id, name: p.name })) };
 }
-function openPartnerForm(id: string, draft?: Record<string, unknown>, error = ""): void {
+// Draws the window from the current state. The scroll position is kept, so adding a row does not jump to the top.
+function renderPartnerWindow(error = "", ok = false): void {
+  const w = state.partnerWin;
+  if (!w.open) return;
   let root = document.getElementById("modal-root");
   if (!root) {
     root = document.createElement("div");
     root.id = "modal-root";
     document.body.appendChild(root);
   }
-  const existing = state.projects.find((p) => p.id === id);
-  const profile = (draft ?? existing ?? {}) as Parameters<typeof partnerFormHtml>[0];
-  root.dataset.id = id;
-  root.innerHTML = partnerFormHtml(profile, id, partnerCtx(), error);
+  const scroll = (root.querySelector(".pf-body") as HTMLElement | null)?.scrollTop ?? 0;
+  const existing = state.projects.find((p) => p.id === w.id);
+  root.dataset.id = w.id;
+  root.innerHTML = partnerWindowHtml(view(), w.id, w.tab, partnerCtx(), (w.draft ?? existing ?? {}) as Parameters<typeof partnerWindowHtml>[4], error);
+  const body = root.querySelector(".pf-body") as HTMLElement | null;
+  if (body) body.scrollTop = scroll;
+  if (ok) document.getElementById("pf-error")?.classList.add("ok");
   syncNewType();
 }
-function closePartnerForm(): void {
+function openPartnerWindow(id: string, tab: PartnerTab = "profile"): void {
+  state.partnerWin = { open: true, id, tab, draft: null };
+  if (id) state.openProject = id;
+  renderPartnerWindow();
+}
+function closePartnerWindow(): void {
+  state.partnerWin = { open: false, id: "", tab: "profile", draft: null };
   const root = document.getElementById("modal-root");
   if (root) root.innerHTML = "";
 }
@@ -789,20 +805,31 @@ function syncNewType(): void {
   const wrap = document.getElementById("pf-newtype-wrap");
   if (sel && wrap) wrap.hidden = sel.value !== "__new__";
 }
-// A profile read from the form, with the type chosen as the new type's name when "New type..." was used.
 const readForm = () => readPartnerForm(document.getElementById("modal-root") as HTMLElement);
 
 document.addEventListener("change", (e) => {
   if ((e.target as HTMLElement).id === "pf-type") syncNewType();
 });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && state.partnerWin.open) closePartnerWindow();
+  const row = (e.target as HTMLElement).closest?.(".rowlink") as HTMLElement | null;
+  if (row && e.key === "Enter") openPartnerWindow(row.dataset.id ?? "");
+});
 document.addEventListener("click", (e) => {
-  const el = (e.target as HTMLElement).closest("[data-pf]") as HTMLElement | null;
+  const target = e.target as HTMLElement;
+  const tabBtn = target.closest("[data-pf-tab]") as HTMLElement | null;
+  if (tabBtn && !(tabBtn as HTMLButtonElement).disabled) {
+    if (state.partnerWin.tab === "profile") state.partnerWin.draft = readForm(); // what was typed is kept while another tab is open
+    state.partnerWin.tab = tabBtn.dataset.pfTab as PartnerTab;
+    return renderPartnerWindow();
+  }
+  const el = target.closest("[data-pf]") as HTMLElement | null;
   if (!el) return;
-  const root = document.getElementById("modal-root") as HTMLElement | null;
   const what = el.dataset.pf;
-  if (what === "new") return openPartnerForm("");
-  if (what === "edit") return openPartnerForm(el.dataset.id ?? "");
-  if (what === "cancel") return closePartnerForm();
+  if (what === "new") return openPartnerWindow("");
+  if (what === "open" || what === "edit") return openPartnerWindow(el.dataset.id ?? "");
+  if (what === "cancel") return closePartnerWindow();
+  const root = document.getElementById("modal-root") as HTMLElement | null;
   if (!root) return;
   if (what === "add-contact") return void document.getElementById("pf-contacts")?.insertAdjacentHTML("beforeend", NEW_CONTACT_ROW);
   if (what === "add-doc") return void document.getElementById("pf-docs")?.insertAdjacentHTML("beforeend", NEW_DOC_ROW);
@@ -811,23 +838,29 @@ document.addEventListener("click", (e) => {
     const draft = readForm();
     const name = what === "add-field" ? (document.getElementById("pf-newfield") as HTMLInputElement).value : (el.dataset.name ?? "");
     if (name.trim() === "") return;
-    void outcomeChange({ action: what === "add-field" ? "add-partner-field" : "remove-partner-field", name }).then(() => openPartnerForm(root.dataset.id ?? "", draft, lastError));
+    void outcomeChange({ action: what === "add-field" ? "add-partner-field" : "remove-partner-field", name }).then(() => {
+      state.partnerWin.draft = draft;
+      renderPartnerWindow(lastError);
+    });
     return;
   }
   if (what === "save") {
     const profile = readForm();
-    const id = root.dataset.id ?? "";
+    const w = state.partnerWin;
     const copyFrom = (document.getElementById("pf-copy") as HTMLSelectElement | null)?.value ?? "";
-    void outcomeChange({ action: "save-partner", projectId: id, copyFrom, profile }).then(() => {
+    void outcomeChange({ action: "save-partner", projectId: w.id, copyFrom, profile }).then(() => {
       if (lastError !== "") {
         const box = document.getElementById("pf-error");
         if (box) box.textContent = lastError;
         return;
       }
       const made = state.projects.find((p) => p.name.toLowerCase() === String(profile["name"] ?? "").trim().replace(/\s+/g, " ").toLowerCase());
-      if (made) state.openProject = made.id;
-      closePartnerForm();
-      draw();
+      const wasNew = w.id === "";
+      if (made) { w.id = made.id; state.openProject = made.id; }
+      w.draft = null;
+      // A new partner goes on to its structure. An edited one stays where it is and says it was saved.
+      if (wasNew) w.tab = "structure";
+      renderPartnerWindow(wasNew ? "" : "Saved.", !wasNew);
     });
   }
 });

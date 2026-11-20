@@ -35,7 +35,7 @@ Framework templates (Module 2), outcomes and allocations (Module 5), commitments
 | `projects.ts` | All the rules above as pure functions, and `applyProjectAction`, which the server and the demo both use |
 | `projects.test.ts` | Tests and examples on invented data |
 
-The screens are `app/projects-page.ts` (Projects) and `app/allocation-page.ts` (Allocation, Place gifts). The server actions are on `/api/outcomes` (Vercel's Hobby plan allows only 12 functions).
+The screens are `app/projects-page.ts` (the table of partners and the CRM names), `app/partner-window.ts` and `app/partner-form.ts` (one partner's window: profile, structure, beneficiaries) and `app/allocation-page.ts` (Allocation, Place gifts). The server actions are on `/api/outcomes` (Vercel's Hobby plan allows only 12 functions).
 
 ## How to test
-`npm test`. To try it: Projects, create a project from the school template, add a type (Child, at Class, sponsored as shared parts), add places (Branch 1, then Block A, then Class 5A), then add 20 beneficiaries to Class 5A.
+`npm test`. To try it: Partners, New partner (name and type), Save. Then on its Structure tab add levels (Branch, Block, Class), a type (Child, at Class, sponsored as shared parts) and places (Branch 1, Block A, Class 5A). Then on its Beneficiaries tab add 20 to Class 5A.
