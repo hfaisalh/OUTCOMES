@@ -87,6 +87,12 @@ describe("adaptExports", () => {
     expect(notes[0]?.message).toContain("3 of 7 lines");
   });
 
+  it("counts a guessed or unknown instalment count only for lines that need feedback", () => {
+    const lines = load("export-donation-lines-sample.csv").map((l) => (l["Line ID"] === "9006" ? { ...l, "Item Code": "MWF-GEN-001" } : l)); // an acknowledgement-only item
+    const r = adaptExports(lines, load("export-catalogue-sample.csv"), []);
+    expect(r.counts.recurringCountUnknown).toBe(1); // only 9005 is counted, 9006 needs no work order
+  });
+
   it("falls back to the catalogue when the item has exactly one limited plan length", () => {
     const lines = load("export-donation-lines-sample.csv").map((l) => (l["Line ID"] === "9006" ? { ...l, "Item Code": "MWF-ORP-001" } : l));
     const r = adaptExports(lines, load("export-catalogue-sample.csv"), []);

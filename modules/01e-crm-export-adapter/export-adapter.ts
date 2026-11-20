@@ -191,6 +191,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
     const period = norm(pick(r, "Period"));
     const recurring = subscriptionId !== "" || (period !== "" && period !== "one-time");
 
+    const feedback = trigger.get(code) ?? ""; // read first: the count notes below only matter for lines that become work orders
     const plan = subscriptionId !== "" ? planById.get(subscriptionId) : undefined;
     if (recurring && !plan) recurringWithoutPlan++;
     // Rule: with no plan row, read the line itself (see above). A limited plan whose count is unknown is counted.
@@ -201,12 +202,12 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
       if (Number.isInteger(lineFrequency) && lineFrequency > 1) instalmentCount = String(lineFrequency);
       else if (period === "recurring") {
         instalmentCount = onlyLength(code);
-        if (instalmentCount === "") { recurringCountUnknown++; unknownIds.push(pick(r, "Line ID")); }
+        if (feedback !== "2") { /* acknowledgement only: no work order, so nothing to check */ }
+        else if (instalmentCount === "") { recurringCountUnknown++; unknownIds.push(pick(r, "Line ID")); }
         else { recurringCountGuessed++; guessedIds.push(pick(r, "Line ID")); } // Rule: a count taken from the catalogue is a guess, so it is reported (DECISIONS 47)
       }
     }
 
-    const feedback = trigger.get(code) ?? "";
     if (code !== "" && !trigger.has(code)) missingItems.add(code);
     if (feedback === "2") feedbackLines++;
     if (recurring) recurringLines++;
@@ -263,8 +264,8 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
   if (linkedOpening > 0) info.push(`${linkedOpening} recurring line(s) had no Subscription ID but are the opening order of a plan, so they were linked to that plan.`);
   if (donationRefs > 0) info.push(`${donationRefs} line(s) had no Order Reference, so their Donation ID is shown as the reference.`);
   const eg = (ids: string[]) => ids.slice(0, 30).join(", ") + (ids.length > 30 ? ` and ${ids.length - 30} more` : "");
-  if (recurringCountGuessed > 0) issues.push({ code: "recurring_count_guessed", message: `${recurringCountGuessed} recurring line(s) have no plan row, so their instalment count was guessed from the catalogue and may be wrong. A count from a real plan is always used when there is one. Lines: ${eg(guessedIds)}.` });
-  if (recurringCountUnknown > 0) issues.push({ code: "recurring_count_unknown", message: `${recurringCountUnknown} limited recurring line(s) have no plan row, no Frequency and no single plan length in the catalogue, so their instalment count is unknown (shown as Indefinitely). Lines: ${eg(unknownIds)}.` });
+  if (recurringCountGuessed > 0) issues.push({ code: "recurring_count_guessed", message: `${recurringCountGuessed} recurring feedback line(s) have no plan row, so their instalment count was guessed from the catalogue and may be wrong. A count from a real plan is always used when there is one. Lines: ${eg(guessedIds)}.` });
+  if (recurringCountUnknown > 0) issues.push({ code: "recurring_count_unknown", message: `${recurringCountUnknown} limited recurring feedback line(s) have no plan row, no Frequency and no single plan length in the catalogue, so their instalment count is unknown (shown as Indefinitely). Lines: ${eg(unknownIds)}.` });
   if (blankReferences > 0) issues.push({ code: "missing_order_reference", message: `${blankReferences} of ${rows.length} lines have no Order Reference and no Donation ID in the export. Each is still identified by its Line ID, so work orders are made. Tick Donation ID in the Donation lines export to give every line a reference.` });
   if (badDates > 0) issues.push({ code: "bad_date", message: `${badDates} line(s) have a Payment Date that is not a real date.` });
 
