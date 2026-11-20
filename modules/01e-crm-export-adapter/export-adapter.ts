@@ -19,7 +19,7 @@ import type { FeedRow } from "../01c-crm-connector/feed.js";
 
 export type ExportRow = Record<string, string>;
 
-export type AdaptIssueCode = "missing_column" | "item_not_in_catalogue" | "catalogue_conflict" | "bad_date" | "recurring_count_unknown" | "recurring_count_guessed" | "bundle_not_in_catalogue" | "bundle_without_prices" | "missing_order_reference";
+export type AdaptIssueCode = "missing_column" | "item_not_in_catalogue" | "catalogue_conflict" | "bad_date" | "recurring_count_unknown" | "recurring_count_guessed" | "linked_opening_orders" | "bundle_not_in_catalogue" | "bundle_without_prices" | "missing_order_reference";
 
 export interface AdaptIssue {
   code: AdaptIssueCode;
@@ -139,6 +139,29 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
     if (id !== "") planById.set(id, { untilCancelled: isYes(pick(r, "Until cancelled")), planned: pick(r, "Instalments planned") });
   }
 
+  // Section: opening orders (DECISIONS 56). A plan's Opening order ID is the donation that started it, which the lines file
+  // shows as Donation ID. Some opening lines have no Subscription ID of their own (the legacy ARCHIVE ones, and some test orders),
+  // so the plan is found this way. Only when exactly one plan has that opening order, and exactly one recurring line without a
+  // subscription id shares that Donation ID, so a donation holding several lines never guesses.
+  const openingPlans = new Map<string, string[]>();
+  for (const r of plans) {
+    const open = pick(r, "Opening order ID");
+    const id = pick(r, "Plan ID");
+    if (open !== "" && open !== "0" && id !== "") openingPlans.set(open, [...(openingPlans.get(open) ?? []), id]);
+  }
+  const unlinkedPerDonation = new Map<string, number>();
+  const isRecurringRow = (r: ExportRow) => {
+    const sub = pick(r, "Subscription ID");
+    const per = norm(pick(r, "Period"));
+    return (sub !== "" && sub !== "0") || (per !== "" && per !== "one-time");
+  };
+  for (const r of lines) {
+    const sub = pick(r, "Subscription ID");
+    const don = pick(r, "Donation ID");
+    if ((sub === "" || sub === "0") && don !== "" && isRecurringRow(r)) unlinkedPerDonation.set(don, (unlinkedPerDonation.get(don) ?? 0) + 1);
+  }
+  let linkedOpening = 0;
+
   const missingItems = new Set<string>();
   const rows: FeedRow[] = [];
   let feedbackLines = 0;
@@ -154,7 +177,15 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
   for (const r of lines) {
     const code = pick(r, "Item Code");
     const subRaw = pick(r, "Subscription ID");
-    const subscriptionId = subRaw === "0" ? "" : subRaw;
+    let subscriptionId = subRaw === "0" ? "" : subRaw;
+    if (subscriptionId === "" && isRecurringRow(r)) {
+      const don = pick(r, "Donation ID");
+      const candidates = openingPlans.get(don) ?? [];
+      if (candidates.length === 1 && unlinkedPerDonation.get(don) === 1) {
+        subscriptionId = candidates[0] as string;
+        linkedOpening++;
+      }
+    }
     const period = norm(pick(r, "Period"));
     const recurring = subscriptionId !== "" || (period !== "" && period !== "one-time");
 
@@ -220,6 +251,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
 
   for (const code of missingItems) issues.push({ code: "item_not_in_catalogue", message: `Item code ${code} is not in the Catalogue items file, so it is not flagged for feedback.` });
   if (unknownBundles.size > 0) issues.push({ code: prices.length === 0 ? "bundle_without_prices" : "bundle_not_in_catalogue", message: prices.length === 0 ? `${bundleLines} line(s) were bought as a bundle but no Catalogue prices file was given, so their number of parts is taken as 1. Add the Catalogue prices export.` : `${unknownBundles.size} bundle(s) on the lines are not in the Catalogue prices file, so their number of parts is taken as 1: ${[...unknownBundles].slice(0, 5).join("; ")}.` });
+  if (linkedOpening > 0) issues.push({ code: "linked_opening_orders", message: `${linkedOpening} recurring line(s) had no Subscription ID but are the opening order of a plan, so they were linked to that plan (Donation ID = the plan's Opening order ID).` });
   const eg = (ids: string[]) => ids.slice(0, 5).join(", ");
   if (recurringCountGuessed > 0) issues.push({ code: "recurring_count_guessed", message: `${recurringCountGuessed} recurring line(s) have no plan row, so their instalment count was guessed from the catalogue and may be wrong. A count from a real plan is always used when there is one. Examples (search the Line ID in Work orders): ${eg(guessedIds)}.` });
   if (recurringCountUnknown > 0) issues.push({ code: "recurring_count_unknown", message: `${recurringCountUnknown} limited recurring line(s) have no plan row, no Frequency and no single plan length in the catalogue, so their instalment count is unknown (shown as Indefinitely). Examples (search the Line ID in Work orders): ${eg(unknownIds)}.` });

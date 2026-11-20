@@ -57,6 +57,19 @@ describe("buildCommitments", () => {
     expect(r.unlinked[0]?.suggestions).toEqual([{ subscriptionId: "S1", daysApart: null }]);
   });
 
+  it("lists a legacy opening record but does not count it, and a late start it explains is not odd", () => {
+    const r = buildCommitments([inst("L", 0, "2026-08-26", { legacyUpload: true, instalmentNumber: "" }), inst("1", 3, "2026-09-26"), inst("2", 4, "2026-10-26")]);
+    const c = r.commitments[0]!;
+    expect([c.paid, c.legacyOpening, c.lines.length, c.firstPaid]).toEqual([2, true, 3, "2026-09-26"]);
+    expect(c.startsLate).toBe(true);
+    expect(needsLook(c)).toBe(false);
+  });
+
+  it("a commitment with only its legacy opening has nothing paid since the load", () => {
+    const c = buildCommitments([inst("L", 0, "2026-08-26", { legacyUpload: true, instalmentNumber: "" })]).commitments[0]!;
+    expect([c.paid, c.firstPaid, c.state]).toEqual([0, "", "in_progress"]);
+  });
+
   it("puts commitments that need a look first", () => {
     const r = buildCommitments([inst("1", 1, "2026-09-01", { subscriptionId: "A" }), inst("2", 3, "2026-06-01", { subscriptionId: "B" })]);
     expect(r.commitments.map((c) => c.subscriptionId)).toEqual(["B", "A"]);

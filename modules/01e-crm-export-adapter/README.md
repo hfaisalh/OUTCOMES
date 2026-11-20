@@ -9,7 +9,7 @@ Three CSV exports, with the Export Centre's own column labels:
 |---|---|
 | Donation lines (paid) | Line ID, Item Name, Item Code, Intention, Instalment no, Subscription ID, Order Quantity, Order Reference, Order Status, Source, Item Cost, Payment Gateway, Merchant, Donor ID, Payment Date, Period, First Name (Billing), Last Name (Billing) |
 | Catalogue items | Item SKU, Feedback type |
-| Recurring plans | Plan ID, Instalments planned, Until cancelled |
+| Recurring plans | Plan ID, Instalments planned, Until cancelled. Opening order ID links a plan to its opening line (with Donation ID in Donation lines) |
 | Catalogue prices (optional) | Item SKU, Bundle, Quantity. Gives each bundle its parts. Tick Item Bundle in Donation lines too |
 
 Contact, address, Gift Aid and card columns are never read, even if present.

@@ -10,6 +10,8 @@
  *
  * Rules:
  * - A commitment is the work orders with the same subscription id. Excluded work orders are left out.
+ * - A legacy upload (the migration's opening record) is shown in the list but not counted as an instalment: it stands for
+ *   everything paid on the old website, which we do not hold (DECISIONS 56).
  * - Planned is the instalment count the lines carry. "Indefinitely" means the plan runs until cancelled.
  * - Paid is how many work orders we hold. The export may start part way through a plan, so a plan whose
  *   lowest instalment number is above 1 is marked "starts late": earlier instalments are not in our data.
@@ -40,9 +42,10 @@ export interface Commitment {
   lastPaid: string;
   numbers: number[]; // instalment numbers held, ascending
   gaps: number[]; // instalment numbers missing between the lowest and highest held
+  legacyOpening: boolean; // the first record is a legacy upload: the instalments paid on the old website are not in our data and are not counted
   startsLate: boolean; // the lowest number held is above 1
   conflict: boolean; // the lines do not agree on supporter or item, which needs a look
-  lines: { key: string; paidDate: string; instalmentNumber: string; transactionRef: string }[]; // oldest first
+  lines: { key: string; paidDate: string; instalmentNumber: string; transactionRef: string; legacyUpload: boolean }[]; // oldest first
 }
 
 export interface Suggestion {
@@ -64,7 +67,8 @@ export interface CommitmentsView {
 const dayNumber = (d: string): number => (d === "" ? 0 : Math.round(Date.parse(`${d.slice(0, 10)}T00:00:00Z`) / 86_400_000));
 
 // Rule: "needs a look" is any of: a conflict, varying parts, a gap, or a plan that starts late.
-export const needsLook = (c: Commitment): boolean => c.conflict || c.partsVary || c.gaps.length > 0 || c.startsLate;
+// A late start that a legacy opening explains is not odd, so it does not count.
+export const needsLook = (c: Commitment): boolean => c.conflict || c.partsVary || c.gaps.length > 0 || (c.startsLate && !c.legacyOpening);
 
 export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
   const live = workOrders.filter((w) => w.status !== "excluded");
@@ -73,7 +77,10 @@ export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
 
   const commitments: Commitment[] = [];
   for (const [subscriptionId, list] of bySub) {
-    const sorted = [...list].sort((a, b) => a.paidDate.localeCompare(b.paidDate) || a.key.localeCompare(b.key));
+    const sortedAll = [...list].sort((a, b) => Number(a.legacyUpload === true) - Number(b.legacyUpload === true) || a.paidDate.localeCompare(b.paidDate) || a.key.localeCompare(b.key));
+    // Rule: only real instalments are counted and dated. Legacy uploads are listed but their dates are the load date.
+    const real = sortedAll.filter((w) => w.legacyUpload !== true);
+    const sorted = real.length > 0 ? real : sortedAll;
     const first = sorted[0] as WorkOrder;
     const count = Number(first.instalmentCount);
     const planned = Number.isInteger(count) && count > 0 ? count : null;
@@ -83,7 +90,7 @@ export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
       const have = new Set(numbers);
       for (let n = (numbers[0] as number) + 1; n < (numbers[numbers.length - 1] as number); n++) if (!have.has(n)) gaps.push(n);
     }
-    const paid = sorted.length;
+    const paid = real.length;
     commitments.push({
       subscriptionId,
       supporterId: first.supporterId,
@@ -96,13 +103,14 @@ export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
       planned,
       paid,
       state: planned === null ? "open_ended" : paid >= planned ? "complete" : "in_progress",
-      firstPaid: first.paidDate.slice(0, 10),
-      lastPaid: (sorted[sorted.length - 1] as WorkOrder).paidDate.slice(0, 10),
+      firstPaid: real.length > 0 ? first.paidDate.slice(0, 10) : "",
+      lastPaid: real.length > 0 ? (sorted[sorted.length - 1] as WorkOrder).paidDate.slice(0, 10) : "",
       numbers,
       gaps,
+      legacyOpening: sortedAll.length > real.length,
       startsLate: numbers.length > 0 && (numbers[0] as number) > 1,
-      conflict: sorted.some((w) => w.supporterId !== first.supporterId || w.itemId !== first.itemId),
-      lines: sorted.map((w) => ({ key: w.key, paidDate: w.paidDate.slice(0, 10), instalmentNumber: w.instalmentNumber, transactionRef: w.transactionRef })),
+      conflict: sortedAll.some((w) => w.supporterId !== first.supporterId || w.itemId !== first.itemId),
+      lines: sortedAll.map((w) => ({ key: w.key, paidDate: w.paidDate.slice(0, 10), instalmentNumber: w.instalmentNumber, transactionRef: w.transactionRef, legacyUpload: w.legacyUpload === true })),
     });
   }
   commitments.sort((a, b) => Number(needsLook(b)) - Number(needsLook(a)) || b.lastPaid.localeCompare(a.lastPaid) || a.subscriptionId.localeCompare(b.subscriptionId));

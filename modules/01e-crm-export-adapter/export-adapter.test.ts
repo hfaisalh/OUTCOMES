@@ -111,6 +111,31 @@ describe("adaptExports", () => {
   });
 });
 
+describe("opening orders (DECISIONS 56)", () => {
+  const lines: Record<string, string>[] = load("export-donation-lines-sample.csv").map((l) => ({ ...l, "Donation ID": "" }));
+  const plans = [...load("export-recurring-plans-sample.csv"), { "Plan ID": "700", "Plan status": "active", "Instalments planned": "10", "Until cancelled": "No", "Opening order ID": "5535" }];
+  const orphan = { ...(lines.find((l) => l["Line ID"] === "9001") as Record<string, string>), "Line ID": "9100", "Subscription ID": "", "Order Reference": "ARCHIVE-SUB-12", "Donation ID": "5535", Period: "Monthly" };
+
+  it("links a recurring line with no subscription id to the plan whose opening order it is, with that plan's count", () => {
+    const r = adaptExports([...lines, orphan], load("export-catalogue-sample.csv"), plans);
+    const row = r.rows.find((x) => x["line_id"] === "9100")!;
+    expect([row["subscription_id"], row["instalment_count"]]).toEqual(["700", "10"]);
+    expect(r.issues.some((i) => i.code === "linked_opening_orders")).toBe(true);
+  });
+
+  it("does not guess when two plans share the opening order, or two lines share the donation", () => {
+    const twoPlans = [...plans, { "Plan ID": "701", "Plan status": "active", "Instalments planned": "10", "Until cancelled": "No", "Opening order ID": "5535" }];
+    expect(adaptExports([...lines, orphan], load("export-catalogue-sample.csv"), twoPlans).rows.find((x) => x["line_id"] === "9100")!["subscription_id"]).toBe("");
+    const twin = { ...orphan, "Line ID": "9101" };
+    expect(adaptExports([...lines, orphan, twin], load("export-catalogue-sample.csv"), plans).rows.find((x) => x["line_id"] === "9100")!["subscription_id"]).toBe("");
+  });
+
+  it("never links a one-off line", () => {
+    const oneOff = { ...orphan, Period: "One-time" };
+    expect(adaptExports([...lines, oneOff], load("export-catalogue-sample.csv"), plans).rows.find((x) => x["line_id"] === "9100")!["subscription_id"]).toBe("");
+  });
+});
+
 describe("bundles and parts (DECISIONS 51)", () => {
   it("gives a line its bundle quantity from the Catalogue prices file, and none when it has no bundle", () => {
     expect(byLine("9002")["bundle_qty"]).toBe("3"); // bought as "Sponsor an Orphan"

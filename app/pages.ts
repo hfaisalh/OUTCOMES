@@ -333,7 +333,8 @@ const COMMIT_TABS: [string, string][] = [["all", "All"], ["progress", "In progre
 const commitNotes = (c: Commitment): string =>
   [
     c.gaps.length ? `<span class="pill review">Missing instalment ${c.gaps.join(", ")}</span>` : "",
-    c.startsLate ? `<span class="pill review">Starts at ${c.numbers[0]}: earlier ones are not in our data</span>` : "",
+    c.legacyOpening ? `<span class="pill review" title="The first record was loaded from the old website. Instalments paid there are not in our data and are not counted.">Legacy opening</span>` : "",
+    c.startsLate && !c.legacyOpening ? `<span class="pill review">Starts at ${c.numbers[0]}: earlier ones are not in our data</span>` : "",
     c.partsVary ? `<span class="pill review">Parts differ between instalments</span>` : "",
     c.conflict ? `<span class="pill review">Lines disagree on supporter or item</span>` : "",
   ].join(" ");
@@ -351,8 +352,8 @@ export function commitmentList(v: View): string {
   const row = (c: Commitment) => `<tr><td>${esc(c.subscriptionId)}</td>
     <td>${esc(c.supporterName)}<div class="muted">${esc(c.supporterId)}</div></td>
     <td>${esc(c.itemName)}<div class="muted">${c.partsPerInstalment} part${c.partsPerInstalment === 1 ? "" : "s"} each instalment</div></td>
-    <td>${progress(c)}</td><td>${esc(c.firstPaid)}<div class="muted">to ${esc(c.lastPaid)}</div></td>
-    <td>${commitNotes(c)}<details><summary>Instalments</summary>${c.lines.map((l) => `<div class="muted">No. ${esc(l.instalmentNumber) || "?"} · Line ${esc(l.key)} · ${esc(l.paidDate)} · ${esc(l.transactionRef) || "no reference"}</div>`).join("")}</details></td></tr>`;
+    <td>${progress(c)}</td><td>${c.firstPaid ? `${esc(c.firstPaid)}<div class="muted">to ${esc(c.lastPaid)}</div>` : `<span class="muted">none since the load</span>`}</td>
+    <td>${commitNotes(c)}<details><summary>Instalments</summary>${c.lines.map((l) => `<div class="muted">No. ${esc(l.instalmentNumber) || "?"} · Line ${esc(l.key)} · ${l.legacyUpload ? `<span class="pill review">Legacy upload</span> load date ${esc(l.paidDate)}` : esc(l.paidDate)} · ${esc(l.transactionRef) || "no reference"}</div>`).join("")}</details></td></tr>`;
   const unlinked = all.unlinked.filter((u) => words.length === 0 || words.every((w) => [u.key, u.workOrder.supporterName, u.workOrder.supporterId, u.workOrder.itemName, u.workOrder.transactionRef].join(" ").toLowerCase().includes(w)));
   const link = (u: (typeof all.unlinked)[number]) =>
     u.suggestions.length === 0 ? `<span class="muted">No commitment for the same supporter and item</span>` : u.suggestions.map((s) => `Possibly subscription <b>${esc(s.subscriptionId)}</b> <span class="muted">(${s.daysApart === null ? "legacy upload, date not comparable" : s.daysApart === 0 ? "same day" : `${Math.abs(s.daysApart)} day${Math.abs(s.daysApart) === 1 ? "" : "s"} ${s.daysApart < 0 ? "before its first instalment" : "after its first instalment"}`})</span>`).join("<br>");
