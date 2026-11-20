@@ -250,6 +250,13 @@ describe("directed and general gifts, spreading, and the payment buffer (DECISIO
     expect(r.placed).toBe(2);
     expect(r.allocations.map((a) => a.outcomeId)).toEqual(["a1", "a3"]); // the two places with the lowest share sponsored, one in each class of A first
   });
+  it("never offers a gift to a partner that is not active or does not deliver its item", () => {
+    const partnerOk = (pid: string | undefined, item: string) => pid !== "A" || item === "I1"; // A delivers only I1
+    const r = autoAllocate([gift("1", 3, "", { itemId: "I2" })], OUT.slice(0, 4), FW, [], AT, { partnerOk });
+    expect(r.placed).toBe(0);
+    expect(r.unplaced[0]?.why).toContain("No active partner that delivers this item");
+    expect(autoAllocate([gift("2", 3, "", { itemId: "I1" })], OUT.slice(0, 4), FW, [], AT, { partnerOk }).placed).toBe(1);
+  });
   it("treats a project name it does not know as a general gift", () => {
     const r = autoAllocate([gift("1", 3, "Hope for Palestine")], OUT, FW, [], AT, { projectIdsFor });
     expect(r.placed).toBe(1);

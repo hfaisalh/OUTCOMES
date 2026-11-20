@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Allocation } from "../05-outcomes/outcomes";
 import type { Commitment } from "../04b-commitments/commitments";
-import { setCrmName, setPartner, crmProjectNames, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
+import { applyProjectAction, isActivePartner, partnerAccepts, savePartner, setCrmName, crmProjectNames, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -138,7 +138,8 @@ describe("beneficiaries and the roll-up", () => {
 describe("the allocation summary, suggestions, and placing a gift by hand (DECISIONS 66)", () => {
   const gift = (sub: string, parts: number, projectName = "", over: Partial<Commitment> = {}) => ({ subscriptionId: sub, frameworkId: "shared", partsPerInstalment: parts, state: "in_progress", planStatus: "", projectName, firstPaid: `2026-01-0${sub}`, planned: 12, paid: 2, nextDue: "", planPaid: null, ...over }) as unknown as Commitment;
   function world() {
-    const { projects, nodes } = sample();
+    const { projects: made, nodes } = sample();
+    const projects = made.map((p) => ({ ...p, status: "active" as const, ddStatus: "approved" as const })); // only active partners take gifts
     const pid = projects[0]!.id;
     const kids = addBeneficiaries([], projects, nodes, { projectId: pid, nodeId: nodes[2]!.id, typeId: "child", name: "Orphan", count: 2 }).value;
     return { projects, nodes, kids, pid, opts: allocOptions(projects, 1, "2026-11-20") };
@@ -204,12 +205,75 @@ describe("matching the CRM's project names (DECISIONS 67)", () => {
     expect(crmProjectNames(orders(["Orphan Care Complex"]), off)[0]?.projectIds).toEqual(["dadyal-orphan-complex"]);
     expect(setCrmName(off, "x", "nope", true).error).toContain("not found");
   });
-  it("keeps a partner's type and the capacity set by hand in its profile", () => {
+});
+
+describe("the partner profile (DECISIONS 69)", () => {
+  const empty = (): ProjectState => ({ projects: [], nodes: [], outcomes: [], partnerTypes: [], partnerFields: ["Parent charity number"] });
+  const save = (st: ProjectState, raw: Record<string, unknown>, id = "", copy = "") => savePartner(st, raw, id, copy, "2026-11-20");
+
+  it("needs only a name and a type, starts pending, and adds a new type to the list", () => {
+    const r = save(empty(), { name: "Aghosh Orphan Homes", type: "Institute" });
+    expect(r.error).toBeUndefined();
+    expect(r.value.projects[0]).toMatchObject({ id: "aghosh-orphan-homes", name: "Aghosh Orphan Homes", type: "Institute", status: "pending", ddStatus: "none" });
+    expect(r.value.partnerTypes).toEqual(["Institute"]);
+    expect(save(empty(), { name: "", type: "x" }).error).toContain("name");
+    expect(save(empty(), { name: "X", type: "" }).error).toContain("type");
+    expect(save(r.value, { name: "aghosh orphan homes", type: "Institute" }).error).toContain("already");
+  });
+  it("keeps the whole profile: contacts, items it delivers, capacity, how it reports, due diligence, documents and its own extra fields", () => {
+    const r = save(empty(), { name: "SDO", type: "Contractor", officialName: "Sample Development Org", reference: "P-001", established: "2010-05-01", countries: "Pakistan", itemIds: ["MWF-WAT-001", "MWF-WAT-001", ""], capacity: "40", capacityNote: "two crews", reportVia: "WhatsApp", media: "Two cameras", ddStatus: "approved", ddReview: "2027-03-31", status: "active", contacts: [{ name: "A Person", email: "a@example.org" }, {}], documents: [{ title: "Agreement", url: "https://example.org/a.pdf" }], custom: { "Parent charity number": "123", "Not defined": "dropped" } });
+    expect(r.error).toBeUndefined();
+    expect(r.value.projects[0]).toMatchObject({ officialName: "Sample Development Org", itemIds: ["MWF-WAT-001"], capacity: 40, capacityNote: "two crews", reportVia: "WhatsApp", status: "active", custom: { "Parent charity number": "123" } });
+    expect(r.value.projects[0]?.contacts).toHaveLength(1); // the empty contact is dropped
+    expect(r.value.projects[0]?.documents).toHaveLength(1);
+  });
+  it("makes a partner active only while its due diligence is approved and in date", () => {
+    expect(save(empty(), { name: "X", type: "T", status: "active" }).error).toContain("due diligence is approved");
+    expect(save(empty(), { name: "X", type: "T", status: "active", ddStatus: "pending" }).error).toContain("due diligence is approved");
+    expect(save(empty(), { name: "X", type: "T", status: "active", ddStatus: "approved", ddReview: "2026-01-01" }).error).toContain("review date");
+    expect(save(empty(), { name: "X", type: "T", status: "active", ddStatus: "approved", ddReview: "2027-01-01" }).error).toBeUndefined();
+    const p = { id: "x", name: "X", aliases: [], levels: [], types: [], status: "active", ddStatus: "approved", ddReview: "2026-11-01" } as never;
+    expect(isActivePartner(p, "2026-11-20")).toBe(false);
+    expect(isActivePartner({ ...(p as object), ddReview: "" } as never, "2026-11-20")).toBe(true);
+  });
+  it("refuses a bad date and a bad capacity, and edits a partner in place", () => {
+    expect(save(empty(), { name: "X", type: "T", established: "20/11/2026" }).error).toContain("year, month, day");
+    expect(save(empty(), { name: "X", type: "T", capacity: "-2" }).error).toContain("whole number");
+    const made = save(empty(), { name: "X", type: "T" }).value;
+    const edited = save(made, { name: "X Renamed", type: "T", capacity: "5" }, "x");
+    expect(edited.value.projects).toHaveLength(1);
+    expect(edited.value.projects[0]).toMatchObject({ id: "x", name: "X Renamed", capacity: 5 });
+    expect(save(made, { name: "X", type: "T" }, "nope").error).toContain("not found");
+  });
+  it("lets a new partner copy the levels and types of another", () => {
     const { projects } = sample();
-    const r = setPartner(projects, "aghosh-orphan-homes", { kind: "contractor", capacity: "40", note: "two crews" });
-    expect(r.value[0]).toMatchObject({ kind: "contractor", capacity: 40, capacityNote: "two crews" });
-    expect(setPartner(r.value, "aghosh-orphan-homes", { kind: "institute", capacity: "", note: "" }).value[0]).not.toHaveProperty("capacity");
-    expect(setPartner(projects, "aghosh-orphan-homes", { kind: "bank", capacity: "", note: "" }).error).toContain("Choose");
-    expect(setPartner(projects, "aghosh-orphan-homes", { kind: "charity", capacity: "-3", note: "" }).error).toContain("whole number");
+    const st: ProjectState = { ...empty(), projects };
+    const r = save(st, { name: "Second Home", type: "Institute" }, "", projects[0]!.id);
+    expect(r.value.projects[1]?.levels.map((l) => l.name)).toEqual(["Branch", "Block", "Class"]);
+    expect(r.value.projects[1]?.types.map((t) => t.name)).toEqual(["Child", "Teacher"]);
+  });
+  it("offers a gift only to active partners that deliver its item, and always to outcomes with no partner", () => {
+    const projects = [
+      { id: "a", name: "A", aliases: [], levels: [], types: [], status: "active", ddStatus: "approved", itemIds: ["PUMP"] },
+      { id: "b", name: "B", aliases: [], levels: [], types: [], status: "pending", ddStatus: "none" },
+      { id: "c", name: "C", aliases: [], levels: [], types: [], status: "active", ddStatus: "approved" },
+    ] as never;
+    expect(partnerAccepts(projects, "a", "PUMP", "2026-11-20")).toBe(true);
+    expect(partnerAccepts(projects, "a", "ORPHAN", "2026-11-20")).toBe(false);
+    expect(partnerAccepts(projects, "b", "PUMP", "2026-11-20")).toBe(false);
+    expect(partnerAccepts(projects, "c", "ANYTHING", "2026-11-20")).toBe(true);
+    expect(partnerAccepts(projects, undefined, "ANYTHING", "2026-11-20")).toBe(true);
+  });
+  it("adds partner types and extra fields to the lists, and takes a field away from every partner", () => {
+    let st = applyProjectAction(empty(), [], { action: "add-partner-type", name: "Mosque" })!.state;
+    expect(st.partnerTypes).toEqual(["Mosque"]);
+    expect(applyProjectAction(st, [], { action: "add-partner-type", name: "mosque" })!.error).toContain("already");
+    st = applyProjectAction(st, [], { action: "add-partner-field", name: "Registration no." })!.state;
+    expect(st.partnerFields).toEqual(["Parent charity number", "Registration no."]);
+    st = applyProjectAction(st, [], { action: "save-partner", profile: { name: "X", type: "Mosque", custom: { "Registration no.": "9" } } }, "2026-11-20")!.state;
+    expect(st.projects[0]?.custom).toEqual({ "Registration no.": "9" });
+    st = applyProjectAction(st, [], { action: "remove-partner-field", name: "Registration no." })!.state;
+    expect(st.partnerFields).toEqual(["Parent charity number"]);
+    expect(st.projects[0]?.custom).toEqual({});
   });
 });

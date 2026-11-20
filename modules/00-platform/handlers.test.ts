@@ -457,7 +457,7 @@ describe("projects (DECISIONS 65)", () => {
   it("builds a project, its levels and places, and adds beneficiaries, then shows it", async () => {
     const cookie = await signIn(d);
     await handleConfig(as(cookie, { method: "PUT", body: fwSetup }), d);
-    expect((await post(cookie, { action: "add-project", name: "Aghosh Orphan Homes", aliases: "Aghosh" })).status).toBe(200);
+    expect((await post(cookie, { action: "save-partner", profile: { name: "Aghosh Orphan Homes", type: "Institute" } })).status).toBe(200);
     expect((await post(cookie, { action: "add-level", projectId: "aghosh-orphan-homes", name: "Branch", parentId: "" })).status).toBe(200);
     expect((await post(cookie, { action: "add-type", projectId: "aghosh-orphan-homes", name: "Child", levelId: "branch", frameworkId: "shared" })).status).toBe(200);
     expect((await post(cookie, { action: "add-node", projectId: "aghosh-orphan-homes", levelId: "branch", parentId: "", name: "Branch 1", field: "Location", fieldValue: "Lahore" })).status).toBe(200);

@@ -81,6 +81,8 @@ export interface OutcomesReply {
   projects?: Project[];
   nodes?: Node[];
   bufferMonths?: number;
+  partnerTypes?: string[];
+  partnerFields?: string[];
   warning?: string;
   placed?: number;
   removed?: number;

@@ -192,6 +192,7 @@ export interface AutoResult {
 
 export interface AllocOptions {
   policy?: Policy; // the buffer for plans that stop paying
+  partnerOk?: (projectId: string | undefined, itemId: string) => boolean; // whether a partner is active and delivers the gift's item (DECISIONS 69). Outcomes with no partner are always open
   projectIdsFor?: (crmProjectName: string) => string[]; // the partners a donor's chosen project goes to. Empty means a general gift. More than one means any of them (DECISIONS 68)
 }
 
@@ -241,9 +242,10 @@ export function autoAllocate(commitments: Commitment[], outcomes: Outcome[], fw:
   const unplaced: AutoResult["unplaced"] = [];
   let placed = 0;
   for (const c of todo) {
-    const sameFramework = outcomes.filter((o) => o.active && o.frameworkId === c.frameworkId);
+    const ofKind = outcomes.filter((o) => o.active && o.frameworkId === c.frameworkId);
+    const sameFramework = ofKind.filter((o) => opts.partnerOk?.(o.projectId, c.itemId) ?? true);
     if (sameFramework.length === 0) {
-      unplaced.push({ commitmentKey: c.subscriptionId, why: "No active outcome uses its framework." });
+      unplaced.push({ commitmentKey: c.subscriptionId, why: ofKind.length > 0 ? "No active partner that delivers this item has a place of this kind." : "No active outcome uses its framework." });
       continue;
     }
     const directedTo = opts.projectIdsFor?.(c.projectName) ?? [];

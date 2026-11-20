@@ -12,7 +12,8 @@
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { allocOptions, applyProjectAction, placeInNode, type Node, type Project } from "../modules/06-projects/projects";
-import { PROJECT_TEMPLATES, projectsPage } from "./projects-page";
+import { projectsPage } from "./projects-page";
+import { NEW_CONTACT_ROW, NEW_DOC_ROW, partnerFormHtml, readPartnerForm } from "./partner-form";
 import { allocationPage } from "./allocation-page";
 import { addOutcomes, autoAllocate, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, type Allocation, type Outcome } from "../modules/05-outcomes/outcomes";
 import { allocatable } from "../modules/04b-commitments/commitments";
@@ -51,6 +52,8 @@ const state = {
   allocations: [] as Allocation[],
   projects: [] as Project[], // the projects and the places in them (DECISIONS 65)
   nodes: [] as Node[],
+  partnerTypes: [] as string[], // the organisation's own list of partner types (DECISIONS 69)
+  partnerFields: [] as string[], // and its own extra partner fields
   bufferMonths: 1, // payments a plan may miss and still hold its place (DECISIONS 66)
   openProject: "", // the project open on the Projects page
   giftView: "payments" as "payments" | "commitments", // how the Gifts page shows the gifts (DECISIONS 66)
@@ -91,7 +94,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
-    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.nodes = o.nodes ?? []; state.bufferMonths = o.bufferMonths ?? 1; }).catch(() => undefined);
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.nodes = o.nodes ?? []; state.bufferMonths = o.bufferMonths ?? 1; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
     state.message = "";
   } catch (e) {
@@ -177,7 +180,10 @@ function sortItem(itemId: string, categoryId: string): void {
 }
 
 // One change to the outcomes. Live: the server does it and answers with the new state. Demo: the same pure functions run here.
+// The last error from outcomeChange, so a pop-up can show it where the person is looking. Empty when the change worked.
+let lastError = "";
 async function outcomeChange(body: Record<string, unknown>): Promise<void> {
+  lastError = "";
   try {
     if (state.live()) {
       const r = await changeOutcomes(body);
@@ -186,6 +192,8 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.projects = r.projects ?? state.projects;
       state.nodes = r.nodes ?? state.nodes;
       state.bufferMonths = r.bufferMonths ?? state.bufferMonths;
+      state.partnerTypes = r.partnerTypes ?? state.partnerTypes;
+      state.partnerFields = r.partnerFields ?? state.partnerFields;
       if (body["action"] === "remove-many") state.message = `Removed ${r.removed ?? 0}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`;
       else if (body["action"] === "auto") state.message = `Placed ${r.placed ?? 0}, released ${r.released ?? 0}, ${r.unplaced?.length ?? 0} waiting.`;
       else state.message = r.warning ?? "";
@@ -206,16 +214,18 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "release": state.allocations = releaseAllocation(state.allocations, str("commitmentKey")); break;
         default: {
           // Projects (DECISIONS 65): the same pure rule the server uses.
-          const r = applyProjectAction({ projects: state.projects, nodes: state.nodes, outcomes: state.outcomes }, state.frameworks, body);
+          const r = applyProjectAction({ projects: state.projects, nodes: state.nodes, outcomes: state.outcomes, partnerTypes: state.partnerTypes, partnerFields: state.partnerFields }, state.frameworks, body, new Date().toISOString().slice(0, 10));
           if (!r) error = "That request is not understood.";
           else if (r.error) error = r.error;
-          else { state.projects = r.state.projects; state.nodes = r.state.nodes; state.outcomes = r.state.outcomes; if (r.warning) state.message = r.warning; }
+          else { state.projects = r.state.projects; state.nodes = r.state.nodes; state.outcomes = r.state.outcomes; state.partnerTypes = r.state.partnerTypes; state.partnerFields = r.state.partnerFields; if (r.warning) state.message = r.warning; }
         }
       }
+      lastError = error ?? "";
       state.message = error ?? (body["action"] === "auto" || state.message !== "" ? state.message : "");
     }
   } catch (e) {
     state.message = e instanceof Error ? e.message : "That did not work.";
+    lastError = state.message;
   }
   draw();
 }
@@ -434,25 +444,9 @@ document.addEventListener("click", (e) => {
     return;
   }
   // Projects (DECISIONS 65).
-  if (["add-project", "set-partner", "add-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "add-beneficiaries"].includes(action ?? "")) {
+  if (["add-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "add-beneficiaries"].includes(action ?? "")) {
     const val = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value ?? "";
     const pid = (state.projects.find((p) => p.id === state.openProject) ?? state.projects[0])?.id ?? "";
-    if (action === "add-project") {
-      const name = val("pj-name");
-      const levels = PROJECT_TEMPLATES.find((t) => t.id === val("pj-template"))?.levels ?? [];
-      void (async () => {
-        await outcomeChange({ action: "add-project", name, kind: val("pj-kind") });
-        const made = state.projects.find((p) => p.name.toLowerCase() === name.trim().replace(/\s+/g, " ").toLowerCase());
-        if (!made) return;
-        state.openProject = made.id;
-        let parent = "";
-        for (const l of levels) {
-          await outcomeChange({ action: "add-level", projectId: made.id, name: l, parentId: parent });
-          parent = state.projects.find((p) => p.id === made.id)?.levels.find((x) => x.name === l)?.id ?? "";
-        }
-      })();
-    }
-    if (action === "set-partner") void outcomeChange({ action: "set-partner", projectId: pid, kind: val("pj-pkind"), capacity: val("pj-pcap"), note: val("pj-pnote") });
     if (action === "add-level") void outcomeChange({ action: "add-level", projectId: pid, name: val("pj-level"), parentId: el.dataset.parent ?? "" });
     if (action === "remove-level") void outcomeChange({ action: "remove-level", projectId: pid, levelId: el.dataset.id });
     if (action === "add-type") void outcomeChange({ action: "add-type", projectId: pid, name: val("pj-type-name"), levelId: val("pj-type-level"), frameworkId: val("pj-type-fw") });
@@ -763,5 +757,77 @@ document.addEventListener("drop", (e) => {
   if (place && key !== "") {
     e.preventDefault();
     void outcomeChange({ action: "place-in-node", commitmentKey: key, nodeId: place.dataset.dropNode });
+  }
+});
+
+// ---- The partner profile pop-up (DECISIONS 69) ----
+// It lives outside the page that is redrawn, so nothing typed in it is lost when the page behind it refreshes.
+function partnerCtx() {
+  const v = view();
+  return { types: state.partnerTypes, fields: state.partnerFields, items: v.flaggedItems.map((i) => ({ id: i.id, name: i.name })), others: state.projects.filter((p) => p.levels.length > 0).map((p) => ({ id: p.id, name: p.name })) };
+}
+function openPartnerForm(id: string, draft?: Record<string, unknown>, error = ""): void {
+  let root = document.getElementById("modal-root");
+  if (!root) {
+    root = document.createElement("div");
+    root.id = "modal-root";
+    document.body.appendChild(root);
+  }
+  const existing = state.projects.find((p) => p.id === id);
+  const profile = (draft ?? existing ?? {}) as Parameters<typeof partnerFormHtml>[0];
+  root.dataset.id = id;
+  root.innerHTML = partnerFormHtml(profile, id, partnerCtx(), error);
+  syncNewType();
+}
+function closePartnerForm(): void {
+  const root = document.getElementById("modal-root");
+  if (root) root.innerHTML = "";
+}
+// Shows the box for a new type's name only while "New type..." is chosen.
+function syncNewType(): void {
+  const sel = document.getElementById("pf-type") as HTMLSelectElement | null;
+  const wrap = document.getElementById("pf-newtype-wrap");
+  if (sel && wrap) wrap.hidden = sel.value !== "__new__";
+}
+// A profile read from the form, with the type chosen as the new type's name when "New type..." was used.
+const readForm = () => readPartnerForm(document.getElementById("modal-root") as HTMLElement);
+
+document.addEventListener("change", (e) => {
+  if ((e.target as HTMLElement).id === "pf-type") syncNewType();
+});
+document.addEventListener("click", (e) => {
+  const el = (e.target as HTMLElement).closest("[data-pf]") as HTMLElement | null;
+  if (!el) return;
+  const root = document.getElementById("modal-root") as HTMLElement | null;
+  const what = el.dataset.pf;
+  if (what === "new") return openPartnerForm("");
+  if (what === "edit") return openPartnerForm(el.dataset.id ?? "");
+  if (what === "cancel") return closePartnerForm();
+  if (!root) return;
+  if (what === "add-contact") return void document.getElementById("pf-contacts")?.insertAdjacentHTML("beforeend", NEW_CONTACT_ROW);
+  if (what === "add-doc") return void document.getElementById("pf-docs")?.insertAdjacentHTML("beforeend", NEW_DOC_ROW);
+  // Adding or removing an extra field changes the organisation's list, so the form is drawn again with what was typed kept.
+  if (what === "add-field" || what === "remove-field") {
+    const draft = readForm();
+    const name = what === "add-field" ? (document.getElementById("pf-newfield") as HTMLInputElement).value : (el.dataset.name ?? "");
+    if (name.trim() === "") return;
+    void outcomeChange({ action: what === "add-field" ? "add-partner-field" : "remove-partner-field", name }).then(() => openPartnerForm(root.dataset.id ?? "", draft, lastError));
+    return;
+  }
+  if (what === "save") {
+    const profile = readForm();
+    const id = root.dataset.id ?? "";
+    const copyFrom = (document.getElementById("pf-copy") as HTMLSelectElement | null)?.value ?? "";
+    void outcomeChange({ action: "save-partner", projectId: id, copyFrom, profile }).then(() => {
+      if (lastError !== "") {
+        const box = document.getElementById("pf-error");
+        if (box) box.textContent = lastError;
+        return;
+      }
+      const made = state.projects.find((p) => p.name.toLowerCase() === String(profile["name"] ?? "").trim().replace(/\s+/g, " ").toLowerCase());
+      if (made) state.openProject = made.id;
+      closePartnerForm();
+      draw();
+    });
   }
 });

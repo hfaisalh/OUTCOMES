@@ -28,12 +28,12 @@ function built() {
 }
 
 describe("projectsPage", () => {
-  it("starts with a form to create the first partner, with its type, and templates to start from", () => {
+  it("starts with a New partner button, and no fixed list of partner types", () => {
     const html = projectsPage(base());
     expect(html).toContain("No partners yet");
-    expect(html).toContain('data-action="add-project"');
-    expect(html).toContain("Orphan home or school");
-    expect(html).toContain("Another charity");
+    expect(html).toContain('data-pf="new"');
+    expect(html).not.toContain("Another charity");
+    expect(html).not.toContain("Orphan home or school");
   });
   it("shows the levels, the types, the places with their roll-up, and the add forms", () => {
     const { projects, nodes, outcomes } = built();
@@ -63,13 +63,17 @@ describe("projectsPage", () => {
     expect(html).toContain("Use 1 suggestion");
     expect(html).toContain("Gifts that name <b>Aghosh Orphan Homes</b>, <b>Aghosh</b> in the CRM go to this partner");
   });
-  it("shows the partner's type and the capacity set by hand, ready to edit", () => {
+  it("shows the partner's type, status, due diligence, capacity and what it delivers, with an Edit profile button", () => {
     const { projects, nodes, outcomes } = built();
-    const html = projectsPage(base({ projects: [{ ...projects[0]!, kind: "contractor", capacity: 40, capacityNote: "two crews" }], nodes, outcomes }));
+    const html = projectsPage(base({ projects: [{ ...projects[0]!, type: "Contractor", status: "pending", ddStatus: "pending", capacity: 40, capacityNote: "two crews", reportVia: "WhatsApp", itemIds: ["A", "B"] }], nodes, outcomes }));
     expect(html).toContain("Contractor");
-    expect(html).toContain('value="40"');
-    expect(html).toContain("two crews");
-    expect(html).toContain('data-action="set-partner"');
+    expect(html).toContain("Pending");
+    expect(html).toContain("Due diligence: Pending");
+    expect(html).toContain("capacity 40 jobs (two crews)");
+    expect(html).toContain("reports by WhatsApp");
+    expect(html).toContain("delivers 2 items");
+    expect(html).toContain("takes no new gifts until it is active");
+    expect(html).toContain('data-pf="edit"');
   });
   it("says so when no gift carries a project name", () => {
     expect(projectsPage(base())).toContain("No gifts carry a project name yet");

@@ -33,16 +33,49 @@ export interface BeneficiaryType {
   frameworkId: string; // how they are sponsored
 }
 
-export type PartnerKind = "institute" | "contractor" | "charity";
-export const PARTNER_KINDS: { id: PartnerKind; label: string }[] = [{ id: "institute", label: "Institute" }, { id: "contractor", label: "Contractor" }, { id: "charity", label: "Another charity" }];
+// What a partner is, how it is doing in the approval, and who to contact. A partner is whoever implements the job of a gift: an institute, a contractor,
+// another charity or anything else you add as a type (DECISIONS 69). The code still calls it a Project, from before partners were named.
+export type PartnerStatus = "pending" | "active" | "on_hold" | "ended";
+export const PARTNER_STATUSES: { id: PartnerStatus; label: string }[] = [{ id: "pending", label: "Pending" }, { id: "active", label: "Active" }, { id: "on_hold", label: "On hold" }, { id: "ended", label: "Ended" }];
+// Due diligence is done in a separate tool. Here only its outcome is kept, since a partner may be active only while it is approved.
+export type DueDiligenceStatus = "none" | "pending" | "approved" | "expired";
+export const DUE_DILIGENCE: { id: DueDiligenceStatus; label: string }[] = [{ id: "none", label: "Not started" }, { id: "pending", label: "Pending" }, { id: "approved", label: "Approved" }, { id: "expired", label: "Expired" }];
 
-// A partner (vendor): whoever implements the job of a gift. The code still calls it a Project, from before partners were named (DECISIONS 68).
+export interface PartnerContact {
+  name: string;
+  position: string;
+  phone: string;
+  mobile: string;
+  email: string;
+  handles: string; // what they deal with, such as updates or batches
+}
+
 export interface Project {
   id: string;
-  name: string;
-  kind?: PartnerKind; // absent means institute
-  capacity?: number; // how many jobs it can take at once, set by hand in its profile, then adjusted by how it performs
-  capacityNote?: string; // free text next to it, such as "two pump crews"
+  name: string; // the name shown, the working name
+  officialName?: string;
+  reference?: string; // MWF's partner reference
+  type?: string; // from the organisation's own list of partner types
+  status?: PartnerStatus; // absent means pending
+  parent?: string; // the larger organisation it belongs to, if any
+  established?: string; // YYYY-MM-DD
+  partnershipStart?: string;
+  contacts?: PartnerContact[];
+  countries?: string;
+  regions?: string;
+  itemIds?: string[]; // CRM item ids it can deliver. Empty or absent means any item
+  capacity?: number; // how many jobs it can take at once, set by hand, then adjusted by how it performs
+  capacityNote?: string;
+  reportVia?: string; // how it sends updates (email, WhatsApp, portal)
+  reportContact?: string;
+  language?: string;
+  media?: string; // media capacity: cameras, video, trained staff
+  ddReference?: string; // the due diligence record in the other tool
+  ddStatus?: DueDiligenceStatus;
+  ddReview?: string; // YYYY-MM-DD when the approval must be reviewed
+  notes?: string;
+  documents?: { title: string; url: string }[];
+  custom?: Record<string, string>; // the organisation's own extra fields, by label
   aliases: string[]; // other names the CRM uses for it, matched when a gift names a project (DECISIONS 65)
   levels: Level[];
   types: BeneficiaryType[];
@@ -74,11 +107,11 @@ const same = (a: string, b: string): boolean => a.trim().toLowerCase() === b.tri
 
 // ---- Projects ----
 
-export function addProject(projects: Project[], name: string, aliases: string[] = [], kind: PartnerKind = "institute"): Changed<Project[]> {
+export function addProject(projects: Project[], name: string, aliases: string[] = []): Changed<Project[]> {
   const n = clean(name);
   if (n === "") return { value: projects, error: "Give the project a name." };
   if (projects.some((p) => same(p.name, n))) return { value: projects, error: `There is already a project called "${n}".` };
-  const project: Project = { id: uniqueId(n, new Set(projects.map((p) => p.id))), name: n, kind, aliases: aliases.map(clean).filter((a) => a !== ""), levels: [], types: [] };
+  const project: Project = { id: uniqueId(n, new Set(projects.map((p) => p.id))), name: n, status: "pending", aliases: aliases.map(clean).filter((a) => a !== ""), levels: [], types: [] };
   return { value: [...projects, project] };
 }
 
@@ -235,6 +268,63 @@ export function rollupOf(nodes: Node[], outcomes: Outcome[], fw: FrameworkTempla
   return { byNode, byProject };
 }
 
+// ---- The partner's profile (DECISIONS 69) ----
+
+const text = (v: unknown, max: number): string => (typeof v === "string" ? clean(v).slice(0, max) : "");
+const dateOrEmpty = (v: unknown): string | undefined => { const t = text(v, 10); return t === "" || /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : undefined; };
+
+/**
+ * Rule (DECISIONS 69): only active partners take gifts, and a partner may be made active only while its due diligence is approved and, if a
+ * review date is set, that date has not passed. A partner whose approval lapses stops receiving new gifts, and what it already holds is kept.
+ */
+export const isActivePartner = (p: Project, today: string): boolean => p.status === "active" && p.ddStatus === "approved" && (!p.ddReview || today === "" || p.ddReview >= today);
+
+// Rule: a gift's item is offered to a partner only when the partner delivers it. A partner with no items listed delivers anything. Outcomes with no partner (made before partners existed) are always open.
+export function partnerAccepts(projects: Project[], projectId: string | undefined, itemId: string, today: string): boolean {
+  if (projectId === undefined) return true;
+  const p = projects.find((x) => x.id === projectId);
+  if (!p) return true;
+  return isActivePartner(p, today) && ((p.itemIds ?? []).length === 0 || (p.itemIds ?? []).includes(itemId));
+}
+
+/**
+ * Rule: create a partner, or update one when an id is given. Only the name and the type are required. A new type is added to the organisation's
+ * list. A partner cannot be made active unless its due diligence is approved and in date. Extra fields are kept only if the organisation has defined them.
+ * A new partner may copy the levels and beneficiary types of another, so a structure is not built twice.
+ */
+export function savePartner(s: ProjectState, raw: Record<string, unknown>, id: string, copyFrom: string, today: string): Changed<ProjectState> {
+  const name = text(raw["name"], 100);
+  const type = text(raw["type"], 60);
+  if (name === "") return { value: s, error: "Give the partner a name." };
+  if (type === "") return { value: s, error: "Choose a type, or add a new one." };
+  const existing = id !== "" ? s.projects.find((p) => p.id === id) : undefined;
+  if (id !== "" && !existing) return { value: s, error: "That partner was not found." };
+  if (s.projects.some((p) => p.id !== id && same(p.name, name))) return { value: s, error: `There is already a partner called "${name}".` };
+  const status = (PARTNER_STATUSES.find((x) => x.id === raw["status"])?.id ?? existing?.status ?? "pending") as PartnerStatus;
+  const ddStatus = (DUE_DILIGENCE.find((x) => x.id === raw["ddStatus"])?.id ?? "none") as DueDiligenceStatus;
+  const ddReview = dateOrEmpty(raw["ddReview"]);
+  const established = dateOrEmpty(raw["established"]);
+  const partnershipStart = dateOrEmpty(raw["partnershipStart"]);
+  if (ddReview === undefined || established === undefined || partnershipStart === undefined) return { value: s, error: "A date must be written as year, month, day, for example 2026-03-31." };
+  const capText = text(raw["capacity"], 10);
+  const cap = capText === "" ? undefined : Number(capText);
+  if (cap !== undefined && (!Number.isInteger(cap) || cap < 0 || cap > 100000)) return { value: s, error: "Capacity is a whole number of jobs, or leave it empty." };
+  const draft: Project = { ...(existing ?? { id: uniqueId(name, new Set(s.projects.map((p) => p.id))), aliases: [], levels: [], types: [] }), name, type, status, ddStatus, ...(ddReview !== "" ? { ddReview } : {}) };
+  if (status === "active" && !isActivePartner({ ...draft, status: "active" }, today)) return { value: s, error: ddStatus !== "approved" ? "A partner can only be made active once its due diligence is approved." : "The due diligence approval is past its review date. Update the review date first." };
+  const contacts = (Array.isArray(raw["contacts"]) ? raw["contacts"] : []).slice(0, 20).map((c): PartnerContact => { const x = (c ?? {}) as Record<string, unknown>; return { name: text(x["name"], 100), position: text(x["position"], 100), phone: text(x["phone"], 40), mobile: text(x["mobile"], 40), email: text(x["email"], 120), handles: text(x["handles"], 100) }; }).filter((c) => Object.values(c).some((v) => v !== ""));
+  const documents = (Array.isArray(raw["documents"]) ? raw["documents"] : []).slice(0, 30).map((d) => { const x = (d ?? {}) as Record<string, unknown>; return { title: text(x["title"], 100), url: text(x["url"], 300) }; }).filter((d) => d.title !== "" || d.url !== "");
+  const itemIds = [...new Set((Array.isArray(raw["itemIds"]) ? raw["itemIds"] : []).filter((x): x is string => typeof x === "string" && x !== "").map((x) => x.slice(0, 100)))].slice(0, 1000);
+  const customIn = (raw["custom"] ?? {}) as Record<string, unknown>;
+  const custom = Object.fromEntries(s.partnerFields.map((f) => [f, text(customIn[f], 300)]).filter(([, v]) => v !== ""));
+  const optional = { officialName: text(raw["officialName"], 150), reference: text(raw["reference"], 60), parent: text(raw["parent"], 150), established, partnershipStart, countries: text(raw["countries"], 200), regions: text(raw["regions"], 300), capacityNote: text(raw["capacityNote"], 200), reportVia: text(raw["reportVia"], 100), reportContact: text(raw["reportContact"], 150), language: text(raw["language"], 60), media: text(raw["media"], 400), ddReference: text(raw["ddReference"], 100), notes: text(raw["notes"], 1000) };
+  const { officialName: _o, reference: _r, parent: _pa, established: _e, partnershipStart: _ps, countries: _c, regions: _re, capacityNote: _cn, reportVia: _rv, reportContact: _rc, language: _l, media: _m, ddReference: _dr, notes: _n, capacity: _cap, contacts: _ct, documents: _d, itemIds: _i, custom: _cu, ...base } = draft;
+  const saved: Project = { ...base, ...Object.fromEntries(Object.entries(optional).filter(([, v]) => v !== "")), ...(cap !== undefined ? { capacity: cap } : {}), ...(contacts.length ? { contacts } : {}), ...(documents.length ? { documents } : {}), ...(itemIds.length ? { itemIds } : {}), ...(Object.keys(custom).length ? { custom } : {}) };
+  // A new partner may start with the levels and types of another.
+  const source = existing ? undefined : s.projects.find((p) => p.id === copyFrom);
+  const withStructure: Project = source ? { ...saved, levels: source.levels.map((l) => ({ ...l })), types: source.types.map((t) => ({ ...t })) } : saved;
+  return { value: { ...s, projects: existing ? s.projects.map((p) => (p.id === id ? withStructure : p)) : [...s.projects, withStructure], partnerTypes: s.partnerTypes.some((t) => same(t, type)) ? s.partnerTypes : [...s.partnerTypes, type] } };
+}
+
 // ---- Doing it from a request ----
 
 // The level a new place gets: the first level when it sits at the top of the project, otherwise the level under its parent's.
@@ -250,16 +340,18 @@ export interface ProjectState {
   projects: Project[];
   nodes: Node[];
   outcomes: Outcome[];
+  partnerTypes: string[]; // the organisation's own list of partner types
+  partnerFields: string[]; // the organisation's own extra profile fields, by label
 }
 
-export const PROJECT_ACTIONS = ["toggle-crm-name", "set-partner", "add-project", "add-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "set-field", "add-beneficiaries"];
+export const PROJECT_ACTIONS = ["toggle-crm-name", "save-partner", "add-partner-type", "add-partner-field", "remove-partner-field", "add-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "set-field", "add-beneficiaries"];
 export const MAX_RECORDS = 5000;
 
 /**
  * Rule: one place where a request from the screen becomes a change, so the server and the demo behave the same. Returns nothing when the
  * action is not a project action. Text is cut to a sensible length, and the number of places or beneficiaries is capped.
  */
-export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], body: Record<string, unknown>): { state: ProjectState; warning?: string; error?: string } | undefined {
+export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], body: Record<string, unknown>, today = ""): { state: ProjectState; warning?: string; error?: string } | undefined {
   const action = typeof body["action"] === "string" ? body["action"] : "";
   if (!PROJECT_ACTIONS.includes(action)) return undefined;
   const str = (k: string, max = 100): string => (typeof body[k] === "string" ? (body[k] as string).slice(0, max) : "");
@@ -270,13 +362,23 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
       const r = setCrmName(s.projects, str("name", 200), str("projectId"), body["on"] === true);
       return r.error ? fail(r.error) : done({ ...s, projects: r.value });
     }
-    case "set-partner": {
-      const r = setPartner(s.projects, str("projectId"), { kind: str("kind", 20), capacity: str("capacity", 10), note: str("note", 200) });
-      return r.error ? fail(r.error) : done({ ...s, projects: r.value });
+    case "save-partner": {
+      const r = savePartner(s, (body["profile"] ?? {}) as Record<string, unknown>, str("projectId"), str("copyFrom"), today);
+      return r.error ? fail(r.error) : done(r.value);
     }
-    case "add-project": {
-      const r = addProject(s.projects, str("name"), str("aliases", 400).split(",").slice(0, 20), (PARTNER_KINDS.find((k) => k.id === str("kind", 20))?.id ?? "institute"));
-      return r.error ? fail(r.error) : done({ ...s, projects: r.value });
+    case "add-partner-type": {
+      const t = clean(str("name", 60));
+      if (t === "") return fail("Give the type a name.");
+      return s.partnerTypes.some((x) => same(x, t)) ? fail(`There is already a type called "${t}".`) : done({ ...s, partnerTypes: [...s.partnerTypes, t] });
+    }
+    case "add-partner-field": {
+      const f = clean(str("name", 60));
+      if (f === "") return fail("Give the field a name.");
+      return s.partnerFields.some((x) => same(x, f)) ? fail(`There is already a field called "${f}".`) : done({ ...s, partnerFields: [...s.partnerFields, f] });
+    }
+    case "remove-partner-field": {
+      const f = str("name", 60);
+      return done({ ...s, partnerFields: s.partnerFields.filter((x) => x !== f), projects: s.projects.map((p) => { const { [f]: _gone, ...rest } = p.custom ?? {}; return p.custom ? { ...p, custom: rest } : p; }) });
     }
     case "add-level": {
       const r = addLevel(s.projects, str("projectId"), str("name", 60), str("parentId"));
@@ -321,6 +423,7 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
 export const allocOptions = (projects: Project[], bufferMonths: number | undefined, today: string): AllocOptions => ({
   policy: { today, bufferMonths: bufferMonths ?? DEFAULT_BUFFER_MONTHS },
   projectIdsFor: (name) => matchProjects(projects, name).map((p) => p.id),
+  partnerOk: (projectId, itemId) => partnerAccepts(projects, projectId, itemId, today),
 });
 
 // ---- The allocation summary (the sheet's Step 1, 3, 5 and 6 for every project, DECISIONS 66) ----
@@ -454,12 +557,3 @@ export function setCrmName(projects: Project[], crmName: string, projectId: stri
   return { value };
 }
 
-// Rule: the partner's profile: its type and the capacity set by hand. Capacity is a whole number of jobs, or nothing when it is not known.
-export function setPartner(projects: Project[], projectId: string, p: { kind: string; capacity: string; note: string }): Changed<Project[]> {
-  if (!projects.some((x) => x.id === projectId)) return { value: projects, error: "That partner was not found." };
-  const kind = PARTNER_KINDS.find((k) => k.id === p.kind)?.id;
-  if (!kind) return { value: projects, error: "Choose institute, contractor or another charity." };
-  const cap = p.capacity.trim() === "" ? undefined : Number(p.capacity);
-  if (cap !== undefined && (!Number.isInteger(cap) || cap < 0 || cap > 100000)) return { value: projects, error: "Capacity is a whole number of jobs, or leave it empty." };
-  return { value: withProject(projects, projectId, (x) => { const { capacity: _c, capacityNote: _n, ...rest } = x; return { ...rest, kind, ...(cap !== undefined ? { capacity: cap } : {}), ...(clean(p.note) !== "" ? { capacityNote: clean(p.note).slice(0, 200) } : {}) }; }) };
-}

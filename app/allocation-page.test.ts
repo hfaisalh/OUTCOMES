@@ -25,7 +25,8 @@ function built() {
   projects = addType(projects, id, { name: "Child", levelId: "branch", frameworkId: shared.id }, fws).value;
   const nodes = addNode([], projects, id, "branch", "", "Branch 1", { Location: "Lahore" }).value;
   const outcomes = addBeneficiaries([], projects, nodes, { projectId: id, nodeId: nodes[0]!.id, typeId: "child", name: "Orphan", count: 2 }).value;
-  return { projects, nodes, outcomes };
+  // Only an active partner with approved due diligence takes gifts (DECISIONS 69).
+  return { projects: projects.map((p) => ({ ...p, status: "active" as const, ddStatus: "approved" as const })), nodes, outcomes };
 }
 
 describe("allocationPage", () => {

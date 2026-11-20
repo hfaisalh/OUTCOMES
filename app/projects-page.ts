@@ -9,15 +9,8 @@
 
 import { allocatable } from "../modules/04b-commitments/commitments";
 import { perPeriodRule } from "../modules/05-outcomes/outcomes";
-import { allocOptions, crmProjectNames, orderedLevels, PARTNER_KINDS, rollupOf, type Node, type Project } from "../modules/06-projects/projects";
+import { allocOptions, crmProjectNames, DUE_DILIGENCE, isActivePartner, orderedLevels, PARTNER_STATUSES, rollupOf, type Node, type Project } from "../modules/06-projects/projects";
 import { esc, type View } from "./pages";
-
-// Starting shapes for a new project, so nobody builds the structure from nothing.
-export const PROJECT_TEMPLATES: { id: string; label: string; levels: string[] }[] = [
-  { id: "school", label: "Orphan home or school (Branch, Block, Class)", levels: ["Branch", "Block", "Class"] },
-  { id: "sites", label: "Sites with items (Region, Site)", levels: ["Region", "Site"] },
-  { id: "blank", label: "Blank, I will add the levels", levels: [] },
-];
 
 const meter = (used: number, places: number) => `<span class="meter" aria-hidden="true"><i style="width:${places > 0 ? Math.min(Math.round((used / places) * 100), 100) : 0}%"></i></span>`;
 
@@ -28,12 +21,7 @@ export function projectsPage(v: View): string {
   const fws = v.frameworks ?? [];
   const project = projects.find((p) => p.id === v.openProject) ?? projects[0];
 
-  const create = `<div class="card"><h2>New partner</h2>
-    <div class="actions"><input id="pj-name" placeholder="Partner name, for example Aghosh Orphan Homes" />
-      <select id="pj-kind" aria-label="Type of partner">${PARTNER_KINDS.map((k) => `<option value="${k.id}">${esc(k.label)}</option>`).join("")}</select>
-      <select id="pj-template" aria-label="Start from">${PROJECT_TEMPLATES.map((t) => `<option value="${t.id}">${esc(t.label)}</option>`).join("")}</select>
-      <button class="primary" data-action="add-project">Create partner</button></div>
-    <p class="muted">A partner is whoever implements the job of a gift for you: an institute, a contractor or another charity. An institute has branches and cohorts, which you build below. After creating a partner, say which CRM project names it answers to in the list that follows.</p></div>`;
+  const create = `<div class="actions"><button class="primary" data-pf="new">New partner</button><span class="muted">A partner is whoever implements the job of a gift: an institute, a contractor, another charity or any type you add.</span></div>`;
 
   // The names the CRM uses on gifts, matched to projects by choosing from a list (DECISIONS 67). A person decides, and a suggestion is only a starting point.
   const names = crmProjectNames(v.workOrders, projects);
@@ -103,12 +91,14 @@ export function projectsPage(v: View): string {
     <p class="muted">Several at once are numbered: Orphan 1, Orphan 2 and so on. ${total.beneficiaries} in ${esc(project.name)}, ${total.used} of ${total.places} units sponsored.</p></div>`;
 
   const answersTo = [project.name, ...project.aliases].map((n) => `<b>${esc(n)}</b>`).join(", ");
-  const kind = project.kind ?? "institute";
-  const goes = `<div class="card"><h2>${esc(project.name)} <span class="muted">${esc(PARTNER_KINDS.find((k) => k.id === kind)?.label ?? "")}</span></h2>
-    <p class="muted">Gifts that name ${answersTo} in the CRM go to this partner. Change this in the list of CRM names above.</p>
-    <div class="actions"><select id="pj-pkind" aria-label="Type of partner">${PARTNER_KINDS.map((k) => `<option value="${k.id}"${k.id === kind ? " selected" : ""}>${esc(k.label)}</option>`).join("")}</select>
-      <input id="pj-pcap" type="number" min="0" value="${project.capacity ?? ""}" placeholder="Capacity, jobs at once" aria-label="Capacity" /><input id="pj-pnote" value="${esc(project.capacityNote ?? "")}" placeholder="Note, for example two pump crews" aria-label="Capacity note" />
-      <button data-action="set-partner">Save profile</button></div>
-    <p class="muted">Capacity is your own judgement for now. Give a partner a batch, watch how it performs, and raise or lower it.</p></div>`;
+  const today = v.today ?? "";
+  const statusWord = PARTNER_STATUSES.find((x) => x.id === (project.status ?? "pending"))?.label ?? "";
+  const ddWord = DUE_DILIGENCE.find((x) => x.id === (project.ddStatus ?? "none"))?.label ?? "";
+  const live = isActivePartner(project, today);
+  const bits = [project.reference ? `Ref ${esc(project.reference)}` : "", project.countries ? esc(project.countries) : "", project.capacity !== undefined ? `capacity ${project.capacity} job${project.capacity === 1 ? "" : "s"}${project.capacityNote ? ` (${esc(project.capacityNote)})` : ""}` : "", project.reportVia ? `reports by ${esc(project.reportVia)}` : "", (project.itemIds ?? []).length ? `delivers ${(project.itemIds ?? []).length} item${(project.itemIds ?? []).length === 1 ? "" : "s"}` : "delivers any item"].filter((x) => x !== "");
+  const goes = `<div class="card"><h2>${esc(project.name)} <span class="muted">${esc(project.type ?? "No type")}</span> <span class="pill ${live ? "ok" : "review"}">${esc(statusWord)}</span> <span class="pill ${project.ddStatus === "approved" ? "ok" : "review"}">Due diligence: ${esc(ddWord)}</span></h2>
+    <p class="muted">${bits.join(" · ")}</p>
+    <p class="muted">Gifts that name ${answersTo} in the CRM go to this partner. Change this in the list of CRM names above.${live ? "" : " This partner takes no new gifts until it is active with due diligence approved."}</p>
+    <div class="actions"><button data-pf="edit" data-id="${esc(project.id)}">Edit profile</button></div></div>`;
   return `${head}${create}${crmCard}${picker}${goes}${levelCard}${typeCard}${placeCard}${benCard}`;
 }

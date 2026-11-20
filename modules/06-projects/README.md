@@ -19,6 +19,7 @@ Framework templates (Module 2), outcomes and allocations (Module 5), commitments
 - A type of beneficiary (child, teacher, warden) lives at one level and has one framework. Two types in one project sharing a framework give a warning, because a gift could land on either.
 - Beneficiaries are added in numbers to a place of the level their type lives at, as numbered test records (profile fields come later). They take the type's framework.
 - A gift's project name is matched to a project by its name or an alias. No match means a general gift.
+- A partner's profile is one record with the groups of decision 69. Only the name and the type are required. Types and extra fields are the organisation's own lists. A partner can be active only while its due diligence is approved and in date, and only active partners that deliver a gift's item are offered the gift.
 - Nothing is removed while it is in use: a place with places or beneficiaries, a type with beneficiaries.
 
 - A gift's project (the CRM's Project on the line) decides where it can go: a match makes it directed, anything else is general. The Partners page lists the names the CRM uses with their counts, and a person ticks the partners each goes to (a name can go to several partners, DECISIONS 68). A suggestion is offered for a name that shares a whole word with a project (DECISIONS 67).
