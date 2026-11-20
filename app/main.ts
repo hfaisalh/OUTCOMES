@@ -451,13 +451,13 @@ document.addEventListener("click", (e) => {
   if (["add-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "add-beneficiaries"].includes(action ?? "")) {
     const val = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value ?? "";
     const pid = (state.projects.find((p) => p.id === state.openProject) ?? state.projects[0])?.id ?? "";
-    if (action === "add-level") void outcomeChange({ action: "add-level", projectId: pid, name: val("pj-level"), parentId: el.dataset.parent ?? "" });
+    if (action === "add-level") void outcomeChange({ action: "add-level", projectId: pid, name: val("pj-level"), parentId: val("pj-level-parent") });
     if (action === "remove-level") void outcomeChange({ action: "remove-level", projectId: pid, levelId: el.dataset.id });
-    if (action === "add-type") void outcomeChange({ action: "add-type", projectId: pid, name: val("pj-type-name"), levelId: val("pj-type-level"), frameworkId: val("pj-type-fw") });
+    if (action === "add-type") void outcomeChange({ action: "add-type", projectId: pid, name: val("pj-type-name"), levelId: val("pj-type-level"), frameworkId: val("pj-type-fw"), groupingIds: [...document.querySelectorAll(".pj-type-group:checked")].map((i) => (i as HTMLInputElement).value) });
     if (action === "remove-type") void outcomeChange({ action: "remove-type", projectId: pid, typeId: el.dataset.id });
-    if (action === "add-node") void outcomeChange({ action: "add-node", projectId: pid, parentId: val("pj-node-parent"), name: val("pj-node-name"), field: val("pj-node-loc") !== "" ? "Location" : "", fieldValue: val("pj-node-loc") });
+    if (action === "add-node") void outcomeChange({ action: "add-node", projectId: pid, levelId: val("pj-node-level"), parentId: val("pj-node-parent"), name: val("pj-node-name"), field: val("pj-node-loc") !== "" ? "Location" : "", fieldValue: val("pj-node-loc") });
     if (action === "remove-node") void outcomeChange({ action: "remove-node", nodeId: el.dataset.id });
-    if (action === "add-beneficiaries") void outcomeChange({ action: "add-beneficiaries", projectId: pid, typeId: val("pj-ben-type"), nodeId: val("pj-ben-node"), name: val("pj-ben-name"), count: Number(val("pj-ben-count") || 1) });
+    if (action === "add-beneficiaries") void outcomeChange({ action: "add-beneficiaries", projectId: pid, typeId: val("pj-ben-type"), nodeId: val("pj-ben-node"), groupIds: [...document.querySelectorAll(".pj-ben-group")].filter((i) => !(i as HTMLElement).hidden).map((i) => (i as HTMLSelectElement).value).filter((x) => x !== ""), name: val("pj-ben-name"), count: Number(val("pj-ben-count") || 1) });
     return;
   }
   if (action === "add-outcomes") {
@@ -653,8 +653,10 @@ document.addEventListener("change", (e) => {
   }
   // Rule: only a field the page knows about causes a redraw. Any other field (the owner passphrase box, for example)
   // must be left alone, because a redraw would wipe what was typed and replace the button the person is about to press.
-  const known = t.id === "role" || t.dataset.ocMove !== undefined || t.dataset.ocf !== undefined || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords || t.dataset.pjOpen !== undefined || t.dataset.placeSelect !== undefined || t.dataset.buffer !== undefined;
+  const known = t.id === "role" || t.dataset.ocMove !== undefined || t.dataset.ocf !== undefined || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords || t.dataset.pjOpen !== undefined || t.dataset.levelParent !== undefined || t.dataset.placeSelect !== undefined || t.dataset.buffer !== undefined;
   if (!known) return;
+  // A level moved under another, or to the top (DECISIONS 71).
+  if (t.dataset.levelParent !== undefined) return void outcomeChange({ action: "move-level", projectId: state.openProject, levelId: t.dataset.levelParent, parentId: t.value });
   if (t.dataset.placeSelect !== undefined) {
     if (t.value !== "") void outcomeChange({ action: "place-in-node", commitmentKey: t.dataset.placeSelect, nodeId: t.value });
     return;
@@ -807,27 +809,51 @@ function syncNewType(): void {
 }
 const readForm = () => readPartnerForm(document.getElementById("modal-root") as HTMLElement);
 
-// Adding beneficiaries: only the places at the level the chosen type lives at are offered (DECISIONS 70).
-function filterPlaces(): void {
-  const type = document.getElementById("pj-ben-type") as HTMLSelectElement | null;
-  const place = document.getElementById("pj-ben-node") as HTMLSelectElement | null;
-  if (!type || !place) return;
-  const level = (type.selectedOptions[0] as HTMLOptionElement | undefined)?.dataset.level ?? "";
+// Hides the options of a list that do not fit, and says so when none do.
+function narrow(select: HTMLSelectElement | null, fits: (o: HTMLOptionElement) => boolean, emptyText: string, normalText: string): void {
+  if (!select) return;
   let shown = 0;
-  for (const o of [...place.options]) {
+  for (const o of [...select.options]) {
     if (o.value === "") continue;
-    const ok = level === "" || o.dataset.level === level;
+    const ok = fits(o);
     o.hidden = !ok;
     o.disabled = !ok;
     if (ok) shown++;
   }
-  if (place.selectedOptions[0]?.disabled) place.value = "";
-  const first = place.options[0] as HTMLOptionElement;
-  first.textContent = level !== "" && shown === 0 ? "No place at this level yet. Add one on the Structure tab." : "Place...";
+  if (select.selectedOptions[0]?.disabled) select.value = "";
+  (select.options[0] as HTMLOptionElement).textContent = shown === 0 ? emptyText : normalText;
+}
+// Adding beneficiaries (DECISIONS 71): the type decides which places are offered and which groups (class, house) are asked for, and the place decides which groups are offered.
+function filterPlaces(): void {
+  const type = document.getElementById("pj-ben-type") as HTMLSelectElement | null;
+  const place = document.getElementById("pj-ben-node") as HTMLSelectElement | null;
+  if (!type || !place) return;
+  const picked = type.selectedOptions[0] as HTMLOptionElement | undefined;
+  const level = picked?.dataset.level ?? "";
+  const groups = (picked?.dataset.groups ?? "").split(" ").filter((x) => x !== "");
+  narrow(place, (o) => level === "" || o.dataset.level === level, "No place of this kind yet. Add one on the Structure tab.", "Place...");
+  for (const g of document.querySelectorAll(".pj-ben-group") as NodeListOf<HTMLSelectElement>) {
+    const used = groups.includes(g.dataset.groupLevel ?? "");
+    g.hidden = !used;
+    if (!used) g.value = "";
+    narrow(g, (o) => place.value !== "" && (o.dataset.in ?? "").split(" ").includes(place.value), place.value === "" ? "Choose the place first" : "None in this place yet", g.getAttribute("aria-label") + "...");
+  }
+}
+// Adding a place or a group: only the places of the level above are offered to sit inside (DECISIONS 71).
+function filterParents(): void {
+  const level = document.getElementById("pj-node-level") as HTMLSelectElement | null;
+  const parent = document.getElementById("pj-node-parent") as HTMLSelectElement | null;
+  if (!level || !parent) return;
+  const above = (level.selectedOptions[0] as HTMLOptionElement | undefined)?.dataset.parentLevel;
+  parent.disabled = level.value !== "" && above === "";
+  narrow(parent, (o) => above !== undefined && o.dataset.level === above, level.value === "" ? "Inside..." : above === "" ? "Not inside anything" : "No place of that kind yet", "Inside...");
+  if (above === "") (parent.options[0] as HTMLOptionElement).textContent = "Not inside anything";
 }
 document.addEventListener("change", (e) => {
-  if ((e.target as HTMLElement).id === "pf-type") syncNewType();
-  if ((e.target as HTMLElement).id === "pj-ben-type") filterPlaces();
+  const id = (e.target as HTMLElement).id;
+  if (id === "pf-type") syncNewType();
+  if (id === "pj-ben-type" || id === "pj-ben-node") filterPlaces();
+  if (id === "pj-node-level") filterParents();
 });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && state.partnerWin.open) closePartnerWindow();

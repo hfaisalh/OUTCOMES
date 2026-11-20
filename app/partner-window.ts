@@ -8,7 +8,7 @@
 
 import { allocatable } from "../modules/04b-commitments/commitments";
 import { fillOf, perPeriodRule, capacityOf } from "../modules/05-outcomes/outcomes";
-import { allocOptions, DUE_DILIGENCE, isActivePartner, orderedLevels, PARTNER_STATUSES, rollupOf, type Project } from "../modules/06-projects/projects";
+import { allocOptions, DUE_DILIGENCE, isActivePartner, levelsBelow, levelTree, PARTNER_STATUSES, rollupOf, type Node, type Project } from "../modules/06-projects/projects";
 import { partnerProfileHtml, type FormContext } from "./partner-form";
 import { esc, type View } from "./pages";
 
@@ -17,76 +17,92 @@ const TABS: { id: PartnerTab; label: string }[] = [{ id: "profile", label: "Prof
 const MAX_ROWS = 300;
 const meter = (used: number, places: number) => `<span class="meter" aria-hidden="true"><i style="width:${places > 0 ? Math.min(Math.round((used / places) * 100), 100) : 0}%"></i></span>`;
 
-// Levels, who lives at each, and the places, as tables, each with a form to add to it.
+// The names of a place and its parents, nearest last, so a group is shown with the place it is in.
+const ancestors = (nodes: Node[], id: string): string[] => { const out: string[] = []; for (let n = nodes.find((x) => x.id === id); n && n.parentId !== ""; n = nodes.find((x) => x.id === n?.parentId)) out.push(n.parentId); return out; };
+
+// Levels (the place, and the ways of grouping people inside it), who belongs where, and the places, as tables, each with a form to add to it (DECISIONS 71).
 function structureHtml(v: View, project: Project): string {
   const nodes = (v.nodes ?? []).filter((n) => n.projectId === project.id);
   const outcomes = (v.outcomes ?? []).filter((o) => o.projectId === project.id);
   const fws = v.frameworks ?? [];
   const today = v.today ?? "2026-01-01";
-  const levels = orderedLevels(project);
-  const levelName = (id: string) => levels.find((l) => l.id === id)?.name ?? "";
+  const tree = levelTree(project);
+  const levelName = (id: string) => project.levels.find((l) => l.id === id)?.name ?? "";
   const fwName = (id: string) => fws.find((f) => f.id === id)?.name ?? "No framework";
   const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
   const roll = rollupOf(nodes, outcomes, fws, v.allocations ?? [], commitments, allocOptions(v.projects ?? [], v.bufferMonths, today).policy);
-  const last = levels[levels.length - 1];
 
-  const levelRows = levels.map((l, i) => `<tr><td>${i + 1}</td><td><b>${esc(l.name)}</b></td><td>${nodes.filter((n) => n.levelId === l.id).length}</td><td>${l === last ? `<button data-action="remove-level" data-id="${esc(l.id)}" title="Remove the bottom level">Remove</button>` : ""}</td></tr>`).join("");
+  // Levels: the first is the place, and the others sit under a level as ways of grouping people inside it.
+  const levelRows = tree.map(({ level: l, depth }) => {
+    const below = levelsBelow(project, l.id);
+    const canMoveTo = [{ id: "", name: "Top, a place" }, ...tree.filter((x) => x.level.id !== l.id && !below.has(x.level.id)).map((x) => ({ id: x.level.id, name: `Under ${x.level.name}` }))];
+    const leaf = !project.levels.some((x) => x.parentId === l.id);
+    return `<tr><td style="padding-left:${8 + depth * 18}px"><b>${esc(l.name)}</b></td><td><select data-level-parent="${esc(l.id)}" aria-label="Where ${esc(l.name)} sits">${canMoveTo.map((o) => `<option value="${esc(o.id)}"${o.id === l.parentId ? " selected" : ""}>${esc(o.name)}</option>`).join("")}</select></td><td>${nodes.filter((n) => n.levelId === l.id).length}</td><td>${leaf ? `<button data-action="remove-level" data-id="${esc(l.id)}">Remove</button>` : ""}</td></tr>`;
+  }).join("");
   const levelsCard = `<section><h3>Levels</h3>
-    ${levels.length ? `<div class="twrap"><table><thead><tr><th>Order</th><th>Level</th><th>Places</th><th></th></tr></thead><tbody>${levelRows}</tbody></table></div>` : `<div class="empty">No levels yet. For an institute, for example Branch, then Block, then Class.</div>`}
-    <div class="actions"><input id="pj-level" placeholder="${last ? `A level under ${esc(last.name)}` : "First level, for example Branch"}" /><button data-action="add-level" data-parent="${esc(last?.id ?? "")}">Add level</button></div></section>`;
+    <p class="muted">The first level is the place: a branch or a site. A partner can have many places. The other levels are ways of grouping people inside a place, such as Class, House or School. A child can be in a class and a house at the same time.</p>
+    ${tree.length ? `<div class="twrap"><table><thead><tr><th>Level</th><th>Sits</th><th>Places</th><th></th></tr></thead><tbody>${levelRows}</tbody></table></div>` : `<div class="empty">No levels yet. Add the place first, for example Branch.</div>`}
+    <div class="actions"><input id="pj-level" placeholder="${tree.length ? "Another level, for example Class" : "First level, for example Branch"}" /><select id="pj-level-parent" aria-label="Where it sits">${tree.length ? "" : `<option value="">Top, a place</option>`}${tree.map((x) => `<option value="${esc(x.level.id)}">Under ${esc(x.level.name)}</option>`).join("")}${tree.length ? `<option value="">Top, another kind of place</option>` : ""}</select><button data-action="add-level">Add level</button></div></section>`;
 
-  const typeRows = project.types.map((t) => `<tr><td><b>${esc(t.name)}</b></td><td>${esc(levelName(t.levelId))}</td><td>${esc(fwName(t.frameworkId))}</td><td>${outcomes.filter((o) => o.typeId === t.id).length}</td><td><button data-action="remove-type" data-id="${esc(t.id)}">Remove</button></td></tr>`).join("");
-  const typesCard = `<section><h3>Who lives here <span class="muted">(types of beneficiary)</span></h3>
-    ${project.types.length ? `<div class="twrap"><table><thead><tr><th>Type</th><th>Lives at</th><th>Sponsored as</th><th>Beneficiaries</th><th></th></tr></thead><tbody>${typeRows}</tbody></table></div>` : `<div class="empty">No types yet. For example: Child lives at Class, sponsored as shared parts.</div>`}
+  // Types: which place the beneficiaries belong to, which groupings apply to them, and how they are sponsored.
+  const typeRows = project.types.map((t) => `<tr><td><b>${esc(t.name)}</b></td><td>${esc(levelName(t.levelId))}</td><td>${(t.groupingIds ?? []).map((g) => esc(levelName(g))).join(", ") || '<span class="muted">none</span>'}</td><td>${esc(fwName(t.frameworkId))}</td><td>${outcomes.filter((o) => o.typeId === t.id).length}</td><td><button data-action="remove-type" data-id="${esc(t.id)}">Remove</button></td></tr>`).join("");
+  const typesCard = `<section><h3>Who is here <span class="muted">(types of beneficiary)</span></h3>
+    ${project.types.length ? `<div class="twrap"><table><thead><tr><th>Type</th><th>Belongs to</th><th>Grouped by</th><th>Sponsored as</th><th>Beneficiaries</th><th></th></tr></thead><tbody>${typeRows}</tbody></table></div>` : `<div class="empty">No types yet. For example: a Child belongs to a Branch, is grouped by Class and House, and is sponsored as shared parts.</div>`}
     <div class="actions"><input id="pj-type-name" placeholder="Type, for example Child or Teacher" />
-      <select id="pj-type-level" aria-label="Lives at"><option value="">Lives at...</option>${levels.map((l) => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("")}</select>
+      <select id="pj-type-level" aria-label="Belongs to"><option value="">Belongs to...</option>${tree.map((x) => `<option value="${esc(x.level.id)}">${esc(x.level.name)}</option>`).join("")}</select>
       <select id="pj-type-fw" aria-label="Sponsored as"><option value="">Sponsored as...</option>${fws.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>
-      <button data-action="add-type">Add type</button></div></section>`;
+      <button data-action="add-type">Add type</button></div>
+    ${tree.length > 1 ? `<div class="actions"><span class="muted">Grouped by:</span> ${tree.map((x) => `<label class="tick"><input type="checkbox" class="pj-type-group" value="${esc(x.level.id)}" /> ${esc(x.level.name)}</label>`).join(" ")}</div>` : ""}</section>`;
 
   // The places, in order down the tree, indented by how deep each is.
-  const depthOf = (id: string): number => { let d = 0; for (let n = nodes.find((x) => x.id === id); n && n.parentId !== ""; n = nodes.find((x) => x.id === n?.parentId)) d++; return d; };
-  const ordered: typeof nodes = [];
+  const depthOf = (id: string): number => ancestors(nodes, id).length;
+  const ordered: Node[] = [];
   const walk = (parent: string) => nodes.filter((n) => n.parentId === parent).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).forEach((n) => { ordered.push(n); walk(n.id); });
   walk("");
   const placeRows = ordered.slice(0, MAX_ROWS).map((n) => {
     const r = roll.byNode.get(n.id) ?? { places: 0, used: 0, beneficiaries: 0 };
-    return `<tr><td style="padding-left:${8 + depthOf(n.id) * 18}px"><b>${esc(n.name)}</b></td><td>${esc(levelName(n.levelId))}</td><td class="muted">${Object.entries(n.fields).map(([k, val]) => `${esc(k)}: ${esc(val)}`).join(", ")}</td><td>${r.beneficiaries}</td><td>${r.used} of ${r.places} ${meter(r.used, r.places)}</td><td><button data-action="remove-node" data-id="${esc(n.id)}" title="Remove this place">Remove</button></td></tr>`;
+    return `<tr><td style="padding-left:${8 + depthOf(n.id) * 18}px"><b>${esc(n.name)}</b></td><td>${esc(levelName(n.levelId))}</td><td class="muted">${Object.entries(n.fields).map(([k, val]) => `${esc(k)}: ${esc(val)}`).join(", ")}</td><td>${r.beneficiaries}</td><td>${r.used} of ${r.places} ${meter(r.used, r.places)}</td><td><button data-action="remove-node" data-id="${esc(n.id)}" title="Remove this one">Remove</button></td></tr>`;
   }).join("");
-  const parentOptions = `${levels[0] ? `<option value="">Top (${esc(levels[0].name)})</option>` : ""}${nodes.filter((n) => levels.findIndex((l) => l.id === n.levelId) < levels.length - 1).map((n) => `<option value="${esc(n.id)}">${esc(n.name)} (${esc(levelName(n.levelId))}), under it</option>`).join("")}`;
-  const placesCard = `<section><h3>Places <span class="muted">(${nodes.length})</span></h3>
-    ${nodes.length ? `<div class="twrap"><table><thead><tr><th>Place</th><th>Level</th><th>Profile</th><th>Beneficiaries</th><th>Sponsored of units</th><th></th></tr></thead><tbody>${placeRows}</tbody></table></div>${ordered.length > MAX_ROWS ? `<p class="muted">Showing ${MAX_ROWS} of ${ordered.length}.</p>` : ""}` : `<div class="empty">No places yet. Add the first, for example Branch 1.</div>`}
-    <div class="actions"><input id="pj-node-name" placeholder="Place name, for example Branch 1" /><select id="pj-node-parent" aria-label="Sits under">${parentOptions}</select><input id="pj-node-loc" placeholder="Location (optional)" /><button data-action="add-node"${levels.length ? "" : " disabled"}>Add place</button></div></section>`;
+  const parentOptions = nodes.map((n) => `<option value="${esc(n.id)}" data-level="${esc(n.levelId)}">${esc(n.name)} (${esc(levelName(n.levelId))})</option>`).join("");
+  const levelOptions = tree.map((x) => `<option value="${esc(x.level.id)}" data-parent-level="${esc(x.level.parentId)}">${esc(x.level.name)}</option>`).join("");
+  const placesCard = `<section><h3>Places and groups <span class="muted">(${nodes.length})</span></h3>
+    ${nodes.length ? `<div class="twrap"><table><thead><tr><th>Name</th><th>Level</th><th>Profile</th><th>Beneficiaries</th><th>Sponsored of units</th><th></th></tr></thead><tbody>${placeRows}</tbody></table></div>${ordered.length > MAX_ROWS ? `<p class="muted">Showing ${MAX_ROWS} of ${ordered.length}.</p>` : ""}` : `<div class="empty">None yet. Add the first place, for example Aghosh Lahore.</div>`}
+    <div class="actions"><input id="pj-node-name" placeholder="Name, for example Aghosh Lahore or Class 5A" /><select id="pj-node-level" aria-label="Level"><option value="">Level...</option>${levelOptions}</select>
+      <select id="pj-node-parent" aria-label="Inside"><option value="">Inside...</option>${parentOptions}</select><input id="pj-node-loc" placeholder="Location (optional)" /><button data-action="add-node"${tree.length ? "" : " disabled"}>Add</button></div>
+    <p class="muted">Choose the level first, and for a group the place it is in. A place of the first level is not inside anything.</p></section>`;
   return `${levelsCard}${typesCard}${placesCard}`;
 }
 
-// The beneficiaries of this partner as a table, and a form to add them in numbers.
+// The beneficiaries of this partner as a table, and a form to add them in numbers: the type, the place they belong to, and a group of each kind that applies (DECISIONS 71).
 function beneficiariesHtml(v: View, project: Project): string {
   const nodes = (v.nodes ?? []).filter((n) => n.projectId === project.id);
   const outcomes = (v.outcomes ?? []).filter((o) => o.projectId === project.id);
   const fws = v.frameworks ?? [];
   const today = v.today ?? "2026-01-01";
   const allocations = v.allocations ?? [];
-  const levels = orderedLevels(project);
-  const levelName = (id: string) => levels.find((l) => l.id === id)?.name ?? "";
-  const placeName = (id: string | undefined) => nodes.find((n) => n.id === id)?.name ?? "";
+  const levelName = (id: string) => project.levels.find((l) => l.id === id)?.name ?? "";
+  const nodeName = (id: string | undefined) => nodes.find((n) => n.id === id)?.name ?? "";
   const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
   const policy = allocOptions(v.projects ?? [], v.bufferMonths, today).policy;
   const held = new Set(allocations.map((a) => a.outcomeId));
   const rows = outcomes.slice(0, MAX_ROWS).map((o) => {
     const used = fillOf(o, fws, allocations, commitments, policy).used;
     const cap = capacityOf(o, fws);
-    return `<tr><td><b>${esc(o.name)}</b></td><td>${esc(o.type)}</td><td>${esc(placeName(o.nodeId))}</td><td>${used} of ${cap} ${meter(used, cap)}</td><td>${o.active ? "Active" : "Offboarded"}</td><td><button data-oc-active="${esc(o.id)}" data-active="${o.active ? "0" : "1"}">${o.active ? "Offboard" : "Activate"}</button>${held.has(o.id) ? "" : ` <button data-oc-remove="${esc(o.id)}">Remove</button>`}</td></tr>`;
+    return `<tr><td><b>${esc(o.name)}</b></td><td>${esc(o.type)}</td><td>${esc(nodeName(o.nodeId))}</td><td>${(o.groupIds ?? []).map((g) => esc(nodeName(g))).join(", ")}</td><td>${used} of ${cap} ${meter(used, cap)}</td><td>${o.active ? "Active" : "Offboarded"}</td><td><button data-oc-active="${esc(o.id)}" data-active="${o.active ? "0" : "1"}">${o.active ? "Offboard" : "Activate"}</button>${held.has(o.id) ? "" : ` <button data-oc-remove="${esc(o.id)}">Remove</button>`}</td></tr>`;
   }).join("");
   const unused = outcomes.filter((o) => !held.has(o.id)).map((o) => o.id);
+  // One group list for each kind of grouping any type uses. Each is shown only when the chosen type uses it, and lists only the groups in the chosen place.
+  const groupLevels = [...new Set(project.types.flatMap((t) => t.groupingIds ?? []))];
+  const groupSelects = groupLevels.map((lid) => `<select class="pj-ben-group" data-group-level="${esc(lid)}" aria-label="${esc(levelName(lid))}" hidden><option value="">${esc(levelName(lid))}...</option>${nodes.filter((n) => n.levelId === lid).map((n) => `<option value="${esc(n.id)}" data-in="${esc(ancestors(nodes, n.id).join(" "))}">${esc(n.name)}</option>`).join("")}</select>`).join("");
   return `<section><h3>Add beneficiaries <span class="muted">(numbered test records)</span></h3>
-    <div class="actions"><select id="pj-ben-type" aria-label="Type"><option value="">Type...</option>${project.types.map((t) => `<option value="${esc(t.id)}" data-level="${esc(t.levelId)}">${esc(t.name)} (at ${esc(levelName(t.levelId))})</option>`).join("")}</select>
-      <select id="pj-ben-node" aria-label="Place"><option value="">Place...</option>${nodes.map((n) => `<option value="${esc(n.id)}" data-level="${esc(n.levelId)}">${esc(n.name)} (${esc(levelName(n.levelId))})</option>`).join("")}</select>
+    <div class="actions"><select id="pj-ben-type" aria-label="Type"><option value="">Type...</option>${project.types.map((t) => `<option value="${esc(t.id)}" data-level="${esc(t.levelId)}" data-groups="${esc((t.groupingIds ?? []).join(" "))}">${esc(t.name)} (belongs to a ${esc(levelName(t.levelId))})</option>`).join("")}</select>
+      <select id="pj-ben-node" aria-label="Place"><option value="">Place...</option>${nodes.map((n) => `<option value="${esc(n.id)}" data-level="${esc(n.levelId)}">${esc(n.name)} (${esc(levelName(n.levelId))})</option>`).join("")}</select>${groupSelects}
       <input id="pj-ben-name" placeholder="Name, for example Orphan" /><input id="pj-ben-count" type="number" min="1" max="500" value="10" aria-label="How many" />
       <button class="primary" data-action="add-beneficiaries"${project.types.length && nodes.length ? "" : " disabled"}>Add</button></div>
-    <p class="muted">Several at once are numbered: Orphan 1, Orphan 2 and so on. Choose the type first, and the places that type can live at are offered. Add the types and places on the Structure tab first.</p></section>
+    <p class="muted">Choose the type first. The places it can belong to are offered, then the groups it is in (a class, a house) for the place you chose. Several at once are numbered: Orphan 1, Orphan 2 and so on. Add types and places on the Structure tab first.</p></section>
   <section><h3>Beneficiaries <span class="muted">(${outcomes.length})</span></h3>
     ${unused.length ? `<div class="actions"><button data-action="remove-unused" data-ids="${esc(unused.slice(0, 1000).join(","))}">Remove ${Math.min(unused.length, 1000)} with no sponsor</button></div>` : ""}
-    ${outcomes.length ? `<div class="twrap"><table><thead><tr><th>Name</th><th>Type</th><th>Place</th><th>Sponsored of units</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${outcomes.length > MAX_ROWS ? `<p class="muted">Showing ${MAX_ROWS} of ${outcomes.length}.</p>` : ""}` : `<div class="empty">No beneficiaries yet.</div>`}</section>`;
+    ${outcomes.length ? `<div class="twrap"><table><thead><tr><th>Name</th><th>Type</th><th>Place</th><th>Groups</th><th>Sponsored of units</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${outcomes.length > MAX_ROWS ? `<p class="muted">Showing ${MAX_ROWS} of ${outcomes.length}.</p>` : ""}` : `<div class="empty">No beneficiaries yet.</div>`}</section>`;
 }
 
 /**

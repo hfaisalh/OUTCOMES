@@ -32,6 +32,7 @@ export interface Outcome {
   projectId?: string; // the project it belongs to, absent for one made before projects existed (DECISIONS 65)
   nodeId?: string; // the place in the project's structure where it lives
   typeId?: string; // the project's type of beneficiary it is
+  groupIds?: string[]; // the groups it is in inside its place, such as a class and a house (DECISIONS 71)
 }
 
 export interface Allocation {

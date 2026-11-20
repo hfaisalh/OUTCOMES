@@ -22,10 +22,12 @@ function built() {
   const id = projects[0]!.id;
   projects = addLevel(projects, id, "Branch", "").value;
   projects = addLevel(projects, id, "Class", "branch").value;
-  projects = addType(projects, id, { name: "Child", levelId: "class", frameworkId: fws[0]!.id }, fws).value;
+  projects = addLevel(projects, id, "House", "branch").value;
+  projects = addType(projects, id, { name: "Child", levelId: "branch", frameworkId: fws[0]!.id, groupingIds: ["class", "house"] }, fws).value;
   let nodes = addNode([], projects, id, "branch", "", "Branch 1", { Location: "Lahore" }).value;
   nodes = addNode(nodes, projects, id, "class", nodes[0]!.id, "Class 5A").value;
-  const outcomes = addBeneficiaries([], projects, nodes, { projectId: id, nodeId: nodes[1]!.id, typeId: "child", name: "Orphan", count: 3 }).value;
+  nodes = addNode(nodes, projects, id, "house", nodes[0]!.id, "Rose House").value;
+  const outcomes = addBeneficiaries([], projects, nodes, { projectId: id, nodeId: nodes[0]!.id, typeId: "child", name: "Orphan", count: 3, groupIds: [nodes[1]!.id, nodes[2]!.id] }).value;
   return { projects, nodes, outcomes, id };
 }
 
@@ -45,28 +47,34 @@ describe("partnerWindowHtml", () => {
     for (const w of ["Aghosh Orphan Homes", "Institute", "Active", "Due diligence: Approved", "Profile", "Structure", "Beneficiaries"]) expect(html).toContain(w);
     expect(html).not.toMatch(/data-pf-tab="structure"[^>]*disabled/);
   });
-  it("shows the structure as tables: levels, who lives here, and the places with what each adds up to", () => {
+  it("shows the levels with where each sits, the types with what groups them, and the places and groups with what each adds up to", () => {
     const { projects, nodes, outcomes, id } = built();
     const html = partnerWindowHtml(base({ projects, nodes, outcomes }), id, "structure", ctx, {});
-    for (const w of ["<th>Order</th>", "Branch", "Class", "<th>Lives at</th>", "Child", "<th>Place</th>", "Branch 1", "Class 5A", "Location: Lahore", "0 of 9"]) expect(html).toContain(w);
-    expect(html).toContain('data-action="add-level"');
-    expect(html).toContain('data-action="add-type"');
-    expect(html).toContain('data-action="add-node"');
-    expect(html).toContain('data-action="remove-level" data-id="class"'); // only the bottom level can be removed
-    expect(html).not.toContain('data-action="remove-level" data-id="branch"');
+    for (const w of ["<th>Level</th>", "<th>Sits</th>", "Under Branch", "Top, a place", "<th>Belongs to</th>", "<th>Grouped by</th>", "Class, House", "Places and groups", "Branch 1", "Class 5A", "Rose House", "Location: Lahore", "0 of 9"]) expect(html).toContain(w);
+    expect(html).toContain("A child can be in a class and a house at the same time");
+    for (const a of ["add-level", "add-type", "add-node"]) expect(html).toContain(`data-action="${a}"`);
+    expect(html).toContain('data-level-parent="class"'); // a level can be moved under another
+    expect(html).toContain('class="pj-type-group" value="class"'); // a type is grouped by the levels ticked
+    expect(html).toContain('<option value="class" data-parent-level="branch">'); // a new group's level says which level it sits in
   });
-  it("shows the beneficiaries as a table with how many units each has sponsored, and a form to add more", () => {
+  it("lets only a level with nothing under it be removed", () => {
+    const { projects, nodes, outcomes, id } = built();
+    const html = partnerWindowHtml(base({ projects, nodes, outcomes }), id, "structure", ctx, {});
+    expect(html).toContain('data-action="remove-level" data-id="class"');
+    expect(html).toContain('data-action="remove-level" data-id="house"');
+    expect(html).not.toContain('data-action="remove-level" data-id="branch"'); // Class and House are under it
+  });
+  it("shows the beneficiaries as a table with their place, their groups and how many units each has sponsored, and a form that asks for groups", () => {
     const { projects, nodes, outcomes, id } = built();
     const html = partnerWindowHtml(base({ projects, nodes, outcomes }), id, "beneficiaries", ctx, {});
-    expect(html).toContain("<th>Sponsored of units</th>");
-    expect(html).toContain("Orphan 1");
-    expect(html).toContain("Class 5A");
-    expect(html).toContain("0 of 3");
+    for (const w of ["<th>Groups</th>", "<th>Sponsored of units</th>", "Orphan 1", "Branch 1", "Class 5A, Rose House", "0 of 3"]) expect(html).toContain(w);
     expect(html).toContain('data-action="add-beneficiaries"');
     expect(html).toContain("Remove 3 with no sponsor");
     expect(html).toContain('data-oc-remove="orphan-1"');
-    expect(html).toContain('<option value="child" data-level="class">'); // the type says which level it lives at
-    expect(html).toContain('<option value="aghosh-orphan-homes-branch-1" data-level="branch">'); // so only places of that level are offered
+    expect(html).toContain('data-level="branch" data-groups="class house"'); // the type says its place and its groupings
+    expect(html).toContain('class="pj-ben-group" data-group-level="class"'); // one list for each grouping
+    expect(html).toContain('data-group-level="house"');
+    expect(html).toMatch(/data-in="aghosh-orphan-homes-branch-1"/); // a group lists the place it is in, so only its own place's groups are offered
   });
   it("never trusts names as HTML", () => {
     const { projects, nodes, outcomes, id } = built();

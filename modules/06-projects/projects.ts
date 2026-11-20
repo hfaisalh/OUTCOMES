@@ -8,10 +8,11 @@
  * Depends on: Module 5 (outcomes, fill) and Module 2 (framework templates). Pure functions: no database, no screen.
  *
  * Rules:
- * - A project defines its own levels. A level sits under another level, or directly under the project. Names and depth are the project's own.
+ * - A partner defines its own levels. The first level is the place (a branch, a site: a partner may have many). Other levels sit under it as ways of
+ *   grouping people inside a place, such as Class, House or School. They are not a chain: a child can be in a class and a house at once (DECISIONS 71).
  * - A node is one place in the structure (Lahore, Block A, Class 5A) at one level, under a node of the parent level.
- * - A beneficiary type says which level its beneficiaries live at and which framework sponsors them. Teachers can live at Branch
- *   and children at Class. Two types in one project should not share a framework, or a gift for one could land on the other (a warning is given).
+ * - A beneficiary type says which level its beneficiaries belong to (usually the place), which groupings apply to them (Class, House), and which framework
+ *   sponsors them. A beneficiary belongs to one place and to at most one group of each grouping that applies. Two types in one project should not share a framework, or a gift for one could land on the other (a warning is given).
  * - Beneficiaries are added in numbers to a node of the right level, as dummy numbered records for now (profile fields come later).
  * - Nothing is changed in place: every function returns a new value.
  */
@@ -29,7 +30,8 @@ export interface Level {
 export interface BeneficiaryType {
   id: string;
   name: string; // child, teacher, warden
-  levelId: string; // where its beneficiaries live
+  levelId: string; // the level its beneficiaries belong to, usually the place (the branch)
+  groupingIds?: string[]; // levels that group them inside that place (Class, House), each under the level above
   frameworkId: string; // how they are sponsored
 }
 
@@ -135,38 +137,54 @@ export function addLevel(projects: Project[], projectId: string, name: string, p
   if (p.levels.some((l) => same(l.name, n))) return { value: projects, error: `There is already a level called "${n}".` };
   if (parentId !== "" && !p.levels.some((l) => l.id === parentId)) return { value: projects, error: "The level it sits under was not found." };
   if (p.levels.length >= MAX_LEVELS) return { value: projects, error: `A project can have at most ${MAX_LEVELS} levels.` };
-  // Rule: a level has one child level, so the structure is a single chain (Branch, then Block, then Class). Branching levels can come later.
-  if (p.levels.some((l) => l.parentId === parentId)) return { value: projects, error: parentId === "" ? "The first level is already there." : "That level already has a level under it." };
   const level: Level = { id: uniqueId(n, new Set(p.levels.map((l) => l.id))), name: n, parentId };
   return { value: withProject(projects, projectId, (x) => ({ ...x, levels: [...x.levels, level] })) };
 }
 
-// Rule: a level that is in use (it has places, a level under it, or a type living at it) cannot be removed.
-export function removeLevel(projects: Project[], nodes: Node[], projectId: string, levelId: string): Changed<Project[]> {
-  const p = projects.find((x) => x.id === projectId);
-  if (!p) return { value: projects, error: "That project was not found." };
-  if (p.levels.some((l) => l.parentId === levelId)) return { value: projects, error: "Remove the level under it first." };
-  if (p.types.some((t) => t.levelId === levelId)) return { value: projects, error: "A type of beneficiary lives at this level. Remove or move it first." };
-  if (nodes.some((nd) => nd.projectId === projectId && nd.levelId === levelId)) return { value: projects, error: "There are places at this level. Remove them first." };
-  return { value: withProject(projects, projectId, (x) => ({ ...x, levels: x.levels.filter((l) => l.id !== levelId) })) };
-}
-
-// The levels in order, from the top of the structure to the bottom.
-export function orderedLevels(p: Project): Level[] {
-  const out: Level[] = [];
-  let parent = "";
-  for (let i = 0; i < p.levels.length; i++) {
-    const next = p.levels.find((l) => l.parentId === parent);
-    if (!next) break;
-    out.push(next);
-    parent = next.id;
+// The levels under a level, all the way down.
+export function levelsBelow(p: Project, levelId: string): Set<string> {
+  const out = new Set<string>();
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const l of p.levels) if (!out.has(l.id) && (l.parentId === levelId || out.has(l.parentId))) { out.add(l.id); grew = true; }
   }
   return out;
 }
 
+// Rule: a level that is in use (it has places, a level under it, or a type that uses it) cannot be removed.
+export function removeLevel(projects: Project[], nodes: Node[], projectId: string, levelId: string): Changed<Project[]> {
+  const p = projects.find((x) => x.id === projectId);
+  if (!p) return { value: projects, error: "That project was not found." };
+  if (p.levels.some((l) => l.parentId === levelId)) return { value: projects, error: "Remove the levels under it first." };
+  if (p.types.some((t) => t.levelId === levelId || (t.groupingIds ?? []).includes(levelId))) return { value: projects, error: "A type of beneficiary uses this level. Change or remove the type first." };
+  if (nodes.some((nd) => nd.projectId === projectId && nd.levelId === levelId)) return { value: projects, error: "There are places at this level. Remove them first." };
+  return { value: withProject(projects, projectId, (x) => ({ ...x, levels: x.levels.filter((l) => l.id !== levelId) })) };
+}
+
+// Rule (DECISIONS 71): put a level under another one, or at the top. It cannot go under itself or under a level below it, and a level with places cannot move, because its places hang under places of the old parent.
+export function moveLevel(projects: Project[], nodes: Node[], projectId: string, levelId: string, parentId: string): Changed<Project[]> {
+  const p = projects.find((x) => x.id === projectId);
+  const level = p?.levels.find((l) => l.id === levelId);
+  if (!p || !level) return { value: projects, error: "That level was not found." };
+  if (parentId !== "" && !p.levels.some((l) => l.id === parentId)) return { value: projects, error: "The level to put it under was not found." };
+  if (parentId === levelId || levelsBelow(p, levelId).has(parentId)) return { value: projects, error: "A level cannot go under itself or under a level below it." };
+  if (level.parentId === parentId) return { value: projects };
+  if (nodes.some((nd) => nd.projectId === projectId && nd.levelId === levelId)) return { value: projects, error: "There are places at this level, so it cannot move. Remove them first." };
+  return { value: withProject(projects, projectId, (x) => ({ ...x, levels: x.levels.map((l) => (l.id === levelId ? { ...l, parentId } : l)) })) };
+}
+
+// The levels from the top down, each with how deep it is, children after their parent. Used to show the levels and to offer them in lists.
+export function levelTree(p: Project): { level: Level; depth: number }[] {
+  const out: { level: Level; depth: number }[] = [];
+  const walk = (parent: string, depth: number) => p.levels.filter((l) => l.parentId === parent).forEach((l) => { out.push({ level: l, depth }); walk(l.id, depth + 1); });
+  walk("", 0);
+  return out;
+}
+export const orderedLevels = (p: Project): Level[] => levelTree(p).map((x) => x.level);
+
 // ---- Beneficiary types ----
 
-export function addType(projects: Project[], projectId: string, t: { name: string; levelId: string; frameworkId: string }, fw: FrameworkTemplate[]): Changed<Project[]> {
+export function addType(projects: Project[], projectId: string, t: { name: string; levelId: string; frameworkId: string; groupingIds?: string[] }, fw: FrameworkTemplate[]): Changed<Project[]> {
   const p = projects.find((x) => x.id === projectId);
   if (!p) return { value: projects, error: "That project was not found." };
   const name = clean(t.name);
@@ -174,8 +192,13 @@ export function addType(projects: Project[], projectId: string, t: { name: strin
   if (p.types.some((x) => same(x.name, name))) return { value: projects, error: `There is already a type called "${name}".` };
   if (!p.levels.some((l) => l.id === t.levelId)) return { value: projects, error: "Choose the level its beneficiaries live at." };
   if (!fw.some((f) => f.id === t.frameworkId)) return { value: projects, error: "Choose how it is sponsored." };
+  // Rule (DECISIONS 71): a grouping is a level under the level the beneficiaries belong to, such as Class or House under Branch.
+  const below = levelsBelow(p, t.levelId);
+  const groupingIds = [...new Set(t.groupingIds ?? [])];
+  const wrong = groupingIds.find((g) => !below.has(g));
+  if (wrong) return { value: projects, error: `${p.levels.find((l) => l.id === wrong)?.name ?? "That level"} is not under ${p.levels.find((l) => l.id === t.levelId)?.name ?? "that level"}, so it cannot group them.` };
   const clash = p.types.find((x) => x.frameworkId === t.frameworkId);
-  const type: BeneficiaryType = { id: uniqueId(name, new Set(p.types.map((x) => x.id))), name, levelId: t.levelId, frameworkId: t.frameworkId };
+  const type: BeneficiaryType = { id: uniqueId(name, new Set(p.types.map((x) => x.id))), name, levelId: t.levelId, frameworkId: t.frameworkId, ...(groupingIds.length ? { groupingIds } : {}) };
   const value = withProject(projects, projectId, (x) => ({ ...x, types: [...x.types, type] }));
   return clash ? { value, warning: `"${clash.name}" is sponsored the same way, so a gift could land on either. Give one of them its own framework (duplicate it) so gifts for each go to the right one.` } : { value };
 }
@@ -204,7 +227,7 @@ export function addNode(nodes: Node[], projects: Project[], projectId: string, l
 // Rule: a place with places under it, or with beneficiaries in it, cannot be removed.
 export function removeNode(nodes: Node[], outcomes: Outcome[], nodeId: string): Changed<Node[]> {
   if (nodes.some((x) => x.parentId === nodeId)) return { value: nodes, error: "Remove the places under it first." };
-  if (outcomes.some((o) => o.nodeId === nodeId)) return { value: nodes, error: "There are beneficiaries here. Remove them first." };
+  if (outcomes.some((o) => o.nodeId === nodeId || (o.groupIds ?? []).includes(nodeId))) return { value: nodes, error: "There are beneficiaries here. Remove them first." };
   return { value: nodes.filter((x) => x.id !== nodeId) };
 }
 
@@ -228,17 +251,29 @@ export function pathOf(nodes: Node[], projects: Project[], nodeId: string): stri
 
 // ---- Beneficiaries ----
 
-// Rule: add numbered beneficiaries of a type to a place of the level the type lives at. They take the type's framework.
-export function addBeneficiaries(outcomes: Outcome[], projects: Project[], nodes: Node[], o: { projectId: string; nodeId: string; typeId: string; name: string; count: number }): Changed<Outcome[]> {
+// Rule (DECISIONS 71): add numbered beneficiaries of a type to a place of the level the type belongs to, in the groups they are in (a class, a house).
+// A group must be of a level the type is grouped by, under that same place, and there is at most one group of each level.
+export function addBeneficiaries(outcomes: Outcome[], projects: Project[], nodes: Node[], o: { projectId: string; nodeId: string; typeId: string; name: string; count: number; groupIds?: string[] }): Changed<Outcome[]> {
   const p = projects.find((x) => x.id === o.projectId);
   const type = p?.types.find((t) => t.id === o.typeId);
   const node = nodes.find((x) => x.id === o.nodeId && x.projectId === o.projectId);
   if (!p || !type) return { value: outcomes, error: "Choose a type of beneficiary." };
   if (!node) return { value: outcomes, error: "Choose the place to add them to." };
-  if (node.levelId !== type.levelId) return { value: outcomes, error: `${type.name} beneficiaries live at the ${p.levels.find((l) => l.id === type.levelId)?.name ?? "level"} level, not ${p.levels.find((l) => l.id === node.levelId)?.name ?? "this one"}. Choose a place at that level, or add one on the Structure tab.` };
+  if (node.levelId !== type.levelId) return { value: outcomes, error: `${type.name} beneficiaries belong to a ${p.levels.find((l) => l.id === type.levelId)?.name ?? "place"}, not a ${p.levels.find((l) => l.id === node.levelId)?.name ?? "this one"}. Choose a ${p.levels.find((l) => l.id === type.levelId)?.name ?? "place"}, or add one on the Structure tab.` };
+  const groupIds = [...new Set((o.groupIds ?? []).filter((g) => g !== ""))];
+  const seen = new Set<string>();
+  for (const gid of groupIds) {
+    const g = nodes.find((x) => x.id === gid && x.projectId === o.projectId);
+    if (!g || !(type.groupingIds ?? []).includes(g.levelId)) return { value: outcomes, error: `${g?.name ?? "That group"} is not one of the groups ${type.name} beneficiaries can be in.` };
+    if (seen.has(g.levelId)) return { value: outcomes, error: `A beneficiary can be in only one ${p.levels.find((l) => l.id === g.levelId)?.name ?? "group"}.` };
+    seen.add(g.levelId);
+    let up = g.parentId;
+    while (up !== "" && up !== node.id) up = nodes.find((x) => x.id === up)?.parentId ?? "";
+    if (up !== node.id) return { value: outcomes, error: `${g.name} is not in ${node.name}.` };
+  }
   const r = addOutcomes(outcomes, { name: o.name, count: o.count, type: type.name, cohort: node.name, frameworkId: type.frameworkId });
   if (r.error) return r;
-  const added = r.value.slice(outcomes.length).map((x) => ({ ...x, projectId: o.projectId, nodeId: o.nodeId, typeId: o.typeId }));
+  const added = r.value.slice(outcomes.length).map((x) => ({ ...x, projectId: o.projectId, nodeId: o.nodeId, typeId: o.typeId, ...(groupIds.length ? { groupIds } : {}) }));
   return { value: [...outcomes, ...added] };
 }
 
@@ -250,7 +285,7 @@ export interface Rollup {
   beneficiaries: number;
 }
 
-// Rule: each place adds up the capacity and use of every beneficiary in it and under it. A project adds up all of its places.
+// Rule: each place adds up the capacity and use of every beneficiary in it, in its groups and under it. A project adds up all of its places.
 export function rollupOf(nodes: Node[], outcomes: Outcome[], fw: FrameworkTemplate[], allocations: Allocation[], commitments: Commitment[], policy?: Policy): { byNode: Map<string, Rollup>; byProject: Map<string, Rollup> } {
   const byNode = new Map<string, Rollup>();
   const byProject = new Map<string, Rollup>();
@@ -263,7 +298,10 @@ export function rollupOf(nodes: Node[], outcomes: Outcome[], fw: FrameworkTempla
     if (!o.projectId || !o.nodeId || !o.active) continue;
     const f = fillOf(o, fw, allocations, commitments, policy);
     bump(byProject, o.projectId, capacityOf(o, fw), f.used);
-    for (let id = o.nodeId; id !== "" && parentOf.has(id); id = parentOf.get(id) as string) bump(byNode, id, capacityOf(o, fw), f.used);
+    // The place it belongs to, the groups it is in, and everything above them, each counted once.
+    const ids = new Set<string>();
+    for (const start of [o.nodeId, ...(o.groupIds ?? [])]) for (let id = start; id !== "" && parentOf.has(id); id = parentOf.get(id) as string) ids.add(id);
+    for (const id of ids) bump(byNode, id, capacityOf(o, fw), f.used);
   }
   return { byNode, byProject };
 }
@@ -327,15 +365,6 @@ export function savePartner(s: ProjectState, raw: Record<string, unknown>, id: s
 
 // ---- Doing it from a request ----
 
-// The level a new place gets: the first level when it sits at the top of the project, otherwise the level under its parent's.
-export function levelForNewNode(p: Project, nodes: Node[], parentId: string): string | undefined {
-  const levels = orderedLevels(p);
-  if (parentId === "") return levels[0]?.id;
-  const parent = nodes.find((x) => x.id === parentId);
-  const at = levels.findIndex((l) => l.id === parent?.levelId);
-  return at >= 0 ? levels[at + 1]?.id : undefined;
-}
-
 export interface ProjectState {
   projects: Project[];
   nodes: Node[];
@@ -344,7 +373,7 @@ export interface ProjectState {
   partnerFields: string[]; // the organisation's own extra profile fields, by label
 }
 
-export const PROJECT_ACTIONS = ["toggle-crm-name", "save-partner", "add-partner-type", "add-partner-field", "remove-partner-field", "add-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "set-field", "add-beneficiaries"];
+export const PROJECT_ACTIONS = ["toggle-crm-name", "save-partner", "add-partner-type", "add-partner-field", "remove-partner-field", "add-level", "move-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "set-field", "add-beneficiaries"];
 export const MAX_RECORDS = 5000;
 
 /**
@@ -355,6 +384,7 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
   const action = typeof body["action"] === "string" ? body["action"] : "";
   if (!PROJECT_ACTIONS.includes(action)) return undefined;
   const str = (k: string, max = 100): string => (typeof body[k] === "string" ? (body[k] as string).slice(0, max) : "");
+  const strings = (k: string): string[] => (Array.isArray(body[k]) ? (body[k] as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 50) : []);
   const done = (state: ProjectState, warning?: string) => ({ state, ...(warning ? { warning } : {}) });
   const fail = (error: string) => ({ state: s, error });
   switch (action) {
@@ -384,12 +414,16 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
       const r = addLevel(s.projects, str("projectId"), str("name", 60), str("parentId"));
       return r.error ? fail(r.error) : done({ ...s, projects: r.value });
     }
+    case "move-level": {
+      const r = moveLevel(s.projects, s.nodes, str("projectId"), str("levelId"), str("parentId"));
+      return r.error ? fail(r.error) : done({ ...s, projects: r.value });
+    }
     case "remove-level": {
       const r = removeLevel(s.projects, s.nodes, str("projectId"), str("levelId"));
       return r.error ? fail(r.error) : done({ ...s, projects: r.value });
     }
     case "add-type": {
-      const r = addType(s.projects, str("projectId"), { name: str("name", 60), levelId: str("levelId"), frameworkId: str("frameworkId") }, fw);
+      const r = addType(s.projects, str("projectId"), { name: str("name", 60), levelId: str("levelId"), frameworkId: str("frameworkId"), groupingIds: strings("groupingIds") }, fw);
       return r.error ? fail(r.error) : done({ ...s, projects: r.value }, r.warning);
     }
     case "remove-type": {
@@ -398,10 +432,9 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
     }
     case "add-node": {
       const project = s.projects.find((p) => p.id === str("projectId"));
-      const levelId = project ? levelForNewNode(project, s.nodes, str("parentId")) : undefined;
-      if (!project || !levelId) return fail("There is no level for a place there. Add a level first.");
+      if (!project) return fail("That partner was not found.");
       const field = str("field", 60);
-      const r = addNode(s.nodes, s.projects, project.id, levelId, str("parentId"), str("name"), field !== "" ? { [field]: str("fieldValue", 200) } : {});
+      const r = addNode(s.nodes, s.projects, project.id, str("levelId"), str("parentId"), str("name"), field !== "" ? { [field]: str("fieldValue", 200) } : {});
       if (r.error) return fail(r.error);
       return r.value.length > MAX_RECORDS ? fail(`There can be at most ${MAX_RECORDS} places.`) : done({ ...s, nodes: r.value });
     }
@@ -412,7 +445,7 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
     case "set-field":
       return s.nodes.some((x) => x.id === str("nodeId")) ? done({ ...s, nodes: setNodeField(s.nodes, str("nodeId"), str("key", 60), str("value", 200)) }) : fail("That place was not found.");
     default: {
-      const r = addBeneficiaries(s.outcomes, s.projects, s.nodes, { projectId: str("projectId"), nodeId: str("nodeId"), typeId: str("typeId"), name: str("name"), count: Number(body["count"] ?? 1) });
+      const r = addBeneficiaries(s.outcomes, s.projects, s.nodes, { projectId: str("projectId"), nodeId: str("nodeId"), typeId: str("typeId"), name: str("name"), count: Number(body["count"] ?? 1), groupIds: strings("groupIds") });
       if (r.error) return fail(r.error);
       return r.value.length > MAX_RECORDS ? fail(`There can be at most ${MAX_RECORDS} beneficiaries.`) : done({ ...s, outcomes: r.value });
     }
@@ -497,7 +530,8 @@ export function placeInNode(allocations: Allocation[], commitments: Commitment[]
   if (!node) return { value: allocations, error: "That place was not found." };
   if (!takesCapacity(c, fw, policy)) return { value: allocations, error: "That gift no longer holds a place." };
   const under = placesUnder(nodes, nodeId);
-  const candidates = outcomes.filter((o) => o.active && o.frameworkId === c.frameworkId && o.nodeId !== undefined && under.has(o.nodeId));
+  // A beneficiary is in a place when it belongs to it, or to a group of it, or is in the place or group dropped on.
+  const candidates = outcomes.filter((o) => o.active && o.frameworkId === c.frameworkId && ((o.nodeId !== undefined && under.has(o.nodeId)) || (o.groupIds ?? []).some((g) => under.has(g))));
   const others = allocations.filter((a) => a.commitmentKey !== commitmentKey);
   const live = new Set(commitments.filter((x) => takesCapacity(x, fw, policy)).map((x) => x.subscriptionId));
   const used = new Map<string, number>();

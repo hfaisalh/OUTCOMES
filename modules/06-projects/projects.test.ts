@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Allocation } from "../05-outcomes/outcomes";
 import type { Commitment } from "../04b-commitments/commitments";
-import { applyProjectAction, isActivePartner, partnerAccepts, savePartner, setCrmName, crmProjectNames, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
+import { applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, setCrmName, crmProjectNames, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -53,12 +53,12 @@ describe("levels", () => {
     const { projects } = sample();
     expect(orderedLevels(projects[0]!).map((l) => l.name)).toEqual(["Branch", "Block", "Class"]);
   });
-  it("refuses a repeated name, an unknown parent, and a second level under the same one", () => {
+  it("refuses a repeated name and an unknown parent, and lets several levels sit under the same one", () => {
     const { projects } = sample();
     const id = projects[0]!.id;
     expect(addLevel(projects, id, "branch", "").error).toContain("already");
     expect(addLevel(projects, id, "Wing", "nope").error).toContain("not found");
-    expect(addLevel(projects, id, "Wing", "branch").error).toContain("already has a level under it");
+    expect(addLevel(projects, id, "Wing", "branch").error).toBeUndefined(); // a second level under Branch: not a chain
   });
   it("will not remove a level that is in use", () => {
     const { projects, nodes } = sample();
@@ -275,5 +275,75 @@ describe("the partner profile (DECISIONS 69)", () => {
     st = applyProjectAction(st, [], { action: "remove-partner-field", name: "Registration no." })!.state;
     expect(st.partnerFields).toEqual(["Parent charity number"]);
     expect(st.projects[0]?.custom).toEqual({});
+  });
+});
+
+describe("groupings inside a place: Class, House and School are not a chain (DECISIONS 71)", () => {
+  // Branch is the place. Class, House and School each sit under it. A child is in one class and one house. A teacher is in a school.
+  function school() {
+    let projects = addProject([], "Aghosh").value;
+    const id = projects[0]!.id;
+    projects = addLevel(projects, id, "Branch", "").value;
+    for (const l of ["Class", "House", "School"]) projects = addLevel(projects, id, l, "branch").value;
+    projects = addType(projects, id, { name: "Child", levelId: "branch", frameworkId: "shared", groupingIds: ["class", "house"] }, FW).value;
+    projects = addType(projects, id, { name: "Teacher", levelId: "branch", frameworkId: "whole", groupingIds: ["school"] }, FW).value;
+    let nodes: Node[] = addNode([], projects, id, "branch", "", "Lahore", { Location: "Township" }).value;
+    nodes = addNode(nodes, projects, id, "branch", "", "Jhelum").value;
+    nodes = addNode(nodes, projects, id, "class", "aghosh-lahore", "Class 5A").value;
+    nodes = addNode(nodes, projects, id, "house", "aghosh-lahore", "Rose House").value;
+    nodes = addNode(nodes, projects, id, "school", "aghosh-lahore", "Primary").value;
+    nodes = addNode(nodes, projects, id, "class", "aghosh-jhelum", "Class 1").value;
+    return { projects, nodes, id };
+  }
+  const ids = (nodes: Node[], name: string) => nodes.find((n) => n.name === name)!.id;
+
+  it("shows the levels as a tree with the groupings under the place, and a partner may have many places", () => {
+    const { projects, nodes } = school();
+    expect(levelTree(projects[0]!).map((x) => [x.level.name, x.depth])).toEqual([["Branch", 0], ["Class", 1], ["House", 1], ["School", 1]]);
+    expect(nodes.filter((n) => n.levelId === "branch")).toHaveLength(2);
+  });
+  it("puts a child in a place and in one class and one house, and counts them once at the place", () => {
+    const { projects, nodes, id } = school();
+    const r = addBeneficiaries([], projects, nodes, { projectId: id, nodeId: ids(nodes, "Lahore"), typeId: "child", name: "Orphan", count: 2, groupIds: [ids(nodes, "Class 5A"), ids(nodes, "Rose House")] });
+    expect(r.error).toBeUndefined();
+    expect(r.value[0]).toMatchObject({ nodeId: ids(nodes, "Lahore"), groupIds: [ids(nodes, "Class 5A"), ids(nodes, "Rose House")] });
+    const roll = rollupOf(nodes, r.value, FW, [], []);
+    expect(roll.byNode.get(ids(nodes, "Lahore"))).toEqual({ places: 6, used: 0, beneficiaries: 2 }); // not counted again for the class and the house
+    expect(roll.byNode.get(ids(nodes, "Class 5A"))).toEqual({ places: 6, used: 0, beneficiaries: 2 });
+    expect(roll.byNode.get(ids(nodes, "Rose House"))).toEqual({ places: 6, used: 0, beneficiaries: 2 });
+    expect(roll.byNode.get(ids(nodes, "Primary"))).toBeUndefined();
+  });
+  it("refuses a group the type is not in, two of one kind, one in another place, and a place of the wrong level", () => {
+    const { projects, nodes, id } = school();
+    const add = (extra: Record<string, unknown>) => addBeneficiaries([], projects, nodes, { projectId: id, nodeId: ids(nodes, "Lahore"), typeId: "child", name: "Orphan", count: 1, ...extra });
+    expect(add({ groupIds: [ids(nodes, "Primary")] }).error).toContain("not one of the groups");
+    expect(add({ groupIds: [ids(nodes, "Class 5A"), ids(nodes, "Class 5A")] }).error).toBeUndefined(); // the same group twice is one group
+    expect(add({ groupIds: [ids(nodes, "Class 1")] }).error).toContain("is not in Lahore");
+    expect(add({ nodeId: ids(nodes, "Class 5A") }).error).toContain("belong to a Branch");
+  });
+  it("lets a type be grouped only by levels under the one it belongs to", () => {
+    const { projects, id } = school();
+    expect(addType(projects, id, { name: "Cook", levelId: "class", frameworkId: "whole", groupingIds: ["house"] }, FW).error).toContain("cannot group them");
+    expect(levelsBelow(projects[0]!, "branch").size).toBe(3);
+  });
+  it("moves a level under another, and refuses a cycle or a level that has places", () => {
+    const { projects, nodes, id } = school();
+    let ps = addLevel(projects, id, "Wing", "").value;
+    expect(moveLevel(ps, [], id, "wing", "branch").error).toBeUndefined();
+    expect(moveLevel(ps, [], id, "branch", "class").error).toContain("cannot go under");
+    expect(moveLevel(ps, nodes, id, "class", "wing").error).toContain("places at this level");
+    ps = moveLevel(addLevel(ps, id, "Dorm", "").value, [], id, "dorm", "wing").value;
+    expect(levelTree(ps[0]!).find((x) => x.level.id === "dorm")?.depth).toBe(1);
+  });
+  it("places a gift by a group dropped on, and will not remove a group that still has someone in it", () => {
+    const { projects, nodes, id } = school();
+    const kids = addBeneficiaries([], projects, nodes, { projectId: id, nodeId: ids(nodes, "Lahore"), typeId: "child", name: "Orphan", count: 2, groupIds: [ids(nodes, "Class 5A")] }).value;
+    const more = addBeneficiaries(kids, projects, nodes, { projectId: id, nodeId: ids(nodes, "Lahore"), typeId: "child", name: "Other", count: 1 }).value;
+    const gift = { subscriptionId: "1", frameworkId: "shared", partsPerInstalment: 3, state: "in_progress", planStatus: "", projectName: "", firstPaid: "2026-01-01", planned: 12, paid: 1, nextDue: "", planPaid: null } as unknown as Commitment;
+    const r = placeInNode([], [gift], more, nodes, FW, "1", ids(nodes, "Class 5A"), "t");
+    expect(r.error).toBeUndefined();
+    expect(more.find((o) => o.id === r.value[0]!.outcomeId)?.groupIds).toEqual([ids(nodes, "Class 5A")]); // only someone in that class
+    expect(removeNode(nodes, kids, ids(nodes, "Class 5A")).error).toContain("beneficiaries");
+    expect(removeNode(nodes, kids, ids(nodes, "Rose House")).error).toBeUndefined();
   });
 });
