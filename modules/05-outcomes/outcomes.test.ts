@@ -185,3 +185,26 @@ describe("the month by month view (DECISIONS 62)", () => {
     expect(takesCapacity(plan({ planStatus: "paused" }), FW)).toBe(true);
   });
 });
+
+describe("one-off payments in outcomes (DECISIONS 64)", () => {
+  // A year paid at once in November 2026: 3 parts, paid for every month from November to October.
+  const year = (sub: string, over: Partial<Commitment> = {}) => com(sub, 3, { once: true, planned: 12, paid: 12, endMonth: "2027-10", firstPaid: "2026-11-05", paidMonths: ["2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04", "2027-05", "2027-06", "2027-07", "2027-08", "2027-09", "2027-10"], ...over });
+
+  it("fills a whole orphan and shows every covered month as paid", () => {
+    const [o] = orphans(1);
+    const c = year("once-A1");
+    const placed = autoAllocate([c], [o!], FW, [], AT);
+    expect(placed.placed).toBe(1);
+    const row = timelineOf(o!, FW, placed.allocations, [c], monthsAround("2027-04-15", 5, 6), "2027-04-15");
+    expect(row.every((m) => m.slots.every((s) => s.status === "p"))).toBe(true);
+    expect(row.map((m) => m.month)[0]).toBe("2026-11");
+  });
+  it("shows nothing expected after the last covered month, and frees the outcome", () => {
+    const [o] = orphans(1);
+    const done = year("once-A1", { state: "complete" });
+    expect(takesCapacity(done, FW)).toBe(false);
+    const allocation: Allocation = { commitmentKey: "once-A1", outcomeId: o!.id, parts: 3, how: "auto", at: AT };
+    expect(fillOf(o!, FW, [allocation], [done]).free).toBe(3);
+    expect(monthStatus(done, "2027-11", "2027-11-15")).toBe("f");
+  });
+});

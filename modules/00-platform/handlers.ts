@@ -18,8 +18,8 @@ import { isCurrentCategory, isFrameworkTemplate, migrateSetup, type Category, ty
 import { createHash, timingSafeEqual } from "node:crypto";
 import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSION_SECONDS, verifyToken, signToken, clearSessionCookie, type Claims } from "./launch-token.js";
 import { excludeWorkOrder, restoreWorkOrder, type WorkOrder } from "../01c-crm-connector/work-orders.js";
-import { buildCommitments } from "../04b-commitments/commitments.js";
-import { addOutcomes, autoAllocate, moveAllocation, releaseAllocation, removeOutcome, setActive } from "../05-outcomes/outcomes.js";
+import { allocatable } from "../04b-commitments/commitments.js";
+import { addOutcomes, autoAllocate, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, setActive } from "../05-outcomes/outcomes.js";
 import { applyDecision, buildAttention } from "../04-triage/triage.js";
 import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
 import { backfillFrameworks, rerouteUnrouted, runPickup } from "./pickup.js";
@@ -306,7 +306,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     const b = (req.body ?? {}) as Record<string, unknown>;
     const str = (k: string) => (typeof b[k] === "string" ? (b[k] as string) : "");
     const fw = setupOf(config).frameworks;
-    const commitments = () => d.store.listWorkOrders(org).then((w) => buildCommitments(w).commitments);
+    const commitments = () => d.store.listWorkOrders(org).then((w) => allocatable(w, perPeriodRule(fw), new Date(d.nowMs()).toISOString().slice(0, 10)));
     const at = new Date(d.nowMs()).toISOString();
     const fail = (error: string) => json(400, { error });
 

@@ -224,3 +224,17 @@ describe("picking the files", () => {
     expect(adaptFiles([feed]).rows).toHaveLength(feed.length);
   });
 });
+
+describe("months a one-off payment covers (DECISIONS 64)", () => {
+  const oneOff = (over: Record<string, string>) => {
+    const lines = load("export-donation-lines-sample.csv").map((l) => (l["Line ID"] === "9001" ? { ...l, Period: "One-time", "Subscription ID": "0", "Instalment no": "", ...over } : l));
+    return adaptExports(lines, load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), load("export-catalogue-prices-sample.csv")).rows.find((x) => x["line_id"] === "9001")!;
+  };
+  it("gives a single payment the length of the item's instalment plan for its bundle", () => {
+    expect(oneOff({ "Item Bundle": "Sponsor an Orphan" })["period_count"]).toBe("12");
+  });
+  it("leaves it blank when the bundle has no instalment plan, and for a recurring line", () => {
+    expect(oneOff({ "Item Bundle": "" })["period_count"]).toBe("");
+    expect(byLine("9002")["period_count"]).toBe("");
+  });
+});

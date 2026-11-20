@@ -11,8 +11,8 @@
  */
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
-import { addOutcomes, autoAllocate, moveAllocation, releaseAllocation, removeOutcome, setActive, type Allocation, type Outcome } from "../modules/05-outcomes/outcomes";
-import { buildCommitments } from "../modules/04b-commitments/commitments";
+import { addOutcomes, autoAllocate, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, setActive, type Allocation, type Outcome } from "../modules/05-outcomes/outcomes";
+import { allocatable } from "../modules/04b-commitments/commitments";
 import { filterWorkOrders, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { excludeWorkOrder, planWorkOrders, restoreWorkOrder, type ReviewItem, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { acceptSuggestions, addCategory, addFramework, assignItem, duplicateFramework, frameworkByItem, removeCategory, removeFramework, renameCategory, renameFramework, setCategoryFramework, setItemFramework, setKeywords, suggestAll, updateTemplate, type Cycle, type FrameworkTemplate, type InstalmentRule, type Setup } from "../modules/02-project-rules/categories";
@@ -178,7 +178,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       if (body["action"] === "auto") state.message = `Placed ${r.placed ?? 0}, released ${r.released ?? 0}, ${r.unplaced?.length ?? 0} waiting.`;
       else state.message = "";
     } else {
-      const commitments = buildCommitments(state.workOrders).commitments;
+      const commitments = allocatable(state.workOrders, perPeriodRule(state.frameworks), new Date().toISOString().slice(0, 10));
       const at = new Date().toISOString();
       const str = (k: string) => String(body[k] ?? "");
       let error: string | undefined;

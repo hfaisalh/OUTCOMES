@@ -42,6 +42,7 @@ export interface WorkOrder {
   quantity: number;
   legacyUpload?: true; // uploaded from an old system, so paid date is the upload date (DECISIONS 55). Absent means a normal line
   bundleQty?: number; // parts of the item in the bundle bought, absent means 1 (DECISIONS 51)
+  periodCount?: number; // for a one-off payment: the months it covers (the item's plan length), absent means one period (DECISIONS 64)
   intention: string;
   subscriptionId: string;
   instalmentNumber: string;
@@ -153,6 +154,7 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
         amount: line.amount,
         quantity: line.quantity,
         ...(line.bundleQty !== 1 ? { bundleQty: line.bundleQty } : {}),
+        ...(line.periodCount > 0 ? { periodCount: line.periodCount } : {}),
         ...(line.legacyUpload ? { legacyUpload: true as const } : {}),
         intention: line.intention,
         subscriptionId: line.subscriptionId,
@@ -180,8 +182,8 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
     const refFilled = current.transactionRef === "" && line.transactionRef !== "";
     const planFactsChanged = (current.planStatus ?? "") !== line.planStatus || (current.planNextDue ?? "") !== line.planNextDue || (current.planPaid ?? null) !== line.planPaid;
     const planChanged = refFilled || planFactsChanged || current.subscriptionId !== line.subscriptionId || current.instalmentNumber !== line.instalmentNumber || current.instalmentCount !== line.instalmentCount;
-    if (fwMissing || (current.bundleQty ?? 1) !== line.bundleQty || (current.legacyUpload === true) !== line.legacyUpload || planChanged) {
-      const { bundleQty: _b, legacyUpload: _l, planStatus: _s, planNextDue: _n, planPaid: _p, ...rest } = current;
+    if (fwMissing || (current.bundleQty ?? 1) !== line.bundleQty || (current.periodCount ?? 0) !== line.periodCount || (current.legacyUpload === true) !== line.legacyUpload || planChanged) {
+      const { bundleQty: _b, periodCount: _c, legacyUpload: _l, planStatus: _s, planNextDue: _n, planPaid: _p, ...rest } = current;
       have = {
         ...rest,
         ...(fwMissing ? fwOf(current.itemId, options) : {}),
@@ -191,6 +193,7 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
         instalmentCount: line.instalmentCount,
         ...planFacts(line),
         ...(line.bundleQty !== 1 ? { bundleQty: line.bundleQty } : {}),
+        ...(line.periodCount > 0 ? { periodCount: line.periodCount } : {}),
         ...(line.legacyUpload ? { legacyUpload: true as const } : {}),
       };
       updated.push(have);

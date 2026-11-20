@@ -15,7 +15,7 @@
  * - A limited per-period commitment that is fully paid stops taking capacity. A commitment to a whole item keeps it.
  * - An inactive outcome takes nothing new, and what was allocated to it is released and placed again (decision 60c).
  * - A person can move a commitment to another outcome that has room (reallocation at a donor's request, decision 60d).
- * - Only recurring commitments are allocated here. One-off payments need the months an item's plan covers, which come later.
+ * - A one-off payment for a per-period item is allocated too (DECISIONS 64): it is paid up front for the months of the item's plan, and frees its parts after the last of them.
  * - Nothing is changed in place: every function returns a new value.
  */
 
@@ -32,7 +32,7 @@ export interface Outcome {
 }
 
 export interface Allocation {
-  commitmentKey: string; // the subscription id (recurring commitments only for now)
+  commitmentKey: string; // the subscription id, or "once-" and the line id for a one-off payment
   outcomeId: string;
   parts: number; // capacity taken: the commitment's parts per instalment when it was allocated
   how: "auto" | "manual";
@@ -52,6 +52,9 @@ export interface Changed<T> {
   value: T;
   error?: string; // plain English, set when nothing was changed
 }
+
+// Rule (DECISIONS 64): does a framework count a payment as a period? Used to decide which one-off payments can be allocated.
+export const perPeriodRule = (fw: FrameworkTemplate[]) => (frameworkId: string): boolean => fw.find((f) => f.id === frameworkId)?.instalment === "per_period";
 
 const frameworkOf = (fw: FrameworkTemplate[], id: string) => fw.find((f) => f.id === id);
 

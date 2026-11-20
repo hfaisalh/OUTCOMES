@@ -8,6 +8,7 @@ The saved work orders (excluded ones are left out).
 
 ## Outputs
 - A list of commitments, those needing a look first: subscription, supporter, item, parts, paid of planned, first and last paid date, the line ids.
+- One-off payments for per-period items are built by `oneOffCommitments` and `allocatable` for the Outcomes tab only. They cover the months of the item's plan from the month paid and free their parts after (DECISIONS 64). They are not listed here.
 - A list of recurring lines with no subscription id, each with suggested commitments (same supporter and item, nearest date first).
 
 ## Rules

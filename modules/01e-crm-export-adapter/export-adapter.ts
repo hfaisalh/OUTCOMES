@@ -130,6 +130,15 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
     const q = pick(r, "Quantity");
     if (sku !== "" && name !== "" && Number.isInteger(Number(q)) && Number(q) > 0 && !bundleQty.has(`${sku}|${name}`)) bundleQty.set(`${sku}|${name}`, q);
   }
+  // Section: the months a one-off payment covers (DECISIONS 64). A single payment buys the whole plan at once, so it covers as many
+  // periods as the item's instalment plan has (480 once = 12 payments of 40 = 12 months). Key: item code and bundle name.
+  // An item that continues until cancelled has no such length, so a single payment of it is one period.
+  const planLength = new Map<string, string>();
+  for (const r of prices) {
+    const sku = pick(r, "Item SKU");
+    const n = pick(r, "Payments");
+    if (sku !== "" && pick(r, "Way of giving") === "Instalments" && Number.isInteger(Number(n)) && Number(n) > 1 && !planLength.has(`${sku}|${pick(r, "Bundle")}`)) planLength.set(`${sku}|${pick(r, "Bundle")}`, n);
+  }
   const unknownBundles = new Set<string>();
   let bundleLines = 0;
 
@@ -257,6 +266,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
       amount: pick(r, "Item Cost"),
       quantity: pick(r, "Order Quantity"),
       bundle_qty: bundleQuantity,
+      period_count: !recurring ? (planLength.get(`${code}|${bundleName}`) ?? "") : "", // months a one-off covers
       intention: pick(r, "Intention"),
     });
   }

@@ -22,7 +22,7 @@ Commitments (Module 4b), framework templates (Module 2), and the person's outcom
 - Status comes from the plan: a month with a real payment is paid, then the plan's next due date starts a run of expected months for the instalments left. Passed months in that run are missed. A paused plan expects nothing ahead, and a cancelled one stops holding capacity.
 
 ## Not built yet
-- One-off payments (they need the months an item's plan covers), reminders before a subscription ends, cohort management, and moving outcomes and allocations to their own table when there are thousands.
+- One-off payments for items that are not per period (a pump paid once), reminders before a subscription ends, cohort management, and moving outcomes and allocations to their own table when there are thousands.
 
 ## Files
 | File | What it does |

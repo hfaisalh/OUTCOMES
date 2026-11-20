@@ -61,6 +61,7 @@ export interface FeedLine {
   amount: number; // for reference only
   quantity: number;
   bundleQty: number; // parts of the item in the bundle the line was bought as, 1 when none (DECISIONS 51)
+  periodCount: number; // months a one-off payment covers (the item's plan length), 0 when not given (DECISIONS 64)
   intention: string;
   subscriptionId: string; // "" for a one-off
   instalmentNumber: string; // "" for a one-off
@@ -117,6 +118,12 @@ const num = (text: string | undefined): number | null => {
 const bundleOf = (text: string | undefined): number => {
   const n = num(text);
   return n !== null && Number.isInteger(n) && n >= 1 ? n : 1;
+};
+
+// Rule: the months a one-off payment covers is a whole number of 2 or more. Blank or anything else is 0, which means one period.
+const periodsOf = (text: string | undefined): number => {
+  const n = num(text);
+  return n !== null && Number.isInteger(n) && n >= 2 ? n : 0;
 };
 
 /**
@@ -189,6 +196,7 @@ export function readFeed(rows: FeedRow[], config: FeedConfig = MWF_CRM_CONFIG): 
       amount: amount ?? 0,
       quantity: num(r["quantity"]) ?? 1,
       bundleQty: bundleOf(r["bundle_qty"]),
+      periodCount: periodsOf(r["period_count"]),
       intention: (r["intention"] ?? "").trim(),
       subscriptionId: (r["subscription_id"] ?? "").trim(),
       instalmentNumber: (r["instalment_number"] ?? "").trim(),

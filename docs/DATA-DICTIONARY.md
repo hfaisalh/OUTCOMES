@@ -144,4 +144,5 @@ An item belongs to one **category** (for example Sponsorship or Transactional). 
 | Field | Meaning |
 |---|---|
 | `bundleQty` (work order, feed line) | Parts of the item in the bundle the line was bought as. Absent on a work order means 1. Comes from the CRM's bundle configuration through the Catalogue prices export |
+| `periodCount` (work order, feed line) | For a one-off payment: the months it covers, the item's instalment plan length from the Catalogue prices export. Absent means one period. Decision 64 |
 | parts | `bundleQty` x `quantity`. The base for units. Months are added later by the category (a sponsorship counts months, a water pump does not) |

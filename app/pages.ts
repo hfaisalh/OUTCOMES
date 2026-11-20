@@ -11,8 +11,8 @@
 import type { AttentionItem } from "../modules/04-triage/triage";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { partsOf } from "../modules/01c-crm-connector/work-orders";
-import { autoAllocate, fillOf, monthsAround, timelineOf, type UnitStatus, type Allocation, type Availability, type Outcome } from "../modules/05-outcomes/outcomes";
-import { buildCommitments, needsLook, type Commitment } from "../modules/04b-commitments/commitments";
+import { autoAllocate, fillOf, monthsAround, perPeriodRule, timelineOf, type UnitStatus, type Allocation, type Availability, type Outcome } from "../modules/05-outcomes/outcomes";
+import { allocatable, buildCommitments, needsLook, type Commitment } from "../modules/04b-commitments/commitments";
 import { noIndividualDonor } from "../modules/01c-crm-connector/credits";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import type { MWF_CRM_CONFIG } from "../modules/01c-crm-connector/feed";
@@ -432,7 +432,8 @@ export function outcomesPage(v: View): string {
   const outcomes = v.outcomes ?? [];
   const allocations = v.allocations ?? [];
   const fws = v.frameworks ?? [];
-  const commitments = buildCommitments(v.workOrders).commitments;
+  const today = v.today ?? "2026-01-01";
+  const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
   const byKey = new Map(commitments.map((c) => [c.subscriptionId, c]));
   const fills = new Map(outcomes.map((o) => [o.id, fillOf(o, fws, allocations, commitments)]));
   const waiting = autoAllocate(commitments, outcomes, fws, allocations, "").unplaced; // a dry run: nothing is saved
@@ -442,7 +443,6 @@ export function outcomesPage(v: View): string {
 
   // One row per outcome, one small pie per month. A pie has a slice for each unit of capacity (3 parts, 3 slices), coloured by status:
   // paid green, expected orange, missed red, nothing expected grey. A slice that holds a commitment is a button that opens it (DECISIONS 62).
-  const today = v.today ?? "2026-01-01";
   const months = monthsAround(today, 5, 6);
   const NAME = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const monthPie = (slots: { status: UnitStatus; commitmentKey: string }[], label: string, off = false): string => {
@@ -485,10 +485,10 @@ export function outcomesPage(v: View): string {
   const alloc = open ? allocations.find((a) => a.commitmentKey === open.subscriptionId) : undefined;
   const moveTargets = open ? outcomes.filter((o) => o.active && o.frameworkId === open.frameworkId && o.id !== alloc?.outcomeId) : [];
   const detail = open
-    ? `<div class="card detailcard"><h2>Commitment ${esc(open.subscriptionId)}</h2>
+    ? `<div class="card detailcard"><h2>${open.once ? "One payment" : "Commitment"} ${esc(open.once ? open.lines[0]?.key ?? "" : open.subscriptionId)}</h2>
         <dl class="dl"><dt>Donor</dt><dd>${esc(open.supporterName)} <span class="muted">${esc(open.supporterId)}</span></dd>
         <dt>Item</dt><dd>${esc(open.itemName)}</dd>
-        <dt>Plan</dt><dd>${open.partsPerInstalment} part${open.partsPerInstalment === 1 ? "" : "s"} each instalment, ${open.paid} of ${open.planned ?? "ongoing"} paid${open.legacyOpening ? " (plus earlier instalments paid on the old website)" : ""}</dd>
+        <dt>Plan</dt><dd>${open.once ? `${open.partsPerInstalment} part${open.partsPerInstalment === 1 ? "" : "s"}, paid at once for ${open.planned} month${open.planned === 1 ? "" : "s"} (${esc(open.paidMonths[0] ?? "")} to ${esc(open.endMonth ?? "")})` : `${open.partsPerInstalment} part${open.partsPerInstalment === 1 ? "" : "s"} each instalment, ${open.paid} of ${open.planned ?? "ongoing"} paid${open.legacyOpening ? " (plus earlier instalments paid on the old website)" : ""}`}</dd>
         <dt>Paid</dt><dd>${open.firstPaid ? `${esc(open.firstPaid)} to ${esc(open.lastPaid)}` : "none since the load"}</dd>
         <dt>Framework</dt><dd>${esc(fwName(open.frameworkId))}</dd>
         <dt>Allocated to</dt><dd>${alloc ? `${esc(outcomes.find((o) => o.id === alloc.outcomeId)?.name ?? alloc.outcomeId)} <span class="muted">(${alloc.how === "auto" ? "automatically" : "moved by a person"})</span>` : `<span class="muted">Not allocated</span>`}</dd></dl>
@@ -497,7 +497,7 @@ export function outcomesPage(v: View): string {
 
   return `
     <h1>Outcomes</h1>
-    <p class="sub">What the gifts are for: a child, a student, a widow, a building, an activity. Each outcome has a framework, which gives it a capacity in units. Recurring commitments fill that capacity automatically, oldest first. Each outcome is one row of months. Each month is a small pie with a slice for every unit of capacity (an orphan has 3 parts, so 3 slices), coloured by status: paid (green), expected (orange), missed (red), nothing expected (grey). Click a slice to open its commitment, which holds the donor.</p>
+    <p class="sub">What the gifts are for: a child, a student, a widow, a building, an activity. Each outcome has a framework, which gives it a capacity in units. Recurring commitments and one-off payments for a number of months fill that capacity automatically, oldest first. Each outcome is one row of months. Each month is a small pie with a slice for every unit of capacity (an orphan has 3 parts, so 3 slices), coloured by status: paid (green), expected (orange), missed (red), nothing expected (grey). Click a slice to open its commitment, which holds the donor.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics">${metric(outcomes.length, "Outcomes")}${metric(count("open"), "Open")}${metric(count("part"), "Part funded")}${metric(count("full"), "Full", "ok")}${metric(waiting.length, "Commitments waiting", waiting.length ? "warn" : "")}</div>
     <div class="card"><h2>Add outcomes</h2>

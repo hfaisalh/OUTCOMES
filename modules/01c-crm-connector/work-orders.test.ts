@@ -213,3 +213,20 @@ describe("framework on a work order (DECISIONS 59)", () => {
     expect(again.updated.filter((w) => w.itemId === item)).toHaveLength(0); // already has one: unchanged
   });
 });
+
+describe("months a one-off payment covers (DECISIONS 64)", () => {
+  const opts: PlanOptions = { categoryByItem: {}, usesFrameworks: false, feedIsComplete: true };
+  const covering = feed.map((l, i) => (i === 0 ? { ...l, periodCount: 12 } : l));
+
+  it("is kept on the work order, and absent when the feed gave none", () => {
+    const made = planWorkOrders(covering, [], opts).created;
+    expect(made[0]?.periodCount).toBe(12);
+    expect(made[1]?.periodCount).toBeUndefined();
+  });
+  it("is given quietly to an existing work order, without a review entry", () => {
+    const before = planWorkOrders(feed, [], opts).created;
+    const again = planWorkOrders(covering, before, opts);
+    expect(again.updated[0]?.periodCount).toBe(12);
+    expect(again.review.filter((r) => r.reason !== "changed")).toHaveLength(0);
+  });
+});

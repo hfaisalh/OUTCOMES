@@ -48,6 +48,8 @@ export interface Commitment {
   nextDue: string; // the plan's next due date, YYYY-MM-DD, "" when unknown
   planPaid: number | null; // instalments the CRM says are paid
   paidMonths: string[]; // the months (YYYY-MM) in which a real instalment was paid, legacy uploads left out
+  once?: true; // a single payment that covers several periods, not a subscription (DECISIONS 64). Its subscriptionId is "once-" plus the line id
+  endMonth?: string; // for a one-off payment: the last month it covers, YYYY-MM
   startsLate: boolean; // the lowest number held is above 1
   conflict: boolean; // the lines do not agree on supporter or item, which needs a look
   lines: { key: string; paidDate: string; instalmentNumber: string; transactionRef: string; legacyUpload: boolean }[]; // oldest first
@@ -141,3 +143,63 @@ export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
     .sort((a, b) => a.workOrder.paidDate.localeCompare(b.workOrder.paidDate));
   return { commitments, unlinked };
 }
+
+// ---- One-off payments (DECISIONS 64) ----
+
+export const ONCE_PREFIX = "once-";
+
+// Month arithmetic on "YYYY-MM".
+function plusMonths(month: string, n: number): string {
+  const total = Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7)) - 1 + n;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Rule (DECISIONS 64): a single payment for a per-period item (one paid for a number of months) is a commitment too. It is paid up front,
+ * so every month it covers is paid, counting from the month it was paid. Its parts are held for those months only: once the last
+ * covered month has passed it is complete and the capacity is free again. The months it covers are the item's plan length, one
+ * when that is not known. `isPerPeriod` says whether a framework counts a payment as a period, from the framework template.
+ * Left out: recurring lines, excluded work orders, legacy uploads (their paid date is the load date) and items whose framework is not per period.
+ */
+export function oneOffCommitments(workOrders: WorkOrder[], isPerPeriod: (frameworkId: string) => boolean, today: string): Commitment[] {
+  const now = today.slice(0, 7);
+  return workOrders
+    .filter((w) => w.status !== "excluded" && w.legacyUpload !== true && w.subscriptionId === "" && w.instalmentCount === "" && w.paidDate !== "" && isPerPeriod(w.frameworkId ?? ""))
+    .map((w): Commitment => {
+      const periods = w.periodCount ?? 1;
+      const first = w.paidDate.slice(0, 7);
+      const months = Array.from({ length: periods }, (_, i) => plusMonths(first, i));
+      const endMonth = months[months.length - 1] as string;
+      return {
+        subscriptionId: ONCE_PREFIX + w.key,
+        supporterId: w.supporterId,
+        supporterName: w.supporterName,
+        itemId: w.itemId,
+        itemName: w.itemName,
+        categoryId: w.categoryId,
+        frameworkId: w.frameworkId ?? "",
+        partsPerInstalment: partsOf(w),
+        partsVary: false,
+        planned: periods,
+        paid: periods,
+        state: endMonth < now ? "complete" : "in_progress",
+        firstPaid: w.paidDate.slice(0, 10),
+        lastPaid: w.paidDate.slice(0, 10),
+        numbers: [],
+        gaps: [],
+        legacyOpening: false,
+        planStatus: "",
+        nextDue: "",
+        planPaid: null,
+        paidMonths: months,
+        once: true,
+        endMonth,
+        startsLate: false,
+        conflict: false,
+        lines: [{ key: w.key, paidDate: w.paidDate.slice(0, 10), instalmentNumber: "", transactionRef: w.transactionRef, legacyUpload: false }],
+      };
+    });
+}
+
+// Everything that can be allocated to an outcome: the subscriptions, then the one-off payments.
+export const allocatable = (workOrders: WorkOrder[], isPerPeriod: (frameworkId: string) => boolean, today: string): Commitment[] => [...buildCommitments(workOrders).commitments, ...oneOffCommitments(workOrders, isPerPeriod, today)];

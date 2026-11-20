@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { WorkOrder } from "../01c-crm-connector/work-orders";
-import { buildCommitments, needsLook } from "./commitments";
+import { allocatable, buildCommitments, needsLook, oneOffCommitments } from "./commitments";
 
 const wo = (key: string, over: Partial<WorkOrder> = {}): WorkOrder => ({
   key, lineId: key, transactionRef: `T${key}`, paidDate: "2026-06-10 10:00:00", supporterId: "D1", supporterName: "Sample Supporter", group: "", itemId: "I1", itemName: "Small Pump",
@@ -73,5 +73,34 @@ describe("buildCommitments", () => {
   it("puts commitments that need a look first", () => {
     const r = buildCommitments([inst("1", 1, "2026-09-01", { subscriptionId: "A" }), inst("2", 3, "2026-06-01", { subscriptionId: "B" })]);
     expect(r.commitments.map((c) => c.subscriptionId)).toEqual(["B", "A"]);
+  });
+});
+
+describe("one-off payments (DECISIONS 64)", () => {
+  const per = (id: string) => id === "fw-month";
+  const once = (key: string, over: Partial<WorkOrder> = {}) => wo(key, { frameworkId: "fw-month", paidDate: "2026-11-05 10:00:00", periodCount: 12, bundleQty: 3, ...over });
+
+  it("covers the months of the item's plan from the month it was paid, with its parts", () => {
+    const [c] = oneOffCommitments([once("A1")], per, "2026-11-20");
+    expect(c).toMatchObject({ subscriptionId: "once-A1", once: true, partsPerInstalment: 3, planned: 12, endMonth: "2027-10", state: "in_progress" });
+    expect(c?.paidMonths[0]).toBe("2026-11");
+    expect(c?.paidMonths).toHaveLength(12);
+    expect(c?.paidMonths[11]).toBe("2027-10");
+  });
+  it("is complete once the last covered month has passed, so its parts are free again", () => {
+    expect(oneOffCommitments([once("A1")], per, "2027-10-31")[0]?.state).toBe("in_progress");
+    expect(oneOffCommitments([once("A1")], per, "2027-11-01")[0]?.state).toBe("complete");
+  });
+  it("counts one month when the length is not known", () => {
+    expect(oneOffCommitments([once("A1", { periodCount: undefined })], per, "2026-11-20")[0]).toMatchObject({ planned: 1, endMonth: "2026-11" });
+  });
+  it("leaves out recurring lines, excluded work orders, legacy uploads, and frameworks that are not per period", () => {
+    const list = [inst("1", 1, "2026-06-01", { frameworkId: "fw-month" }), once("E", { status: "excluded" }), once("L", { legacyUpload: true }), once("W", { frameworkId: "fw-whole" }), once("OK")];
+    expect(oneOffCommitments(list, per, "2026-11-20").map((c) => c.subscriptionId)).toEqual(["once-OK"]);
+  });
+  it("is added to the subscriptions for allocation, but not to the Commitments list", () => {
+    const list = [inst("1", 1, "2026-06-01", { frameworkId: "fw-month" }), once("A1")];
+    expect(buildCommitments(list).commitments).toHaveLength(1);
+    expect(allocatable(list, per, "2026-11-20").map((c) => c.subscriptionId)).toEqual(["S1", "once-A1"]);
   });
 });
