@@ -10,7 +10,7 @@ import { MWF_CRM_CONFIG, readFeed } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { demoCategories, demoFeedRows } from "./demo-data";
 import { suggestAll } from "../modules/02-project-rules/categories";
-import { signinNote, attentionPage, auditPage, esc, categoriesPage, workOrderList, workOrdersPage, type View } from "./pages";
+import { signinNote, attentionPage, auditPage, esc, categoriesPage, commitmentsPage, workOrderList, workOrdersPage, type View } from "./pages";
 
 const lines = readFeed(demoFeedRows(), MWF_CRM_CONFIG).lines;
 const MAP = { I10: "sponsorship", I11: "transactional", I13: "sponsorship" }; // the item "I14" is left unsorted on purpose
@@ -64,6 +64,16 @@ describe("workOrdersPage", () => {
   it("shows no empty 'Show the lines' for a note it cannot tie to lines", () => {
     const html = attentionPage(view({ live: true, attention: [{ id: "import:y", kind: "import", title: "Import problem", detail: "Something else.", status: "open" }] }));
     expect(html).not.toContain("Show the lines");
+  });
+
+  it("shows commitments grouped by subscription, with paid of planned", () => {
+    const base = plan.created[0] as WorkOrder;
+    const orders = [1, 2, 3].map((n) => ({ ...base, key: `s${n}`, subscriptionId: "S9", instalmentNumber: String(n), instalmentCount: "10" }));
+    const html = commitmentsPage(view({ workOrders: orders }));
+    expect(html).toContain("3 of 10");
+    expect(html).toContain("S9");
+    expect(html).toContain("Needs a look");
+    expect(commitmentsPage(view({ workOrders: orders, commitTab: "complete" }))).toContain("No commitments in this list.");
   });
 
   it("never lets CRM text become HTML", () => {

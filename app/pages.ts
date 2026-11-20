@@ -11,6 +11,7 @@
 import type { AttentionItem } from "../modules/04-triage/triage";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { partsOf } from "../modules/01c-crm-connector/work-orders";
+import { buildCommitments, needsLook, type Commitment } from "../modules/04b-commitments/commitments";
 import { noIndividualDonor } from "../modules/01c-crm-connector/credits";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import type { MWF_CRM_CONFIG } from "../modules/01c-crm-connector/feed";
@@ -30,6 +31,8 @@ export interface View {
   scopeCriteria?: Record<string, Criteria>; // the filter boxes inside each Needs attention entry, by list id
   selected?: string[]; // work order keys ticked for a bulk exclude or restore (DECISIONS 49)
   openAttn?: string[]; // Needs attention entries whose lines are open
+  commitTab?: string; // Commitments page tab: all, progress, complete, open, look
+  commitText?: string; // Commitments page search text
   message: string;
   config: typeof MWF_CRM_CONFIG;
   categories: Category[];
@@ -321,4 +324,47 @@ export function attentionPage(v: View): string {
     <div class="metrics">${metric(open.length, "Open", open.length ? "warn" : "ok")}${metric(open.filter((i) => i.kind === "unrouted").length, "Items to sort")}${metric(done.length, "Reviewed")}</div>
     <div class="card"><h2>Open</h2>${open.length === 0 ? `<div class="empty">Nothing needs attention.</div>` : `<table><tbody>${open.map(card).join("")}</tbody></table>`}</div>
     ${done.length ? `<div class="card"><h2>Reviewed</h2><table><tbody>${done.map(card).join("")}</tbody></table></div>` : ""}`;
+}
+
+// Commitments (Module 4b): every recurring gift as one record, instalments grouped by subscription. Read only (DECISIONS 53).
+const COMMIT_TABS: [string, string][] = [["all", "All"], ["progress", "In progress"], ["complete", "Complete"], ["open", "Open ended"], ["look", "Needs a look"]];
+
+const commitNotes = (c: Commitment): string =>
+  [
+    c.gaps.length ? `<span class="pill review">Missing instalment ${c.gaps.join(", ")}</span>` : "",
+    c.startsLate ? `<span class="pill review">Starts at ${c.numbers[0]}: earlier ones are not in our data</span>` : "",
+    c.partsVary ? `<span class="pill review">Parts differ between instalments</span>` : "",
+    c.conflict ? `<span class="pill review">Lines disagree on supporter or item</span>` : "",
+  ].join(" ");
+
+// The list and its numbers. Redrawn alone while typing in the search box, like the work order lists.
+export function commitmentList(v: View): string {
+  const all = buildCommitments(v.workOrders);
+  const tab = v.commitTab ?? "all";
+  const words = (v.commitText ?? "").toLowerCase().split(/\s+/).filter((x) => x !== "");
+  const keep = (c: Commitment) =>
+    (tab === "all" || (tab === "progress" && c.state === "in_progress") || (tab === "complete" && c.state === "complete") || (tab === "open" && c.state === "open_ended") || (tab === "look" && needsLook(c))) &&
+    words.every((w) => [c.subscriptionId, c.supporterName, c.supporterId, c.itemName, ...c.lines.map((l) => l.key + " " + l.transactionRef)].join(" ").toLowerCase().includes(w));
+  const rows = all.commitments.filter(keep);
+  const progress = (c: Commitment) => `${c.paid} of ${c.planned ?? "ongoing"}${c.planned ? `<div class="bar"><span style="width:${Math.min(100, Math.round((c.paid / c.planned) * 100))}%"></span></div>` : ""}`;
+  const row = (c: Commitment) => `<tr><td>${esc(c.subscriptionId)}</td>
+    <td>${esc(c.supporterName)}<div class="muted">${esc(c.supporterId)}</div></td>
+    <td>${esc(c.itemName)}<div class="muted">${c.partsPerInstalment} part${c.partsPerInstalment === 1 ? "" : "s"} each instalment</div></td>
+    <td>${progress(c)}</td><td>${esc(c.firstPaid)}<div class="muted">to ${esc(c.lastPaid)}</div></td>
+    <td>${commitNotes(c)}<details><summary>Instalments</summary>${c.lines.map((l) => `<div class="muted">No. ${esc(l.instalmentNumber) || "?"} · Line ${esc(l.key)} · ${esc(l.paidDate)} · ${esc(l.transactionRef) || "no reference"}</div>`).join("")}</details></td></tr>`;
+  const unlinked = all.unlinked.filter((u) => words.length === 0 || words.every((w) => [u.key, u.workOrder.supporterName, u.workOrder.supporterId, u.workOrder.itemName, u.workOrder.transactionRef].join(" ").toLowerCase().includes(w)));
+  const link = (u: (typeof all.unlinked)[number]) =>
+    u.suggestions.length === 0 ? `<span class="muted">No commitment for the same supporter and item</span>` : u.suggestions.map((s) => `Possibly subscription <b>${esc(s.subscriptionId)}</b> <span class="muted">(${s.daysApart === 0 ? "same day" : `${Math.abs(s.daysApart)} day${Math.abs(s.daysApart) === 1 ? "" : "s"} ${s.daysApart < 0 ? "before its first instalment" : "after its first instalment"}`})</span>`).join("<br>");
+  return `<div class="metrics">${metric(all.commitments.length, "Commitments")}${metric(all.commitments.filter((c) => c.state === "in_progress").length, "In progress")}${metric(all.commitments.filter((c) => c.state === "complete").length, "Complete", "ok")}${metric(all.commitments.filter(needsLook).length, "Need a look", all.commitments.some(needsLook) ? "warn" : "")}${metric(all.unlinked.length, "Recurring, no subscription", all.unlinked.length ? "warn" : "")}</div>
+    <div class="tabs">${COMMIT_TABS.map(([id, label]) => `<button data-ctab="${id}" class="${tab === id ? "on" : ""}">${label}</button>`).join("")}</div>
+    <div class="card">${rows.length === 0 ? `<div class="empty">No commitments in this list.</div>` : `<table><thead><tr><th>Subscription</th><th>Supporter</th><th>Item</th><th>Paid</th><th>Dates</th><th>Notes</th></tr></thead><tbody>${rows.map(row).join("")}</tbody></table>`}</div>
+    ${unlinked.length ? `<div class="card"><h2>Recurring lines with no subscription</h2><p class="muted">The CRM did not link these to a subscription. The suggestion is only a hint, check each in the CRM. Nothing is linked here.</p><table><thead><tr><th>Line</th><th>Supporter</th><th>Item</th><th>Paid</th><th>Suggestion</th></tr></thead><tbody>${unlinked.map((u) => `<tr><td>${esc(u.key)}<div class="muted">${esc(u.workOrder.transactionRef) || "no reference"}</div></td><td>${esc(u.workOrder.supporterName)}<div class="muted">${esc(u.workOrder.supporterId)}</div></td><td>${esc(u.workOrder.itemName)}</td><td>${esc(u.workOrder.paidDate.slice(0, 10))}</td><td>${link(u)}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
+}
+
+export function commitmentsPage(v: View): string {
+  return `
+    <h1>Commitments</h1>
+    <p class="sub">Each recurring gift as one record: its paid instalments grouped by subscription. Read only. It shows what is paid out of what is planned, so you can see a sponsorship or an instalment plan before anything is allocated.</p>
+    <div class="card filters"><input type="search" data-cf="text" placeholder="Search subscription, supporter, item, line id..." value="${esc(v.commitText ?? "")}"></div>
+    <div id="commit-list">${commitmentList(v)}</div>`;
 }

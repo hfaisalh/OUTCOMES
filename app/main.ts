@@ -23,7 +23,7 @@ import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { DEMO_ROLES, demoCategories, demoFeedRows } from "./demo-data";
 import { landingPage, visibleMenu, type PageId } from "./menu";
-import { listBlock, listHtml, listBase, workOrderList, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
+import { commitmentsPage, commitmentList, listBlock, listHtml, listBase, workOrderList, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
 
 const state = {
   live: (): boolean => state.me !== null,
@@ -40,6 +40,8 @@ const state = {
   scopeCriteria: {} as Record<string, Criteria>, // the filter boxes inside Needs attention entries, by list id
   selected: [] as string[], // work orders ticked for a bulk exclude or restore
   openAttn: [] as string[], // Needs attention entries whose lines are open
+  commitTab: "all", // Commitments page tab
+  commitText: "", // Commitments page search text
   message: "",
   pendingFiles: [] as File[], // export files chosen but not loaded yet (demo only)
   loadNote: "", // what the last load did, shown in the load card
@@ -134,7 +136,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -202,6 +204,7 @@ function draw(): void {
     ? `<h1>No access</h1><p class="sub">Your CRM role has no OUTCOMES permission. In the live product you would not have been shown the OUTCOMES button.</p>`
     : state.page === "work-orders" ? workOrdersPage(v)
     : state.page === "attention" ? attentionPage(v)
+    : state.page === "commitments" ? commitmentsPage(v)
     : state.page === "audit" ? auditPage(v)
     : state.page === "dashboard" ? dashboardPage(v)
     : state.page === "categories" ? categoriesPage(v)
@@ -268,6 +271,12 @@ document.addEventListener("click", (e) => {
     if (!restoring && reason.trim() === "") return;
     void applyExclusion(keys, restoring, reason);
     return;
+  }
+  // Commitments tabs.
+  const ctab = target.closest("[data-ctab]") as HTMLElement | null;
+  if (ctab) {
+    state.commitTab = ctab.dataset.ctab as string;
+    return draw();
   }
   // Needs attention: jump to the matching lines in Work orders.
   const viewItem = target.closest("[data-view-item]") as HTMLElement | null;
@@ -396,6 +405,13 @@ async function loadFiles(files: File[]): Promise<void> {
 // The filter boxes (Work orders page and inside Needs attention entries). Rule: only the list is redrawn, never the boxes, so typing is never interrupted.
 function onFilterInput(e: Event): void {
   const t = e.target as HTMLInputElement | HTMLSelectElement;
+  // The Commitments search box redraws only its list.
+  if (t.dataset?.cf === "text") {
+    state.commitText = t.value;
+    const list = document.getElementById("commit-list");
+    if (list) list.innerHTML = commitmentList(view());
+    return;
+  }
   const field = t.dataset?.f;
   if (!field) return;
   const scope = t.dataset.scope ?? "main";
@@ -418,7 +434,7 @@ document.addEventListener("input", onFilterInput);
 
 document.addEventListener("change", (e) => {
   const el = e.target as HTMLInputElement;
-  if (el.dataset?.f) return onFilterInput(e);
+  if (el.dataset?.f || el.dataset?.cf) return onFilterInput(e);
   // Tick boxes: one work order, or all shown in a list. Only the lists are redrawn.
   if (el.dataset?.sel !== undefined) {
     state.selected = el.checked ? [...new Set([...state.selected, el.dataset.sel])] : state.selected.filter((k) => k !== el.dataset.sel);

@@ -1,0 +1,123 @@
+/**
+ * commitments.ts
+ *
+ * What it does: groups work orders into commitments. A commitment is one recurring gift: every paid
+ * instalment that shares a subscription id, with how many are paid out of how many planned. It also
+ * lists recurring lines that have no subscription id (the CRM did not link them) and suggests which
+ * commitment each may belong to.
+ * Who calls it: the Commitments page (app/pages.ts). Depends on: work-orders.ts types only.
+ * Pure functions: no database, no screen. Read only: it changes nothing and saves nothing (DECISIONS 53).
+ *
+ * Rules:
+ * - A commitment is the work orders with the same subscription id. Excluded work orders are left out.
+ * - Planned is the instalment count the lines carry. "Indefinitely" means the plan runs until cancelled.
+ * - Paid is how many work orders we hold. The export may start part way through a plan, so a plan whose
+ *   lowest instalment number is above 1 is marked "starts late": earlier instalments are not in our data.
+ * - A gap is an instalment number missing between the lowest and highest we hold.
+ * - A suggestion is only a suggestion: same supporter and same item, nearest paid date first. A person
+ *   decides, and nothing here links anything.
+ * - Units are not worked out here. Whether an instalment is a month or a share of a whole depends on the
+ *   category (DECISIONS 52), so units belong to the allocation module.
+ */
+
+import { partsOf, type WorkOrder } from "../01c-crm-connector/work-orders.js";
+
+export type CommitmentState = "complete" | "in_progress" | "open_ended";
+
+export interface Commitment {
+  subscriptionId: string;
+  supporterId: string;
+  supporterName: string;
+  itemId: string;
+  itemName: string;
+  categoryId: string;
+  partsPerInstalment: number; // from the first instalment. See partsVary
+  partsVary: boolean; // true when the instalments do not all have the same parts, which needs a look
+  planned: number | null; // null when the plan runs until cancelled or the count is unknown
+  paid: number; // work orders held
+  state: CommitmentState;
+  firstPaid: string; // YYYY-MM-DD
+  lastPaid: string;
+  numbers: number[]; // instalment numbers held, ascending
+  gaps: number[]; // instalment numbers missing between the lowest and highest held
+  startsLate: boolean; // the lowest number held is above 1
+  conflict: boolean; // the lines do not agree on supporter or item, which needs a look
+  lines: { key: string; paidDate: string; instalmentNumber: string; transactionRef: string }[]; // oldest first
+}
+
+export interface Suggestion {
+  subscriptionId: string;
+  daysApart: number; // the unlinked line's paid date minus the commitment's first paid date. Negative means it was paid before
+}
+
+export interface Unlinked {
+  key: string; // the line id
+  workOrder: WorkOrder;
+  suggestions: Suggestion[]; // nearest first, empty when nothing matches
+}
+
+export interface CommitmentsView {
+  commitments: Commitment[]; // needing a look first, then by last paid date, newest first
+  unlinked: Unlinked[];
+}
+
+const dayNumber = (d: string): number => (d === "" ? 0 : Math.round(Date.parse(`${d.slice(0, 10)}T00:00:00Z`) / 86_400_000));
+
+// Rule: "needs a look" is any of: a conflict, varying parts, a gap, or a plan that starts late.
+export const needsLook = (c: Commitment): boolean => c.conflict || c.partsVary || c.gaps.length > 0 || c.startsLate;
+
+export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
+  const live = workOrders.filter((w) => w.status !== "excluded");
+  const bySub = new Map<string, WorkOrder[]>();
+  for (const w of live) if (w.subscriptionId !== "") bySub.set(w.subscriptionId, [...(bySub.get(w.subscriptionId) ?? []), w]);
+
+  const commitments: Commitment[] = [];
+  for (const [subscriptionId, list] of bySub) {
+    const sorted = [...list].sort((a, b) => a.paidDate.localeCompare(b.paidDate) || a.key.localeCompare(b.key));
+    const first = sorted[0] as WorkOrder;
+    const count = Number(first.instalmentCount);
+    const planned = Number.isInteger(count) && count > 0 ? count : null;
+    const numbers = sorted.map((w) => Number(w.instalmentNumber)).filter((n) => Number.isInteger(n) && n > 0).sort((a, b) => a - b);
+    const gaps: number[] = [];
+    if (numbers.length > 0) {
+      const have = new Set(numbers);
+      for (let n = (numbers[0] as number) + 1; n < (numbers[numbers.length - 1] as number); n++) if (!have.has(n)) gaps.push(n);
+    }
+    const paid = sorted.length;
+    commitments.push({
+      subscriptionId,
+      supporterId: first.supporterId,
+      supporterName: first.supporterName,
+      itemId: first.itemId,
+      itemName: first.itemName,
+      categoryId: first.categoryId,
+      partsPerInstalment: partsOf(first),
+      partsVary: sorted.some((w) => partsOf(w) !== partsOf(first)),
+      planned,
+      paid,
+      state: planned === null ? "open_ended" : paid >= planned ? "complete" : "in_progress",
+      firstPaid: first.paidDate.slice(0, 10),
+      lastPaid: (sorted[sorted.length - 1] as WorkOrder).paidDate.slice(0, 10),
+      numbers,
+      gaps,
+      startsLate: numbers.length > 0 && (numbers[0] as number) > 1,
+      conflict: sorted.some((w) => w.supporterId !== first.supporterId || w.itemId !== first.itemId),
+      lines: sorted.map((w) => ({ key: w.key, paidDate: w.paidDate.slice(0, 10), instalmentNumber: w.instalmentNumber, transactionRef: w.transactionRef })),
+    });
+  }
+  commitments.sort((a, b) => Number(needsLook(b)) - Number(needsLook(a)) || b.lastPaid.localeCompare(a.lastPaid) || a.subscriptionId.localeCompare(b.subscriptionId));
+
+  // Recurring lines with no subscription id: they carry an instalment count (the feed marks them recurring) but no link.
+  const unlinked: Unlinked[] = live
+    .filter((w) => w.subscriptionId === "" && w.instalmentCount !== "")
+    .map((w) => ({
+      key: w.key,
+      workOrder: w,
+      suggestions: commitments
+        .filter((c) => c.supporterId === w.supporterId && c.itemId === w.itemId)
+        .map((c) => ({ subscriptionId: c.subscriptionId, daysApart: dayNumber(w.paidDate) - dayNumber(c.firstPaid) }))
+        .sort((a, b) => Math.abs(a.daysApart) - Math.abs(b.daysApart)),
+    }))
+    .sort((a, b) => a.workOrder.paidDate.localeCompare(b.workOrder.paidDate));
+  return { commitments, unlinked };
+}
