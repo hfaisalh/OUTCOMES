@@ -61,6 +61,7 @@ export interface FeedLine {
   amount: number; // for reference only
   quantity: number;
   bundleQty: number; // parts of the item in the bundle the line was bought as, 1 when none (DECISIONS 51)
+  projectName: string; // the project the donor chose on the line, as the CRM names it. Blank or "Where Needed Most" means a general gift (DECISIONS 66)
   periodCount: number; // months a one-off payment covers (the item's plan length), 0 when not given (DECISIONS 64)
   intention: string;
   subscriptionId: string; // "" for a one-off
@@ -197,6 +198,7 @@ export function readFeed(rows: FeedRow[], config: FeedConfig = MWF_CRM_CONFIG): 
       quantity: num(r["quantity"]) ?? 1,
       bundleQty: bundleOf(r["bundle_qty"]),
       periodCount: periodsOf(r["period_count"]),
+      projectName: (r["project_name"] ?? "").trim(),
       intention: (r["intention"] ?? "").trim(),
       subscriptionId: (r["subscription_id"] ?? "").trim(),
       instalmentNumber: (r["instalment_number"] ?? "").trim(),

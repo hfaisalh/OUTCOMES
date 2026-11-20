@@ -12,7 +12,7 @@ import type { AttentionItem } from "../modules/04-triage/triage";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { partsOf } from "../modules/01c-crm-connector/work-orders";
 import { autoAllocate, fillOf, holdingReport, monthsAround, perPeriodRule, timelineOf, type UnitStatus, type Allocation, type Availability, type Outcome } from "../modules/05-outcomes/outcomes";
-import type { Node, Project } from "../modules/06-projects/projects";
+import { allocOptions, type Node, type Project } from "../modules/06-projects/projects";
 import { allocatable, buildCommitments, needsLook, type Commitment } from "../modules/04b-commitments/commitments";
 import { noIndividualDonor } from "../modules/01c-crm-connector/credits";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
@@ -37,6 +37,7 @@ export interface View {
   allocations?: Allocation[];
   ocFilter?: { cohort: string; type: string; status: string }; // the Outcomes list filters (DECISIONS 63)
   today?: string; // today as YYYY-MM-DD, so the month by month view can be drawn and tested for any date
+  bufferMonths?: number; // payments a plan may miss and still hold its place (DECISIONS 66)
   giftView?: "payments" | "commitments"; // which way the Gifts page shows the gifts (DECISIONS 66)
   projects?: Project[]; // the projects and their structures (DECISIONS 65)
   nodes?: Node[]; // the places in them
@@ -448,9 +449,10 @@ export function outcomesPage(v: View): string {
   const today = v.today ?? "2026-01-01";
   const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
   const byKey = new Map(commitments.map((c) => [c.subscriptionId, c]));
-  const fills = new Map(outcomes.map((o) => [o.id, fillOf(o, fws, allocations, commitments)]));
-  const waiting = autoAllocate(commitments, outcomes, fws, allocations, "").unplaced; // a dry run: nothing is saved
-  const hold = holdingReport(commitments, fws);
+  const opts = allocOptions(v.projects ?? [], v.bufferMonths, today);
+  const fills = new Map(outcomes.map((o) => [o.id, fillOf(o, fws, allocations, commitments, opts.policy)]));
+  const waiting = autoAllocate(commitments, outcomes, fws, allocations, "", opts).unplaced; // a dry run: nothing is saved
+  const hold = holdingReport(commitments, fws, opts.policy);
   const why = [hold.noFramework ? `${hold.noFramework} have no framework (set one for the item or its category on the Categories tab)` : "", hold.noRule ? `${hold.noRule} are on a framework that does not say how an instalment counts (open it on the Categories tab and set it)` : "", hold.cancelled ? `${hold.cancelled} are cancelled in the CRM` : "", hold.finished ? `${hold.finished} are fully paid` : ""].filter((x) => x !== "");
   const holdNote = `<p class="muted">${hold.total} commitment${hold.total === 1 ? "" : "s"}, ${hold.holding} asking for capacity${why.length ? `. Not asking: ${why.join("; ")}` : ""}.</p>`;
   const count = (s: Availability) => outcomes.filter((o) => fills.get(o.id)?.state === s).length;
@@ -486,7 +488,7 @@ export function outcomesPage(v: View): string {
     const f = fills.get(o.id) as ReturnType<typeof fillOf>;
     const [label, cls] = AVAIL[f.state];
     const mine = allocations.filter((a) => a.outcomeId === o.id && byKey.has(a.commitmentKey));
-    const rowMonths = timelineOf(o, fws, allocations, commitments, months, today);
+    const rowMonths = timelineOf(o, fws, allocations, commitments, months, today, opts.policy);
     return `<tr><td><b>${esc(o.name)}</b><div class="muted">${f.used} of ${f.capacity} units${f.capacity === 0 ? ", no framework units" : ""}</div></td><td>${esc(o.cohort) || `<span class="muted">none</span>`}</td><td>${esc(o.type)}<div class="muted">${esc(fwName(o.frameworkId))}</div></td>
       ${rowMonths.map((m) => `<td class="m">${monthPie(m.slots, `${NAME[Number(m.month.slice(5, 7)) - 1]} ${m.month.slice(0, 4)}`, !o.active)}</td>`).join("")}
       <td><span class="pill ${cls}">${label}</span></td>

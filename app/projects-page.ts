@@ -9,7 +9,7 @@
 
 import { allocatable } from "../modules/04b-commitments/commitments";
 import { perPeriodRule } from "../modules/05-outcomes/outcomes";
-import { orderedLevels, rollupOf, type Node, type Project } from "../modules/06-projects/projects";
+import { allocOptions, orderedLevels, rollupOf, type Node, type Project } from "../modules/06-projects/projects";
 import { esc, type View } from "./pages";
 
 // Starting shapes for a new project, so nobody builds the structure from nothing.
@@ -41,7 +41,7 @@ export function projectsPage(v: View): string {
   const levels = orderedLevels(project);
   const mine = nodes.filter((n) => n.projectId === project.id);
   const commitments = allocatable(v.workOrders, perPeriodRule(fws), v.today ?? "2026-01-01");
-  const roll = rollupOf(mine, outcomes.filter((o) => o.projectId === project.id), fws, v.allocations ?? [], commitments);
+  const roll = rollupOf(mine, outcomes.filter((o) => o.projectId === project.id), fws, v.allocations ?? [], commitments, allocOptions(projects, v.bufferMonths, v.today ?? "2026-01-01").policy);
   const levelName = (id: string) => levels.find((l) => l.id === id)?.name ?? "";
   const fwName = (id: string) => fws.find((f) => f.id === id)?.name ?? "No framework";
   const total = roll.byProject.get(project.id) ?? { places: 0, used: 0, beneficiaries: 0 };

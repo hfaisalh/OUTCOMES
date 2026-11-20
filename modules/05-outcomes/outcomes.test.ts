@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Commitment } from "../04b-commitments/commitments";
-import { addOutcomes, autoAllocate, capacityOf, fillOf, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, monthStatus, holdingReport, monthsAround, timelineOf, takesCapacity, type Allocation, type Outcome } from "./outcomes";
+import { addOutcomes, autoAllocate, capacityOf, fillOf, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, monthStatus, holdingReport, inBuffer, overdueMonths, pickOutcome, monthsAround, timelineOf, takesCapacity, type Allocation, type Outcome } from "./outcomes";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -16,7 +16,7 @@ const FW: FrameworkTemplate[] = [
   { id: "once", name: "Delivered once", unit: "pump", cycle: "on_delivery", reportType: "", instalment: "share_of_whole", unitsPerBeneficiary: 1 },
 ];
 const com = (sub: string, parts: number, over: Partial<Commitment> = {}): Commitment => ({
-  planStatus: "", nextDue: "", planPaid: null, paidMonths: [],
+  planStatus: "", nextDue: "", planPaid: null, paidMonths: [], projectName: "",
   subscriptionId: sub, supporterId: "D1", supporterName: "Sample", itemId: "I1", itemName: "Item", categoryId: "c", frameworkId: "shared", partsPerInstalment: parts, partsVary: false, planned: 12, paid: 2,
   state: "in_progress", firstPaid: `2026-0${Math.min(Number(sub) % 9 + 1, 9)}-01`, lastPaid: "2026-10-01", numbers: [], gaps: [], legacyOpening: false, startsLate: false, conflict: false, lines: [], ...over,
 });
@@ -213,7 +213,7 @@ describe("why commitments are not asking for capacity", () => {
   it("counts those with no framework, no instalment rule, cancelled, finished and holding", () => {
     const noRule: FrameworkTemplate = { id: "norule", name: "No rule", unit: "x", cycle: "quarterly", reportType: "Q", unitsPerBeneficiary: 1 };
     const list = [com("1", 3), com("2", 3, { frameworkId: "" }), com("3", 3, { frameworkId: "norule" }), com("4", 3, { planStatus: "cancelled" }), com("5", 3, { state: "complete" })];
-    expect(holdingReport(list, [...FW, noRule])).toEqual({ total: 5, holding: 1, noFramework: 1, noRule: 1, cancelled: 1, finished: 1 });
+    expect(holdingReport(list, [...FW, noRule])).toEqual({ total: 5, holding: 1, noFramework: 1, noRule: 1, cancelled: 1, finished: 1, lapsed: 0, inBuffer: 0 });
   });
 });
 
@@ -224,5 +224,75 @@ describe("removing unused outcomes", () => {
     const r = removeUnused(os, [held], os.map((o) => o.id));
     expect(r.value.map((o) => o.name)).toEqual(["Orphan 2"]);
     expect(r).toMatchObject({ removed: 2, kept: 1 });
+  });
+});
+
+describe("directed and general gifts, spreading, and the payment buffer (DECISIONS 66)", () => {
+  // Two projects of orphans: A has two places (Class 1, Class 2) with 2 orphans each, B has one place with 2 orphans.
+  const o = (id: string, projectId: string, nodeId: string): Outcome => ({ id, name: id, type: "child", cohort: nodeId, frameworkId: "shared", active: true, projectId, nodeId, typeId: "child" });
+  const OUT: Outcome[] = [o("a1", "A", "c1"), o("a2", "A", "c1"), o("a3", "A", "c2"), o("a4", "A", "c2"), o("b1", "B", "d1"), o("b2", "B", "d1")];
+  const projectIdFor = (name: string) => ({ Aghosh: "A", Bravo: "B" })[name];
+  const gift = (sub: string, parts: number, projectName = "", over: Partial<Commitment> = {}) => com(sub, parts, { projectName, ...over });
+
+  it("sends a directed gift to its own project only, and a general gift to any project", () => {
+    const r = autoAllocate([gift("1", 3, "Bravo"), gift("2", 3, "Where Needed Most")], OUT, FW, [], AT, { projectIdFor });
+    expect(r.allocations.find((a) => a.commitmentKey === "1")?.outcomeId).toMatch(/^b/);
+    expect(r.placed).toBe(2);
+  });
+  it("makes a directed gift wait when its project is full, even if another project has room", () => {
+    const full = [gift("1", 3, "Bravo"), gift("2", 3, "Bravo"), gift("3", 3, "Bravo")];
+    const r = autoAllocate(full, OUT, FW, [], AT, { projectIdFor });
+    expect(r.placed).toBe(2);
+    expect(r.unplaced).toEqual([{ commitmentKey: "3", why: "The project the donor chose is full. It waits for a person to decide." }]);
+  });
+  it("treats a project name it does not know as a general gift", () => {
+    const r = autoAllocate([gift("1", 3, "Hope for Palestine")], OUT, FW, [], AT, { projectIdFor });
+    expect(r.placed).toBe(1);
+  });
+  it("spreads general gifts across places, then fills a partly sponsored child before opening a new one", () => {
+    // four one-part gifts: places c1, c2, d1 all start at nothing sponsored, so they take turns. Each place then packs one child first.
+    const gifts = ["1", "2", "3", "4", "5", "6"].map((n) => gift(n, 1, "", { firstPaid: `2026-01-0${n}` }));
+    const r = autoAllocate(gifts, OUT, FW, [], AT, { projectIdFor });
+    const where = (n: string) => r.allocations.find((a) => a.commitmentKey === n)?.outcomeId;
+    expect([where("1"), where("2"), where("3")]).toEqual(["a1", "a3", "b1"]); // one in each place first
+    expect([where("4"), where("5"), where("6")]).toEqual(["a1", "a3", "b1"]); // then the same child gets a second part, not a new child
+  });
+  it("keeps whole children free for a bundle by filling partly sponsored ones first", () => {
+    const one = gift("1", 1, "", { firstPaid: "2026-01-01" });
+    const bundle = gift("2", 3, "", { firstPaid: "2026-01-02" });
+    const small = autoAllocate([one], OUT.slice(0, 2), FW, [], AT, {});
+    const both = autoAllocate([one, bundle], OUT.slice(0, 2), FW, small.allocations, AT, {});
+    expect(both.allocations.find((a) => a.commitmentKey === "2")?.outcomeId).toBe("a2");
+  });
+  it("picks nothing when no one has room", () => {
+    expect(pickOutcome([], FW, new Map(), 1)).toBeUndefined();
+    expect(pickOutcome(OUT.slice(0, 1), FW, new Map([["a1", 3]]), 1)).toBeUndefined();
+  });
+
+  describe("the payment buffer", () => {
+    const behind = (nextDue: string, over: Partial<Commitment> = {}) => com("9", 3, { planStatus: "active", nextDue, planned: 12, paid: 2, planPaid: 2, ...over });
+    it("counts a plan behind from its due date to now, never more than it has left", () => {
+      expect(overdueMonths(behind("2026-11-05"), "2026-11-20")).toBe(1);
+      expect(overdueMonths(behind("2026-11-25"), "2026-11-20")).toBe(0);
+      expect(overdueMonths(behind("2026-10-29"), "2026-11-20")).toBe(1); // October missed, November not due until the 29th
+      expect(overdueMonths(behind("2026-06-05"), "2026-11-20")).toBe(6);
+      expect(overdueMonths(behind("2026-06-05", { planned: 3, planPaid: 2 }), "2026-11-20")).toBe(1);
+      expect(overdueMonths(behind("2026-06-05", { planStatus: "paused" }), "2026-11-20")).toBe(0);
+    });
+    it("holds the place inside the buffer, and lets go after it", () => {
+      const policy = { today: "2026-11-20", bufferMonths: 1 };
+      expect(inBuffer(behind("2026-11-05"), policy)).toBe(true);
+      expect(takesCapacity(behind("2026-11-05"), FW, policy)).toBe(true);
+      expect(takesCapacity(behind("2026-10-05"), FW, policy)).toBe(false);
+      expect(takesCapacity(behind("2026-10-05"), FW)).toBe(true); // no policy, no buffer rule
+    });
+    it("releases a lapsed plan's place and places the next gift there", () => {
+      const lapsed = behind("2026-06-05", { subscriptionId: "L" });
+      const first = autoAllocate([lapsed], OUT.slice(0, 1), FW, [], AT, {});
+      expect(first.placed).toBe(1);
+      const later = autoAllocate([lapsed, gift("2", 3, "", { firstPaid: "2026-09-01" })], OUT.slice(0, 1), FW, first.allocations, AT, { policy: { today: "2026-11-20", bufferMonths: 1 } });
+      expect(later.released).toBe(1);
+      expect(later.allocations.map((a) => a.commitmentKey)).toEqual(["2"]);
+    });
   });
 });

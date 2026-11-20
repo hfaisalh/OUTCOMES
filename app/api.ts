@@ -80,6 +80,7 @@ export interface OutcomesReply {
   allocations: Allocation[];
   projects?: Project[];
   nodes?: Node[];
+  bufferMonths?: number;
   warning?: string;
   placed?: number;
   removed?: number;

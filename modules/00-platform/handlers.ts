@@ -19,8 +19,8 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSION_SECONDS, verifyToken, signToken, clearSessionCookie, type Claims } from "./launch-token.js";
 import { excludeWorkOrder, restoreWorkOrder, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import { allocatable } from "../04b-commitments/commitments.js";
-import { applyProjectAction } from "../06-projects/projects.js";
-import { addOutcomes, autoAllocate, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive } from "../05-outcomes/outcomes.js";
+import { allocOptions, applyProjectAction } from "../06-projects/projects.js";
+import { addOutcomes, autoAllocate, DEFAULT_BUFFER_MONTHS, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive } from "../05-outcomes/outcomes.js";
 import { applyDecision, buildAttention } from "../04-triage/triage.js";
 import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
 import { backfillFrameworks, reapplyFrameworks, rerouteUnrouted, runPickup } from "./pickup.js";
@@ -306,6 +306,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   let allocations = config.allocations ?? [];
   let projects = config.projects ?? [];
   let nodes = config.nodes ?? [];
+  let bufferMonths = config.bufferMonths ?? DEFAULT_BUFFER_MONTHS;
   let extra: Record<string, unknown> = {};
 
   if (write) {
@@ -344,15 +345,21 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
         break;
       }
       case "auto": {
-        const r = autoAllocate(await commitments(), outcomes, fw, allocations, at);
+        const r = autoAllocate(await commitments(), outcomes, fw, allocations, at, allocOptions(projects, bufferMonths, at.slice(0, 10)));
         allocations = r.allocations;
         extra = { placed: r.placed, released: r.released, unplaced: r.unplaced };
         break;
       }
       case "move": {
-        const r = moveAllocation(allocations, await commitments(), outcomes, fw, str("commitmentKey"), str("outcomeId"), at);
+        const r = moveAllocation(allocations, await commitments(), outcomes, fw, str("commitmentKey"), str("outcomeId"), at, allocOptions(projects, bufferMonths, at.slice(0, 10)).policy);
         if (r.error) return fail(r.error);
         allocations = r.value;
+        break;
+      }
+      case "set-buffer": {
+        const n = Number(b["months"]);
+        if (!Number.isInteger(n) || n < 0 || n > 12) return fail("The buffer is a whole number of months, from 0 to 12.");
+        bufferMonths = n;
         break;
       }
       case "release":
@@ -367,7 +374,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
         if (r.warning) extra = { warning: r.warning };
       }
     }
-    await d.store.putConfig(org, { ...config, outcomes, allocations, projects, nodes });
+    await d.store.putConfig(org, { ...config, outcomes, allocations, projects, nodes, bufferMonths });
   }
-  return json(200, { outcomes, allocations, projects, nodes, ...extra });
+  return json(200, { outcomes, allocations, projects, nodes, bufferMonths, ...extra });
 }

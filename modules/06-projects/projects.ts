@@ -17,7 +17,7 @@
  */
 
 import { slugify, type FrameworkTemplate } from "../02-project-rules/categories.js";
-import { addOutcomes, capacityOf, fillOf, type Allocation, type Outcome } from "../05-outcomes/outcomes.js";
+import { addOutcomes, capacityOf, DEFAULT_BUFFER_MONTHS, fillOf, type AllocOptions, type Allocation, type Outcome, type Policy } from "../05-outcomes/outcomes.js";
 import type { Commitment } from "../04b-commitments/commitments.js";
 
 export interface Level {
@@ -210,7 +210,7 @@ export interface Rollup {
 }
 
 // Rule: each place adds up the capacity and use of every beneficiary in it and under it. A project adds up all of its places.
-export function rollupOf(nodes: Node[], outcomes: Outcome[], fw: FrameworkTemplate[], allocations: Allocation[], commitments: Commitment[]): { byNode: Map<string, Rollup>; byProject: Map<string, Rollup> } {
+export function rollupOf(nodes: Node[], outcomes: Outcome[], fw: FrameworkTemplate[], allocations: Allocation[], commitments: Commitment[], policy?: Policy): { byNode: Map<string, Rollup>; byProject: Map<string, Rollup> } {
   const byNode = new Map<string, Rollup>();
   const byProject = new Map<string, Rollup>();
   const bump = (m: Map<string, Rollup>, key: string, cap: number, used: number) => {
@@ -220,7 +220,7 @@ export function rollupOf(nodes: Node[], outcomes: Outcome[], fw: FrameworkTempla
   const parentOf = new Map(nodes.map((n) => [n.id, n.parentId]));
   for (const o of outcomes) {
     if (!o.projectId || !o.nodeId || !o.active) continue;
-    const f = fillOf(o, fw, allocations, commitments);
+    const f = fillOf(o, fw, allocations, commitments, policy);
     bump(byProject, o.projectId, capacityOf(o, fw), f.used);
     for (let id = o.nodeId; id !== "" && parentOf.has(id); id = parentOf.get(id) as string) bump(byNode, id, capacityOf(o, fw), f.used);
   }
@@ -300,3 +300,9 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
     }
   }
 }
+
+// The options automatic allocation needs from the setup: how long a plan that stops paying keeps its place, and how a gift's project name finds its project.
+export const allocOptions = (projects: Project[], bufferMonths: number | undefined, today: string): AllocOptions => ({
+  policy: { today, bufferMonths: bufferMonths ?? DEFAULT_BUFFER_MONTHS },
+  projectIdFor: (name) => matchProject(projects, name)?.id,
+});

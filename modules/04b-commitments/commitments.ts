@@ -48,6 +48,7 @@ export interface Commitment {
   nextDue: string; // the plan's next due date, YYYY-MM-DD, "" when unknown
   planPaid: number | null; // instalments the CRM says are paid
   paidMonths: string[]; // the months (YYYY-MM) in which a real instalment was paid, legacy uploads left out
+  projectName: string; // the project the donor chose, "" when none. Where Needed Most and blank are general (DECISIONS 66)
   once?: true; // a single payment that covers several periods, not a subscription (DECISIONS 64). Its subscriptionId is "once-" plus the line id
   endMonth?: string; // for a one-off payment: the last month it covers, YYYY-MM
   startsLate: boolean; // the lowest number held is above 1
@@ -108,6 +109,7 @@ export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
       itemName: first.itemName,
       categoryId: first.categoryId,
       frameworkId: first.frameworkId ?? "",
+      projectName: first.projectName ?? "",
       partsPerInstalment: partsOf(first),
       partsVary: sorted.some((w) => partsOf(w) !== partsOf(first)),
       planned,
@@ -178,6 +180,7 @@ export function oneOffCommitments(workOrders: WorkOrder[], isPerPeriod: (framewo
         itemName: w.itemName,
         categoryId: w.categoryId,
         frameworkId: w.frameworkId ?? "",
+        projectName: w.projectName ?? "",
         partsPerInstalment: partsOf(w),
         partsVary: false,
         planned: periods,

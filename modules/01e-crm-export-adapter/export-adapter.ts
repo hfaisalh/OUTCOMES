@@ -266,6 +266,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
       amount: pick(r, "Item Cost"),
       quantity: pick(r, "Order Quantity"),
       bundle_qty: bundleQuantity,
+      project_name: pick(r, "Project"), // the project the donor chose (DECISIONS 66)
       period_count: !recurring ? (planLength.get(`${code}|${bundleName}`) ?? "") : "", // months a one-off covers
       intention: pick(r, "Intention"),
     });

@@ -32,6 +32,7 @@ export interface OrgConfig {
   itemFramework?: Record<string, string>; // an item's own framework, only where it differs from its category
   outcomes?: Outcome[]; // what gifts are allocated to (DECISIONS 61). Kept in the setup for now, to move to their own table when there are many
   allocations?: Allocation[];
+  bufferMonths?: number; // payments a plan may miss and still hold its place, default 1 (DECISIONS 66)
   projects?: Project[]; // the projects, each with the structure it defines (DECISIONS 65)
   nodes?: Node[]; // the places in those structures
   usesFrameworks: boolean;

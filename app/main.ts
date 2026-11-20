@@ -11,7 +11,7 @@
  */
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
-import { applyProjectAction, type Node, type Project } from "../modules/06-projects/projects";
+import { allocOptions, applyProjectAction, type Node, type Project } from "../modules/06-projects/projects";
 import { PROJECT_TEMPLATES, projectsPage } from "./projects-page";
 import { addOutcomes, autoAllocate, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, type Allocation, type Outcome } from "../modules/05-outcomes/outcomes";
 import { allocatable } from "../modules/04b-commitments/commitments";
@@ -50,6 +50,7 @@ const state = {
   allocations: [] as Allocation[],
   projects: [] as Project[], // the projects and the places in them (DECISIONS 65)
   nodes: [] as Node[],
+  bufferMonths: 1, // payments a plan may miss and still hold its place (DECISIONS 66)
   openProject: "", // the project open on the Projects page
   giftView: "payments" as "payments" | "commitments", // how the Gifts page shows the gifts (DECISIONS 66)
   ocFilter: { cohort: "", type: "", status: "" }, // the Outcomes list filters
@@ -89,7 +90,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
-    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.nodes = o.nodes ?? []; }).catch(() => undefined);
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.nodes = o.nodes ?? []; state.bufferMonths = o.bufferMonths ?? 1; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
     state.message = "";
   } catch (e) {
@@ -158,7 +159,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, projects: state.projects, nodes: state.nodes, openProject: state.openProject, giftView: state.giftView, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, projects: state.projects, nodes: state.nodes, bufferMonths: state.bufferMonths, openProject: state.openProject, giftView: state.giftView, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -183,6 +184,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.allocations = r.allocations;
       state.projects = r.projects ?? state.projects;
       state.nodes = r.nodes ?? state.nodes;
+      state.bufferMonths = r.bufferMonths ?? state.bufferMonths;
       if (body["action"] === "remove-many") state.message = `Removed ${r.removed ?? 0}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`;
       else if (body["action"] === "auto") state.message = `Placed ${r.placed ?? 0}, released ${r.released ?? 0}, ${r.unplaced?.length ?? 0} waiting.`;
       else state.message = r.warning ?? "";
@@ -195,9 +197,10 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "add": { const r = addOutcomes(state.outcomes, { name: str("name"), count: Number(body["count"] ?? 1), type: str("type"), cohort: str("cohort"), frameworkId: str("frameworkId") }); if (!state.frameworks.some((f) => f.id === str("frameworkId"))) error = "Choose a framework for the outcome."; else if (r.error) error = r.error; else state.outcomes = r.value; break; }
         case "active": state.outcomes = setActive(state.outcomes, str("id"), body["active"] === true); break;
         case "remove": { const r = removeOutcome(state.outcomes, state.allocations, str("id")); if (r.error) error = r.error; else state.outcomes = r.value; break; }
-        case "auto": { const r = autoAllocate(commitments, state.outcomes, state.frameworks, state.allocations, at); state.allocations = r.allocations; state.message = `Placed ${r.placed}, released ${r.released}, ${r.unplaced.length} waiting.`; break; }
-        case "move": { const r = moveAllocation(state.allocations, commitments, state.outcomes, state.frameworks, str("commitmentKey"), str("outcomeId"), at); if (r.error) error = r.error; else state.allocations = r.value; break; }
+        case "auto": { const r = autoAllocate(commitments, state.outcomes, state.frameworks, state.allocations, at, allocOptions(state.projects, state.bufferMonths, at.slice(0, 10))); state.allocations = r.allocations; state.message = `Placed ${r.placed}, released ${r.released}, ${r.unplaced.length} waiting.`; break; }
+        case "move": { const r = moveAllocation(state.allocations, commitments, state.outcomes, state.frameworks, str("commitmentKey"), str("outcomeId"), at, allocOptions(state.projects, state.bufferMonths, at.slice(0, 10)).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
         case "remove-many": { const r = removeUnused(state.outcomes, state.allocations, Array.isArray(body["ids"]) ? (body["ids"] as string[]) : []); state.outcomes = r.value; state.message = `Removed ${r.removed}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`; break; }
+        case "set-buffer": { const n = Number(body["months"]); if (!Number.isInteger(n) || n < 0 || n > 12) error = "The buffer is a whole number of months, from 0 to 12."; else state.bufferMonths = n; break; }
         case "release": state.allocations = releaseAllocation(state.allocations, str("commitmentKey")); break;
         default: {
           // Projects (DECISIONS 65): the same pure rule the server uses.
