@@ -110,7 +110,7 @@ describe("setup and organisations", () => {
     const cookie = await signIn(d);
     await handlePickup(as(cookie, { method: "POST" }), d); // nothing is mapped, so all four are unrouted
     const put = await handleConfig(as(cookie, { method: "PUT", body: { categories: [{ id: "water", name: "Water", keywords: ["water"], framework: { unit: "", cycle: "on_delivery", reportType: "" } }], itemMap: { I11: "water" } } }), d);
-    expect(put.body).toEqual({ ok: true, routed: 1 });
+    expect(put.body).toEqual({ ok: true, routed: 1, reapplied: 0 });
     const orders = ((await handleWorkOrders(as(cookie), d)).body as { workOrders: { itemId: string; status: string }[] }).workOrders;
     expect(orders.find((o) => o.itemId === "I11")?.status).toBe("ready");
     expect(orders.filter((o) => o.status === "unrouted")).toHaveLength(3);

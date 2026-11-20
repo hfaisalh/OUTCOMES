@@ -63,7 +63,7 @@ export async function fetchMe(): Promise<Me | null> {
   }
 }
 export const loadConfig = () => call<ServerConfig>("/api/config");
-export const saveConfig = (c: { categories: Category[]; itemMap: ItemMap; frameworks: FrameworkTemplate[]; itemFramework: Record<string, string> }) => call<{ ok: boolean; routed: number }>("/api/config", { method: "PUT", body: c });
+export const saveConfig = (c: { categories: Category[]; itemMap: ItemMap; frameworks: FrameworkTemplate[]; itemFramework: Record<string, string>; reapply?: boolean }) => call<{ ok: boolean; routed: number; reapplied?: number }>("/api/config", { method: "PUT", body: c });
 export const loadWorkOrders = () => call<WorkOrdersReply>("/api/work-orders");
 export const runPickupNow = () => call<{ ok?: boolean; error?: string; created?: number; rerouted?: number; skipped?: string }>("/api/pickup", { method: "POST" });
 

@@ -9,7 +9,8 @@ import { describe, expect, it } from "vitest";
 import { ConnectorError, rowsReader, type CrmReader, type CrmReporter } from "../01c-crm-connector/reader";
 import type { ReportBackItem } from "../01c-crm-connector/report-back";
 import { sampleRows } from "../01c-crm-connector/sample";
-import { mergeReview, rekeyLegacy, runPickup } from "./pickup";
+import { mergeReview, reapplyFrameworks, rekeyLegacy, runPickup } from "./pickup";
+import type { WorkOrder } from "../01c-crm-connector/work-orders";
 import { defaultConfig, memoryStore, type OrgConfig } from "./store";
 
 const config = (): OrgConfig => ({ ...defaultConfig(), itemMap: { I10: "orphan", I11: "water", I13: "hifz" }, crm: { kind: "api", baseUrl: "x", tokenEnv: "X" } });
@@ -113,5 +114,18 @@ describe("work orders are keyed by the line id (DECISIONS 46)", () => {
     const run = await runPickup("mwf", { store, reader: rowsReader(changedRef), reporter, nowIso: "2026-11-20T09:00:00Z" });
     expect(run.created).toBe(0);
     expect((await store.listWorkOrders("mwf")).map((w) => w.key).sort()).toEqual(["L001", "L002", "L004", "L008"]);
+  });
+});
+
+describe("reapplyFrameworks (DECISIONS 64)", () => {
+  const cfg = (): OrgConfig => ({ ...config(), frameworks: [
+    { id: "old", name: "Old", unit: "x", cycle: "quarterly", reportType: "Q", unitsPerBeneficiary: 1 },
+    { id: "shared", name: "Shared", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
+  ], categories: [{ id: "orphan", name: "Orphan", keywords: [], frameworkId: "shared" }] });
+  const order = (key: string, over: Partial<WorkOrder> = {}): WorkOrder => ({ key, lineId: key, transactionRef: "T", paidDate: "2026-06-10", supporterId: "D1", supporterName: "S", group: "", itemId: "I10", itemName: "Orphan", amount: 1, quantity: 1, intention: "", subscriptionId: "", instalmentNumber: "", instalmentCount: "", categoryId: "orphan", status: "ready", frameworkId: "old", ...over });
+
+  it("moves work orders to the framework that now applies, and leaves excluded and unchanged ones", () => {
+    const moved = reapplyFrameworks([order("1"), order("2", { frameworkId: "shared" }), order("3", { status: "excluded" }), order("4", { itemId: "I99" })], cfg());
+    expect(moved.map((w) => [w.key, w.frameworkId])).toEqual([["1", "shared"]]);
   });
 });

@@ -22,7 +22,7 @@ import { allocatable } from "../04b-commitments/commitments.js";
 import { addOutcomes, autoAllocate, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, setActive } from "../05-outcomes/outcomes.js";
 import { applyDecision, buildAttention } from "../04-triage/triage.js";
 import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
-import { backfillFrameworks, rerouteUnrouted, runPickup } from "./pickup.js";
+import { backfillFrameworks, reapplyFrameworks, rerouteUnrouted, runPickup } from "./pickup.js";
 import { defaultConfig, setupOf, type OrgConfig, type Store } from "./store.js";
 
 export interface HttpRequest {
@@ -114,7 +114,7 @@ export async function handleConfig(req: HttpRequest, d: Deps): Promise<HttpRespo
   if (req.method === "PUT") {
     const a = need(req, d, P.mapFrameworks);
     if ("response" in a) return a.response;
-    const b = req.body as { categories?: unknown; itemMap?: unknown; frameworks?: unknown; itemFramework?: unknown } | undefined;
+    const b = req.body as { categories?: unknown; itemMap?: unknown; frameworks?: unknown; itemFramework?: unknown; reapply?: unknown } | undefined;
     if (!b || !Array.isArray(b.categories) || !b.categories.every(isCurrentCategory) || typeof b.itemMap !== "object" || b.itemMap === null) return json(400, { error: "The setup is incomplete." });
     if (b.frameworks !== undefined && (!Array.isArray(b.frameworks) || !b.frameworks.every(isFrameworkTemplate))) return json(400, { error: "A framework in the setup is not valid." });
     if (b.itemFramework !== undefined && (typeof b.itemFramework !== "object" || b.itemFramework === null || !Object.values(b.itemFramework).every((x) => typeof x === "string"))) return json(400, { error: "The item frameworks are not valid." });
@@ -132,8 +132,11 @@ export async function handleConfig(req: HttpRequest, d: Deps): Promise<HttpRespo
     const filled = backfillFrameworks(after, next);
     const changed = new Map([...rerouted, ...filled].map((w) => [w.key, w]));
     for (const w of filled) changed.set(w.key, { ...(rerouted.find((r) => r.key === w.key) ?? {}), ...w });
+    // Only when asked (DECISIONS 64): move every work order to the framework that now applies to its item.
+    const again = b.reapply === true ? reapplyFrameworks(after.map((w) => changed.get(w.key) ?? w), next) : [];
+    for (const w of again) changed.set(w.key, w);
     await d.store.saveWorkOrders(a.claims.org, [...changed.values()]);
-    return json(200, { ok: true, routed: rerouted.length });
+    return json(200, { ok: true, routed: rerouted.length, reapplied: again.length });
   }
   const a = need(req, d, P.viewWorkOrders);
   if ("response" in a) return a.response;

@@ -430,6 +430,26 @@ document.addEventListener("click", (e) => {
       afterConfig(false);
     }
   }
+  // Move work orders already made to the framework that now applies to their item (DECISIONS 64).
+  if (action === "apply-frameworks") {
+    const fw = frameworkByItem(setupNow());
+    if (state.live()) {
+      void (async () => {
+        try {
+          const r = await saveConfig({ categories: state.categories, itemMap: state.itemCategories, frameworks: state.frameworks, itemFramework: state.itemFramework, reapply: true });
+          await reloadLive();
+          state.message = `${r.reapplied ?? 0} work order${r.reapplied === 1 ? "" : "s"} moved to the framework that now applies.`;
+        } catch (e) {
+          state.message = e instanceof Error ? e.message : "Could not save.";
+        }
+        draw();
+      })();
+    } else {
+      const moved = state.workOrders.filter((w) => w.status !== "excluded" && fw[w.itemId] !== undefined && w.frameworkId !== fw[w.itemId]);
+      state.workOrders = state.workOrders.map((w) => (w.status !== "excluded" && fw[w.itemId] !== undefined ? { ...w, frameworkId: fw[w.itemId] as string } : w));
+      state.message = `${moved.length} work order${moved.length === 1 ? "" : "s"} moved to the framework that now applies.`;
+    }
+  }
   if (action === "suggest-item-frameworks") {
     state.itemFramework = { ...state.itemFramework, ...view().itemFrameworkSuggestions };
     afterConfig(false);

@@ -290,7 +290,8 @@ export function categoriesPage(v: View): string {
     <div class="card"><h2>Frameworks <span class="muted">(${frameworks.length})</span></h2>
       <p class="muted">What an order in a category goes through: the unit, how many units make one beneficiary, how an instalment counts, and the report. Define each once, then choose it for a category or an item. For a small difference, duplicate one and change that setting.</p>
       <div class="actions"><input id="newfw" placeholder="New framework name" /><button data-action="add-framework">Add framework</button><button data-action="add-starters" title="Adds the sponsorship frameworks (shared parts, whole), delivered once, and livelihood">Add the starting frameworks</button>
-        <button data-action="suggest-item-frameworks"${nItemSuggest ? "" : " disabled"}>Suggest ${nItemSuggest} item framework${nItemSuggest === 1 ? "" : "s"} (Hifz, school and similar)</button></div>
+        <button data-action="suggest-item-frameworks"${nItemSuggest ? "" : " disabled"}>Suggest ${nItemSuggest} item framework${nItemSuggest === 1 ? "" : "s"} (Hifz, school and similar)</button>
+        <button data-action="apply-frameworks" title="Work orders keep the framework they were made under. This moves every one to the framework that now applies to its item">Apply frameworks to existing work orders</button></div>
       ${frameworks.length ? frameworks.map((f) => frameworkCard(f, v)).join("") : `<div class="empty">No frameworks yet. Add the starting frameworks, or add your own.</div>`}</div>
     <div class="actions"><button class="primary" data-action="accept-suggestions"${nSuggest ? "" : " disabled"}>Accept ${nSuggest} suggestion${nSuggest === 1 ? "" : "s"}</button>
       <input id="newcat" placeholder="New category name" /><button data-action="add-category">Add category</button></div>

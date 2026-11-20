@@ -83,6 +83,13 @@ export function backfillFrameworks(orders: WorkOrder[], config: OrgConfig): Work
   return orders.filter((w) => w.status !== "excluded" && w.frameworkId === undefined && fw[w.itemId] !== undefined).map((w) => ({ ...w, frameworkId: fw[w.itemId] as string }));
 }
 
+// Rule (DECISIONS 64): when a person asks for it, every work order is moved to the framework that now applies to its item, so a changed
+// category or item framework reaches work already made. Only on request: it is never done by itself. Excluded work orders are left alone.
+export function reapplyFrameworks(orders: WorkOrder[], config: OrgConfig): WorkOrder[] {
+  const fw = frameworkByItem(setupOf(config));
+  return orders.filter((w) => w.status !== "excluded" && fw[w.itemId] !== undefined && w.frameworkId !== fw[w.itemId]).map((w) => ({ ...w, frameworkId: fw[w.itemId] as string }));
+}
+
 export async function runPickup(org: string, deps: PickupDeps): Promise<RunInfo> {
   const { store, reader, reporter, nowIso } = deps;
   const before = await store.getRun(org);
