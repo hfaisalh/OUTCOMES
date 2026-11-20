@@ -131,6 +131,23 @@ describe("workOrdersPage", () => {
     expect(detail).toContain("D77");
   });
 
+  it("lists outcomes one line each in a table, filters them by cohort, type and status, and shows an inactive outcome as offboarded", () => {
+    const fws = starterFrameworks();
+    const mk = (id: string, cohort: string, type: string, active = true) => ({ id, name: id, type, cohort, frameworkId: "sponsorship-shared-parts", active });
+    const outcomes = [mk("a1", "North", "boarding"), mk("a2", "North", "day care"), mk("b1", "South", "boarding", false)];
+    const all = outcomesPage(view({ frameworks: fws, outcomes, allocations: [], today: "2026-11-20" }));
+    expect(all).toContain("12-month status");
+    expect((all.match(/<tr><td><b>/g) ?? []).length).toBe(3);
+    expect(all).toContain('data-ocf="cohort"');
+    expect(all).toContain('class="seg x"'); // the inactive outcome's slices
+    const north = outcomesPage(view({ frameworks: fws, outcomes, allocations: [], today: "2026-11-20", ocFilter: { cohort: "North", type: "boarding", status: "" } }));
+    expect((north.match(/<tr><td><b>/g) ?? []).length).toBe(1);
+    const inactive = outcomesPage(view({ frameworks: fws, outcomes, allocations: [], today: "2026-11-20", ocFilter: { cohort: "", type: "", status: "inactive" } }));
+    expect(inactive).toContain("b1");
+    expect(inactive).not.toContain("<b>a1</b>");
+    expect(outcomesPage(view({ frameworks: fws, outcomes, allocations: [], today: "2026-11-20", ocFilter: { cohort: "South", type: "day care", status: "" } }))).toContain("No outcomes match the filters.");
+  });
+
   it("asks for outcomes when there are none, and lists commitments waiting with the reason", () => {
     const base = plan.created[0] as WorkOrder;
     const orders = [{ ...base, key: "w1", subscriptionId: "S2", instalmentNumber: "1", instalmentCount: "12", frameworkId: "sponsorship-shared-parts" }];

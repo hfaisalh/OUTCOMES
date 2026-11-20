@@ -88,3 +88,7 @@ table.inner{margin-top:8px;font-size:12px}details .actions{margin-top:8px}
 .mpie{display:block}.mpie .seg.p{stroke:#1f8a4c}.mpie .seg.e{stroke:#e08a1e}.mpie .seg.m{stroke:#d23b3b}.mpie .seg.f{stroke:var(--line)}.mpie .seg[data-open-commit]{cursor:pointer}.mpie .seg[data-open-commit]:hover{stroke-opacity:.7}
 .legendrow{display:flex;gap:14px;font-size:13px;margin-top:6px}.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}.sw.p{background:#1f8a4c}.sw.e{background:#e08a1e}.sw.m{background:#d23b3b}.sw.f{background:var(--line)}.lg{white-space:nowrap}
 .oc{overflow-x:auto}
+
+.octablewrap{padding:0;overflow-x:auto}.octable{min-width:900px;border-collapse:collapse;width:100%}.octable th,.octable td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+.octable th.m,.octable td.m{text-align:center;padding:5px 2px;width:30px}.octable th.now{color:var(--text,#1c2433)}.octable .acts{white-space:nowrap}.octable .acts button{font-size:12px;padding:2px 8px}
+.mpie .seg.x{stroke:#2b303b}.sw.x{background:#2b303b}

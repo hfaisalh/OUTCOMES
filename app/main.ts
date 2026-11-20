@@ -46,6 +46,7 @@ const state = {
   openAttn: [] as string[], // Needs attention entries whose lines are open
   outcomes: [] as Outcome[], // what gifts are allocated to (DECISIONS 61)
   allocations: [] as Allocation[],
+  ocFilter: { cohort: "", type: "", status: "" }, // the Outcomes list filters
   openCommit: "", // the commitment whose details are open on the Outcomes page
   commitTab: "all", // Commitments page tab
   commitText: "", // Commitments page search text
@@ -151,7 +152,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, today: new Date().toISOString().slice(0, 10), openCommit: state.openCommit, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -561,8 +562,12 @@ document.addEventListener("change", (e) => {
   }
   // Rule: only a field the page knows about causes a redraw. Any other field (the owner passphrase box, for example)
   // must be left alone, because a redraw would wipe what was typed and replace the button the person is about to press.
-  const known = t.id === "role" || t.dataset.ocMove !== undefined || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords;
+  const known = t.id === "role" || t.dataset.ocMove !== undefined || t.dataset.ocf !== undefined || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords;
   if (!known) return;
+  if (t.dataset.ocf !== undefined) {
+    state.ocFilter = { ...state.ocFilter, [t.dataset.ocf]: t.value };
+    return draw();
+  }
   if (t.dataset.ocMove !== undefined) {
     if (t.value !== "") void outcomeChange({ action: "move", commitmentKey: t.dataset.ocMove, outcomeId: t.value });
     return;
