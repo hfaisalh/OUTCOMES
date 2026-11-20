@@ -169,3 +169,21 @@ describe("legacy uploads (DECISIONS 55)", () => {
     expect(plan.review.map((r) => r.key)).not.toContain(made[0]?.key);
   });
 });
+
+describe("plan link completed later (DECISIONS 56)", () => {
+  const opts: PlanOptions = { categoryByItem: {}, usesFrameworks: false, feedIsComplete: true };
+  it("quietly gives an existing work order its subscription and count, without a review entry", () => {
+    const before = planWorkOrders(feed, [], opts).created;
+    const linked = feed.map((l, i) => (i === 0 ? { ...l, subscriptionId: "S5", instalmentNumber: "", instalmentCount: "10" } : l));
+    const again = planWorkOrders(linked, before, opts);
+    expect(again.updated).toHaveLength(1);
+    expect([again.updated[0]?.subscriptionId, again.updated[0]?.instalmentCount]).toEqual(["S5", "10"]);
+    expect(again.review).toHaveLength(0);
+    expect(planWorkOrders(linked, again.updated.concat(before.slice(1)), opts).updated).toHaveLength(0); // settled: nothing more to do
+  });
+  it("leaves an excluded work order alone", () => {
+    const before = planWorkOrders(feed, [], opts).created.map((w, i) => (i === 0 ? { ...w, status: "excluded" as const } : w));
+    const linked = feed.map((l, i) => (i === 0 ? { ...l, subscriptionId: "S5" } : l));
+    expect(planWorkOrders(linked, before, opts).updated).toHaveLength(0);
+  });
+});

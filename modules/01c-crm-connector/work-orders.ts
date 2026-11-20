@@ -151,11 +151,20 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
       continue;
     }
 
-    // Rule: the bundle quantity and the legacy-upload mark come from the catalogue and the reference, not from the donor, so a work order made before they were known is given them quietly. Never reviewed.
+    // Rule: the bundle quantity and the legacy-upload mark come from the catalogue and the reference, not from the donor, so a work order made before they were known is given them quietly, and so is the plan link. Never reviewed.
+    // Also the plan link (subscription, instalment number and count), which comes from the plans file and can be completed later (DECISIONS 56).
     let have = current;
-    if ((current.bundleQty ?? 1) !== line.bundleQty || (current.legacyUpload === true) !== line.legacyUpload) {
+    const planChanged = current.subscriptionId !== line.subscriptionId || current.instalmentNumber !== line.instalmentNumber || current.instalmentCount !== line.instalmentCount;
+    if ((current.bundleQty ?? 1) !== line.bundleQty || (current.legacyUpload === true) !== line.legacyUpload || planChanged) {
       const { bundleQty: _b, legacyUpload: _l, ...rest } = current;
-      have = { ...rest, ...(line.bundleQty !== 1 ? { bundleQty: line.bundleQty } : {}), ...(line.legacyUpload ? { legacyUpload: true as const } : {}) };
+      have = {
+        ...rest,
+        subscriptionId: line.subscriptionId,
+        instalmentNumber: line.instalmentNumber,
+        instalmentCount: line.instalmentCount,
+        ...(line.bundleQty !== 1 ? { bundleQty: line.bundleQty } : {}),
+        ...(line.legacyUpload ? { legacyUpload: true as const } : {}),
+      };
       updated.push(have);
     }
 
