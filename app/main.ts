@@ -11,6 +11,8 @@
  */
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
+import { applyProjectAction, type Node, type Project } from "../modules/06-projects/projects";
+import { PROJECT_TEMPLATES, projectsPage } from "./projects-page";
 import { addOutcomes, autoAllocate, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, type Allocation, type Outcome } from "../modules/05-outcomes/outcomes";
 import { allocatable } from "../modules/04b-commitments/commitments";
 import { filterWorkOrders, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
@@ -46,6 +48,9 @@ const state = {
   openAttn: [] as string[], // Needs attention entries whose lines are open
   outcomes: [] as Outcome[], // what gifts are allocated to (DECISIONS 61)
   allocations: [] as Allocation[],
+  projects: [] as Project[], // the projects and the places in them (DECISIONS 65)
+  nodes: [] as Node[],
+  openProject: "", // the project open on the Projects page
   ocFilter: { cohort: "", type: "", status: "" }, // the Outcomes list filters
   openCommit: "", // the commitment whose details are open on the Outcomes page
   commitTab: "all", // Commitments page tab
@@ -83,7 +88,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
-    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; }).catch(() => undefined);
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.nodes = o.nodes ?? []; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
     state.message = "";
   } catch (e) {
@@ -152,7 +157,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, projects: state.projects, nodes: state.nodes, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -175,9 +180,11 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       const r = await changeOutcomes(body);
       state.outcomes = r.outcomes;
       state.allocations = r.allocations;
+      state.projects = r.projects ?? state.projects;
+      state.nodes = r.nodes ?? state.nodes;
       if (body["action"] === "remove-many") state.message = `Removed ${r.removed ?? 0}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`;
       else if (body["action"] === "auto") state.message = `Placed ${r.placed ?? 0}, released ${r.released ?? 0}, ${r.unplaced?.length ?? 0} waiting.`;
-      else state.message = "";
+      else state.message = r.warning ?? "";
     } else {
       const commitments = allocatable(state.workOrders, perPeriodRule(state.frameworks), new Date().toISOString().slice(0, 10));
       const at = new Date().toISOString();
@@ -191,8 +198,15 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "move": { const r = moveAllocation(state.allocations, commitments, state.outcomes, state.frameworks, str("commitmentKey"), str("outcomeId"), at); if (r.error) error = r.error; else state.allocations = r.value; break; }
         case "remove-many": { const r = removeUnused(state.outcomes, state.allocations, Array.isArray(body["ids"]) ? (body["ids"] as string[]) : []); state.outcomes = r.value; state.message = `Removed ${r.removed}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`; break; }
         case "release": state.allocations = releaseAllocation(state.allocations, str("commitmentKey")); break;
+        default: {
+          // Projects (DECISIONS 65): the same pure rule the server uses.
+          const r = applyProjectAction({ projects: state.projects, nodes: state.nodes, outcomes: state.outcomes }, state.frameworks, body);
+          if (!r) error = "That request is not understood.";
+          else if (r.error) error = r.error;
+          else { state.projects = r.state.projects; state.nodes = r.state.nodes; state.outcomes = r.state.outcomes; if (r.warning) state.message = r.warning; }
+        }
       }
-      state.message = error ?? (body["action"] === "auto" ? state.message : "");
+      state.message = error ?? (body["action"] === "auto" || state.message !== "" ? state.message : "");
     }
   } catch (e) {
     state.message = e instanceof Error ? e.message : "That did not work.";
@@ -254,6 +268,7 @@ function draw(): void {
     : state.page === "attention" ? attentionPage(v)
     : state.page === "commitments" ? commitmentsPage(v)
     : state.page === "outcomes" ? outcomesPage(v)
+    : state.page === "projects" ? projectsPage(v)
     : state.page === "audit" ? auditPage(v)
     : state.page === "dashboard" ? dashboardPage(v)
     : state.page === "categories" ? categoriesPage(v)
@@ -397,6 +412,34 @@ document.addEventListener("click", (e) => {
   if (action === "accept-suggestions") {
     state.itemCategories = acceptSuggestions(state.itemCategories, view().suggestions);
     afterConfig();
+  }
+  // Projects (DECISIONS 65).
+  if (["add-project", "add-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "add-beneficiaries"].includes(action ?? "")) {
+    const val = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value ?? "";
+    const pid = (state.projects.find((p) => p.id === state.openProject) ?? state.projects[0])?.id ?? "";
+    if (action === "add-project") {
+      const name = val("pj-name");
+      const levels = PROJECT_TEMPLATES.find((t) => t.id === val("pj-template"))?.levels ?? [];
+      void (async () => {
+        await outcomeChange({ action: "add-project", name, aliases: val("pj-aliases") });
+        const made = state.projects.find((p) => p.name.toLowerCase() === name.trim().replace(/\s+/g, " ").toLowerCase());
+        if (!made) return;
+        state.openProject = made.id;
+        let parent = "";
+        for (const l of levels) {
+          await outcomeChange({ action: "add-level", projectId: made.id, name: l, parentId: parent });
+          parent = state.projects.find((p) => p.id === made.id)?.levels.find((x) => x.name === l)?.id ?? "";
+        }
+      })();
+    }
+    if (action === "add-level") void outcomeChange({ action: "add-level", projectId: pid, name: val("pj-level"), parentId: el.dataset.parent ?? "" });
+    if (action === "remove-level") void outcomeChange({ action: "remove-level", projectId: pid, levelId: el.dataset.id });
+    if (action === "add-type") void outcomeChange({ action: "add-type", projectId: pid, name: val("pj-type-name"), levelId: val("pj-type-level"), frameworkId: val("pj-type-fw") });
+    if (action === "remove-type") void outcomeChange({ action: "remove-type", projectId: pid, typeId: el.dataset.id });
+    if (action === "add-node") void outcomeChange({ action: "add-node", projectId: pid, parentId: val("pj-node-parent"), name: val("pj-node-name"), field: val("pj-node-loc") !== "" ? "Location" : "", fieldValue: val("pj-node-loc") });
+    if (action === "remove-node") void outcomeChange({ action: "remove-node", nodeId: el.dataset.id });
+    if (action === "add-beneficiaries") void outcomeChange({ action: "add-beneficiaries", projectId: pid, typeId: val("pj-ben-type"), nodeId: val("pj-ben-node"), name: val("pj-ben-name"), count: Number(val("pj-ben-count") || 1) });
+    return;
   }
   if (action === "add-outcomes") {
     const val = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value ?? "";
@@ -589,8 +632,12 @@ document.addEventListener("change", (e) => {
   }
   // Rule: only a field the page knows about causes a redraw. Any other field (the owner passphrase box, for example)
   // must be left alone, because a redraw would wipe what was typed and replace the button the person is about to press.
-  const known = t.id === "role" || t.dataset.ocMove !== undefined || t.dataset.ocf !== undefined || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords;
+  const known = t.id === "role" || t.dataset.ocMove !== undefined || t.dataset.ocf !== undefined || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords || t.dataset.pjOpen !== undefined;
   if (!known) return;
+  if (t.dataset.pjOpen !== undefined) {
+    state.openProject = t.value;
+    return draw();
+  }
   if (t.dataset.ocf !== undefined) {
     state.ocFilter = { ...state.ocFilter, [t.dataset.ocf]: t.value };
     return draw();

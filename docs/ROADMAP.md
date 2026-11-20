@@ -17,6 +17,7 @@ One module at a time. Each ends with: working screen, tests, module README, deci
 | 4 | **Needs attention (was import and triage)** | Built | One list of everything that needs a person: items to sort, import problems, changes held by the audit. Mark reviewed with a note, reopen. See `modules/04-triage/README.md` (DECISIONS 45). |
 | | *Menu: modules 1c to 4b appear in the app as one entry, **Intake**, with tabs (DECISIONS 54).* | | |
 | 4b | **Commitments** | Built | Each recurring gift as one record, instalments grouped by subscription, paid of planned, things needing a look, and unlinked recurring lines with suggestions. Read only, no allocation. See `modules/04b-commitments/README.md` (DECISIONS 52, 53). |
+| 6 | **Projects** | Part built | Projects with levels you define, types of beneficiary, places and numbered beneficiaries, with a roll-up. Directed and general allocation, activities and profile fields come next. See `modules/06-projects/README.md` (DECISIONS 65). |
 | 5a | **Outcomes (first cut)** | Built | Outcomes with a framework and capacity, one pie per outcome by status, automatic allocation of recurring commitments, move and release. Expected, missed and one-off payments for per-period items are in. See `modules/05-outcomes/README.md` (DECISIONS 60 to 64). |
 | 5 | **Frameworks** | | One at a time, starting with Orphan Sponsorship: beneficiaries, care types, allocation, lifecycle (renewals, lapses, offboarding). |
 | 6 | **Field data capture** | | Institute / partner portal, mobile entry, approvals. |

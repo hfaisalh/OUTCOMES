@@ -15,7 +15,7 @@ describe("visibleMenu", () => {
 
   it("shows only the items the role allows", () => {
     const ids = visibleMenu([P.access, P.viewWorkOrders, P.dashboards]).map((m) => m.id);
-    expect(ids).toEqual(["work-orders", "attention", "commitments", "outcomes", "audit", "dashboard"]);
+    expect(ids).toEqual(["work-orders", "attention", "commitments", "outcomes", "projects", "audit", "dashboard"]);
   });
 
   it("lands on the first allowed item", () => {
@@ -23,17 +23,17 @@ describe("visibleMenu", () => {
   });
 
   it("shows everything to a role with every permission", () => {
-    expect(visibleMenu(Object.values(P))).toHaveLength(9);
+    expect(visibleMenu(Object.values(P))).toHaveLength(10);
   });
 
   it("sums the working pages into one Intake entry with tabs, and keeps the rest as they are", () => {
     const all = menuEntries(Object.values(P));
     expect(all.map((e) => e.id)).toEqual(["intake", "dashboard", "sources", "settings"]);
-    expect(all[0]?.pages.map((p) => p.id)).toEqual(["work-orders", "attention", "commitments", "outcomes", "audit", "categories"]);
+    expect(all[0]?.pages.map((p) => p.id)).toEqual(["work-orders", "attention", "commitments", "outcomes", "projects", "audit", "categories"]);
   });
 
   it("shows only the tabs a role may use, and no Intake at all without any of them", () => {
-    expect(menuEntries([P.access, P.viewWorkOrders])[0]?.pages.map((p) => p.id)).toEqual(["work-orders", "attention", "commitments", "outcomes", "audit"]);
+    expect(menuEntries([P.access, P.viewWorkOrders])[0]?.pages.map((p) => p.id)).toEqual(["work-orders", "attention", "commitments", "outcomes", "projects", "audit"]);
     expect(menuEntries([P.access, P.mapFrameworks])[0]?.pages.map((p) => p.id)).toEqual(["categories"]);
     expect(menuEntries([P.access, P.settings]).map((e) => e.id)).toEqual(["settings"]);
   });

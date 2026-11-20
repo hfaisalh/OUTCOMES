@@ -9,6 +9,7 @@
  * stays in demo mode with its invented data.
  */
 
+import type { Node, Project } from "../modules/06-projects/projects";
 import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import type { RunInfo } from "../modules/00-platform/store";
 import type { AttentionItem } from "../modules/04-triage/triage";
@@ -77,6 +78,9 @@ export const setExcluded = (keys: string[], action: "exclude" | "restore", reaso
 export interface OutcomesReply {
   outcomes: Outcome[];
   allocations: Allocation[];
+  projects?: Project[];
+  nodes?: Node[];
+  warning?: string;
   placed?: number;
   removed?: number;
   kept?: number;

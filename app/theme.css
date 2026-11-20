@@ -92,3 +92,9 @@ table.inner{margin-top:8px;font-size:12px}details .actions{margin-top:8px}
 .octablewrap{padding:0;overflow-x:auto}.octable{min-width:900px;border-collapse:collapse;width:100%}.octable th,.octable td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
 .octable th.m,.octable td.m{text-align:center;padding:5px 2px;width:30px}.octable th.now{color:var(--text,#1c2433)}.octable .acts{white-space:nowrap}.octable .acts button{font-size:12px;padding:2px 8px}
 .mpie .seg.x{stroke:#2b303b}.sw.x{background:#2b303b}
+
+/* Projects page (DECISIONS 65): the places of a project as an indented list */
+.ptree { display: grid; gap: 2px; }
+.pnode { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line, #d9dee7); }
+.pnode .lvl { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .65; font-weight: 600; min-width: 48px; }
+.meter{display:inline-block;width:90px;height:8px;border-radius:4px;background:var(--line);vertical-align:middle;overflow:hidden}.meter i{display:block;height:100%;background:#1f8a4c}

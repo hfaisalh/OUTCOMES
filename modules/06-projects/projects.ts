@@ -226,3 +226,77 @@ export function rollupOf(nodes: Node[], outcomes: Outcome[], fw: FrameworkTempla
   }
   return { byNode, byProject };
 }
+
+// ---- Doing it from a request ----
+
+// The level a new place gets: the first level when it sits at the top of the project, otherwise the level under its parent's.
+export function levelForNewNode(p: Project, nodes: Node[], parentId: string): string | undefined {
+  const levels = orderedLevels(p);
+  if (parentId === "") return levels[0]?.id;
+  const parent = nodes.find((x) => x.id === parentId);
+  const at = levels.findIndex((l) => l.id === parent?.levelId);
+  return at >= 0 ? levels[at + 1]?.id : undefined;
+}
+
+export interface ProjectState {
+  projects: Project[];
+  nodes: Node[];
+  outcomes: Outcome[];
+}
+
+export const PROJECT_ACTIONS = ["add-project", "add-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "set-field", "add-beneficiaries"];
+export const MAX_RECORDS = 5000;
+
+/**
+ * Rule: one place where a request from the screen becomes a change, so the server and the demo behave the same. Returns nothing when the
+ * action is not a project action. Text is cut to a sensible length, and the number of places or beneficiaries is capped.
+ */
+export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], body: Record<string, unknown>): { state: ProjectState; warning?: string; error?: string } | undefined {
+  const action = typeof body["action"] === "string" ? body["action"] : "";
+  if (!PROJECT_ACTIONS.includes(action)) return undefined;
+  const str = (k: string, max = 100): string => (typeof body[k] === "string" ? (body[k] as string).slice(0, max) : "");
+  const done = (state: ProjectState, warning?: string) => ({ state, ...(warning ? { warning } : {}) });
+  const fail = (error: string) => ({ state: s, error });
+  switch (action) {
+    case "add-project": {
+      const r = addProject(s.projects, str("name"), str("aliases", 400).split(",").slice(0, 20));
+      return r.error ? fail(r.error) : done({ ...s, projects: r.value });
+    }
+    case "add-level": {
+      const r = addLevel(s.projects, str("projectId"), str("name", 60), str("parentId"));
+      return r.error ? fail(r.error) : done({ ...s, projects: r.value });
+    }
+    case "remove-level": {
+      const r = removeLevel(s.projects, s.nodes, str("projectId"), str("levelId"));
+      return r.error ? fail(r.error) : done({ ...s, projects: r.value });
+    }
+    case "add-type": {
+      const r = addType(s.projects, str("projectId"), { name: str("name", 60), levelId: str("levelId"), frameworkId: str("frameworkId") }, fw);
+      return r.error ? fail(r.error) : done({ ...s, projects: r.value }, r.warning);
+    }
+    case "remove-type": {
+      const r = removeType(s.projects, s.outcomes, str("projectId"), str("typeId"));
+      return r.error ? fail(r.error) : done({ ...s, projects: r.value });
+    }
+    case "add-node": {
+      const project = s.projects.find((p) => p.id === str("projectId"));
+      const levelId = project ? levelForNewNode(project, s.nodes, str("parentId")) : undefined;
+      if (!project || !levelId) return fail("There is no level for a place there. Add a level first.");
+      const field = str("field", 60);
+      const r = addNode(s.nodes, s.projects, project.id, levelId, str("parentId"), str("name"), field !== "" ? { [field]: str("fieldValue", 200) } : {});
+      if (r.error) return fail(r.error);
+      return r.value.length > MAX_RECORDS ? fail(`There can be at most ${MAX_RECORDS} places.`) : done({ ...s, nodes: r.value });
+    }
+    case "remove-node": {
+      const r = removeNode(s.nodes, s.outcomes, str("nodeId"));
+      return r.error ? fail(r.error) : done({ ...s, nodes: r.value });
+    }
+    case "set-field":
+      return s.nodes.some((x) => x.id === str("nodeId")) ? done({ ...s, nodes: setNodeField(s.nodes, str("nodeId"), str("key", 60), str("value", 200)) }) : fail("That place was not found.");
+    default: {
+      const r = addBeneficiaries(s.outcomes, s.projects, s.nodes, { projectId: str("projectId"), nodeId: str("nodeId"), typeId: str("typeId"), name: str("name"), count: Number(body["count"] ?? 1) });
+      if (r.error) return fail(r.error);
+      return r.value.length > MAX_RECORDS ? fail(`There can be at most ${MAX_RECORDS} beneficiaries.`) : done({ ...s, outcomes: r.value });
+    }
+  }
+}

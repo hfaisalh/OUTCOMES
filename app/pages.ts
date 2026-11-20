@@ -12,6 +12,7 @@ import type { AttentionItem } from "../modules/04-triage/triage";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { partsOf } from "../modules/01c-crm-connector/work-orders";
 import { autoAllocate, fillOf, holdingReport, monthsAround, perPeriodRule, timelineOf, type UnitStatus, type Allocation, type Availability, type Outcome } from "../modules/05-outcomes/outcomes";
+import type { Node, Project } from "../modules/06-projects/projects";
 import { allocatable, buildCommitments, needsLook, type Commitment } from "../modules/04b-commitments/commitments";
 import { noIndividualDonor } from "../modules/01c-crm-connector/credits";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
@@ -36,6 +37,9 @@ export interface View {
   allocations?: Allocation[];
   ocFilter?: { cohort: string; type: string; status: string }; // the Outcomes list filters (DECISIONS 63)
   today?: string; // today as YYYY-MM-DD, so the month by month view can be drawn and tested for any date
+  projects?: Project[]; // the projects and their structures (DECISIONS 65)
+  nodes?: Node[]; // the places in them
+  openProject?: string; // the project open on the Projects page
   openCommit?: string; // the commitment whose details are open on the Outcomes page ("" when none)
   commitTab?: string; // Commitments page tab: all, progress, complete, open, look
   commitText?: string; // Commitments page search text
