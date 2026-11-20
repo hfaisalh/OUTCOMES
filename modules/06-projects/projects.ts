@@ -190,11 +190,13 @@ export function addType(projects: Project[], projectId: string, t: { name: strin
   const name = clean(t.name);
   if (name === "") return { value: projects, error: "Give the type a name, such as child or teacher." };
   if (p.types.some((x) => same(x.name, name))) return { value: projects, error: `There is already a type called "${name}".` };
-  if (!p.levels.some((l) => l.id === t.levelId)) return { value: projects, error: "Choose the level its beneficiaries live at." };
+  // Rule (DECISIONS 72): a type does not have to belong to a level. With none, its beneficiaries belong to the partner as a whole and can be placed later.
+  if (t.levelId !== "" && !p.levels.some((l) => l.id === t.levelId)) return { value: projects, error: "That level was not found." };
   if (!fw.some((f) => f.id === t.frameworkId)) return { value: projects, error: "Choose how it is sponsored." };
   // Rule (DECISIONS 71): a grouping is a level under the level the beneficiaries belong to, such as Class or House under Branch.
-  const below = levelsBelow(p, t.levelId);
+  const below = t.levelId === "" ? new Set<string>() : levelsBelow(p, t.levelId);
   const groupingIds = [...new Set(t.groupingIds ?? [])];
+  if (t.levelId === "" && groupingIds.length > 0) return { value: projects, error: "Choose what they belong to first, since groups sit inside it." };
   const wrong = groupingIds.find((g) => !below.has(g));
   if (wrong) return { value: projects, error: `${p.levels.find((l) => l.id === wrong)?.name ?? "That level"} is not under ${p.levels.find((l) => l.id === t.levelId)?.name ?? "that level"}, so it cannot group them.` };
   const clash = p.types.find((x) => x.frameworkId === t.frameworkId);
@@ -251,29 +253,31 @@ export function pathOf(nodes: Node[], projects: Project[], nodeId: string): stri
 
 // ---- Beneficiaries ----
 
-// Rule (DECISIONS 71): add numbered beneficiaries of a type to a place of the level the type belongs to, in the groups they are in (a class, a house).
-// A group must be of a level the type is grouped by, under that same place, and there is at most one group of each level.
+// Rule (DECISIONS 71, 72): add numbered beneficiaries of a type to a partner. The place and the groups are optional, so beneficiaries can be added first and placed later.
+// When a place is given and the type belongs to a level, the place must be of that level. A group must be of a level the type is grouped by, inside that same place,
+// with at most one group of each level. Groups need a place, since they are inside it.
 export function addBeneficiaries(outcomes: Outcome[], projects: Project[], nodes: Node[], o: { projectId: string; nodeId: string; typeId: string; name: string; count: number; groupIds?: string[] }): Changed<Outcome[]> {
   const p = projects.find((x) => x.id === o.projectId);
   const type = p?.types.find((t) => t.id === o.typeId);
-  const node = nodes.find((x) => x.id === o.nodeId && x.projectId === o.projectId);
   if (!p || !type) return { value: outcomes, error: "Choose a type of beneficiary." };
-  if (!node) return { value: outcomes, error: "Choose the place to add them to." };
-  if (node.levelId !== type.levelId) return { value: outcomes, error: `${type.name} beneficiaries belong to a ${p.levels.find((l) => l.id === type.levelId)?.name ?? "place"}, not a ${p.levels.find((l) => l.id === node.levelId)?.name ?? "this one"}. Choose a ${p.levels.find((l) => l.id === type.levelId)?.name ?? "place"}, or add one on the Structure tab.` };
+  const node = o.nodeId === "" ? undefined : nodes.find((x) => x.id === o.nodeId && x.projectId === o.projectId);
+  if (o.nodeId !== "" && !node) return { value: outcomes, error: "That place was not found." };
+  if (node && type.levelId !== "" && node.levelId !== type.levelId) return { value: outcomes, error: `${type.name} beneficiaries belong to a ${p.levels.find((l) => l.id === type.levelId)?.name ?? "place"}, not a ${p.levels.find((l) => l.id === node.levelId)?.name ?? "this one"}. Choose a ${p.levels.find((l) => l.id === type.levelId)?.name ?? "place"}, or leave the place empty and place them later.` };
   const groupIds = [...new Set((o.groupIds ?? []).filter((g) => g !== ""))];
+  if (groupIds.length > 0 && !node) return { value: outcomes, error: "Choose the place first, since a group is inside a place." };
   const seen = new Set<string>();
   for (const gid of groupIds) {
     const g = nodes.find((x) => x.id === gid && x.projectId === o.projectId);
-    if (!g || !(type.groupingIds ?? []).includes(g.levelId)) return { value: outcomes, error: `${g?.name ?? "That group"} is not one of the groups ${type.name} beneficiaries can be in.` };
+    if (!node || !g || !(type.groupingIds ?? []).includes(g.levelId)) return { value: outcomes, error: `${g?.name ?? "That group"} is not one of the groups ${type.name} beneficiaries can be in.` };
     if (seen.has(g.levelId)) return { value: outcomes, error: `A beneficiary can be in only one ${p.levels.find((l) => l.id === g.levelId)?.name ?? "group"}.` };
     seen.add(g.levelId);
     let up = g.parentId;
     while (up !== "" && up !== node.id) up = nodes.find((x) => x.id === up)?.parentId ?? "";
     if (up !== node.id) return { value: outcomes, error: `${g.name} is not in ${node.name}.` };
   }
-  const r = addOutcomes(outcomes, { name: o.name, count: o.count, type: type.name, cohort: node.name, frameworkId: type.frameworkId });
+  const r = addOutcomes(outcomes, { name: o.name, count: o.count, type: type.name, cohort: node?.name ?? "", frameworkId: type.frameworkId });
   if (r.error) return r;
-  const added = r.value.slice(outcomes.length).map((x) => ({ ...x, projectId: o.projectId, nodeId: o.nodeId, typeId: o.typeId, ...(groupIds.length ? { groupIds } : {}) }));
+  const added = r.value.slice(outcomes.length).map((x) => ({ ...x, projectId: o.projectId, typeId: o.typeId, ...(node ? { nodeId: node.id } : {}), ...(groupIds.length ? { groupIds } : {}) }));
   return { value: [...outcomes, ...added] };
 }
 
@@ -295,9 +299,10 @@ export function rollupOf(nodes: Node[], outcomes: Outcome[], fw: FrameworkTempla
   };
   const parentOf = new Map(nodes.map((n) => [n.id, n.parentId]));
   for (const o of outcomes) {
-    if (!o.projectId || !o.nodeId || !o.active) continue;
+    if (!o.projectId || !o.active) continue;
     const f = fillOf(o, fw, allocations, commitments, policy);
-    bump(byProject, o.projectId, capacityOf(o, fw), f.used);
+    bump(byProject, o.projectId, capacityOf(o, fw), f.used); // everyone in the partner counts, placed or not (DECISIONS 72)
+    if (!o.nodeId) continue;
     // The place it belongs to, the groups it is in, and everything above them, each counted once.
     const ids = new Set<string>();
     for (const start of [o.nodeId, ...(o.groupIds ?? [])]) for (let id = start; id !== "" && parentOf.has(id); id = parentOf.get(id) as string) ids.add(id);
@@ -445,9 +450,30 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
     case "set-field":
       return s.nodes.some((x) => x.id === str("nodeId")) ? done({ ...s, nodes: setNodeField(s.nodes, str("nodeId"), str("key", 60), str("value", 200)) }) : fail("That place was not found.");
     default: {
-      const r = addBeneficiaries(s.outcomes, s.projects, s.nodes, { projectId: str("projectId"), nodeId: str("nodeId"), typeId: str("typeId"), name: str("name"), count: Number(body["count"] ?? 1), groupIds: strings("groupIds") });
+      // Rule (DECISIONS 72): with no type chosen, the name is the kind. A kind of that name is used if the partner has one, otherwise it is made, sponsored
+      // as chosen and belonging to no level. So the first beneficiaries need only a name, a number and how they are sponsored.
+      let projects = s.projects;
+      let typeId = str("typeId");
+      let warning: string | undefined;
+      if (typeId === "") {
+        const project = projects.find((x) => x.id === str("projectId"));
+        const kind = clean(str("name"));
+        if (!project) return fail("That partner was not found.");
+        if (kind === "") return fail("Give the beneficiaries a name, for example Orphan.");
+        const have = project.types.find((t) => same(t.name, kind));
+        if (have && str("frameworkId") !== "" && have.frameworkId !== str("frameworkId")) return fail(`"${have.name}" is already a kind of beneficiary with a different way of being sponsored. Choose it from the list, or give these another name.`);
+        if (have) typeId = have.id;
+        else {
+          const made = addType(projects, project.id, { name: kind, levelId: "", frameworkId: str("frameworkId") }, fw);
+          if (made.error) return fail(made.error);
+          projects = made.value;
+          warning = made.warning;
+          typeId = (projects.find((x) => x.id === project.id)?.types.find((t) => same(t.name, kind)) as BeneficiaryType).id;
+        }
+      }
+      const r = addBeneficiaries(s.outcomes, projects, s.nodes, { projectId: str("projectId"), nodeId: str("nodeId"), typeId, name: str("name"), count: Number(body["count"] ?? 1), groupIds: strings("groupIds") });
       if (r.error) return fail(r.error);
-      return r.value.length > MAX_RECORDS ? fail(`There can be at most ${MAX_RECORDS} beneficiaries.`) : done({ ...s, outcomes: r.value });
+      return r.value.length > MAX_RECORDS ? fail(`There can be at most ${MAX_RECORDS} beneficiaries.`) : done({ ...s, projects, outcomes: r.value }, warning);
     }
   }
 }

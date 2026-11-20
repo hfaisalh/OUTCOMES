@@ -72,9 +72,21 @@ describe("partnerWindowHtml", () => {
     expect(html).toContain("Remove 3 with no sponsor");
     expect(html).toContain('data-oc-remove="orphan-1"');
     expect(html).toContain('data-level="branch" data-groups="class house"'); // the type says its place and its groupings
+    expect(html).toContain('id="pj-ben-fw"'); // the simple form: a name, a number and how they are sponsored
+    expect(html).toContain("A new kind, named above");
+    expect(html).toContain("<details>");
+    expect(html).toContain("That is all that is needed");
     expect(html).toContain('class="pj-ben-group" data-group-level="class"'); // one list for each grouping
     expect(html).toContain('data-group-level="house"');
     expect(html).toMatch(/data-in="aghosh-orphan-homes-branch-1"/); // a group lists the place it is in, so only its own place's groups are offered
+  });
+  it("opens on the profile and offers the beneficiaries before the optional structure, and the add button needs no type or place set up", () => {
+    const { projects } = built();
+    const bare = [{ ...projects[0]!, types: [], levels: [] }];
+    const html = partnerWindowHtml(base({ projects: bare }), bare[0]!.id, "beneficiaries", ctx, {});
+    expect(html.indexOf('data-pf-tab="beneficiaries"')).toBeLessThan(html.indexOf('data-pf-tab="structure"'));
+    expect(html).toContain("Structure (optional)");
+    expect(html).not.toMatch(/data-action="add-beneficiaries"[^>]*disabled/);
   });
   it("never trusts names as HTML", () => {
     const { projects, nodes, outcomes, id } = built();

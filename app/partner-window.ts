@@ -13,7 +13,7 @@ import { partnerProfileHtml, type FormContext } from "./partner-form";
 import { esc, type View } from "./pages";
 
 export type PartnerTab = "profile" | "structure" | "beneficiaries";
-const TABS: { id: PartnerTab; label: string }[] = [{ id: "profile", label: "Profile" }, { id: "structure", label: "Structure" }, { id: "beneficiaries", label: "Beneficiaries" }];
+const TABS: { id: PartnerTab; label: string }[] = [{ id: "profile", label: "Profile" }, { id: "beneficiaries", label: "Beneficiaries" }, { id: "structure", label: "Structure (optional)" }];
 const MAX_ROWS = 300;
 const meter = (used: number, places: number) => `<span class="meter" aria-hidden="true"><i style="width:${places > 0 ? Math.min(Math.round((used / places) * 100), 100) : 0}%"></i></span>`;
 
@@ -45,11 +45,11 @@ function structureHtml(v: View, project: Project): string {
     <div class="actions"><input id="pj-level" placeholder="${tree.length ? "Another level, for example Class" : "First level, for example Branch"}" /><select id="pj-level-parent" aria-label="Where it sits">${tree.length ? "" : `<option value="">Top, a place</option>`}${tree.map((x) => `<option value="${esc(x.level.id)}">Under ${esc(x.level.name)}</option>`).join("")}${tree.length ? `<option value="">Top, another kind of place</option>` : ""}</select><button data-action="add-level">Add level</button></div></section>`;
 
   // Types: which place the beneficiaries belong to, which groupings apply to them, and how they are sponsored.
-  const typeRows = project.types.map((t) => `<tr><td><b>${esc(t.name)}</b></td><td>${esc(levelName(t.levelId))}</td><td>${(t.groupingIds ?? []).map((g) => esc(levelName(g))).join(", ") || '<span class="muted">none</span>'}</td><td>${esc(fwName(t.frameworkId))}</td><td>${outcomes.filter((o) => o.typeId === t.id).length}</td><td><button data-action="remove-type" data-id="${esc(t.id)}">Remove</button></td></tr>`).join("");
+  const typeRows = project.types.map((t) => `<tr><td><b>${esc(t.name)}</b></td><td>${t.levelId === "" ? '<span class="muted">Anywhere</span>' : esc(levelName(t.levelId))}</td><td>${(t.groupingIds ?? []).map((g) => esc(levelName(g))).join(", ") || '<span class="muted">none</span>'}</td><td>${esc(fwName(t.frameworkId))}</td><td>${outcomes.filter((o) => o.typeId === t.id).length}</td><td><button data-action="remove-type" data-id="${esc(t.id)}">Remove</button></td></tr>`).join("");
   const typesCard = `<section><h3>Who is here <span class="muted">(types of beneficiary)</span></h3>
-    ${project.types.length ? `<div class="twrap"><table><thead><tr><th>Type</th><th>Belongs to</th><th>Grouped by</th><th>Sponsored as</th><th>Beneficiaries</th><th></th></tr></thead><tbody>${typeRows}</tbody></table></div>` : `<div class="empty">No types yet. For example: a Child belongs to a Branch, is grouped by Class and House, and is sponsored as shared parts.</div>`}
+    ${project.types.length ? `<div class="twrap"><table><thead><tr><th>Type</th><th>Belongs to</th><th>Grouped by</th><th>Sponsored as</th><th>Beneficiaries</th><th></th></tr></thead><tbody>${typeRows}</tbody></table></div>` : `<div class="empty">No types yet. A type needs only a name and how it is sponsored. For example: Child, sponsored as shared parts. If you also choose what it belongs to (a Branch) and what groups it (Class, House), beneficiaries can be placed there.</div>`}
     <div class="actions"><input id="pj-type-name" placeholder="Type, for example Child or Teacher" />
-      <select id="pj-type-level" aria-label="Belongs to"><option value="">Belongs to...</option>${tree.map((x) => `<option value="${esc(x.level.id)}">${esc(x.level.name)}</option>`).join("")}</select>
+      <select id="pj-type-level" aria-label="Belongs to"><option value="">Anywhere in the partner</option>${tree.map((x) => `<option value="${esc(x.level.id)}">${esc(x.level.name)}</option>`).join("")}</select>
       <select id="pj-type-fw" aria-label="Sponsored as"><option value="">Sponsored as...</option>${fws.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>
       <button data-action="add-type">Add type</button></div>
     ${tree.length > 1 ? `<div class="actions"><span class="muted">Grouped by:</span> ${tree.map((x) => `<label class="tick"><input type="checkbox" class="pj-type-group" value="${esc(x.level.id)}" /> ${esc(x.level.name)}</label>`).join(" ")}</div>` : ""}</section>`;
@@ -88,18 +88,21 @@ function beneficiariesHtml(v: View, project: Project): string {
   const rows = outcomes.slice(0, MAX_ROWS).map((o) => {
     const used = fillOf(o, fws, allocations, commitments, policy).used;
     const cap = capacityOf(o, fws);
-    return `<tr><td><b>${esc(o.name)}</b></td><td>${esc(o.type)}</td><td>${esc(nodeName(o.nodeId))}</td><td>${(o.groupIds ?? []).map((g) => esc(nodeName(g))).join(", ")}</td><td>${used} of ${cap} ${meter(used, cap)}</td><td>${o.active ? "Active" : "Offboarded"}</td><td><button data-oc-active="${esc(o.id)}" data-active="${o.active ? "0" : "1"}">${o.active ? "Offboard" : "Activate"}</button>${held.has(o.id) ? "" : ` <button data-oc-remove="${esc(o.id)}">Remove</button>`}</td></tr>`;
+    return `<tr><td><b>${esc(o.name)}</b></td><td>${esc(o.type)}</td><td>${o.nodeId ? esc(nodeName(o.nodeId)) : '<span class="muted">Not placed</span>'}</td><td>${(o.groupIds ?? []).map((g) => esc(nodeName(g))).join(", ")}</td><td>${used} of ${cap} ${meter(used, cap)}</td><td>${o.active ? "Active" : "Offboarded"}</td><td><button data-oc-active="${esc(o.id)}" data-active="${o.active ? "0" : "1"}">${o.active ? "Offboard" : "Activate"}</button>${held.has(o.id) ? "" : ` <button data-oc-remove="${esc(o.id)}">Remove</button>`}</td></tr>`;
   }).join("");
   const unused = outcomes.filter((o) => !held.has(o.id)).map((o) => o.id);
   // One group list for each kind of grouping any type uses. Each is shown only when the chosen type uses it, and lists only the groups in the chosen place.
   const groupLevels = [...new Set(project.types.flatMap((t) => t.groupingIds ?? []))];
   const groupSelects = groupLevels.map((lid) => `<select class="pj-ben-group" data-group-level="${esc(lid)}" aria-label="${esc(levelName(lid))}" hidden><option value="">${esc(levelName(lid))}...</option>${nodes.filter((n) => n.levelId === lid).map((n) => `<option value="${esc(n.id)}" data-in="${esc(ancestors(nodes, n.id).join(" "))}">${esc(n.name)}</option>`).join("")}</select>`).join("");
   return `<section><h3>Add beneficiaries <span class="muted">(numbered test records)</span></h3>
-    <div class="actions"><select id="pj-ben-type" aria-label="Type"><option value="">Type...</option>${project.types.map((t) => `<option value="${esc(t.id)}" data-level="${esc(t.levelId)}" data-groups="${esc((t.groupingIds ?? []).join(" "))}">${esc(t.name)} (belongs to a ${esc(levelName(t.levelId))})</option>`).join("")}</select>
-      <select id="pj-ben-node" aria-label="Place"><option value="">Place...</option>${nodes.map((n) => `<option value="${esc(n.id)}" data-level="${esc(n.levelId)}">${esc(n.name)} (${esc(levelName(n.levelId))})</option>`).join("")}</select>${groupSelects}
-      <input id="pj-ben-name" placeholder="Name, for example Orphan" /><input id="pj-ben-count" type="number" min="1" max="500" value="10" aria-label="How many" />
-      <button class="primary" data-action="add-beneficiaries"${project.types.length && nodes.length ? "" : " disabled"}>Add</button></div>
-    <p class="muted">Choose the type first. The places it can belong to are offered, then the groups it is in (a class, a house) for the place you chose. Several at once are numbered: Orphan 1, Orphan 2 and so on. Add types and places on the Structure tab first.</p></section>
+    <div class="actions"><input id="pj-ben-name" placeholder="Name, for example Orphan" /><input id="pj-ben-count" type="number" min="1" max="500" value="10" aria-label="How many" />
+      <select id="pj-ben-fw" aria-label="Sponsored as"><option value="">Sponsored as...</option>${fws.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>
+      <button class="primary" data-action="add-beneficiaries">Add</button></div>
+    <p class="muted">That is all that is needed. Several at once are numbered: Orphan 1, Orphan 2 and so on.</p>
+    <details><summary>Use a kind you set up, or place them now (optional)</summary>
+      <div class="actions"><select id="pj-ben-type" aria-label="Kind"><option value="">A new kind, named above</option>${project.types.map((t) => `<option value="${esc(t.id)}" data-level="${esc(t.levelId)}" data-groups="${esc((t.groupingIds ?? []).join(" "))}">${esc(t.name)}${t.levelId === "" ? "" : ` (belongs to a ${esc(levelName(t.levelId))})`}</option>`).join("")}</select>
+        <select id="pj-ben-node" aria-label="Place"><option value="">Place (optional)</option>${nodes.map((n) => `<option value="${esc(n.id)}" data-level="${esc(n.levelId)}">${esc(n.name)} (${esc(levelName(n.levelId))})</option>`).join("")}</select>${groupSelects}</div>
+      <p class="muted">Choosing a kind uses how it is sponsored and the groups it has. A place is optional. If you choose one, the groups (a class, a house) in that place are offered.</p></details></section>
   <section><h3>Beneficiaries <span class="muted">(${outcomes.length})</span></h3>
     ${unused.length ? `<div class="actions"><button data-action="remove-unused" data-ids="${esc(unused.slice(0, 1000).join(","))}">Remove ${Math.min(unused.length, 1000)} with no sponsor</button></div>` : ""}
     ${outcomes.length ? `<div class="twrap"><table><thead><tr><th>Name</th><th>Type</th><th>Place</th><th>Groups</th><th>Sponsored of units</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${outcomes.length > MAX_ROWS ? `<p class="muted">Showing ${MAX_ROWS} of ${outcomes.length}.</p>` : ""}` : `<div class="empty">No beneficiaries yet.</div>`}</section>`;

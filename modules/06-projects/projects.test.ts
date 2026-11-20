@@ -347,3 +347,50 @@ describe("groupings inside a place: Class, House and School are not a chain (DEC
     expect(removeNode(nodes, kids, ids(nodes, "Rose House")).error).toBeUndefined();
   });
 });
+
+describe("adding beneficiaries with the fewest steps (DECISIONS 72)", () => {
+  const empty = (): ProjectState => {
+    const made = savePartner({ projects: [], nodes: [], outcomes: [], partnerTypes: [], partnerFields: [] }, { name: "Home Partner", type: "Family sponsorship" }, "", "", "2026-11-20");
+    return made.value;
+  };
+  const add = (st: ProjectState, over: Record<string, unknown>) => applyProjectAction(st, FW, { action: "add-beneficiaries", projectId: "home-partner", typeId: "", name: "Orphan", count: 3, frameworkId: "shared", nodeId: "", ...over })!;
+
+  it("needs only a name, a number and how they are sponsored: no levels, no type set up, no place", () => {
+    const r = add(empty(), {});
+    expect(r.error).toBeUndefined();
+    expect(r.state.outcomes.map((o) => o.name)).toEqual(["Orphan 1", "Orphan 2", "Orphan 3"]);
+    expect(r.state.outcomes[0]).toMatchObject({ projectId: "home-partner", frameworkId: "shared", type: "Orphan" });
+    expect(r.state.outcomes[0]).not.toHaveProperty("nodeId");
+    expect(r.state.projects[0]?.types).toMatchObject([{ name: "Orphan", levelId: "", frameworkId: "shared" }]);
+  });
+  it("uses the kind again when the name matches, and refuses the same name sponsored a different way", () => {
+    const first = add(empty(), {}).state;
+    const again = add(first, { count: 2 });
+    expect(again.state.projects[0]?.types).toHaveLength(1);
+    expect(again.state.outcomes.map((o) => o.name)).toEqual(["Orphan 1", "Orphan 2", "Orphan 3", "Orphan 4", "Orphan 5"]);
+    expect(add(first, { frameworkId: "whole" }).error).toContain("different way of being sponsored");
+  });
+  it("counts beneficiaries with no place in the partner's total, and says what is missing", () => {
+    const r = add(empty(), {});
+    const roll = rollupOf(r.state.nodes, r.state.outcomes, FW, [], []);
+    expect(roll.byProject.get("home-partner")).toEqual({ places: 9, used: 0, beneficiaries: 3 });
+    expect(roll.byNode.size).toBe(0);
+    expect(add(empty(), { name: "" }).error).toContain("name");
+    expect(add(empty(), { frameworkId: "" }).error).toContain("sponsored");
+  });
+  it("lets them be placed in the same step when a place is chosen, and refuses groups without a place", () => {
+    const { projects } = sample();
+    const st: ProjectState = { projects, nodes: sample().nodes, outcomes: [], partnerTypes: [], partnerFields: [] };
+    const placed = applyProjectAction(st, FW, { action: "add-beneficiaries", projectId: projects[0]!.id, typeId: "child", name: "Orphan", count: 2, nodeId: sample().nodes[2]!.id })!;
+    expect(placed.error).toBeUndefined();
+    expect(placed.state.outcomes[0]?.nodeId).toBe(sample().nodes[2]!.id);
+    expect(applyProjectAction(st, FW, { action: "add-beneficiaries", projectId: projects[0]!.id, typeId: "child", name: "Orphan", count: 1, nodeId: "", groupIds: ["x"] })!.error).toContain("Choose the place first");
+  });
+  it("lets a type belong to no level", () => {
+    const { projects } = sample();
+    const r = addType(projects, projects[0]!.id, { name: "Cook", levelId: "", frameworkId: "whole" }, FW);
+    expect(r.error).toBeUndefined();
+    expect(addType(projects, projects[0]!.id, { name: "Cook", levelId: "", frameworkId: "whole", groupingIds: ["class"] }, FW).error).toContain("belong to first");
+  });
+});
+

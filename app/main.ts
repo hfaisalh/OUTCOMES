@@ -457,7 +457,7 @@ document.addEventListener("click", (e) => {
     if (action === "remove-type") void outcomeChange({ action: "remove-type", projectId: pid, typeId: el.dataset.id });
     if (action === "add-node") void outcomeChange({ action: "add-node", projectId: pid, levelId: val("pj-node-level"), parentId: val("pj-node-parent"), name: val("pj-node-name"), field: val("pj-node-loc") !== "" ? "Location" : "", fieldValue: val("pj-node-loc") });
     if (action === "remove-node") void outcomeChange({ action: "remove-node", nodeId: el.dataset.id });
-    if (action === "add-beneficiaries") void outcomeChange({ action: "add-beneficiaries", projectId: pid, typeId: val("pj-ben-type"), nodeId: val("pj-ben-node"), groupIds: [...document.querySelectorAll(".pj-ben-group")].filter((i) => !(i as HTMLElement).hidden).map((i) => (i as HTMLSelectElement).value).filter((x) => x !== ""), name: val("pj-ben-name"), count: Number(val("pj-ben-count") || 1) });
+    if (action === "add-beneficiaries") void outcomeChange({ action: "add-beneficiaries", projectId: pid, typeId: val("pj-ben-type"), frameworkId: val("pj-ben-fw"), nodeId: val("pj-ben-node"), groupIds: [...document.querySelectorAll(".pj-ben-group")].filter((i) => !(i as HTMLElement).hidden).map((i) => (i as HTMLSelectElement).value).filter((x) => x !== ""), name: val("pj-ben-name"), count: Number(val("pj-ben-count") || 1) });
     return;
   }
   if (action === "add-outcomes") {
@@ -829,6 +829,8 @@ function filterPlaces(): void {
   const place = document.getElementById("pj-ben-node") as HTMLSelectElement | null;
   if (!type || !place) return;
   const picked = type.selectedOptions[0] as HTMLOptionElement | undefined;
+  const fwSel = document.getElementById("pj-ben-fw") as HTMLSelectElement | null;
+  if (fwSel) fwSel.disabled = type.value !== ""; // a kind that is set up already says how it is sponsored
   const level = picked?.dataset.level ?? "";
   const groups = (picked?.dataset.groups ?? "").split(" ").filter((x) => x !== "");
   narrow(place, (o) => level === "" || o.dataset.level === level, "No place of this kind yet. Add one on the Structure tab.", "Place...");
@@ -904,7 +906,7 @@ document.addEventListener("click", (e) => {
       if (made) { w.id = made.id; state.openProject = made.id; }
       w.draft = null;
       // A new partner goes on to its structure. An edited one stays where it is and says it was saved.
-      if (wasNew) w.tab = "structure";
+      if (wasNew) w.tab = "beneficiaries";
       renderPartnerWindow(wasNew ? "" : "Saved.", !wasNew);
     });
   }
