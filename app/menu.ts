@@ -50,7 +50,7 @@ export const MODULES: ModuleInfo[] = [
 // sits behind the Settings gear. Gifts holds both the payments and the commitments (a switch on the page), since they are one thing seen two ways.
 export const MENU: MenuItem[] = [
   { id: "work-orders", label: "Gifts", icon: "☰", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
-  { id: "projects", label: "Projects", icon: "▤", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
+  { id: "projects", label: "Partners", icon: "▤", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "allocation", label: "Place gifts", icon: "⇄", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "outcomes", label: "Month by month", icon: "◎", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "dashboard", label: "Dashboard", icon: "◔", permission: PERMISSIONS.dashboards, section: "Work" },

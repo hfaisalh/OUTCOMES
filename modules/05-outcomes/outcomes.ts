@@ -192,7 +192,7 @@ export interface AutoResult {
 
 export interface AllocOptions {
   policy?: Policy; // the buffer for plans that stop paying
-  projectIdFor?: (crmProjectName: string) => string | undefined; // matches the project a donor chose to a project here. Nothing means a general gift
+  projectIdsFor?: (crmProjectName: string) => string[]; // the partners a donor's chosen project goes to. Empty means a general gift. More than one means any of them (DECISIONS 68)
 }
 
 /**
@@ -246,15 +246,15 @@ export function autoAllocate(commitments: Commitment[], outcomes: Outcome[], fw:
       unplaced.push({ commitmentKey: c.subscriptionId, why: "No active outcome uses its framework." });
       continue;
     }
-    const directedTo = opts.projectIdFor?.(c.projectName);
-    const candidates = directedTo ? sameFramework.filter((o) => o.projectId === directedTo) : sameFramework;
+    const directedTo = opts.projectIdsFor?.(c.projectName) ?? [];
+    const candidates = directedTo.length > 0 ? sameFramework.filter((o) => o.projectId !== undefined && directedTo.includes(o.projectId)) : sameFramework;
     if (candidates.length === 0) {
-      unplaced.push({ commitmentKey: c.subscriptionId, why: "The project the donor chose has no one of this kind." });
+      unplaced.push({ commitmentKey: c.subscriptionId, why: "The partner the donor chose has no one of this kind." });
       continue;
     }
     const target = pickOutcome(candidates, fw, used, c.partsPerInstalment);
     if (!target) {
-      unplaced.push({ commitmentKey: c.subscriptionId, why: directedTo ? "The project the donor chose is full. It waits for a person to decide." : "No outcome has room for it." });
+      unplaced.push({ commitmentKey: c.subscriptionId, why: directedTo.length > 0 ? "The partner the donor chose is full. It waits for a person to decide." : "No outcome has room for it." });
       continue;
     }
     next.push({ commitmentKey: c.subscriptionId, outcomeId: target.id, parts: c.partsPerInstalment, how: "auto", at });

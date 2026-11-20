@@ -42,8 +42,8 @@ describe("allocationPage", () => {
     expect(html).toContain('data-place-select="S1"');
     expect(html).toContain("data-buffer");
   });
-  it("says so when there is nothing to place, and when there are no projects", () => {
-    expect(allocationPage(base())).toContain("No projects yet");
+  it("says so when there is nothing to place, and when there are no partners", () => {
+    expect(allocationPage(base())).toContain("No partners yet");
     const { projects, nodes, outcomes } = built();
     expect(allocationPage(base({ projects, nodes, outcomes }))).toContain("Nothing is waiting");
   });

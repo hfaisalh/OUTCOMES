@@ -42,21 +42,21 @@ export function allocationPage(v: View): string {
   const placeOptions = nodes.filter((n) => (roll.byNode.get(n.id)?.places ?? 0) > 0).slice(0, MAX_PLACES).map((n) => `<option value="${esc(n.id)}">${esc(nodeLabel(n.id))} (${(roll.byNode.get(n.id)?.places ?? 0) - (roll.byNode.get(n.id)?.used ?? 0)} free)</option>`).join("");
 
   const head = `<h1>Place gifts</h1>
-    <p class="sub">Gifts that are waiting for a place, and where there is room. The suggestion for each gift is only a starting point: drag a gift onto a place, or choose a place from its list. A gift for a particular project goes to that project, and a general gift is spread across places so more are sponsored.</p>
+    <p class="sub">Gifts that are waiting for a place, and where there is room. The suggestion for each gift is only a starting point: drag a gift onto a place, or choose a place from its list. A gift for a particular project goes to that project's partners, and a general gift is spread across places so more are sponsored.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics"><div class="metric"><b>${waiting.length}</b><span>Gifts waiting (${waitingParts} parts)</span></div><div class="metric"><b>${totals.free}</b><span>Units with no sponsor</span></div><div class="metric"><b>${totals.buffer}</b><span>Sponsors inside the buffer</span></div><div class="metric ${totals.free - waitingParts >= 0 ? "ok" : "warn"}"><b>${signed(totals.free - waitingParts)}</b><span>Surplus or deficit of places</span></div></div>`;
 
   const rows = sum.rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${r.beneficiaries}</td><td>${r.capacity}</td><td>${r.used} ${meter(r.used, r.capacity)}</td><td>${r.free}</td><td>${r.inBuffer}</td><td>${r.waitingParts}</td><td class="${r.free - r.waitingParts >= 0 ? "" : "bad"}">${signed(r.free - r.waitingParts)}</td></tr>`).join("");
   const buffer = `<label class="muted">A plan that misses payments keeps its place for <select data-buffer aria-label="Payment buffer">${[0, 1, 2, 3, 6].map((n) => `<option value="${n}"${n === (v.bufferMonths ?? 1) ? " selected" : ""}>${n}</option>`).join("")}</select> missed payment${(v.bufferMonths ?? 1) === 1 ? "" : "s"}, then the place is released.</label>`;
-  const summary = `<div class="card"><h2>By project</h2>
-    ${sum.rows.length ? `<div class="twrap"><table><thead><tr><th>Project</th><th>Beneficiaries</th><th>Units</th><th>Sponsored</th><th>Free</th><th>In buffer</th><th>Waiting (parts)</th><th>Surplus or deficit</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">No projects yet. Create one on the Projects page.</div>`}
-    <p class="muted">${sum.generalWaiting.gifts} general gift${sum.generalWaiting.gifts === 1 ? "" : "s"} waiting (${sum.generalWaiting.parts} parts), which can go to any project. Surplus or deficit is the free units minus the parts of waiting gifts.</p>
+  const summary = `<div class="card"><h2>By partner</h2>
+    ${sum.rows.length ? `<div class="twrap"><table><thead><tr><th>Partner</th><th>Beneficiaries</th><th>Units</th><th>Sponsored</th><th>Free</th><th>In buffer</th><th>Waiting (parts)</th><th>Surplus or deficit</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">No partners yet. Create one on the Partners page.</div>`}
+    <p class="muted">${sum.generalWaiting.gifts} general gift${sum.generalWaiting.gifts === 1 ? "" : "s"} waiting (${sum.generalWaiting.parts} parts), which can go to any partner. Surplus or deficit is the free units minus the parts of waiting gifts.</p>
     ${buffer}</div>`;
 
   const gift = (c: (typeof waiting)[number]) => {
     const sug = suggested.get(c.subscriptionId);
     const o = sug ? byOutcome.get(sug) : undefined;
-    const directed = opts.projectIdFor?.(c.projectName) !== undefined;
+    const directed = (opts.projectIdsFor?.(c.projectName) ?? []).length > 0;
     return `<div class="gift" draggable="true" data-drag-key="${esc(c.subscriptionId)}">
       <div class="row"><b>${esc(c.itemName)}</b><span class="tag ${directed ? "dir" : ""}">${directed ? `Directed: ${esc(c.projectName)}` : "General"}</span></div>
       <span class="note">${c.partsPerInstalment} part${c.partsPerInstalment === 1 ? "" : "s"}, ${c.once ? `one payment for ${c.planned} months` : c.planned === null ? "monthly, no end date" : `monthly, ${c.paid} of ${c.planned} paid`}. Given ${esc(c.firstPaid)}.</span>
@@ -69,7 +69,7 @@ export function allocationPage(v: View): string {
 
   const placeRows = nodes.map((n) => ({ n, r: roll.byNode.get(n.id) })).filter((x) => (x.r?.places ?? 0) > 0).slice(0, MAX_PLACES);
   const right = `<div class="card"><h2>Places <span class="muted">(drop a gift on one)</span></h2>
-    ${placeRows.length ? placeRows.map(({ n, r }) => `<div class="place" data-drop-node="${esc(n.id)}"><span><b>${esc(n.name)}</b> <small>${esc(nodeLabel(n.id))}</small></span><span>${meter(r?.used ?? 0, r?.places ?? 0)} ${(r?.places ?? 0) - (r?.used ?? 0)} free</span></div>`).join("") : `<div class="empty">No places with beneficiaries yet. Add them on the Projects page.</div>`}
+    ${placeRows.length ? placeRows.map(({ n, r }) => `<div class="place" data-drop-node="${esc(n.id)}"><span><b>${esc(n.name)}</b> <small>${esc(nodeLabel(n.id))}</small></span><span>${meter(r?.used ?? 0, r?.places ?? 0)} ${(r?.places ?? 0) - (r?.used ?? 0)} free</span></div>`).join("") : `<div class="empty">No places with beneficiaries yet. Add them on the Partners page.</div>`}
     ${nodes.length > MAX_PLACES ? `<p class="muted">Showing ${MAX_PLACES} places.</p>` : ""}</div>`;
 
   return `${head}${summary}<div class="cols2">${left}${right}</div>`;

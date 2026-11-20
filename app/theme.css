@@ -111,3 +111,4 @@ table.inner{margin-top:8px;font-size:12px}details .actions{margin-top:8px}
 .place{border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;justify-content:space-between;background:var(--card);margin-top:8px}.place small{color:var(--muted)}
 .place:hover{border-color:var(--accent)}
 td.bad{color:#d23b3b;font-weight:600}
+.tick{display:inline-flex;gap:4px;align-items:center;margin-right:10px;font-size:13px}

@@ -28,11 +28,12 @@ function built() {
 }
 
 describe("projectsPage", () => {
-  it("starts with a form to create the first project, and templates to start from", () => {
+  it("starts with a form to create the first partner, with its type, and templates to start from", () => {
     const html = projectsPage(base());
-    expect(html).toContain("No projects yet");
+    expect(html).toContain("No partners yet");
     expect(html).toContain('data-action="add-project"');
     expect(html).toContain("Orphan home or school");
+    expect(html).toContain("Another charity");
   });
   it("shows the levels, the types, the places with their roll-up, and the add forms", () => {
     const { projects, nodes, outcomes } = built();
@@ -56,10 +57,19 @@ describe("projectsPage", () => {
     const html = projectsPage(base({ projects, nodes, outcomes, workOrders: [wo("Where Needed Most"), wo("Where Needed Most"), wo("Aghosh"), wo("Aghosh Girls Home")] }));
     expect(html).toContain("Names the CRM uses");
     expect(html).toContain('data-crm-name="Where Needed Most"');
-    expect(html).toContain("Any project (general)");
+    expect(html).toContain('data-crm-toggle="aghosh-orphan-homes"');
+    expect(html).toContain("General, any partner.");
     expect(html).toContain('data-action="assign-crm"');
     expect(html).toContain("Use 1 suggestion");
-    expect(html).toContain("Gifts that name <b>Aghosh Orphan Homes</b>, <b>Aghosh</b> in the CRM go to Aghosh Orphan Homes");
+    expect(html).toContain("Gifts that name <b>Aghosh Orphan Homes</b>, <b>Aghosh</b> in the CRM go to this partner");
+  });
+  it("shows the partner's type and the capacity set by hand, ready to edit", () => {
+    const { projects, nodes, outcomes } = built();
+    const html = projectsPage(base({ projects: [{ ...projects[0]!, kind: "contractor", capacity: 40, capacityNote: "two crews" }], nodes, outcomes }));
+    expect(html).toContain("Contractor");
+    expect(html).toContain('value="40"');
+    expect(html).toContain("two crews");
+    expect(html).toContain('data-action="set-partner"');
   });
   it("says so when no gift carries a project name", () => {
     expect(projectsPage(base())).toContain("No gifts carry a project name yet");

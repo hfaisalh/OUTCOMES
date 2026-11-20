@@ -231,28 +231,33 @@ describe("directed and general gifts, spreading, and the payment buffer (DECISIO
   // Two projects of orphans: A has two places (Class 1, Class 2) with 2 orphans each, B has one place with 2 orphans.
   const o = (id: string, projectId: string, nodeId: string): Outcome => ({ id, name: id, type: "child", cohort: nodeId, frameworkId: "shared", active: true, projectId, nodeId, typeId: "child" });
   const OUT: Outcome[] = [o("a1", "A", "c1"), o("a2", "A", "c1"), o("a3", "A", "c2"), o("a4", "A", "c2"), o("b1", "B", "d1"), o("b2", "B", "d1")];
-  const projectIdFor = (name: string) => ({ Aghosh: "A", Bravo: "B" })[name];
+  const projectIdsFor = (name: string): string[] => { const id = ({ Aghosh: "A", Bravo: "B", Both: "A,B" } as Record<string, string>)[name]; return id ? id.split(",") : []; };
   const gift = (sub: string, parts: number, projectName = "", over: Partial<Commitment> = {}) => com(sub, parts, { projectName, ...over });
 
   it("sends a directed gift to its own project only, and a general gift to any project", () => {
-    const r = autoAllocate([gift("1", 3, "Bravo"), gift("2", 3, "Where Needed Most")], OUT, FW, [], AT, { projectIdFor });
+    const r = autoAllocate([gift("1", 3, "Bravo"), gift("2", 3, "Where Needed Most")], OUT, FW, [], AT, { projectIdsFor });
     expect(r.allocations.find((a) => a.commitmentKey === "1")?.outcomeId).toMatch(/^b/);
     expect(r.placed).toBe(2);
   });
   it("makes a directed gift wait when its project is full, even if another project has room", () => {
     const full = [gift("1", 3, "Bravo"), gift("2", 3, "Bravo"), gift("3", 3, "Bravo")];
-    const r = autoAllocate(full, OUT, FW, [], AT, { projectIdFor });
+    const r = autoAllocate(full, OUT, FW, [], AT, { projectIdsFor });
     expect(r.placed).toBe(2);
-    expect(r.unplaced).toEqual([{ commitmentKey: "3", why: "The project the donor chose is full. It waits for a person to decide." }]);
+    expect(r.unplaced).toEqual([{ commitmentKey: "3", why: "The partner the donor chose is full. It waits for a person to decide." }]);
+  });
+  it("lets a gift go to any of several partners that answer to its project name, spread across them", () => {
+    const r = autoAllocate([gift("1", 3, "Both", { firstPaid: "2026-01-01" }), gift("2", 3, "Both", { firstPaid: "2026-01-02" })], OUT, FW, [], AT, { projectIdsFor });
+    expect(r.placed).toBe(2);
+    expect(r.allocations.map((a) => a.outcomeId)).toEqual(["a1", "a3"]); // the two places with the lowest share sponsored, one in each class of A first
   });
   it("treats a project name it does not know as a general gift", () => {
-    const r = autoAllocate([gift("1", 3, "Hope for Palestine")], OUT, FW, [], AT, { projectIdFor });
+    const r = autoAllocate([gift("1", 3, "Hope for Palestine")], OUT, FW, [], AT, { projectIdsFor });
     expect(r.placed).toBe(1);
   });
   it("spreads general gifts across places, then fills a partly sponsored child before opening a new one", () => {
     // four one-part gifts: places c1, c2, d1 all start at nothing sponsored, so they take turns. Each place then packs one child first.
     const gifts = ["1", "2", "3", "4", "5", "6"].map((n) => gift(n, 1, "", { firstPaid: `2026-01-0${n}` }));
-    const r = autoAllocate(gifts, OUT, FW, [], AT, { projectIdFor });
+    const r = autoAllocate(gifts, OUT, FW, [], AT, { projectIdsFor });
     const where = (n: string) => r.allocations.find((a) => a.commitmentKey === n)?.outcomeId;
     expect([where("1"), where("2"), where("3")]).toEqual(["a1", "a3", "b1"]); // one in each place first
     expect([where("4"), where("5"), where("6")]).toEqual(["a1", "a3", "b1"]); // then the same child gets a second part, not a new child

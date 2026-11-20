@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Allocation } from "../05-outcomes/outcomes";
 import type { Commitment } from "../04b-commitments/commitments";
-import { assignCrmName, crmProjectNames, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
+import { setCrmName, setPartner, crmProjectNames, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -187,22 +187,29 @@ describe("matching the CRM's project names (DECISIONS 67)", () => {
     const list = crmProjectNames([...orders(["Where Needed Most", "Where Needed Most", "Aghosh", "", "Dadyal Orphan Complex"]), { projectName: "Aghosh", status: "excluded" }], projects);
     expect(list.map((x) => [x.name, x.gifts])).toEqual([["Where Needed Most", 2], ["Aghosh", 1], ["Dadyal Orphan Complex", 1]]);
   });
-  it("shows where a name already goes, and suggests a project that shares a word with one that is not matched", () => {
+  it("shows where a name already goes, and suggests a partner that shares a word with one that is not matched", () => {
     const { projects } = sample(); // Aghosh Orphan Homes, alias Aghosh
     const list = crmProjectNames(orders(["Aghosh", "Aghosh Girls Home", "Hope for Palestine"]), projects);
-    expect(list.find((x) => x.name === "Aghosh")).toMatchObject({ projectId: "aghosh-orphan-homes", suggestion: "" });
-    expect(list.find((x) => x.name === "Aghosh Girls Home")).toMatchObject({ projectId: "", suggestion: "aghosh-orphan-homes" });
-    expect(list.find((x) => x.name === "Hope for Palestine")).toMatchObject({ projectId: "", suggestion: "" });
+    expect(list.find((x) => x.name === "Aghosh")).toMatchObject({ projectIds: ["aghosh-orphan-homes"], suggestion: "" });
+    expect(list.find((x) => x.name === "Aghosh Girls Home")).toMatchObject({ projectIds: [], suggestion: "aghosh-orphan-homes" });
+    expect(list.find((x) => x.name === "Hope for Palestine")).toMatchObject({ projectIds: [], suggestion: "" });
   });
-  it("points a name at one project, moves it, and sets it free to be general", () => {
+  it("lets a name go to several partners, turns one off, and refuses an unknown partner", () => {
     const { projects } = sample();
     const two = addProject(projects, "Dadyal Orphan Complex").value;
-    const a = assignCrmName(two, "Dadyal", "dadyal-orphan-complex").value;
-    expect(a.find((p) => p.id === "dadyal-orphan-complex")?.aliases).toEqual(["Dadyal"]);
-    const moved = assignCrmName(a, "Dadyal", "aghosh-orphan-homes").value;
-    expect(moved.find((p) => p.id === "dadyal-orphan-complex")?.aliases).toEqual([]);
-    expect(moved.find((p) => p.id === "aghosh-orphan-homes")?.aliases).toContain("Dadyal");
-    expect(assignCrmName(moved, "Dadyal", "").value.every((p) => !p.aliases.includes("Dadyal"))).toBe(true);
-    expect(assignCrmName(moved, "x", "nope").error).toContain("not found");
+    const a = setCrmName(two, "Orphan Care Complex", "dadyal-orphan-complex", true).value;
+    const both = setCrmName(a, "Orphan Care Complex", "aghosh-orphan-homes", true).value;
+    expect(crmProjectNames(orders(["Orphan Care Complex"]), both)[0]?.projectIds).toEqual(["aghosh-orphan-homes", "dadyal-orphan-complex"]);
+    const off = setCrmName(both, "Orphan Care Complex", "aghosh-orphan-homes", false).value;
+    expect(crmProjectNames(orders(["Orphan Care Complex"]), off)[0]?.projectIds).toEqual(["dadyal-orphan-complex"]);
+    expect(setCrmName(off, "x", "nope", true).error).toContain("not found");
+  });
+  it("keeps a partner's type and the capacity set by hand in its profile", () => {
+    const { projects } = sample();
+    const r = setPartner(projects, "aghosh-orphan-homes", { kind: "contractor", capacity: "40", note: "two crews" });
+    expect(r.value[0]).toMatchObject({ kind: "contractor", capacity: 40, capacityNote: "two crews" });
+    expect(setPartner(r.value, "aghosh-orphan-homes", { kind: "institute", capacity: "", note: "" }).value[0]).not.toHaveProperty("capacity");
+    expect(setPartner(projects, "aghosh-orphan-homes", { kind: "bank", capacity: "", note: "" }).error).toContain("Choose");
+    expect(setPartner(projects, "aghosh-orphan-homes", { kind: "charity", capacity: "-3", note: "" }).error).toContain("whole number");
   });
 });

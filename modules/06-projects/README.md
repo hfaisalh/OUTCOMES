@@ -1,6 +1,8 @@
-# Module 6: Projects
+# Module 6: Partners (the code calls them Projects)
 
 ## Purpose
+On screen this is **Partners** (DECISIONS 68): whoever implements the job of a gift, an institute, a contractor or another charity. The code and folder still say Project.
+
 Where gifts can go (DECISIONS 65). A project is somewhere that sponsors people or things, such as an orphan home. Each project defines its own structure, says who lives at each level and how they are sponsored, and holds the beneficiaries. The beneficiaries are the outcomes of Module 5, each tied to a place in the structure.
 
 ## Inputs
@@ -19,7 +21,7 @@ Framework templates (Module 2), outcomes and allocations (Module 5), commitments
 - A gift's project name is matched to a project by its name or an alias. No match means a general gift.
 - Nothing is removed while it is in use: a place with places or beneficiaries, a type with beneficiaries.
 
-- A gift's project (the CRM's Project on the line) decides where it can go: a match makes it directed, anything else is general. The Projects page lists the names the CRM uses with their counts, and a person chooses where each goes (a name goes to one project only). A suggestion is offered for a name that shares a whole word with a project (DECISIONS 67).
+- A gift's project (the CRM's Project on the line) decides where it can go: a match makes it directed, anything else is general. The Partners page lists the names the CRM uses with their counts, and a person ticks the partners each goes to (a name can go to several partners, DECISIONS 68). A suggestion is offered for a name that shares a whole word with a project (DECISIONS 67).
 - General gifts are spread across places, and a directed gift whose project is full waits for a person (DECISIONS 66).
 - The summary per project (beneficiaries, units, sponsored, free, in buffer, waiting, surplus or deficit), suggestions, and placing a gift by hand into a place are pure functions here too.
 

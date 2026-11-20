@@ -427,21 +427,21 @@ document.addEventListener("click", (e) => {
     afterConfig();
   }
   // Matching a CRM project name to a project (DECISIONS 67).
-  if (action === "assign-crm") return void outcomeChange({ action: "assign-crm-name", name: el.dataset.name, projectId: el.dataset.project });
+  if (action === "assign-crm") return void outcomeChange({ action: "toggle-crm-name", name: el.dataset.name, projectId: el.dataset.project, on: true });
   if (action === "assign-crm-all") {
     const pairs = JSON.parse(el.dataset.pairs ?? "[]") as [string, string][];
-    void (async () => { for (const [name, projectId] of pairs) await outcomeChange({ action: "assign-crm-name", name, projectId }); })();
+    void (async () => { for (const [name, projectId] of pairs) await outcomeChange({ action: "toggle-crm-name", name, projectId, on: true }); })();
     return;
   }
   // Projects (DECISIONS 65).
-  if (["add-project", "add-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "add-beneficiaries"].includes(action ?? "")) {
+  if (["add-project", "set-partner", "add-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "add-beneficiaries"].includes(action ?? "")) {
     const val = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value ?? "";
     const pid = (state.projects.find((p) => p.id === state.openProject) ?? state.projects[0])?.id ?? "";
     if (action === "add-project") {
       const name = val("pj-name");
       const levels = PROJECT_TEMPLATES.find((t) => t.id === val("pj-template"))?.levels ?? [];
       void (async () => {
-        await outcomeChange({ action: "add-project", name, aliases: val("pj-aliases") });
+        await outcomeChange({ action: "add-project", name, kind: val("pj-kind") });
         const made = state.projects.find((p) => p.name.toLowerCase() === name.trim().replace(/\s+/g, " ").toLowerCase());
         if (!made) return;
         state.openProject = made.id;
@@ -452,6 +452,7 @@ document.addEventListener("click", (e) => {
         }
       })();
     }
+    if (action === "set-partner") void outcomeChange({ action: "set-partner", projectId: pid, kind: val("pj-pkind"), capacity: val("pj-pcap"), note: val("pj-pnote") });
     if (action === "add-level") void outcomeChange({ action: "add-level", projectId: pid, name: val("pj-level"), parentId: el.dataset.parent ?? "" });
     if (action === "remove-level") void outcomeChange({ action: "remove-level", projectId: pid, levelId: el.dataset.id });
     if (action === "add-type") void outcomeChange({ action: "add-type", projectId: pid, name: val("pj-type-name"), levelId: val("pj-type-level"), frameworkId: val("pj-type-fw") });
@@ -633,6 +634,8 @@ document.addEventListener("input", onFilterInput);
 document.addEventListener("change", (e) => {
   const el = e.target as HTMLInputElement;
   if (el.dataset?.f || el.dataset?.cf) return onFilterInput(e);
+  // A partner ticked or unticked for a CRM project name (DECISIONS 68).
+  if (el.dataset?.crmToggle !== undefined) return void outcomeChange({ action: "toggle-crm-name", name: el.dataset.crmName, projectId: el.dataset.crmToggle, on: el.checked });
   // Tick boxes: one work order, or all shown in a list. Only the lists are redrawn.
   if (el.dataset?.sel !== undefined) {
     state.selected = el.checked ? [...new Set([...state.selected, el.dataset.sel])] : state.selected.filter((k) => k !== el.dataset.sel);
@@ -652,9 +655,8 @@ document.addEventListener("change", (e) => {
   }
   // Rule: only a field the page knows about causes a redraw. Any other field (the owner passphrase box, for example)
   // must be left alone, because a redraw would wipe what was typed and replace the button the person is about to press.
-  const known = t.id === "role" || t.dataset.ocMove !== undefined || t.dataset.ocf !== undefined || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords || t.dataset.pjOpen !== undefined || t.dataset.crmName !== undefined || t.dataset.placeSelect !== undefined || t.dataset.buffer !== undefined;
+  const known = t.id === "role" || t.dataset.ocMove !== undefined || t.dataset.ocf !== undefined || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords || t.dataset.pjOpen !== undefined || t.dataset.placeSelect !== undefined || t.dataset.buffer !== undefined;
   if (!known) return;
-  if (t.dataset.crmName !== undefined) return void outcomeChange({ action: "assign-crm-name", name: t.dataset.crmName, projectId: t.value });
   if (t.dataset.placeSelect !== undefined) {
     if (t.value !== "") void outcomeChange({ action: "place-in-node", commitmentKey: t.dataset.placeSelect, nodeId: t.value });
     return;
