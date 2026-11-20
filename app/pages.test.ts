@@ -35,7 +35,7 @@ describe("workOrdersPage", () => {
   });
 
   it("narrows the list by the filter boxes and says how many are shown", () => {
-    const html = workOrderList(view({ criteria: { text: "animal", itemId: "", categoryId: "", status: "", kind: "any", from: "", to: "" } }));
+    const html = workOrderList(view({ criteria: { text: "animal", itemId: "", categoryId: "", status: "", kind: "any", legacy: "", from: "", to: "" } }));
     expect(html).toContain("Animal Sacrifice");
     expect(html).not.toContain("Orphan Sponsorship Monthly");
     expect(html).toMatch(/Showing \d+ of \d+/);

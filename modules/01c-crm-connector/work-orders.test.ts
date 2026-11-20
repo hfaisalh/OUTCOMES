@@ -147,3 +147,25 @@ describe("parts (DECISIONS 51)", () => {
     expect(again.review.filter((r) => r.reason !== "changed")).toHaveLength(0);
   });
 });
+
+describe("legacy uploads (DECISIONS 55)", () => {
+  const opts: PlanOptions = { categoryByItem: {}, usesFrameworks: false, feedIsComplete: true };
+  const legacy = feed.map((l, i) => (i === 0 ? { ...l, legacyUpload: true } : l));
+
+  it("marks the work order, and gives the mark quietly to one made before it was known", () => {
+    const made = planWorkOrders(legacy, [], opts).created;
+    expect(made[0]?.legacyUpload).toBe(true);
+    expect(made[1]?.legacyUpload).toBeUndefined();
+    const before = planWorkOrders(feed, [], opts).created;
+    const again = planWorkOrders(legacy, before, opts);
+    expect(again.updated).toHaveLength(1);
+    expect(again.updated[0]?.legacyUpload).toBe(true);
+    expect(again.review).toHaveLength(0);
+  });
+
+  it("never judges a legacy upload as missing from the feed", () => {
+    const made = planWorkOrders(legacy, [], opts).created;
+    const plan = planWorkOrders([], made, opts);
+    expect(plan.review.map((r) => r.key)).not.toContain(made[0]?.key);
+  });
+});

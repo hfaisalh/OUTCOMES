@@ -52,6 +52,11 @@ describe("buildCommitments", () => {
     expect(r.unlinked.find((u) => u.key === "77")?.suggestions).toEqual([]);
   });
 
+  it("does not compare the date of a legacy upload, but still suggests the same supporter and item", () => {
+    const r = buildCommitments([wo("8", { instalmentCount: "12", legacyUpload: true, paidDate: "2026-08-26 10:00:00" }), inst("1", 1, "2026-06-01")]);
+    expect(r.unlinked[0]?.suggestions).toEqual([{ subscriptionId: "S1", daysApart: null }]);
+  });
+
   it("puts commitments that need a look first", () => {
     const r = buildCommitments([inst("1", 1, "2026-09-01", { subscriptionId: "A" }), inst("2", 3, "2026-06-01", { subscriptionId: "B" })]);
     expect(r.commitments.map((c) => c.subscriptionId)).toEqual(["B", "A"]);

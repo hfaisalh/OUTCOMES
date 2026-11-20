@@ -47,7 +47,7 @@ export interface Commitment {
 
 export interface Suggestion {
   subscriptionId: string;
-  daysApart: number; // the unlinked line's paid date minus the commitment's first paid date. Negative means it was paid before
+  daysApart: number | null; // the unlinked line's paid date minus the commitment's first paid date. Negative means it was paid before. Null for a legacy upload, whose date is not a payment date
 }
 
 export interface Unlinked {
@@ -115,8 +115,8 @@ export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
       workOrder: w,
       suggestions: commitments
         .filter((c) => c.supporterId === w.supporterId && c.itemId === w.itemId)
-        .map((c) => ({ subscriptionId: c.subscriptionId, daysApart: dayNumber(w.paidDate) - dayNumber(c.firstPaid) }))
-        .sort((a, b) => Math.abs(a.daysApart) - Math.abs(b.daysApart)),
+        .map((c) => ({ subscriptionId: c.subscriptionId, daysApart: w.legacyUpload ? null : dayNumber(w.paidDate) - dayNumber(c.firstPaid) }))
+        .sort((a, b) => Math.abs(a.daysApart ?? 0) - Math.abs(b.daysApart ?? 0)),
     }))
     .sort((a, b) => a.workOrder.paidDate.localeCompare(b.workOrder.paidDate));
   return { commitments, unlinked };

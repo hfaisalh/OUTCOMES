@@ -103,3 +103,17 @@ describe("summariseIssues", () => {
     expect(summariseIssues([])).toEqual([]);
   });
 });
+
+describe("legacy uploads (DECISIONS 55)", () => {
+  const row = (ref: string) => ({ line_id: "1", transaction_ref: ref, status: "Paid", paid_at: "2026-08-26 10:00:00", supporter_id: "D1", supporter_name: "Sample", item_id: "I1", item_name: "Item", item_feedback: "2", amount: "10", quantity: "1" });
+  it("marks a line whose order reference starts with a legacy prefix, ignoring case", () => {
+    expect(readFeed([row("ARCHIVE-SUB-12")], MWF_CRM_CONFIG).lines[0]?.legacyUpload).toBe(true);
+    expect(readFeed([row("archive-sub-12")], MWF_CRM_CONFIG).lines[0]?.legacyUpload).toBe(true);
+    expect(readFeed([row("MWFUK-205553")], MWF_CRM_CONFIG).lines[0]?.legacyUpload).toBe(false);
+  });
+  it("marks nothing for an organisation with no legacy prefixes, and an older saved MWF setup gets the prefix", () => {
+    expect(readFeed([row("ARCHIVE-SUB-12")], { ...MWF_CRM_CONFIG, legacyRefPrefixes: [] }).lines[0]?.legacyUpload).toBe(false);
+    const { legacyRefPrefixes: _drop, ...saved } = MWF_CRM_CONFIG;
+    expect(currentFeedConfig(saved).legacyRefPrefixes).toEqual(["ARCHIVE"]);
+  });
+});

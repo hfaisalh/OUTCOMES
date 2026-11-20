@@ -58,7 +58,8 @@ export const emptyCounts = (): AuditCounts => ({ added: 0, changed: 0, moved: 0,
 // Rule: the dates a feed covers decide which saved work orders can be judged missing. An import of
 // 1 Feb to 31 Oct says nothing about a work order paid in November.
 export function coverageOf(lines: FeedLine[]): Coverage {
-  const dates = lines.map((l) => l.paidDate).filter((d) => d !== "").sort();
+  // Rule: a legacy upload's paid date is the upload date, so it says nothing about what the feed covers (DECISIONS 55).
+  const dates = lines.filter((l) => !l.legacyUpload).map((l) => l.paidDate).filter((d) => d !== "").sort();
   return { from: dates[0] ?? "", to: dates[dates.length - 1] ?? "" };
 }
 
@@ -105,7 +106,7 @@ export function auditFeed(lines: FeedLine[], stored: WorkOrder[], options: { com
 
   if (options.complete) {
     for (const w of stored) {
-      if (w.status !== "excluded" && !seen.has(w.key) && inCoverage(w.paidDate, coverage)) add({ key: w.key, kind: "removed", message: "The line is no longer in the CRM (refunded, deleted or replaced). The work order was kept." });
+      if (w.status !== "excluded" && w.legacyUpload !== true && !seen.has(w.key) && inCoverage(w.paidDate, coverage)) add({ key: w.key, kind: "removed", message: "The line is no longer in the CRM (refunded, deleted or replaced). The work order was kept." });
     }
   }
   return { coverage, counts, findings, addedSample };

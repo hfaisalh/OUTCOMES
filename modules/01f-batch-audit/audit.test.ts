@@ -12,7 +12,7 @@ import { auditFeed, coverageOf } from "./audit";
 
 const line = (id: string, over: Partial<FeedLine> = {}): FeedLine => ({
   row: 1, lineId: id, transactionRef: `T${id}`, paidDate: "2026-06-10", supporterId: "D1", supporterName: "Sample", group: "", channel: "", merchant: "", method: "",
-  itemId: "I1", itemName: "Water Pump", amount: 100, quantity: 1, bundleQty: 1, intention: "", subscriptionId: "", instalmentNumber: "", instalmentCount: "", needsFeedback: true, supporterKind: "individual", credits: [], ...over,
+  itemId: "I1", itemName: "Water Pump", amount: 100, quantity: 1, bundleQty: 1, intention: "", subscriptionId: "", instalmentNumber: "", instalmentCount: "", needsFeedback: true, legacyUpload: false, supporterKind: "individual", credits: [], ...over,
 });
 const order = (id: string, over: Partial<WorkOrder> = {}): WorkOrder => ({
   key: id, lineId: id, transactionRef: `T${id}`, paidDate: "2026-06-10", supporterId: "D1", supporterName: "Sample", group: "", itemId: "I1", itemName: "Water Pump", amount: 100,
@@ -53,5 +53,11 @@ describe("auditFeed", () => {
   it("works out the dates a feed covers", () => {
     expect(coverageOf([line("1", { paidDate: "2026-03-01" }), line("2", { paidDate: "2026-09-30" }), line("3", { paidDate: "" })])).toEqual({ from: "2026-03-01", to: "2026-09-30" });
     expect(coverageOf([])).toEqual({ from: "", to: "" });
+  });
+});
+
+describe("legacy uploads (DECISIONS 55)", () => {
+  it("ignores a legacy upload's date when working out what the feed covers", () => {
+    expect(coverageOf([line("1", { paidDate: "2026-02-01" }), line("2", { paidDate: "2026-10-31" }), line("3", { paidDate: "2026-12-31", legacyUpload: true })])).toEqual({ from: "2026-02-01", to: "2026-10-31" });
   });
 });

@@ -20,6 +20,7 @@ export interface FeedConfig {
   triggerColumn: string; // the item-level "needs feedback" column. Set by the organisation (DECISIONS 30)
   yesValues: string[]; // values in that column that mean yes, compared ignoring case
   paidValues: string[]; // values of the status column that mean paid, compared ignoring case
+  legacyRefPrefixes?: string[]; // order reference prefixes of lines uploaded from an old system, whose paid date is the upload date (DECISIONS 55)
 }
 
 // MWF CRM settings. The CRM item has `item_feedback` (1 = Acknowledgement only, 2 = Feedback report,
@@ -28,13 +29,18 @@ export const MWF_CRM_CONFIG: FeedConfig = {
   triggerColumn: "item_feedback",
   yesValues: ["2"],
   paidValues: ["paid", "2"],
+  legacyRefPrefixes: ["ARCHIVE"], // the migration from the previous website names its orders ARCHIVE-SUB-<number>
 };
 
 // The first guess, before the CRM added its column (19 Nov 2026). A setup saved with exactly this is
 // moved to the real settings, so an older saved setup keeps working.
 export const isOldMwfGuess = (c: FeedConfig): boolean =>
   c.triggerColumn === "needs_feedback" && c.yesValues.join(",") === "1,yes,true,y";
-export const currentFeedConfig = (c: FeedConfig): FeedConfig => (isOldMwfGuess(c) ? { ...MWF_CRM_CONFIG, paidValues: c.paidValues } : c);
+export function currentFeedConfig(c: FeedConfig): FeedConfig {
+  if (isOldMwfGuess(c)) return { ...MWF_CRM_CONFIG, paidValues: c.paidValues };
+  // A setup saved before legacy uploads were known gets MWF's prefixes when it is MWF's own trigger.
+  return c.legacyRefPrefixes === undefined && c.triggerColumn === MWF_CRM_CONFIG.triggerColumn ? { ...c, legacyRefPrefixes: MWF_CRM_CONFIG.legacyRefPrefixes ?? [] } : c;
+}
 
 // One line of a paid transaction, in OUTCOMES' own terms.
 export interface FeedLine {
@@ -60,6 +66,7 @@ export interface FeedLine {
   instalmentNumber: string; // "" for a one-off
   instalmentCount: string; // a number, "Indefinitely" for recurring with no count, "" for a one-off (DECISIONS 18)
   needsFeedback: boolean;
+  legacyUpload: boolean; // uploaded from an old system: the paid date is the upload date, not the real payment date (DECISIONS 55)
 }
 
 export interface SkippedRow {
@@ -184,6 +191,7 @@ export function readFeed(rows: FeedRow[], config: FeedConfig = MWF_CRM_CONFIG): 
       instalmentNumber: (r["instalment_number"] ?? "").trim(),
       instalmentCount,
       needsFeedback: isYes(r[config.triggerColumn], config.yesValues),
+      legacyUpload: (config.legacyRefPrefixes ?? []).some((p) => p !== "" && lower(transactionRef).startsWith(lower(p))),
     });
   });
 

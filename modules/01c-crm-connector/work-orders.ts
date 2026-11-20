@@ -40,6 +40,7 @@ export interface WorkOrder {
   itemName: string;
   amount: number; // for reference only
   quantity: number;
+  legacyUpload?: true; // uploaded from an old system, so paid date is the upload date (DECISIONS 55). Absent means a normal line
   bundleQty?: number; // parts of the item in the bundle bought, absent means 1 (DECISIONS 51)
   intention: string;
   subscriptionId: string;
@@ -134,6 +135,7 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
         amount: line.amount,
         quantity: line.quantity,
         ...(line.bundleQty !== 1 ? { bundleQty: line.bundleQty } : {}),
+        ...(line.legacyUpload ? { legacyUpload: true as const } : {}),
         intention: line.intention,
         subscriptionId: line.subscriptionId,
         instalmentNumber: line.instalmentNumber,
@@ -149,11 +151,11 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
       continue;
     }
 
-    // Rule: the bundle quantity comes from the catalogue, so a work order made before it was known is given it quietly. Never reviewed.
+    // Rule: the bundle quantity and the legacy-upload mark come from the catalogue and the reference, not from the donor, so a work order made before they were known is given them quietly. Never reviewed.
     let have = current;
-    if ((current.bundleQty ?? 1) !== line.bundleQty) {
-      const { bundleQty: _old, ...rest } = current;
-      have = { ...rest, ...(line.bundleQty !== 1 ? { bundleQty: line.bundleQty } : {}) };
+    if ((current.bundleQty ?? 1) !== line.bundleQty || (current.legacyUpload === true) !== line.legacyUpload) {
+      const { bundleQty: _b, legacyUpload: _l, ...rest } = current;
+      have = { ...rest, ...(line.bundleQty !== 1 ? { bundleQty: line.bundleQty } : {}), ...(line.legacyUpload ? { legacyUpload: true as const } : {}) };
       updated.push(have);
     }
 
@@ -177,7 +179,7 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
   if (options.feedIsComplete) {
     for (const w of existing) {
       const inside = !options.coverage || (w.paidDate >= options.coverage.from && w.paidDate <= options.coverage.to && w.paidDate !== "");
-      if (!seen.has(w.key) && inside && w.status !== "excluded") review.push({ key: w.key, reason: "missing_from_feed", message: "The line is no longer in the CRM feed (refunded, deleted or replaced). The work order was kept." });
+      if (!seen.has(w.key) && inside && w.status !== "excluded" && w.legacyUpload !== true) review.push({ key: w.key, reason: "missing_from_feed", message: "The line is no longer in the CRM feed (refunded, deleted or replaced). The work order was kept." });
     }
   }
   return { created, updated, rerouted, unchanged, review };

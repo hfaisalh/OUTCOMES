@@ -34,6 +34,11 @@ describe("filterWorkOrders", () => {
     expect(keys({ kind: "recurring" })).toEqual(["2"]);
     expect(keys({ kind: "oneoff" })).toEqual(["1", "3"]);
   });
+  it("shows legacy uploads only, or hides them", () => {
+    const two = [wo({ key: "1" }), wo({ key: "2", legacyUpload: true })];
+    expect(filterWorkOrders(two, { ...NO_CRITERIA, legacy: "only" }).map((w) => w.key)).toEqual(["2"]);
+    expect(filterWorkOrders(two, { ...NO_CRITERIA, legacy: "hide" }).map((w) => w.key)).toEqual(["1"]);
+  });
   it("filters by status", () => {
     expect(filterWorkOrders([wo({ key: "1" }), wo({ key: "2", status: "excluded" })], { ...NO_CRITERIA, status: "excluded" }).map((w) => w.key)).toEqual(["2"]);
   });
