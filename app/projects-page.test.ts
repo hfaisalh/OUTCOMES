@@ -50,10 +50,9 @@ describe("projectsPage", () => {
     expect(html).not.toContain("<img");
     expect(html).toContain("&lt;img");
   });
-});
   it("lists the names the CRM uses with their counts, a place to choose where each goes, and a suggestion", () => {
     const { projects, nodes, outcomes } = built();
-    const wo = (n: string) => ({ key: n, projectName: n, status: "ready" }) as never;
+    const wo = (n: string) => ({ key: n, projectName: n, status: "ready", subscriptionId: "", instalmentCount: "", paidDate: "" }) as never;
     const html = projectsPage(base({ projects, nodes, outcomes, workOrders: [wo("Where Needed Most"), wo("Where Needed Most"), wo("Aghosh"), wo("Aghosh Girls Home")] }));
     expect(html).toContain("Names the CRM uses");
     expect(html).toContain('data-crm-name="Where Needed Most"');
