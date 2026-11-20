@@ -61,6 +61,12 @@ describe("workOrdersPage", () => {
     expect(html).toContain("Show the lines (1)");
   });
 
+  it("finds the lines of an instalment count note from the line ids it names", () => {
+    const orders = plan.created.map((x, n) => (n < 2 ? { ...x, key: `900${n}` } : x));
+    const html = attentionPage(view({ live: true, workOrders: orders, attention: [{ id: "import:z", kind: "import", title: "Import problem", detail: "2 recurring line(s) have no plan row, so their instalment count was guessed. Lines: 9000, 9001.", status: "open" }] }));
+    expect(html).toContain("Show the lines (2)");
+  });
+
   it("shows no empty 'Show the lines' for a note it cannot tie to lines", () => {
     const html = attentionPage(view({ live: true, attention: [{ id: "import:y", kind: "import", title: "Import problem", detail: "Something else.", status: "open" }] }));
     expect(html).not.toContain("Show the lines");

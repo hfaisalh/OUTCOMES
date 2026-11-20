@@ -181,6 +181,12 @@ describe("plan link completed later (DECISIONS 56)", () => {
     expect(again.review).toHaveLength(0);
     expect(planWorkOrders(linked, again.updated.concat(before.slice(1)), opts).updated).toHaveLength(0); // settled: nothing more to do
   });
+  it("fills in a blank order reference from the feed", () => {
+    const before = planWorkOrders(feed, [], opts).created.map((w, i) => (i === 0 ? { ...w, transactionRef: "" } : w));
+    const again = planWorkOrders(feed, before, opts);
+    expect(again.updated).toHaveLength(1);
+    expect(again.updated[0]?.transactionRef).not.toBe("");
+  });
   it("leaves an excluded work order alone", () => {
     const before = planWorkOrders(feed, [], opts).created.map((w, i) => (i === 0 ? { ...w, status: "excluded" as const } : w));
     const linked = feed.map((l, i) => (i === 0 ? { ...l, subscriptionId: "S5" } : l));

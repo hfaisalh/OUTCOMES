@@ -120,7 +120,11 @@ function attentionBase(v: View, i: AttentionItem): WorkOrder[] {
   if (i.workOrderKey !== undefined) return v.workOrders.filter((w) => w.key === i.workOrderKey);
   // Import notes: the order reference notes are about lines with no reference, the instalment notes about recurring lines with no subscription.
   if (/order reference|transaction_ref/i.test(i.detail)) return v.workOrders.filter((w) => w.transactionRef === "");
-  if (/instalment count/i.test(i.detail)) return v.workOrders.filter((w) => w.subscriptionId === "" && w.instalmentCount !== "");
+  if (/instalment count/i.test(i.detail)) {
+    // The note names the line ids ("Lines: 7320, 7702"). Without them, nothing can be shown.
+    const ids = new Set(((/Lines: ([\d, ]+)/.exec(i.detail)?.[1] ?? "").match(/\d+/g)) ?? []);
+    return v.workOrders.filter((w) => ids.has(w.key));
+  }
   return [];
 }
 

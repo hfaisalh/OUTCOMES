@@ -120,7 +120,15 @@ describe("opening orders (DECISIONS 56)", () => {
     const r = adaptExports([...lines, orphan], load("export-catalogue-sample.csv"), plans);
     const row = r.rows.find((x) => x["line_id"] === "9100")!;
     expect([row["subscription_id"], row["instalment_count"]]).toEqual(["700", "10"]);
-    expect(r.issues.some((i) => i.code === "linked_opening_orders")).toBe(true);
+    expect(r.info?.some((n) => n.includes("linked to that plan"))).toBe(true);
+    expect(r.issues.some((i) => /linked/.test(i.message))).toBe(false); // done on purpose, not a problem to review
+  });
+
+  it("shows the Donation ID as the reference when the Order Reference is blank, and says so once", () => {
+    const blank = { ...orphan, "Order Reference": "", "Donation ID": "5535" };
+    const r = adaptExports([...lines, blank], load("export-catalogue-sample.csv"), plans);
+    expect(r.rows.find((x) => x["line_id"] === "9100")!["transaction_ref"]).toBe("Donation 5535");
+    expect(r.info?.some((n) => n.includes("Donation ID is shown as the reference"))).toBe(true);
   });
 
   it("does not guess when two plans share the opening order, or two lines share the donation", () => {

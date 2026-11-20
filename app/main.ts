@@ -382,7 +382,7 @@ async function loadFiles(files: File[]): Promise<void> {
       await reloadLive();
       state.pendingFiles = [];
       const a = state.audits[0];
-      state.loadNote = `Imported ${res.rows} lines: ${res.created} new work orders, ${res.unchanged} already saved.${a ? ` Audit: ${a.counts.changed + a.counts.moved} changed or moved, ${a.complete ? a.counts.removed : 0} no longer in the CRM.` : ""} ${state.attention.filter((i) => i.status === "open").length} need attention. Saved.`;
+      state.loadNote = `Imported ${res.rows} lines: ${res.created} new work orders, ${res.unchanged} already saved.${r.info?.length ? ` ${r.info.join(" ")}` : ""}${a ? ` Audit: ${a.counts.changed + a.counts.moved} changed or moved, ${a.complete ? a.counts.removed : 0} no longer in the CRM.` : ""} ${state.attention.filter((i) => i.status === "open").length} need attention. Saved.`;
       return;
     }
     await step(`Making work orders from ${r.counts.lines} lines...`);
