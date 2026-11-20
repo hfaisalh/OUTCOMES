@@ -98,3 +98,7 @@ table.inner{margin-top:8px;font-size:12px}details .actions{margin-top:8px}
 .pnode { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line, #d9dee7); }
 .pnode .lvl { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .65; font-weight: 600; min-width: 48px; }
 .meter{display:inline-block;width:90px;height:8px;border-radius:4px;background:var(--line);vertical-align:middle;overflow:hidden}.meter i{display:block;height:100%;background:#1f8a4c}
+
+/* The Settings gear in the top bar (DECISIONS 66) */
+.gear{margin-left:10px;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:4px 10px;font-size:16px;cursor:pointer}.gear.on{background:var(--accent-bg);border-color:var(--accent)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:12px}.seg button{border:0;background:var(--card);padding:6px 14px;cursor:pointer;font:inherit}.seg button.on{background:var(--accent);color:#fff}

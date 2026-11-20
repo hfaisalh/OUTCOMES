@@ -27,7 +27,7 @@ import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
 import { landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
-import { outcomesPage, commitmentsPage, commitmentList, listBlock, listHtml, listBase, workOrderList, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, type Filter, type View } from "./pages";
+import { outcomesPage, commitmentsPage, commitmentList, listBlock, listHtml, listBase, workOrderList, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, giftsPage, type Filter, type View } from "./pages";
 
 const state = {
   live: (): boolean => state.me !== null,
@@ -51,6 +51,7 @@ const state = {
   projects: [] as Project[], // the projects and the places in them (DECISIONS 65)
   nodes: [] as Node[],
   openProject: "", // the project open on the Projects page
+  giftView: "payments" as "payments" | "commitments", // how the Gifts page shows the gifts (DECISIONS 66)
   ocFilter: { cohort: "", type: "", status: "" }, // the Outcomes list filters
   openCommit: "", // the commitment whose details are open on the Outcomes page
   commitTab: "all", // Commitments page tab
@@ -157,7 +158,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, projects: state.projects, nodes: state.nodes, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, projects: state.projects, nodes: state.nodes, openProject: state.openProject, giftView: state.giftView, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -264,9 +265,10 @@ function draw(): void {
   const v = view();
   const body = menu.length === 0
     ? `<h1>No access</h1><p class="sub">Your CRM role has no OUTCOMES permission. In the live product you would not have been shown the OUTCOMES button.</p>`
-    : state.page === "work-orders" ? workOrdersPage(v)
+    : state.page === "work-orders" ? giftsPage(v)
     : state.page === "attention" ? attentionPage(v)
     : state.page === "commitments" ? commitmentsPage(v)
+    : state.page === "allocation" ? outcomesPage(v)
     : state.page === "outcomes" ? outcomesPage(v)
     : state.page === "projects" ? projectsPage(v)
     : state.page === "audit" ? auditPage(v)
@@ -274,14 +276,14 @@ function draw(): void {
     : state.page === "categories" ? categoriesPage(v)
     : state.page === "sources" ? sourcesPage()
     : settingsPage(v);
-  // Side menu: a module (Intake) is one entry, its pages are tabs above the page (DECISIONS 54).
+  // Side menu (DECISIONS 66): the journey of a gift. A module is one entry and its pages are tabs above the page. Setup is behind the gear.
   const entries = menuEntries(permissions());
-  const sections = ["Work", "Set up"].map((s) => {
-    const items = entries.filter((e) => e.section === s);
-    return items.length ? `<h4>${s}</h4>${items.map((e) => `<a data-page="${(e.pages[0] as { id: string }).id}" class="${e.pages.some((p) => p.id === state.page) ? "on" : ""}"><span class="ico">${e.icon}</span>${e.label}</a>`).join("")}` : "";
-  }).join("");
+  const work = entries.filter((e) => e.section === "Work");
+  const sections = work.length ? `<h4>Work</h4>${work.map((e) => `<a data-page="${(e.pages[0] as { id: string }).id}" class="${e.pages.some((p) => p.id === state.page) ? "on" : ""}"><span class="ico">${e.icon}</span>${e.label}</a>`).join("")}` : "";
+  const setupEntry = entries.find((e) => e.section === "Set up");
   const current = entries.find((e) => e.pages.some((p) => p.id === state.page));
   const openCount = (state.live() ? state.attention : view().attention ?? []).filter((i) => i.status === "open").length;
+  const gear = setupEntry ? `<button class="gear${setupEntry.pages.some((p) => p.id === state.page) ? " on" : ""}" data-page="${(setupEntry.pages[0] as { id: string }).id}" title="Settings: needs attention, audit, categories and sources" aria-label="Settings">⚙${openCount > 0 ? ` <span class="pill review">${openCount}</span>` : ""}</button>` : "";
   const moduleTabs = current?.module && current.pages.length > 1
     ? `<div class="modhead"><b>${esc(current.module.label)}</b><span class="muted">${esc(current.module.blurb)}</span></div><div class="modtabs">${current.pages.map((p) => `<button data-page="${p.id}" class="${p.id === state.page ? "on" : ""}">${esc(p.label)}${p.id === "attention" && openCount > 0 ? ` <span class="pill review">${openCount}</span>` : ""}</button>`).join("")}</div>`
     : "";
@@ -289,8 +291,8 @@ function draw(): void {
   shell.innerHTML = `<div class="app">
     <aside class="side"><div class="brand">OUTCOMES<small>Minhaj Welfare Foundation</small></div><nav class="nav">${sections}</nav><div class="foot">${state.me ? "Live data from your CRM." : "Demo with invented data. Nothing is saved."}</div></aside>
     <header class="top">${state.me ? `<span class="badge-demo">Signed in from the CRM${state.me.storage === "memory" ? " · TEMPORARY STORAGE, nothing is kept" : ""}</span>
-      <div class="who"><span>${esc(state.me.name)} · ${esc(state.me.org)}</span></div>` : `<span class="badge-demo">Opened from the CRM (imitated)</span>
-      <div class="who"><span>Signed in as Sample User</span><select id="role" title="Pretend to hold this CRM role">${DEMO_ROLES.map((r) => `<option value="${r.id}"${r.id === state.roleId ? " selected" : ""}>${esc(r.name)}</option>`).join("")}</select></div>`}</header>
+      <div class="who"><span>${esc(state.me.name)} · ${esc(state.me.org)}</span>${gear}</div>` : `<span class="badge-demo">Opened from the CRM (imitated)</span>
+      <div class="who"><span>Signed in as Sample User</span><select id="role" title="Pretend to hold this CRM role">${DEMO_ROLES.map((r) => `<option value="${r.id}"${r.id === state.roleId ? " selected" : ""}>${esc(r.name)}</option>`).join("")}</select>${gear}</div>`}</header>
     <main class="content">${moduleTabs}${body}</main></div>`;
   void role;
 }
@@ -371,7 +373,13 @@ document.addEventListener("click", (e) => {
   if (viewItem || viewKey) {
     state.criteria = { ...NO_CRITERIA, ...(viewItem ? { itemId: viewItem.dataset.viewItem as string } : { text: viewKey?.dataset.viewKey as string }) };
     state.filter = viewItem ? "unrouted" : "all";
+    state.giftView = "payments";
     state.page = "work-orders";
+    return draw();
+  }
+  const giftSw = target.closest("[data-gift-view]") as HTMLElement | null;
+  if (giftSw) {
+    state.giftView = giftSw.dataset.giftView === "commitments" ? "commitments" : "payments";
     return draw();
   }
   const el = target.closest("[data-page],[data-filter],[data-action]") as HTMLElement | null;

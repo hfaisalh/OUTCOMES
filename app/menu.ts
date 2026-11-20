@@ -21,7 +21,7 @@ export const PERMISSIONS = {
   settings: "outcomes.settings",
 } as const;
 
-export type PageId = "work-orders" | "attention" | "commitments" | "outcomes" | "projects" | "audit" | "categories" | "dashboard" | "sources" | "settings";
+export type PageId = "work-orders" | "attention" | "commitments" | "outcomes" | "projects" | "allocation" | "audit" | "categories" | "dashboard" | "sources" | "settings";
 
 export interface MenuItem {
   id: PageId;
@@ -42,20 +42,23 @@ export interface ModuleInfo {
 }
 
 export const MODULES: ModuleInfo[] = [
-  { id: "intake", label: "Intake", icon: "⇩", section: "Work", blurb: "Gifts come in from the CRM, are sorted into categories, checked and tracked." },
+  { id: "allocation", label: "Allocation", icon: "⇄", section: "Work", blurb: "Match waiting gifts to places, and see every place month by month." },
+  { id: "setup", label: "Settings", icon: "⚙", section: "Set up", blurb: "What needs a person, the audit, categories and sponsorship types, and other sources." },
 ];
 
+// Rule (DECISIONS 66): the side menu follows the journey of a gift: Gifts, Projects, Allocation. Everything about setting up and checking
+// sits behind the Settings gear. Gifts holds both the payments and the commitments (a switch on the page), since they are one thing seen two ways.
 export const MENU: MenuItem[] = [
-  { id: "work-orders", label: "Work orders", icon: "☰", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "intake" },
-  { id: "attention", label: "Needs attention", icon: "!", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "intake" },
-  { id: "commitments", label: "Commitments", icon: "↻", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "intake" },
-  { id: "outcomes", label: "Outcomes", icon: "◎", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "intake" },
-  { id: "projects", label: "Projects", icon: "▤", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "intake" },
-  { id: "audit", label: "Audit", icon: "✓", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "intake" },
+  { id: "work-orders", label: "Gifts", icon: "☰", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
+  { id: "projects", label: "Projects", icon: "▤", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
+  { id: "allocation", label: "Place gifts", icon: "⇄", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
+  { id: "outcomes", label: "Month by month", icon: "◎", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "dashboard", label: "Dashboard", icon: "◔", permission: PERMISSIONS.dashboards, section: "Work" },
-  { id: "categories", label: "Categories", icon: "▦", permission: PERMISSIONS.mapFrameworks, section: "Set up", module: "intake" },
-  { id: "sources", label: "Other sources", icon: "⇪", permission: PERMISSIONS.otherSources, section: "Set up" },
-  { id: "settings", label: "Settings", icon: "⚙", permission: PERMISSIONS.settings, section: "Set up" },
+  { id: "attention", label: "Needs attention", icon: "!", permission: PERMISSIONS.viewWorkOrders, section: "Set up", module: "setup" },
+  { id: "audit", label: "Audit", icon: "✓", permission: PERMISSIONS.viewWorkOrders, section: "Set up", module: "setup" },
+  { id: "categories", label: "Categories and sponsorship", icon: "▦", permission: PERMISSIONS.mapFrameworks, section: "Set up", module: "setup" },
+  { id: "sources", label: "Other sources", icon: "⇪", permission: PERMISSIONS.otherSources, section: "Set up", module: "setup" },
+  { id: "settings", label: "Organisation", icon: "⚙", permission: PERMISSIONS.settings, section: "Set up", module: "setup" },
 ];
 
 // Rule: a person must hold the access permission, then each item needs its own permission.

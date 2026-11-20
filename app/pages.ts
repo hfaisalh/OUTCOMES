@@ -37,6 +37,7 @@ export interface View {
   allocations?: Allocation[];
   ocFilter?: { cohort: string; type: string; status: string }; // the Outcomes list filters (DECISIONS 63)
   today?: string; // today as YYYY-MM-DD, so the month by month view can be drawn and tested for any date
+  giftView?: "payments" | "commitments"; // which way the Gifts page shows the gifts (DECISIONS 66)
   projects?: Project[]; // the projects and their structures (DECISIONS 65)
   nodes?: Node[]; // the places in them
   openProject?: string; // the project open on the Projects page
@@ -203,13 +204,20 @@ export function listHtml(v: View, id: string): string {
 // The Work orders page list, kept under its old name.
 export const workOrderList = (v: View): string => listHtml(v, "main");
 
+// Gifts (DECISIONS 66): payments and commitments are one thing seen two ways, so they share one menu entry and a switch.
+export function giftsPage(v: View): string {
+  const mode = v.giftView === "commitments" ? "commitments" : "payments";
+  const sw = `<div class="seg" role="group" aria-label="Show gifts"><button data-gift-view="payments" class="${mode === "payments" ? "on" : ""}">By payment</button><button data-gift-view="commitments" class="${mode === "commitments" ? "on" : ""}">By commitment</button></div>`;
+  return `${sw}${mode === "commitments" ? commitmentsPage(v) : workOrdersPage(v)}`;
+}
+
 export function workOrdersPage(v: View): string {
   // Rule: excluded work orders are out of the active list and the counts. They show only under the Excluded tab (DECISIONS 47).
   const active = v.workOrders.filter((w) => w.status !== "excluded");
   const count = (s: string) => v.workOrders.filter((w) => w.status === s).length;
   const tab = (id: Filter, label: string) => `<button data-filter="${id}" class="${v.filter === id ? "on" : ""}">${label}</button>`;
   return `
-    <h1>Work orders</h1>
+    <h1>Gifts, by payment</h1>
     <p class="sub">Arrive from the CRM feed. Only items the CRM marks as needing feedback appear here, so nothing is imported by hand.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics">${metric(active.length, "Work orders")}${metric(count("ready"), "Ready", "ok")}${metric(count("unrouted"), "Unrouted", count("unrouted") ? "warn" : "")}${metric(v.review.length, "To review", v.review.length ? "warn" : "")}</div>
@@ -423,7 +431,7 @@ export function commitmentList(v: View): string {
 
 export function commitmentsPage(v: View): string {
   return `
-    <h1>Commitments</h1>
+    <h1>Gifts, by commitment</h1>
     <p class="sub">Each recurring gift as one record: its paid instalments grouped by subscription. Read only. It shows what is paid out of what is planned, so you can see a sponsorship or an instalment plan before anything is allocated.</p>
     <div class="card filters"><input type="search" data-cf="text" placeholder="Search subscription, supporter, item, line id..." value="${esc(v.commitText ?? "")}"></div>
     <div id="commit-list">${commitmentList(v)}</div>`;
@@ -506,22 +514,16 @@ export function outcomesPage(v: View): string {
     : "";
 
   return `
-    <h1>Outcomes</h1>
+    <h1>Month by month</h1>
     <p class="sub">What the gifts are for: a child, a student, a widow, a building, an activity. Each outcome has a framework, which gives it a capacity in units. Recurring commitments and one-off payments for a number of months fill that capacity automatically, oldest first. Each outcome is one row of months. Each month is a small pie with a slice for every unit of capacity (an orphan has 3 parts, so 3 slices), coloured by status: paid (green), expected (orange), missed (red), nothing expected (grey). Click a slice to open its commitment, which holds the donor.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics">${metric(outcomes.length, "Outcomes")}${metric(count("open"), "Open")}${metric(count("part"), "Part funded")}${metric(count("full"), "Full", "ok")}${metric(waiting.length, "Commitments waiting", waiting.length ? "warn" : "")}</div>
-    <div class="card"><h2>Add outcomes</h2>
-      <div class="actions"><input id="oc-name" placeholder="Name, for example Orphan" /><input id="oc-count" type="number" min="1" max="500" value="1" style="width:80px" title="How many to add. More than one are numbered." />
-        <input id="oc-type" placeholder="Type, for example child" /><input id="oc-cohort" placeholder="Cohort (optional)" />
-        <select id="oc-fw"><option value="">Framework...</option>${fws.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>
-        <button class="primary" data-action="add-outcomes">Add</button></div>
-      <p class="muted">Several at once are numbered: Orphan 1, Orphan 2 and so on. Cohort management comes later.</p></div>
     <div class="actions"><button class="primary" data-action="auto-allocate"${outcomes.length ? "" : " disabled"}>Allocate automatically</button>
       <span class="muted">Releases what no longer holds, then places each waiting commitment in the first outcome with room. Nothing already allocated is moved.</span></div>
     ${holdNote}
     ${unusedShown.length ? `<div class="actions"><button data-action="remove-unused" data-ids="${esc(unusedShown.slice(0, 1000).map((o) => o.id).join(","))}" title="Removes the outcomes in the list below that hold no commitments. Use the filters to choose which">Remove ${Math.min(unusedShown.length, 1000)} unused outcome${unusedShown.length === 1 ? "" : "s"} in the list</button></div>` : ""}
     ${detail}
     ${waiting.length ? `<div class="card"><h2>Commitments waiting <span class="muted">(${waiting.length})</span></h2><table><tbody>${waiting.slice(0, 50).map((w) => { const c = byKey.get(w.commitmentKey); return `<tr><td><button class="linkbtn" data-open-commit="${esc(w.commitmentKey)}">Commitment ${esc(w.commitmentKey)}</button></td><td>${esc(c?.itemName ?? "")} <span class="muted">${c?.partsPerInstalment ?? 0} part${c?.partsPerInstalment === 1 ? "" : "s"}</span></td><td class="muted">${esc(w.why)}</td></tr>`; }).join("")}</tbody></table>${waiting.length > 50 ? `<p class="muted">Showing 50 of ${waiting.length}.</p>` : ""}</div>` : ""}
-    ${outcomes.length === 0 ? `<div class="card empty">No outcomes yet. Add some above, choosing a framework for them.</div>` : `<h2>12-month status</h2>${filters}<div class="card octablewrap">${shown.length === 0 ? `<div class="empty">No outcomes match the filters.</div>` : `<table class="octable">${head}<tbody>${shown.slice(0, MAXROWS).map(row).join("")}</tbody></table>${shown.length > MAXROWS ? `<p class="muted">Showing ${MAXROWS} of ${shown.length}. Use the filters to narrow the list.</p>` : ""}`}</div>`}`;
+    ${outcomes.length === 0 ? `<div class="card empty">No beneficiaries yet. Add them on the Projects page.</div>` : `<h2>12-month status</h2>${filters}<div class="card octablewrap">${shown.length === 0 ? `<div class="empty">No outcomes match the filters.</div>` : `<table class="octable">${head}<tbody>${shown.slice(0, MAXROWS).map(row).join("")}</tbody></table>${shown.length > MAXROWS ? `<p class="muted">Showing ${MAXROWS} of ${shown.length}. Use the filters to narrow the list.</p>` : ""}`}</div>`}`;
 
 }

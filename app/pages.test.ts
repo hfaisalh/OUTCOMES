@@ -151,7 +151,7 @@ describe("workOrdersPage", () => {
   it("asks for outcomes when there are none, and lists commitments waiting with the reason", () => {
     const base = plan.created[0] as WorkOrder;
     const orders = [{ ...base, key: "w1", subscriptionId: "S2", instalmentNumber: "1", instalmentCount: "12", frameworkId: "sponsorship-shared-parts" }];
-    expect(outcomesPage(view({ workOrders: orders, frameworks: starterFrameworks() }))).toContain("No outcomes yet");
+    expect(outcomesPage(view({ workOrders: orders, frameworks: starterFrameworks() }))).toContain("No beneficiaries yet");
     const waiting = outcomesPage(view({ workOrders: orders, frameworks: starterFrameworks(), outcomes: [{ id: "x", name: "X", type: "", cohort: "", frameworkId: "livelihood", active: true }] }));
     expect(waiting).toContain("Commitments waiting");
     expect(waiting).toContain("No active outcome uses its framework.");
