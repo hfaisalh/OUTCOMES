@@ -17,7 +17,7 @@ import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import type { MWF_CRM_CONFIG } from "../modules/01c-crm-connector/feed";
 import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import type { RunInfo } from "../modules/00-platform/store";
-import { CYCLE_LABELS, groupItems, missingFramework, type Category, type Cycle, type ItemInfo } from "../modules/02-project-rules/categories";
+import { CYCLE_LABELS, groupItems, INSTALMENT_LABELS, missingFramework, unitsForCommitment, type Category, type Cycle, type InstalmentRule, type ItemInfo } from "../modules/02-project-rules/categories";
 
 export type Filter = "all" | "ready" | "unrouted" | "review" | "excluded";
 
@@ -250,6 +250,7 @@ export function categoriesPage(v: View): string {
         <h4 class="fwtitle">Framework: the flow of every order in this category</h4>
         ${field("What one delivery is (unit)", `<input data-rule="unit" data-fw="${c.id}" value="${esc(c.framework.unit)}" placeholder="for example child, pump, animal" />`)}
         ${field("How often the donor hears back", `<select data-rule="cycle" data-fw="${c.id}">${(Object.keys(CYCLE_LABELS) as Cycle[]).map((y) => `<option value="${y}"${y === c.framework.cycle ? " selected" : ""}>${CYCLE_LABELS[y]}</option>`).join("")}</select>`)}
+        ${field("How an instalment counts toward a unit", `<select data-rule="instalment" data-fw="${c.id}">${c.framework.instalment === undefined ? `<option value="" selected>Choose...</option>` : ""}${(Object.keys(INSTALMENT_LABELS) as InstalmentRule[]).map((y) => `<option value="${y}"${y === c.framework.instalment ? " selected" : ""}>${INSTALMENT_LABELS[y]}</option>`).join("")}</select>`)}
         ${field("Report the donor receives", `<input data-rule="reportType" data-fw="${c.id}" value="${esc(c.framework.reportType)}" placeholder="for example Quarterly update" />`)}
         <p class="muted">Duration and instalments are not set here. They come from the CRM item.</p></details></div>`;
   };
@@ -352,18 +353,27 @@ export function commitmentList(v: View): string {
     (tab === "all" || (tab === "progress" && c.state === "in_progress") || (tab === "complete" && c.state === "complete") || (tab === "open" && c.state === "open_ended") || (tab === "look" && needsLook(c))) &&
     words.every((w) => [c.subscriptionId, c.supporterName, c.supporterId, c.itemName, ...c.lines.map((l) => l.key + " " + l.transactionRef)].join(" ").toLowerCase().includes(w));
   const rows = all.commitments.filter(keep);
+  // Units, from the category's rule for how an instalment counts (DECISIONS 52, 58). No rule set, no guess.
+  const num = (n: number) => String(Math.round(n * 100) / 100);
+  const unitsCell = (c: Commitment): string => {
+    const rule = v.categories.find((x) => x.id === c.categoryId)?.framework.instalment;
+    if (rule === undefined) return `<span class="muted">${c.categoryId === "" ? "Not in a category" : "Set how an instalment counts in the category"}</span>`;
+    const u = unitsForCommitment(rule, { parts: c.partsPerInstalment, paid: c.paid, planned: c.planned });
+    if (rule === "share_of_whole") return u.target === null ? `<span class="muted">Count unknown</span>` : `${num(u.units)} of ${num(u.target)}${u.complete ? ` <span class="pill ready">Complete, can be delivered</span>` : ` <span class="muted">(whole item not paid yet)</span>`}`;
+    return `${num(u.units)}${u.target === null ? "" : ` of ${num(u.target)}`} <span class="muted">${c.partsPerInstalment === 1 ? "month" : "part-months"}</span>`;
+  };
   const progress = (c: Commitment) => `${c.paid} of ${c.planned ?? "ongoing"}${c.planned ? `<div class="bar"><span style="width:${Math.min(100, Math.round((c.paid / c.planned) * 100))}%"></span></div>` : ""}`;
   const row = (c: Commitment) => `<tr><td>${esc(c.subscriptionId)}</td>
     <td>${esc(c.supporterName)}<div class="muted">${esc(c.supporterId)}</div></td>
     <td>${esc(c.itemName)}<div class="muted">${c.partsPerInstalment} part${c.partsPerInstalment === 1 ? "" : "s"} each instalment</div></td>
-    <td>${progress(c)}</td><td>${c.firstPaid ? `${esc(c.firstPaid)}<div class="muted">to ${esc(c.lastPaid)}</div>` : `<span class="muted">none since the load</span>`}</td>
+    <td>${progress(c)}</td><td>${unitsCell(c)}</td><td>${c.firstPaid ? `${esc(c.firstPaid)}<div class="muted">to ${esc(c.lastPaid)}</div>` : `<span class="muted">none since the load</span>`}</td>
     <td>${commitNotes(c)}<details><summary>Instalments</summary>${c.lines.map((l) => `<div class="muted">No. ${esc(l.instalmentNumber) || "?"} · Line ${esc(l.key)} · ${l.legacyUpload ? `<span class="pill review">Legacy upload</span> load date ${esc(l.paidDate)}` : esc(l.paidDate)} · ${esc(l.transactionRef) || "no reference"}</div>`).join("")}</details></td></tr>`;
   const unlinked = all.unlinked.filter((u) => words.length === 0 || words.every((w) => [u.key, u.workOrder.supporterName, u.workOrder.supporterId, u.workOrder.itemName, u.workOrder.transactionRef].join(" ").toLowerCase().includes(w)));
   const link = (u: (typeof all.unlinked)[number]) =>
     u.suggestions.length === 0 ? `<span class="muted">No commitment for the same supporter and item</span>` : u.suggestions.map((s) => `Possibly subscription <b>${esc(s.subscriptionId)}</b> <span class="muted">(${s.daysApart === null ? "legacy upload, date not comparable" : s.daysApart === 0 ? "same day" : `${Math.abs(s.daysApart)} day${Math.abs(s.daysApart) === 1 ? "" : "s"} ${s.daysApart < 0 ? "before its first instalment" : "after its first instalment"}`})</span>`).join("<br>");
   return `<div class="metrics">${metric(all.commitments.length, "Commitments")}${metric(all.commitments.filter((c) => c.state === "in_progress").length, "In progress")}${metric(all.commitments.filter((c) => c.state === "complete").length, "Complete", "ok")}${metric(all.commitments.filter(needsLook).length, "Need a look", all.commitments.some(needsLook) ? "warn" : "")}${metric(all.unlinked.length, "Recurring, no subscription", all.unlinked.length ? "warn" : "")}</div>
     <div class="tabs">${COMMIT_TABS.map(([id, label]) => `<button data-ctab="${id}" class="${tab === id ? "on" : ""}">${label}</button>`).join("")}</div>
-    <div class="card">${rows.length === 0 ? `<div class="empty">No commitments in this list.</div>` : `<table><thead><tr><th>Subscription</th><th>Supporter</th><th>Item</th><th>Paid</th><th>Dates</th><th>Notes</th></tr></thead><tbody>${rows.map(row).join("")}</tbody></table>`}</div>
+    <div class="card">${rows.length === 0 ? `<div class="empty">No commitments in this list.</div>` : `<table><thead><tr><th>Subscription</th><th>Supporter</th><th>Item</th><th>Paid</th><th>Units</th><th>Dates</th><th>Notes</th></tr></thead><tbody>${rows.map(row).join("")}</tbody></table>`}</div>
     ${unlinked.length ? `<div class="card"><h2>Recurring lines with no subscription</h2><p class="muted">The CRM did not link these to a subscription. The suggestion is only a hint, check each in the CRM. Nothing is linked here.</p><table><thead><tr><th>Line</th><th>Supporter</th><th>Item</th><th>Paid</th><th>Suggestion</th></tr></thead><tbody>${unlinked.map((u) => `<tr><td>${esc(u.key)}<div class="muted">${esc(u.workOrder.transactionRef) || "no reference"}${u.workOrder.legacyUpload ? ` <span class="pill review">Legacy upload</span>` : ""}</div></td><td>${esc(u.workOrder.supporterName)}<div class="muted">${esc(u.workOrder.supporterId)}</div></td><td>${esc(u.workOrder.itemName)}</td><td>${esc(u.workOrder.paidDate.slice(0, 10))}</td><td>${link(u)}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
 }
 

@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { acceptSuggestions, addCategory, assignItem, groupItems, isCurrentCategory, missingFramework, removeCategory, renameCategory, setKeywords, suggestAll, suggestCategory, updateFramework, type Category } from "./categories";
+import { acceptSuggestions, addCategory, assignItem, groupItems, isCurrentCategory, missingFramework, removeCategory, renameCategory, setKeywords, suggestAll, suggestCategory, unitsForCommitment, unitsForSinglePayment, updateFramework, type Category } from "./categories";
 
 const make = (): Category[] => {
   let c: Category[] = [];
@@ -70,15 +70,41 @@ describe("suggesting", () => {
 });
 
 describe("the framework", () => {
-  it("is changed part by part and reminds when unit or report type is missing", () => {
+  it("is changed part by part and reminds when unit, report type or the instalment rule is missing", () => {
     let c = make();
-    expect(missingFramework(c[0] as Category)).toHaveLength(2);
-    c = updateFramework(c, "sponsorship", { unit: "child", reportType: "Quarterly child update" });
+    expect(missingFramework(c[0] as Category)).toHaveLength(3);
+    c = updateFramework(c, "sponsorship", { unit: "child", reportType: "Quarterly child update", instalment: "per_period" });
     expect(missingFramework(c[0] as Category)).toEqual([]);
     expect(c[0]?.framework.cycle).toBe("quarterly");
   });
   it("recognises the current shape and rejects an older saved one", () => {
     expect(isCurrentCategory(make()[0])).toBe(true);
     expect(isCurrentCategory({ id: "x", name: "X", defaultCycle: "monthly" })).toBe(false);
+  });
+});
+
+describe("how an instalment counts (DECISIONS 52, 58)", () => {
+  it("per period: each instalment is its parts, and a single payment is the plan's periods", () => {
+    expect(unitsForCommitment("per_period", { parts: 1, paid: 4, planned: 12 })).toEqual({ units: 4, target: 12, complete: false });
+    expect(unitsForCommitment("per_period", { parts: 3, paid: 12, planned: 12 })).toEqual({ units: 36, target: 36, complete: true });
+    expect(unitsForCommitment("per_period", { parts: 1, paid: 7, planned: null })).toEqual({ units: 7, target: null, complete: false });
+    expect(unitsForSinglePayment("per_period", 1, 12)).toBe(12);
+    expect(unitsForSinglePayment("per_period", 3, 12)).toBe(36);
+  });
+
+  it("share of whole: each instalment is a share, complete only when all are paid, a single payment is 1 whole", () => {
+    expect(unitsForCommitment("share_of_whole", { parts: 1, paid: 4, planned: 10 })).toEqual({ units: 0.4, target: 1, complete: false });
+    expect(unitsForCommitment("share_of_whole", { parts: 1, paid: 10, planned: 10 })).toEqual({ units: 1, target: 1, complete: true });
+    expect(unitsForCommitment("share_of_whole", { parts: 2, paid: 5, planned: 10 }).units).toBe(1);
+    expect(unitsForCommitment("share_of_whole", { parts: 1, paid: 3, planned: null })).toEqual({ units: 0, target: null, complete: false });
+    expect(unitsForSinglePayment("share_of_whole", 1, 10)).toBe(1);
+  });
+
+  it("is a reminder when not set, and a saved setup with a wrong value is not understood", () => {
+    const c = addCategory([], "Pumps").value[0] as Category;
+    expect(missingFramework(c)).toContain("how an instalment counts");
+    expect(missingFramework({ ...c, framework: { ...c.framework, unit: "pump", reportType: "r", instalment: "share_of_whole" } })).toEqual([]);
+    expect(isCurrentCategory({ ...c, framework: { ...c.framework, instalment: "sometimes" } })).toBe(false);
+    expect(isCurrentCategory(c)).toBe(true); // a setup saved before the setting existed still loads
   });
 });

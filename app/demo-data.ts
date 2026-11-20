@@ -12,28 +12,28 @@
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import type { FeedRow } from "../modules/01c-crm-connector/feed";
 import feedCsv from "../samples/crm-feed-sample.csv?raw";
-import { addCategory, setKeywords, updateFramework, type Category, type Cycle } from "../modules/02-project-rules/categories";
+import { addCategory, setKeywords, updateFramework, type Category, type Cycle, type InstalmentRule } from "../modules/02-project-rules/categories";
 import { PERMISSIONS as P } from "./menu";
 
 export const demoFeedRows = (): FeedRow[] => toRecords(parseCsv(feedCsv)).records;
 
 // MWF's starting categories, from the list discussed with Faisal (to be confirmed). Each category holds its
 // framework (unit, cycle, report type) and the words that suggest it. Staff can change all of it.
-const STARTER: [string, Cycle, string, string, string][] = [
-  // name, cycle, keywords, unit, report type
-  ["Sponsorship", "quarterly", "orphan, hifz, quran, school, college, university, uni, aalim, alim, homestay, sponsorship", "child", "Quarterly child update"],
-  ["Transactional", "on_delivery", "water, well, pump, house, rebuild, masjid, mosque, marriage, marriages, wedding, sacrifice, qurbani, udhiya, aqiqah", "", ""],
-  ["Livelihood", "half_yearly", "rozgar, livelihood, rickshaw", "", ""],
-  ["Microfinance", "half_yearly", "loan, loans, microfinance", "", ""],
-  ["B2B", "on_delivery", "", "", ""],
+const STARTER: [string, Cycle, string, string, string, InstalmentRule][] = [
+  // name, cycle, keywords, unit, report type, how an instalment counts
+  ["Sponsorship", "quarterly", "orphan, hifz, quran, school, college, university, uni, aalim, alim, homestay, sponsorship", "child", "Quarterly child update", "per_period"],
+  ["Transactional", "on_delivery", "water, well, pump, house, rebuild, masjid, mosque, marriage, marriages, wedding, sacrifice, qurbani, udhiya, aqiqah", "", "", "share_of_whole"],
+  ["Livelihood", "half_yearly", "rozgar, livelihood, rickshaw", "", "", "share_of_whole"],
+  ["Microfinance", "half_yearly", "loan, loans, microfinance", "", "", "share_of_whole"],
+  ["B2B", "on_delivery", "", "", "", "share_of_whole"],
 ];
 
 export function demoCategories(): Category[] {
   let c: Category[] = [];
-  for (const [name, cycle, words, unit, reportType] of STARTER) {
+  for (const [name, cycle, words, unit, reportType, instalment] of STARTER) {
     c = addCategory(c, name, cycle).value;
     const id = c[c.length - 1]?.id ?? "";
-    c = updateFramework(setKeywords(c, id, words), id, { unit, reportType });
+    c = updateFramework(setKeywords(c, id, words), id, { unit, reportType, instalment });
   }
   return c;
 }

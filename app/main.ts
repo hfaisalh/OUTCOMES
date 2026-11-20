@@ -475,7 +475,7 @@ document.addEventListener("change", (e) => {
     if (!r.error) afterConfig(false);
   } else if (t.dataset.rule && t.dataset.fw) {
     const key = t.dataset.rule as keyof Framework;
-    state.categories = updateFramework(state.categories, t.dataset.fw, { [key]: key === "cycle" ? (t.value as Cycle) : t.value });
+    state.categories = updateFramework(state.categories, t.dataset.fw, { [key]: key === "cycle" ? (t.value as Cycle) : key === "instalment" && t.value === "" ? undefined : t.value });
     afterConfig(false);
   } else if (t.dataset.keywords) {
     state.categories = setKeywords(state.categories, t.dataset.keywords, t.value);

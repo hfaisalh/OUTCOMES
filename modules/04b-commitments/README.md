@@ -13,7 +13,7 @@ The saved work orders (excluded ones are left out).
 ## Rules
 - Needs a look: a gap in instalment numbers, a plan that starts late (the export begins part way through it), instalments with different parts, or lines that disagree on supporter or item.
 - A suggestion links nothing. A person checks the CRM.
-- Units are not counted here. An instalment is a month for a sponsorship and a share of a whole for a pump (DECISIONS 52), which the category decides when allocation is built.
+- Units are shown on the page, not in the module: the category's setting for how an instalment counts decides whether an instalment is a month or a share of a whole (DECISIONS 52, 58), with `unitsForCommitment` in Module 2. A category without the setting shows no units.
 
 ## How to test
 `npm test`. `commitments.test.ts` is pure and shows each rule on invented work orders.

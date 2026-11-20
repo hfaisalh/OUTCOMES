@@ -21,6 +21,7 @@ Many **items** sit in one **category**. The category has properties, and one of 
 - **Existing work does not move.** Sorting an item routes its unrouted work orders. Work orders that already have a category keep it, and the page says how many.
 - **Removing a category** sends its items back to Unsorted.
 - **No duration or instalment counts here.** They come from the CRM item (DECISIONS 18).
+- **How an instalment counts** is a setting of the category (DECISIONS 58): one period of the item, or a share of one whole item. It is never guessed. It gives the Units column on the Commitments page.
 - A missing framework setting is a reminder ("to fill in"), never a block.
 
 ## Files

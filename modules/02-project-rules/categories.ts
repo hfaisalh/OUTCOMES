@@ -16,6 +16,8 @@
  * Rule: categories live in OUTCOMES, not in the CRM. The CRM only says whether an item needs
  * feedback (DECISIONS 31). An item with no category is unrouted, never lost.
  * Rule: a framework does not hold duration or instalment counts. Those come from the CRM item (DECISIONS 18).
+ * What it does hold is how an instalment COUNTS toward a unit (DECISIONS 52, 58): that is a property of the kind of
+ * item, so it is a setting of the category.
  */
 
 // How often a donor hears back.
@@ -29,11 +31,22 @@ export const CYCLE_LABELS: Record<Cycle, string> = {
   on_delivery: "Once, when delivered",
 };
 
+// How an instalment counts toward a unit (DECISIONS 52). Not guessed: a category without it shows a reminder.
+// - per_period: a unit is one part for one period (a month). Each instalment is 1 unit, and a single payment is as many units as the plan has payments. Sponsorships, scholarships.
+// - share_of_whole: a unit is the whole item. Each instalment is a share of it, a single payment is 1 unit, and it is complete only when every instalment is paid. Pumps, wells, buildings.
+export type InstalmentRule = "per_period" | "share_of_whole";
+
+export const INSTALMENT_LABELS: Record<InstalmentRule, string> = {
+  per_period: "One period of the item (for example a month of sponsorship)",
+  share_of_whole: "A share of one whole item (for example 1/10 of a pump)",
+};
+
 // The framework: the settings that decide the flow of the orders in a category.
 export interface Framework {
   unit: string; // what one thing delivered is, for example "child", "pump", "animal"
   cycle: Cycle;
   reportType: string; // the name of the report the donor receives
+  instalment?: InstalmentRule; // how an instalment counts toward a unit. Absent means not set yet
 }
 
 export interface Category {
@@ -154,16 +167,31 @@ export function groupItems(items: ItemInfo[], map: ItemMap, categories: Category
   return { unsorted, byCategory };
 }
 
+// Rule: the units earned by the payments held for ONE commitment (a recurring gift), from the category's rule.
+// `parts` is the parts in each instalment (bundle quantity x order quantity), `paid` the instalments paid, `planned` the plan's
+// count (null when it runs until cancelled). Units can be a fraction. `target` is what the commitment adds up to, null when open ended.
+export function unitsForCommitment(rule: InstalmentRule, o: { parts: number; paid: number; planned: number | null }): { units: number; target: number | null; complete: boolean } {
+  if (rule === "per_period") return { units: o.parts * o.paid, target: o.planned === null ? null : o.parts * o.planned, complete: o.planned !== null && o.paid >= o.planned };
+  // share_of_whole: only meaningful with a known count, because each instalment is 1/planned of the whole.
+  if (o.planned === null) return { units: 0, target: null, complete: false };
+  const share = Math.min(o.paid, o.planned) / o.planned;
+  return { units: o.parts * share, target: o.parts, complete: o.paid >= o.planned };
+}
+
+// Rule: the units in one payment made at once. `monthsCovered` is how many periods the item's plan has (for a per_period item). A share_of_whole item is 1 whole.
+export const unitsForSinglePayment = (rule: InstalmentRule, parts: number, monthsCovered: number): number => (rule === "per_period" ? parts * monthsCovered : parts);
+
 // A category is ready to run when its framework is filled in. Staff see this as a reminder, never a block.
 export function missingFramework(c: Category): string[] {
   const missing: string[] = [];
   if (c.framework.unit.trim() === "") missing.push("what one delivery is (unit)");
   if (c.framework.reportType.trim() === "") missing.push("report type");
+  if (c.framework.instalment === undefined) missing.push("how an instalment counts");
   return missing;
 }
 
 // Rule: setup saved by an earlier version (frameworks as a separate list) is not understood, so it is treated as empty.
 export const isCurrentCategory = (x: unknown): x is Category => {
   const c = x as Category | null;
-  return !!c && typeof c.id === "string" && typeof c.name === "string" && Array.isArray(c.keywords) && !!c.framework && typeof c.framework === "object";
+  return !!c && typeof c.id === "string" && typeof c.name === "string" && Array.isArray(c.keywords) && !!c.framework && typeof c.framework === "object" && (c.framework.instalment === undefined || c.framework.instalment === "per_period" || c.framework.instalment === "share_of_whole");
 };

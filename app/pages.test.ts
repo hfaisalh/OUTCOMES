@@ -82,6 +82,20 @@ describe("workOrdersPage", () => {
     expect(commitmentsPage(view({ workOrders: orders, commitTab: "complete" }))).toContain("No commitments in this list.");
   });
 
+  it("shows units from the category's rule, and asks for the rule when it is not set", () => {
+    const base = plan.created[0] as WorkOrder;
+    const cat = demoCategories()[0]!;
+    const orders = [1, 2, 3, 4].map((n) => ({ ...base, key: `u${n}`, categoryId: cat.id, subscriptionId: "S7", instalmentNumber: String(n), instalmentCount: "12" }));
+    const per = commitmentsPage(view({ workOrders: orders, categories: [{ ...cat, framework: { ...cat.framework, instalment: "per_period" } }] }));
+    expect(per).toContain("4 of 12");
+    expect(per).toContain("month");
+    const share = commitmentsPage(view({ workOrders: orders, categories: [{ ...cat, framework: { ...cat.framework, instalment: "share_of_whole" } }] }));
+    expect(share).toContain("1.33 of 1".replace("1.33", "0.33"));
+    expect(share).toContain("whole item not paid yet");
+    const unset = commitmentsPage(view({ workOrders: orders, categories: [{ ...cat, framework: { ...cat.framework, instalment: undefined } }] }));
+    expect(unset).toContain("Set how an instalment counts");
+  });
+
   it("never lets CRM text become HTML", () => {
     const evil = plan.created.map((w) => ({ ...w, supporterName: "<img src=x onerror=alert(1)>" }));
     const html = workOrdersPage(view({ workOrders: evil }));
