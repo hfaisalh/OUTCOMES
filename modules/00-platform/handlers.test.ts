@@ -449,3 +449,32 @@ describe("outcomes (DECISIONS 61)", () => {
     expect(((await handleOutcomes(as(await signIn(d, { org: "other" })), d)).body as { outcomes: unknown[] }).outcomes).toEqual([]);
   });
 });
+
+describe("projects (DECISIONS 65)", () => {
+  const post = (cookie: string, body: unknown) => handleOutcomes(as(cookie, { method: "POST", body }), d);
+  const fwSetup = { categories: [], itemMap: {}, frameworks: [{ id: "shared", name: "Shared", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 }], itemFramework: {} };
+
+  it("builds a project, its levels and places, and adds beneficiaries, then shows it", async () => {
+    const cookie = await signIn(d);
+    await handleConfig(as(cookie, { method: "PUT", body: fwSetup }), d);
+    expect((await post(cookie, { action: "add-project", name: "Aghosh Orphan Homes", aliases: "Aghosh" })).status).toBe(200);
+    expect((await post(cookie, { action: "add-level", projectId: "aghosh-orphan-homes", name: "Branch", parentId: "" })).status).toBe(200);
+    expect((await post(cookie, { action: "add-type", projectId: "aghosh-orphan-homes", name: "Child", levelId: "branch", frameworkId: "shared" })).status).toBe(200);
+    expect((await post(cookie, { action: "add-node", projectId: "aghosh-orphan-homes", levelId: "branch", parentId: "", name: "Branch 1", field: "Location", fieldValue: "Lahore" })).status).toBe(200);
+    const r = await post(cookie, { action: "add-beneficiaries", projectId: "aghosh-orphan-homes", nodeId: "aghosh-orphan-homes-branch-1", typeId: "child", name: "Orphan", count: 3 });
+    expect(r.status).toBe(200);
+    const body = (await handleOutcomes(as(cookie), d)).body as { outcomes: { projectId: string }[]; projects: { levels: unknown[] }[]; nodes: { fields: Record<string, string> }[] };
+    expect(body.outcomes).toHaveLength(3);
+    expect(body.outcomes[0]?.projectId).toBe("aghosh-orphan-homes");
+    expect(body.projects[0]?.levels).toHaveLength(1);
+    expect(body.nodes[0]?.fields).toEqual({ Location: "Lahore" });
+  });
+  it("answers a plain error for something that does not fit, and keeps other organisations apart", async () => {
+    const cookie = await signIn(d);
+    const bad = await post(cookie, { action: "add-level", projectId: "nope", name: "Branch", parentId: "" });
+    expect(bad.status).toBe(400);
+    const other = (await handleOutcomes(as(await signIn(d, { org: "other" })), d)).body as { projects: unknown[]; nodes: unknown[] };
+    expect(other.projects).toEqual([]);
+    expect(other.nodes).toEqual([]);
+  });
+});

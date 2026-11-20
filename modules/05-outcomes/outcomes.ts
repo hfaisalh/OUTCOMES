@@ -29,6 +29,9 @@ export interface Outcome {
   cohort: string; // the group it belongs to, "" for none. Cohort management comes later
   frameworkId: string; // the framework that gives its unit and capacity
   active: boolean;
+  projectId?: string; // the project it belongs to, absent for one made before projects existed (DECISIONS 65)
+  nodeId?: string; // the place in the project's structure where it lives
+  typeId?: string; // the project's type of beneficiary it is
 }
 
 export interface Allocation {

@@ -19,6 +19,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSION_SECONDS, verifyToken, signToken, clearSessionCookie, type Claims } from "./launch-token.js";
 import { excludeWorkOrder, restoreWorkOrder, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import { allocatable } from "../04b-commitments/commitments.js";
+import { addBeneficiaries, addLevel, addNode, addProject, addType, removeLevel, removeNode, removeType, setNodeField } from "../06-projects/projects.js";
 import { addOutcomes, autoAllocate, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive } from "../05-outcomes/outcomes.js";
 import { applyDecision, buildAttention } from "../04-triage/triage.js";
 import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
@@ -303,6 +304,8 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   const config = (await d.store.getConfig(org)) ?? defaultConfig();
   let outcomes = config.outcomes ?? [];
   let allocations = config.allocations ?? [];
+  let projects = config.projects ?? [];
+  let nodes = config.nodes ?? [];
   let extra: Record<string, unknown> = {};
 
   if (write) {
@@ -355,10 +358,67 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       case "release":
         allocations = releaseAllocation(allocations, str("commitmentKey"));
         break;
+      // Projects (DECISIONS 65): the structure each project defines, and the beneficiaries in it.
+      case "add-project": {
+        const aliases = str("aliases").split(",");
+        const r = addProject(projects, str("name").slice(0, 100), aliases.slice(0, 20).map((x) => x.slice(0, 100)));
+        if (r.error) return fail(r.error);
+        projects = r.value;
+        break;
+      }
+      case "add-level": {
+        const r = addLevel(projects, str("projectId"), str("name").slice(0, 60), str("parentId"));
+        if (r.error) return fail(r.error);
+        projects = r.value;
+        break;
+      }
+      case "remove-level": {
+        const r = removeLevel(projects, nodes, str("projectId"), str("levelId"));
+        if (r.error) return fail(r.error);
+        projects = r.value;
+        break;
+      }
+      case "add-type": {
+        const r = addType(projects, str("projectId"), { name: str("name").slice(0, 60), levelId: str("levelId"), frameworkId: str("frameworkId") }, fw);
+        if (r.error) return fail(r.error);
+        projects = r.value;
+        if (r.warning) extra = { warning: r.warning };
+        break;
+      }
+      case "remove-type": {
+        const r = removeType(projects, outcomes, str("projectId"), str("typeId"));
+        if (r.error) return fail(r.error);
+        projects = r.value;
+        break;
+      }
+      case "add-node": {
+        const r = addNode(nodes, projects, str("projectId"), str("levelId"), str("parentId"), str("name").slice(0, 100), str("field") !== "" ? { [str("field").slice(0, 60)]: str("fieldValue").slice(0, 200) } : {});
+        if (r.error) return fail(r.error);
+        if (r.value.length > MAX_OUTCOMES) return fail(`There can be at most ${MAX_OUTCOMES} places.`);
+        nodes = r.value;
+        break;
+      }
+      case "remove-node": {
+        const r = removeNode(nodes, outcomes, str("nodeId"));
+        if (r.error) return fail(r.error);
+        nodes = r.value;
+        break;
+      }
+      case "set-field":
+        if (!nodes.some((x) => x.id === str("nodeId"))) return fail("That place was not found.");
+        nodes = setNodeField(nodes, str("nodeId"), str("key").slice(0, 60), str("value").slice(0, 200));
+        break;
+      case "add-beneficiaries": {
+        const r = addBeneficiaries(outcomes, projects, nodes, { projectId: str("projectId"), nodeId: str("nodeId"), typeId: str("typeId"), name: str("name").slice(0, 100), count: Number(b["count"] ?? 1) });
+        if (r.error) return fail(r.error);
+        if (r.value.length > MAX_OUTCOMES) return fail(`There can be at most ${MAX_OUTCOMES} beneficiaries.`);
+        outcomes = r.value;
+        break;
+      }
       default:
         return fail("That request is not understood.");
     }
-    await d.store.putConfig(org, { ...config, outcomes, allocations });
+    await d.store.putConfig(org, { ...config, outcomes, allocations, projects, nodes });
   }
-  return json(200, { outcomes, allocations, ...extra });
+  return json(200, { outcomes, allocations, projects, nodes, ...extra });
 }

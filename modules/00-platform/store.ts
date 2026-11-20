@@ -14,6 +14,7 @@
 import { MWF_CRM_CONFIG, type FeedConfig } from "../01c-crm-connector/feed.js";
 import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js";
 import type { Allocation, Outcome } from "../05-outcomes/outcomes.js";
+import type { Node, Project } from "../06-projects/projects.js";
 import { migrateSetup, type Category, type FrameworkTemplate, type ItemMap, type Setup } from "../02-project-rules/categories.js";
 import type { AuditRecord } from "../01f-batch-audit/audit.js";
 import type { TriageMark } from "../04-triage/triage.js";
@@ -31,6 +32,8 @@ export interface OrgConfig {
   itemFramework?: Record<string, string>; // an item's own framework, only where it differs from its category
   outcomes?: Outcome[]; // what gifts are allocated to (DECISIONS 61). Kept in the setup for now, to move to their own table when there are many
   allocations?: Allocation[];
+  projects?: Project[]; // the projects, each with the structure it defines (DECISIONS 65)
+  nodes?: Node[]; // the places in those structures
   usesFrameworks: boolean;
   feed: FeedConfig;
   crm: CrmSetting;
