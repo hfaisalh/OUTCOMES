@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Allocation } from "../05-outcomes/outcomes";
 import type { Commitment } from "../04b-commitments/commitments";
-import { adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, setCrmName, crmProjectNames, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
+import { assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, setCrmName, crmProjectNames, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -420,6 +420,29 @@ describe("beneficiaries made before partners existed, and placing a gift on a pa
     expect(r.value[0]).toMatchObject({ outcomeId: "a", how: "manual" });
     expect(placeInPartner([], [gift("1")], [out("x", "other")], projects, FW, "1", projects[0]!.id, "t").error).toContain("no room");
     expect(placeInPartner([], [gift("1")], outcomes, projects, FW, "1", "nope", "t").error).toContain("not found");
+  });
+});
+
+describe("the beneficiary's own ID (DECISIONS 75)", () => {
+  const out = (id: string, projectId: string, ref?: string) => ({ id, name: id, type: "child", cohort: "", frameworkId: "shared", active: true, projectId, ...(ref ? { ref } : {}) });
+
+  it("sets an ID, keeps it unique ignoring capitals, and clears it when empty", () => {
+    const list = [out("a", "p"), out("b", "p", "A-0007")];
+    expect(setRef(list, "a", " a-0001 ").value[0]?.ref).toBe("a-0001");
+    expect(setRef(list, "a", "a-0007").error).toContain("already used");
+    expect(setRef(list, "b", "").value[1]).not.toHaveProperty("ref");
+    expect(setRef(list, "zzz", "x").error).toContain("not found");
+  });
+  it("gives the next numbers in name order to those without an ID, skips numbers in use, and leaves others alone", () => {
+    const list = [out("Orphan 10", "p"), out("Orphan 2", "p"), out("Orphan 3", "p", "A-0003"), out("Other", "q")];
+    const r = assignRefs(list, "p", "A-", 1);
+    expect(r.error).toBeUndefined();
+    expect(Object.fromEntries(r.value.map((o) => [o.id, o.ref]))).toEqual({ "Orphan 10": "A-0002", "Orphan 2": "A-0001", "Orphan 3": "A-0003", Other: undefined });
+  });
+  it("asks for a prefix, a sensible start, and has nothing to do when everyone has an ID", () => {
+    expect(assignRefs([out("a", "p")], "p", "", 1).error).toContain("prefix");
+    expect(assignRefs([out("a", "p")], "p", "A-", -1).error).toContain("whole number");
+    expect(assignRefs([out("a", "p", "X1")], "p", "A-", 1).error).toContain("already has an ID");
   });
 });
 

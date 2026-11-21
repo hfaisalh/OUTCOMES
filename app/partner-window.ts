@@ -88,7 +88,7 @@ function beneficiariesHtml(v: View, project: Project): string {
   const rows = outcomes.slice(0, MAX_ROWS).map((o) => {
     const used = fillOf(o, fws, allocations, commitments, policy).used;
     const cap = capacityOf(o, fws);
-    return `<tr><td><b>${esc(o.name)}</b></td><td>${esc(o.type)}</td><td>${o.nodeId ? esc(nodeName(o.nodeId)) : '<span class="muted">Not placed</span>'}</td><td>${(o.groupIds ?? []).map((g) => esc(nodeName(g))).join(", ")}</td><td>${used} of ${cap} ${meter(used, cap)}</td><td>${o.active ? "Active" : "Offboarded"}</td><td><button data-oc-active="${esc(o.id)}" data-active="${o.active ? "0" : "1"}">${o.active ? "Offboard" : "Activate"}</button>${held.has(o.id) ? "" : ` <button data-oc-remove="${esc(o.id)}">Remove</button>`}</td></tr>`;
+    return `<tr><td><b>${esc(o.name)}</b></td><td><input class="refbox" data-ref="${esc(o.id)}" value="${esc(o.ref ?? "")}" placeholder="ID" aria-label="ID of ${esc(o.name)}" /></td><td>${esc(o.type)}</td><td>${o.nodeId ? esc(nodeName(o.nodeId)) : '<span class="muted">Not placed</span>'}</td><td>${(o.groupIds ?? []).map((g) => esc(nodeName(g))).join(", ")}</td><td>${used} of ${cap} ${meter(used, cap)}</td><td>${o.active ? "Active" : "Offboarded"}</td><td><button data-oc-active="${esc(o.id)}" data-active="${o.active ? "0" : "1"}">${o.active ? "Offboard" : "Activate"}</button>${held.has(o.id) ? "" : ` <button data-oc-remove="${esc(o.id)}">Remove</button>`}</td></tr>`;
   }).join("");
   const unused = outcomes.filter((o) => !held.has(o.id)).map((o) => o.id);
   // One group list for each kind of grouping any type uses. Each is shown only when the chosen type uses it, and lists only the groups in the chosen place.
@@ -104,8 +104,9 @@ function beneficiariesHtml(v: View, project: Project): string {
         <select id="pj-ben-node" aria-label="Place"><option value="">Place (optional)</option>${nodes.map((n) => `<option value="${esc(n.id)}" data-level="${esc(n.levelId)}">${esc(n.name)} (${esc(levelName(n.levelId))})</option>`).join("")}</select>${groupSelects}</div>
       <p class="muted">Choosing a kind uses how it is sponsored and the groups it has. A place is optional. If you choose one, the groups (a class, a house) in that place are offered.</p></details></section>
   <section><h3>Beneficiaries <span class="muted">(${outcomes.length})</span></h3>
+    <div class="actions"><span class="muted">Give every one without an ID the next number:</span><input id="pj-ref-prefix" placeholder="Prefix, for example A-" style="width:150px" /><input id="pj-ref-start" type="number" min="0" value="1" aria-label="Start from" style="width:90px" /><button data-action="assign-refs">Assign IDs</button></div>
     ${unused.length ? `<div class="actions"><button data-action="remove-unused" data-ids="${esc(unused.slice(0, 1000).join(","))}">Remove ${Math.min(unused.length, 1000)} with no sponsor</button></div>` : ""}
-    ${outcomes.length ? `<div class="twrap"><table><thead><tr><th>Name</th><th>Type</th><th>Place</th><th>Groups</th><th>Sponsored of units</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${outcomes.length > MAX_ROWS ? `<p class="muted">Showing ${MAX_ROWS} of ${outcomes.length}.</p>` : ""}` : `<div class="empty">No beneficiaries yet.</div>`}</section>`;
+    ${outcomes.length ? `<div class="twrap"><table><thead><tr><th>Name</th><th>ID</th><th>Type</th><th>Place</th><th>Groups</th><th>Sponsored of units</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${outcomes.length > MAX_ROWS ? `<p class="muted">Showing ${MAX_ROWS} of ${outcomes.length}.</p>` : ""}` : `<div class="empty">No beneficiaries yet.</div>`}</section>`;
 }
 
 /**

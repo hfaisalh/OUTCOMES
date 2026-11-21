@@ -76,6 +76,9 @@ describe("partnerWindowHtml", () => {
     expect(html).toContain("A new kind, named above");
     expect(html).toContain("<details>");
     expect(html).toContain("That is all that is needed");
+    expect(html).toContain("<th>ID</th>");
+    expect(html).toContain('data-ref="orphan-1"'); // an ID can be typed for each beneficiary
+    expect(html).toContain('data-action="assign-refs"'); // or given to all of them in one go
     expect(html).toContain('class="pj-ben-group" data-group-level="class"'); // one list for each grouping
     expect(html).toContain('data-group-level="house"');
     expect(html).toMatch(/data-in="aghosh-orphan-homes-branch-1"/); // a group lists the place it is in, so only its own place's groups are offered

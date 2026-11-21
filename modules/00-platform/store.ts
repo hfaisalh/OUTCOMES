@@ -35,6 +35,7 @@ export interface OrgConfig {
   partnerTypes?: string[]; // the organisation's own list of partner types (DECISIONS 69)
   partnerFields?: string[]; // the organisation's own extra partner profile fields, by label
   releaseLog?: { commitmentKey: string; outcomeId: string; by: string; at: string; daysOverdue: number }[]; // who approved which release, and when (DECISIONS 74)
+  requireRef?: boolean; // place gifts only on beneficiaries that have an ID (DECISIONS 75)
   graceDays?: number; // days a payment may be unpaid after it was due before the place may be released, default 15 (DECISIONS 74)
   projects?: Project[]; // the projects, each with the structure it defines (DECISIONS 65)
   nodes?: Node[]; // the places in those structures

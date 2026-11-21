@@ -25,7 +25,7 @@ export function allocationPage(v: View): string {
   const allocations = v.allocations ?? [];
   const fws = v.frameworks ?? [];
   const today = v.today ?? "2026-01-01";
-  const opts = allocOptions(projects, v.graceDays, today);
+  const opts = allocOptions(projects, v.graceDays, today, v.requireRef === true);
   const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
   const sum = allocationSummary(projects, outcomes, fws, allocations, commitments, opts);
   const byOutcome = new Map(outcomes.map((o) => [o.id, o]));
@@ -64,7 +64,8 @@ export function allocationPage(v: View): string {
     ${sum.rows.length ? `<div class="twrap"><table><thead><tr><th>Partner</th><th>Beneficiaries</th><th>Units</th><th>Sponsored</th><th>Free</th><th>Behind, in grace</th><th>Release due</th><th>Waiting (parts)</th><th>Surplus or deficit</th><th>Takes gifts</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">No partners yet. Create one on the Partners page.</div>`}
     <p class="muted">${sum.generalWaiting.gifts} general gift${sum.generalWaiting.gifts === 1 ? "" : "s"} waiting (${sum.generalWaiting.parts} parts), which can go to any partner. Surplus or deficit is the free units minus the parts of waiting gifts.</p>
     ${holdNote}
-    ${buffer}</div>`;
+    ${buffer}
+    <label class="muted"><input type="checkbox" data-require-ref${v.requireRef ? " checked" : ""} /> Place gifts only on beneficiaries that have an ID. Give IDs on each partner's Beneficiaries tab.</label></div>`;
 
   const gift = (c: (typeof waiting)[number]) => {
     const sug = suggested.get(c.subscriptionId);

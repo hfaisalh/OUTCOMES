@@ -308,6 +308,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   let nodes = config.nodes ?? [];
   let graceDays = config.graceDays ?? DEFAULT_GRACE_DAYS;
   let releaseLog = config.releaseLog ?? [];
+  let requireRef = config.requireRef === true;
   let partnerTypes = config.partnerTypes ?? [];
   let partnerFields = config.partnerFields ?? [];
   let extra: Record<string, unknown> = {};
@@ -348,7 +349,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
         break;
       }
       case "auto": {
-        const r = autoAllocate(await commitments(), outcomes, fw, allocations, at, allocOptions(projects, graceDays, at.slice(0, 10)));
+        const r = autoAllocate(await commitments(), outcomes, fw, allocations, at, allocOptions(projects, graceDays, at.slice(0, 10), requireRef));
         allocations = r.allocations;
         extra = { placed: r.placed, released: r.released, unplaced: r.unplaced };
         break;
@@ -385,6 +386,9 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
         extra = { removed: r.removed, released: r.released };
         break;
       }
+      case "set-require-ref":
+        requireRef = b["on"] === true;
+        break;
       case "set-grace": {
         const n = Number(b["days"]);
         if (!Number.isInteger(n) || n < 0 || n > 90) return fail("The grace period is a whole number of days, from 0 to 90.");
@@ -413,7 +417,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
         if (r.warning) extra = { warning: r.warning };
       }
     }
-    await d.store.putConfig(org, { ...config, outcomes, allocations, projects, nodes, graceDays, releaseLog, partnerTypes, partnerFields });
+    await d.store.putConfig(org, { ...config, outcomes, allocations, projects, nodes, graceDays, releaseLog, requireRef, partnerTypes, partnerFields });
   }
-  return json(200, { outcomes, allocations, projects, nodes, graceDays, partnerTypes, partnerFields, ...extra });
+  return json(200, { outcomes, allocations, projects, nodes, graceDays, requireRef, partnerTypes, partnerFields, ...extra });
 }

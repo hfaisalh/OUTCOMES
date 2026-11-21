@@ -83,6 +83,7 @@ describe("allocationPage", () => {
     expect(html).toContain("<td>50</td>"); // days overdue
     expect(html).toContain("The place stays until a manager approves the release");
     expect(html).toContain('type="number" min="0" max="90" value="15" data-grace');
+    expect(html).toContain("data-require-ref");
     const ontime = allocationPage(base({ projects, nodes, outcomes, allocations: placed, workOrders: [order("1", "S1", "Aghosh")], graceDays: 15 }));
     expect(ontime).not.toContain("Release approvals");
   });

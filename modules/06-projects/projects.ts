@@ -281,6 +281,36 @@ export function addBeneficiaries(outcomes: Outcome[], projects: Project[], nodes
   return { value: [...outcomes, ...added] };
 }
 
+// ---- The beneficiary's own ID (DECISIONS 75) ----
+
+// Rule: a beneficiary's ID is unique across the organisation, ignoring capitals. Empty clears it.
+export function setRef(outcomes: Outcome[], outcomeId: string, ref: string): Changed<Outcome[]> {
+  const id = clean(ref);
+  if (!outcomes.some((o) => o.id === outcomeId)) return { value: outcomes, error: "That beneficiary was not found." };
+  if (id !== "" && outcomes.some((o) => o.id !== outcomeId && same(o.ref ?? "", id))) return { value: outcomes, error: `The ID "${id}" is already used by another beneficiary.` };
+  return { value: outcomes.map((o) => { if (o.id !== outcomeId) return o; const { ref: _r, ...rest } = o; return id === "" ? rest : { ...rest, ref: id }; }) };
+}
+
+// Rule: give every beneficiary of a partner that has no ID the next number, in name order, such as A-0001, A-0002. Numbers already used are skipped. Ones with an ID keep it.
+export function assignRefs(outcomes: Outcome[], projectId: string, prefix: string, start: number): Changed<Outcome[]> {
+  const pre = clean(prefix);
+  if (pre === "") return { value: outcomes, error: "Give the IDs a prefix, for example A-." };
+  if (!Number.isInteger(start) || start < 0 || start > 999999) return { value: outcomes, error: "Start from a whole number." };
+  const used = new Set(outcomes.map((o) => (o.ref ?? "").toLowerCase()).filter((x) => x !== ""));
+  const todo = outcomes.filter((o) => o.projectId === projectId && (o.ref ?? "") === "").sort((x, y) => x.name.localeCompare(y.name, undefined, { numeric: true }));
+  if (todo.length === 0) return { value: outcomes, error: "Every beneficiary of this partner already has an ID." };
+  const given = new Map<string, string>();
+  let n = start;
+  for (const o of todo) {
+    let id = `${pre}${String(n).padStart(4, "0")}`;
+    while (used.has(id.toLowerCase())) id = `${pre}${String(++n).padStart(4, "0")}`;
+    used.add(id.toLowerCase());
+    given.set(o.id, id);
+    n++;
+  }
+  return { value: outcomes.map((o) => (given.has(o.id) ? { ...o, ref: given.get(o.id) as string } : o)) };
+}
+
 // ---- Roll-up ----
 
 export interface Rollup {
@@ -378,7 +408,7 @@ export interface ProjectState {
   partnerFields: string[]; // the organisation's own extra profile fields, by label
 }
 
-export const PROJECT_ACTIONS = ["toggle-crm-name", "save-partner", "add-partner-type", "add-partner-field", "remove-partner-field", "add-level", "move-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "set-field", "add-beneficiaries"];
+export const PROJECT_ACTIONS = ["set-ref", "assign-refs", "toggle-crm-name", "save-partner", "add-partner-type", "add-partner-field", "remove-partner-field", "add-level", "move-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "set-field", "add-beneficiaries"];
 export const MAX_RECORDS = 5000;
 
 /**
@@ -393,6 +423,14 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
   const done = (state: ProjectState, warning?: string) => ({ state, ...(warning ? { warning } : {}) });
   const fail = (error: string) => ({ state: s, error });
   switch (action) {
+    case "set-ref": {
+      const r = setRef(s.outcomes, str("outcomeId"), str("ref", 40));
+      return r.error ? fail(r.error) : done({ ...s, outcomes: r.value });
+    }
+    case "assign-refs": {
+      const r = assignRefs(s.outcomes, str("projectId"), str("prefix", 20), Number(body["start"] ?? 1));
+      return r.error ? fail(r.error) : done({ ...s, outcomes: r.value });
+    }
     case "toggle-crm-name": {
       const r = setCrmName(s.projects, str("name", 200), str("projectId"), body["on"] === true);
       return r.error ? fail(r.error) : done({ ...s, projects: r.value });
@@ -479,7 +517,8 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
 }
 
 // The options automatic allocation needs from the setup: how long a plan that stops paying keeps its place, and how a gift's project name finds its project.
-export const allocOptions = (projects: Project[], graceDays: number | undefined, today: string): AllocOptions & { policy: Policy } => ({
+export const allocOptions = (projects: Project[], graceDays: number | undefined, today: string, requireRef = false): AllocOptions & { policy: Policy } => ({
+  requireRef,
   policy: { today, graceDays: graceDays ?? DEFAULT_GRACE_DAYS },
   projectIdsFor: (name) => matchProjects(projects, name).map((p) => p.id),
   partnerOk: (projectId, itemId) => partnerAccepts(projects, projectId, itemId, today),

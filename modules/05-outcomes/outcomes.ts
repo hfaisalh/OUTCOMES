@@ -33,6 +33,7 @@ export interface Outcome {
   nodeId?: string; // the place in the project's structure where it lives
   typeId?: string; // the project's type of beneficiary it is
   groupIds?: string[]; // the groups it is in inside its place, such as a class and a house (DECISIONS 71)
+  ref?: string; // its own ID in the organisation's records, such as the child ID. Unique. Gifts can be placed only on beneficiaries that have one, if the organisation asks for it (DECISIONS 75)
 }
 
 export interface Allocation {
@@ -212,6 +213,7 @@ export interface AutoResult {
 
 export interface AllocOptions {
   policy?: Policy; // the buffer for plans that stop paying
+  requireRef?: boolean; // place gifts only on beneficiaries that have an ID (DECISIONS 75)
   partnerOk?: (projectId: string | undefined, itemId: string) => boolean; // whether a partner is active and delivers the gift's item (DECISIONS 69). Outcomes with no partner are always open
   projectIdsFor?: (crmProjectName: string) => string[]; // the partners a donor's chosen project goes to. Empty means a general gift. More than one means any of them (DECISIONS 68)
 }
@@ -263,10 +265,11 @@ export function autoAllocate(commitments: Commitment[], outcomes: Outcome[], fw:
   const unplaced: AutoResult["unplaced"] = [];
   let placed = 0;
   for (const c of todo) {
-    const ofKind = outcomes.filter((o) => o.active && o.frameworkId === c.frameworkId);
+    const activeKind = outcomes.filter((o) => o.active && o.frameworkId === c.frameworkId);
+    const ofKind = activeKind.filter((o) => !opts.requireRef || (o.ref ?? "") !== "");
     const sameFramework = ofKind.filter((o) => opts.partnerOk?.(o.projectId, c.itemId) ?? true);
     if (sameFramework.length === 0) {
-      unplaced.push({ commitmentKey: c.subscriptionId, why: ofKind.length > 0 ? "No active partner that delivers this item has a place of this kind." : "No active outcome uses its framework." });
+      unplaced.push({ commitmentKey: c.subscriptionId, why: activeKind.length === 0 ? "No active outcome uses its framework." : ofKind.length === 0 ? "None of the beneficiaries of this kind has an ID yet. Give them IDs, or turn the setting off." : "No active partner that delivers this item has a place of this kind." });
       continue;
     }
     const directedTo = opts.projectIdsFor?.(c.projectName) ?? [];

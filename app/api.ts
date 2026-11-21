@@ -81,6 +81,7 @@ export interface OutcomesReply {
   projects?: Project[];
   nodes?: Node[];
   graceDays?: number;
+  requireRef?: boolean;
   partnerTypes?: string[];
   partnerFields?: string[];
   warning?: string;
