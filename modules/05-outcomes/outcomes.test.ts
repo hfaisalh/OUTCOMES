@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Commitment } from "../04b-commitments/commitments";
-import { addOutcomes, autoAllocate, capacityOf, fillOf, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, monthStatus, holdingReport, inBuffer, overdueMonths, pickOutcome, monthsAround, timelineOf, takesCapacity, type Allocation, type Outcome } from "./outcomes";
+import { addOutcomes, autoAllocate, capacityOf, fillOf, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, monthStatus, holdingReport, inGrace, daysOverdue, releaseDue, releaseApprovals, asksForPlace, pickOutcome, monthsAround, timelineOf, takesCapacity, type Allocation, type Outcome } from "./outcomes";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -213,7 +213,7 @@ describe("why commitments are not asking for capacity", () => {
   it("counts those with no framework, no instalment rule, cancelled, finished and holding", () => {
     const noRule: FrameworkTemplate = { id: "norule", name: "No rule", unit: "x", cycle: "quarterly", reportType: "Q", unitsPerBeneficiary: 1 };
     const list = [com("1", 3), com("2", 3, { frameworkId: "" }), com("3", 3, { frameworkId: "norule" }), com("4", 3, { planStatus: "cancelled" }), com("5", 3, { state: "complete" })];
-    expect(holdingReport(list, [...FW, noRule])).toEqual({ total: 5, holding: 1, noFramework: 1, noRule: 1, cancelled: 1, finished: 1, lapsed: 0, inBuffer: 0 });
+    expect(holdingReport(list, [...FW, noRule])).toEqual({ total: 5, holding: 1, noFramework: 1, noRule: 1, cancelled: 1, finished: 1, lapsed: 0, inGrace: 0 });
   });
 });
 
@@ -281,30 +281,49 @@ describe("directed and general gifts, spreading, and the payment buffer (DECISIO
     expect(pickOutcome(OUT.slice(0, 1), FW, new Map([["a1", 3]]), 1)).toBeUndefined();
   });
 
-  describe("the payment buffer", () => {
+  describe("the grace days and the manager's approval (DECISIONS 74)", () => {
     const behind = (nextDue: string, over: Partial<Commitment> = {}) => com("9", 3, { planStatus: "active", nextDue, planned: 12, paid: 2, planPaid: 2, ...over });
-    it("counts a plan behind from its due date to now, never more than it has left", () => {
-      expect(overdueMonths(behind("2026-11-05"), "2026-11-20")).toBe(1);
-      expect(overdueMonths(behind("2026-11-25"), "2026-11-20")).toBe(0);
-      expect(overdueMonths(behind("2026-10-29"), "2026-11-20")).toBe(1); // October missed, November not due until the 29th
-      expect(overdueMonths(behind("2026-06-05"), "2026-11-20")).toBe(6);
-      expect(overdueMonths(behind("2026-06-05", { planned: 3, planPaid: 2 }), "2026-11-20")).toBe(1);
-      expect(overdueMonths(behind("2026-06-05", { planStatus: "paused" }), "2026-11-20")).toBe(0);
+    const policy = { today: "2026-11-20", graceDays: 15 };
+    it("counts the days the next payment is overdue, and none for a one-off, a paused plan or a payment not due yet", () => {
+      expect(daysOverdue(behind("2026-11-05"), "2026-11-20")).toBe(15);
+      expect(daysOverdue(behind("2026-11-20"), "2026-11-20")).toBe(0);
+      expect(daysOverdue(behind("2026-11-25"), "2026-11-20")).toBe(0);
+      expect(daysOverdue(behind("2026-06-05"), "2026-11-20")).toBe(168);
+      expect(daysOverdue(behind("2026-06-05", { planStatus: "paused" }), "2026-11-20")).toBe(0);
+      expect(daysOverdue(behind("2026-06-05", { once: true }), "2026-11-20")).toBe(0);
+      expect(daysOverdue(behind("2026-06-05", { planned: 2, planPaid: 2 }), "2026-11-20")).toBe(0); // nothing left to pay
     });
-    it("holds the place inside the buffer, and lets go after it", () => {
-      const policy = { today: "2026-11-20", bufferMonths: 1 };
-      expect(inBuffer(behind("2026-11-05"), policy)).toBe(true);
-      expect(takesCapacity(behind("2026-11-05"), FW, policy)).toBe(true);
-      expect(takesCapacity(behind("2026-10-05"), FW, policy)).toBe(false);
-      expect(takesCapacity(behind("2026-10-05"), FW)).toBe(true); // no policy, no buffer rule
+    it("is inside the grace for 15 days, and releasable after that", () => {
+      expect(inGrace(behind("2026-11-05"), policy)).toBe(true);
+      expect(releaseDue(behind("2026-11-05"), policy)).toBe(false); // exactly 15 days is still inside
+      expect(releaseDue(behind("2026-11-04"), policy)).toBe(true); // 16 days
+      expect(inGrace(behind("2026-11-04"), policy)).toBe(false);
     });
-    it("releases a lapsed plan's place and places the next gift there", () => {
-      const lapsed = behind("2026-06-05", { subscriptionId: "L" });
-      const first = autoAllocate([lapsed], OUT.slice(0, 1), FW, [], AT, {});
-      expect(first.placed).toBe(1);
-      const later = autoAllocate([lapsed, gift("2", 3, "", { firstPaid: "2026-09-01" })], OUT.slice(0, 1), FW, first.allocations, AT, { policy: { today: "2026-11-20", bufferMonths: 1 } });
-      expect(later.released).toBe(1);
-      expect(later.allocations.map((a) => a.commitmentKey)).toEqual(["2"]);
+    it("keeps the place until a manager approves: an overdue plan still holds capacity, but asks for no new place", () => {
+      const late = behind("2026-10-01");
+      expect(takesCapacity(late, FW)).toBe(true);
+      expect(asksForPlace(late, FW, policy)).toBe(false);
+      expect(asksForPlace(late, FW)).toBe(true); // no policy, no rule
+      const first = autoAllocate([late], OUT.slice(0, 1), FW, [], AT, {});
+      const again = autoAllocate([late], OUT.slice(0, 1), FW, first.allocations, AT, { policy });
+      expect(again.released).toBe(0); // not released by itself
+      expect(again.allocations).toHaveLength(1);
+      expect(fillOf(OUT[0]!, FW, again.allocations, [late], policy).used).toBe(3); // and the child still shows as sponsored
+    });
+    it("does not place an overdue gift that has no place, and lists the places a manager may release, most overdue first", () => {
+      const a = behind("2026-10-01", { subscriptionId: "A" });
+      const b = behind("2026-08-01", { subscriptionId: "B" });
+      const ok = behind("2026-11-10", { subscriptionId: "C" });
+      expect(autoAllocate([a], OUT.slice(0, 1), FW, [], AT, { policy }).placed).toBe(0);
+      const alloc: Allocation[] = ["A", "B", "C"].map((k, i) => ({ commitmentKey: k, outcomeId: OUT[i]!.id, parts: 3, how: "auto" as const, at: AT }));
+      expect(releaseApprovals(alloc, [a, b, ok], FW, policy).map((x) => [x.commitmentKey, x.daysOverdue])).toEqual([["B", 111], ["A", 50]]);
+    });
+    it("once a manager releases it, the child is free for the next gift", () => {
+      const late = behind("2026-10-01", { subscriptionId: "L" });
+      const first = autoAllocate([late], OUT.slice(0, 1), FW, [], AT, {});
+      const released = releaseAllocation(first.allocations, "L");
+      const next = autoAllocate([late, gift("2", 3, "", { firstPaid: "2026-11-01" })], OUT.slice(0, 1), FW, released, AT, { policy });
+      expect(next.allocations.map((a) => a.commitmentKey)).toEqual(["2"]);
     });
   });
 });

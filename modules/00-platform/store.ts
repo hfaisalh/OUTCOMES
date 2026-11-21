@@ -34,7 +34,8 @@ export interface OrgConfig {
   allocations?: Allocation[];
   partnerTypes?: string[]; // the organisation's own list of partner types (DECISIONS 69)
   partnerFields?: string[]; // the organisation's own extra partner profile fields, by label
-  bufferMonths?: number; // payments a plan may miss and still hold its place, default 1 (DECISIONS 66)
+  releaseLog?: { commitmentKey: string; outcomeId: string; by: string; at: string; daysOverdue: number }[]; // who approved which release, and when (DECISIONS 74)
+  graceDays?: number; // days a payment may be unpaid after it was due before the place may be released, default 15 (DECISIONS 74)
   projects?: Project[]; // the projects, each with the structure it defines (DECISIONS 65)
   nodes?: Node[]; // the places in those structures
   usesFrameworks: boolean;

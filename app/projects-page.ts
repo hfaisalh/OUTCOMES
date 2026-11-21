@@ -21,7 +21,7 @@ export function projectsPage(v: View): string {
   const fws = v.frameworks ?? [];
   const today = v.today ?? "2026-01-01";
   const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
-  const roll = rollupOf(nodes, outcomes, fws, v.allocations ?? [], commitments, allocOptions(projects, v.bufferMonths, today).policy);
+  const roll = rollupOf(nodes, outcomes, fws, v.allocations ?? [], commitments, allocOptions(projects, v.graceDays, today).policy);
 
   const head = `<h1>Partners</h1>
     <p class="sub">A partner is whoever implements the job of a gift: an institute, a contractor, another charity or any type you add. Click a partner to open everything about it: its profile, its structure of branches and classes, and its beneficiaries.</p>

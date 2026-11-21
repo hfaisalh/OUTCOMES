@@ -18,7 +18,7 @@
  */
 
 import { slugify, type FrameworkTemplate } from "../02-project-rules/categories.js";
-import { addOutcomes, autoAllocate, capacityOf, DEFAULT_BUFFER_MONTHS, fillOf, inBuffer, pickOutcome, takesCapacity, type AllocOptions, type Allocation, type Outcome, type Policy } from "../05-outcomes/outcomes.js";
+import { addOutcomes, autoAllocate, capacityOf, DEFAULT_GRACE_DAYS, fillOf, inGrace, asksForPlace, pickOutcome, releaseDue, takesCapacity, type AllocOptions, type Allocation, type Outcome, type Policy } from "../05-outcomes/outcomes.js";
 import type { Commitment } from "../04b-commitments/commitments.js";
 
 export interface Level {
@@ -479,8 +479,8 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
 }
 
 // The options automatic allocation needs from the setup: how long a plan that stops paying keeps its place, and how a gift's project name finds its project.
-export const allocOptions = (projects: Project[], bufferMonths: number | undefined, today: string): AllocOptions => ({
-  policy: { today, bufferMonths: bufferMonths ?? DEFAULT_BUFFER_MONTHS },
+export const allocOptions = (projects: Project[], graceDays: number | undefined, today: string): AllocOptions & { policy: Policy } => ({
+  policy: { today, graceDays: graceDays ?? DEFAULT_GRACE_DAYS },
   projectIdsFor: (name) => matchProjects(projects, name).map((p) => p.id),
   partnerOk: (projectId, itemId) => partnerAccepts(projects, projectId, itemId, today),
 });
@@ -494,7 +494,8 @@ export interface ProjectSummary {
   capacity: number; // units
   used: number; // sponsored units
   free: number; // units with no sponsor
-  inBuffer: number; // allocated commitments that are behind but still inside the buffer
+  inGrace: number; // allocated commitments that are behind but still inside the grace days
+  releaseDue: number; // allocated commitments unpaid beyond the grace days, waiting for a manager to approve the release
   waitingParts: number; // parts of gifts directed to this project that have no place yet
 }
 
@@ -510,9 +511,8 @@ export interface AllocationSummary {
  * project is general and counted on its own line, since it can go anywhere.
  */
 export function allocationSummary(projects: Project[], outcomes: Outcome[], fw: FrameworkTemplate[], allocations: Allocation[], commitments: Commitment[], opts: AllocOptions): AllocationSummary {
-  const holding = commitments.filter((c) => takesCapacity(c, fw, opts.policy));
   const placed = new Set(allocations.map((a) => a.commitmentKey));
-  const waiting = holding.filter((c) => !placed.has(c.subscriptionId));
+  const waiting = commitments.filter((c) => asksForPlace(c, fw, opts.policy) && !placed.has(c.subscriptionId));
   const projectOfOutcome = new Map(outcomes.map((o) => [o.id, o.projectId ?? ""]));
   const byId = new Map(commitments.map((c) => [c.subscriptionId, c]));
   const keys = [...projects.map((p) => p.id), ...(outcomes.some((o) => !o.projectId) ? [""] : [])];
@@ -524,9 +524,11 @@ export function allocationSummary(projects: Project[], outcomes: Outcome[], fw: 
       capacity += capacityOf(o, fw);
       used += fillOf(o, fw, allocations, commitments, opts.policy).used;
     }
-    const buffered = allocations.filter((a) => projectOfOutcome.get(a.outcomeId) === id && byId.has(a.commitmentKey) && opts.policy && inBuffer(byId.get(a.commitmentKey) as Commitment, opts.policy)).length;
+    const mineAllocs = allocations.filter((a) => projectOfOutcome.get(a.outcomeId) === id && byId.has(a.commitmentKey));
+    const buffered = mineAllocs.filter((a) => opts.policy && inGrace(byId.get(a.commitmentKey) as Commitment, opts.policy)).length;
+    const dueRelease = mineAllocs.filter((a) => opts.policy && releaseDue(byId.get(a.commitmentKey) as Commitment, opts.policy)).length;
     const waitingParts = waiting.filter((c) => id !== "" && (opts.projectIdsFor?.(c.projectName) ?? []).includes(id)).reduce((n, c) => n + c.partsPerInstalment, 0); // a gift directed to more than one partner counts for each
-    return { projectId: id, name: id === "" ? "Not in a project" : (projects.find((p) => p.id === id)?.name ?? id), beneficiaries: mine.length, capacity, used, free: Math.max(capacity - used, 0), inBuffer: buffered, waitingParts };
+    return { projectId: id, name: id === "" ? "Not in a project" : (projects.find((p) => p.id === id)?.name ?? id), beneficiaries: mine.length, capacity, used, free: Math.max(capacity - used, 0), inGrace: buffered, releaseDue: dueRelease, waitingParts };
   });
   const general = waiting.filter((c) => (opts.projectIdsFor?.(c.projectName) ?? []).length === 0);
   return { rows, generalWaiting: { gifts: general.length, parts: general.reduce((n, c) => n + c.partsPerInstalment, 0) }, waitingGifts: waiting.length };
@@ -568,10 +570,10 @@ export function placeInPartner(allocations: Allocation[], commitments: Commitmen
 function placeAmong(allocations: Allocation[], commitments: Commitment[], outcomes: Outcome[], fw: FrameworkTemplate[], commitmentKey: string, fits: (o: Outcome) => boolean, where: string, at: string, policy?: Policy): Changed<Allocation[]> {
   const c = commitments.find((x) => x.subscriptionId === commitmentKey);
   if (!c) return { value: allocations, error: "That gift was not found." };
-  if (!takesCapacity(c, fw, policy)) return { value: allocations, error: "That gift no longer holds a place." };
+  if (!asksForPlace(c, fw, policy)) return { value: allocations, error: "That gift no longer asks for a place: it is cancelled, fully paid, or unpaid beyond the grace days." };
   const candidates = outcomes.filter((o) => o.active && o.frameworkId === c.frameworkId && fits(o));
   const others = allocations.filter((a) => a.commitmentKey !== commitmentKey);
-  const live = new Set(commitments.filter((x) => takesCapacity(x, fw, policy)).map((x) => x.subscriptionId));
+  const live = new Set(commitments.filter((x) => takesCapacity(x, fw)).map((x) => x.subscriptionId));
   const used = new Map<string, number>();
   for (const a of others) if (live.has(a.commitmentKey)) used.set(a.outcomeId, (used.get(a.outcomeId) ?? 0) + a.parts);
   const target = pickOutcome(candidates, fw, used, c.partsPerInstalment);

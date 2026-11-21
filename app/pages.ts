@@ -37,7 +37,7 @@ export interface View {
   allocations?: Allocation[];
   ocFilter?: { cohort: string; type: string; status: string }; // the Outcomes list filters (DECISIONS 63)
   today?: string; // today as YYYY-MM-DD, so the month by month view can be drawn and tested for any date
-  bufferMonths?: number; // payments a plan may miss and still hold its place (DECISIONS 66)
+  graceDays?: number; // days a payment may be unpaid before the place may be released (DECISIONS 74)
   giftView?: "payments" | "commitments"; // which way the Gifts page shows the gifts (DECISIONS 66)
   projects?: Project[]; // the projects and their structures (DECISIONS 65)
   nodes?: Node[]; // the places in them
@@ -449,7 +449,7 @@ export function outcomesPage(v: View): string {
   const today = v.today ?? "2026-01-01";
   const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
   const byKey = new Map(commitments.map((c) => [c.subscriptionId, c]));
-  const opts = allocOptions(v.projects ?? [], v.bufferMonths, today);
+  const opts = allocOptions(v.projects ?? [], v.graceDays, today);
   const fills = new Map(outcomes.map((o) => [o.id, fillOf(o, fws, allocations, commitments, opts.policy)]));
   const waiting = autoAllocate(commitments, outcomes, fws, allocations, "", opts).unplaced; // a dry run: nothing is saved
   const hold = holdingReport(commitments, fws, opts.policy);

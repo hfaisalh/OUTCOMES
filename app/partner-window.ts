@@ -30,7 +30,7 @@ function structureHtml(v: View, project: Project): string {
   const levelName = (id: string) => project.levels.find((l) => l.id === id)?.name ?? "";
   const fwName = (id: string) => fws.find((f) => f.id === id)?.name ?? "No framework";
   const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
-  const roll = rollupOf(nodes, outcomes, fws, v.allocations ?? [], commitments, allocOptions(v.projects ?? [], v.bufferMonths, today).policy);
+  const roll = rollupOf(nodes, outcomes, fws, v.allocations ?? [], commitments, allocOptions(v.projects ?? [], v.graceDays, today).policy);
 
   // Levels: the first is the place, and the others sit under a level as ways of grouping people inside it.
   const levelRows = tree.map(({ level: l, depth }) => {
@@ -83,7 +83,7 @@ function beneficiariesHtml(v: View, project: Project): string {
   const levelName = (id: string) => project.levels.find((l) => l.id === id)?.name ?? "";
   const nodeName = (id: string | undefined) => nodes.find((n) => n.id === id)?.name ?? "";
   const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
-  const policy = allocOptions(v.projects ?? [], v.bufferMonths, today).policy;
+  const policy = allocOptions(v.projects ?? [], v.graceDays, today).policy;
   const held = new Set(allocations.map((a) => a.outcomeId));
   const rows = outcomes.slice(0, MAX_ROWS).map((o) => {
     const used = fillOf(o, fws, allocations, commitments, policy).used;

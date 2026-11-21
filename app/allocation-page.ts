@@ -9,7 +9,7 @@
  */
 
 import { allocatable } from "../modules/04b-commitments/commitments";
-import { autoAllocate, holdingReport, perPeriodRule, takesCapacity } from "../modules/05-outcomes/outcomes";
+import { asksForPlace, autoAllocate, holdingReport, perPeriodRule, releaseApprovals } from "../modules/05-outcomes/outcomes";
 import { allocationSummary, allocOptions, isActivePartner, isLegacy, pathOf, rollupOf, suggestions, type Project } from "../modules/06-projects/projects";
 import { esc, type View } from "./pages";
 
@@ -25,7 +25,7 @@ export function allocationPage(v: View): string {
   const allocations = v.allocations ?? [];
   const fws = v.frameworks ?? [];
   const today = v.today ?? "2026-01-01";
-  const opts = allocOptions(projects, v.bufferMonths, today);
+  const opts = allocOptions(projects, v.graceDays, today);
   const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
   const sum = allocationSummary(projects, outcomes, fws, allocations, commitments, opts);
   const byOutcome = new Map(outcomes.map((o) => [o.id, o]));
@@ -33,9 +33,9 @@ export function allocationPage(v: View): string {
   const why = new Map(dry.unplaced.map((u) => [u.commitmentKey, u.why]));
   const suggested = suggestions(commitments, outcomes, fws, allocations, opts);
   const placed = new Set(allocations.map((a) => a.commitmentKey));
-  const waiting = commitments.filter((c) => takesCapacity(c, fws, opts.policy) && !placed.has(c.subscriptionId)).sort((a, b) => (a.firstPaid || "9999").localeCompare(b.firstPaid || "9999") || a.subscriptionId.localeCompare(b.subscriptionId));
+  const waiting = commitments.filter((c) => asksForPlace(c, fws, opts.policy) && !placed.has(c.subscriptionId)).sort((a, b) => (a.firstPaid || "9999").localeCompare(b.firstPaid || "9999") || a.subscriptionId.localeCompare(b.subscriptionId));
   const roll = rollupOf(nodes, outcomes, fws, allocations, commitments, opts.policy);
-  const totals = sum.rows.reduce((t, r) => ({ free: t.free + r.free, used: t.used + r.used, buffer: t.buffer + r.inBuffer, capacity: t.capacity + r.capacity }), { free: 0, used: 0, buffer: 0, capacity: 0 });
+  const totals = sum.rows.reduce((t, r) => ({ free: t.free + r.free, used: t.used + r.used, grace: t.grace + r.inGrace, due: t.due + r.releaseDue, capacity: t.capacity + r.capacity }), { free: 0, used: 0, grace: 0, due: 0, capacity: 0 });
   const waitingParts = waiting.reduce((n, c) => n + c.partsPerInstalment, 0);
 
   const nodeLabel = (id: string) => pathOf(nodes, projects, id).slice(1).join(" > ") || id;
@@ -45,7 +45,7 @@ export function allocationPage(v: View): string {
   const head = `<h1>Place gifts</h1>
     <p class="sub">Gifts that are waiting for a place, and where there is room. The suggestion for each gift is only a starting point: drag a gift onto a place, or choose a place from its list. A gift for a particular project goes to that project's partners, and a general gift is spread across places so more are sponsored.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
-    <div class="metrics"><div class="metric"><b>${waiting.length}</b><span>Gifts waiting (${waitingParts} parts)</span></div><div class="metric"><b>${totals.free}</b><span>Units with no sponsor</span></div><div class="metric"><b>${totals.buffer}</b><span>Sponsors inside the buffer</span></div><div class="metric ${totals.free - waitingParts >= 0 ? "ok" : "warn"}"><b>${signed(totals.free - waitingParts)}</b><span>Surplus or deficit of places</span></div></div>`;
+    <div class="metrics"><div class="metric"><b>${waiting.length}</b><span>Gifts waiting (${waitingParts} parts)</span></div><div class="metric"><b>${totals.free}</b><span>Units with no sponsor</span></div><div class="metric"><b>${totals.grace}</b><span>Behind, inside the grace days</span></div><div class="metric ${totals.free - waitingParts >= 0 ? "ok" : "warn"}"><b>${signed(totals.free - waitingParts)}</b><span>Surplus or deficit of places</span></div></div>`;
 
   // Whether each partner takes gifts, and if not, why, so "nothing is placed" is never a mystery (DECISIONS 69).
   const takes = (p: Project | undefined): string => {
@@ -58,10 +58,10 @@ export function allocationPage(v: View): string {
   const hold = holdingReport(commitments, fws, opts.policy);
   const notAsking = [hold.noFramework ? `${hold.noFramework} have no framework (set one for the item or its category)` : "", hold.noRule ? `${hold.noRule} are on a framework that does not say how an instalment counts` : "", hold.cancelled ? `${hold.cancelled} are cancelled in the CRM` : "", hold.lapsed ? `${hold.lapsed} have missed more payments than the buffer` : "", hold.finished ? `${hold.finished} are fully paid` : ""].filter((x) => x !== "");
   const holdNote = `<p class="muted">${hold.total} gift${hold.total === 1 ? "" : "s"} in all, ${hold.holding} asking for a place${notAsking.length ? `. Not asking: ${notAsking.join("; ")}` : ""}.</p>`;
-  const rows = sum.rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${r.beneficiaries}</td><td>${r.capacity}</td><td>${r.used} ${meter(r.used, r.capacity)}</td><td>${r.free}</td><td>${r.inBuffer}</td><td>${r.waitingParts}</td><td class="${r.free - r.waitingParts >= 0 ? "" : "bad"}">${signed(r.free - r.waitingParts)}</td><td>${esc(takes(projects.find((p) => p.id === r.projectId)))}</td></tr>`).join("");
-  const buffer = `<label class="muted">A plan that misses payments keeps its place for <select data-buffer aria-label="Payment buffer">${[0, 1, 2, 3, 6].map((n) => `<option value="${n}"${n === (v.bufferMonths ?? 1) ? " selected" : ""}>${n}</option>`).join("")}</select> missed payment${(v.bufferMonths ?? 1) === 1 ? "" : "s"}, then the place is released.</label>`;
+  const rows = sum.rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${r.beneficiaries}</td><td>${r.capacity}</td><td>${r.used} ${meter(r.used, r.capacity)}</td><td>${r.free}</td><td>${r.inGrace}</td><td>${r.releaseDue}</td><td>${r.waitingParts}</td><td class="${r.free - r.waitingParts >= 0 ? "" : "bad"}">${signed(r.free - r.waitingParts)}</td><td>${esc(takes(projects.find((p) => p.id === r.projectId)))}</td></tr>`).join("");
+  const buffer = `<label class="muted">A payment that is still unpaid <input type="number" min="0" max="90" value="${v.graceDays ?? 15}" data-grace aria-label="Grace days" style="width:64px" /> days after it was due makes the child eligible for reallocation. The place stays until a manager approves the release below.</label>`;
   const summary = `<div class="card"><h2>By partner</h2>
-    ${sum.rows.length ? `<div class="twrap"><table><thead><tr><th>Partner</th><th>Beneficiaries</th><th>Units</th><th>Sponsored</th><th>Free</th><th>In buffer</th><th>Waiting (parts)</th><th>Surplus or deficit</th><th>Takes gifts</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">No partners yet. Create one on the Partners page.</div>`}
+    ${sum.rows.length ? `<div class="twrap"><table><thead><tr><th>Partner</th><th>Beneficiaries</th><th>Units</th><th>Sponsored</th><th>Free</th><th>Behind, in grace</th><th>Release due</th><th>Waiting (parts)</th><th>Surplus or deficit</th><th>Takes gifts</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">No partners yet. Create one on the Partners page.</div>`}
     <p class="muted">${sum.generalWaiting.gifts} general gift${sum.generalWaiting.gifts === 1 ? "" : "s"} waiting (${sum.generalWaiting.parts} parts), which can go to any partner. Surplus or deficit is the free units minus the parts of waiting gifts.</p>
     ${holdNote}
     ${buffer}</div>`;
@@ -93,5 +93,11 @@ export function allocationPage(v: View): string {
   const legacyCard = legacy.length ? `<div class="card"><h2>Beneficiaries not in a partner <span class="muted">(${legacy.length})</span></h2>
     <p class="muted">These were added before partners existed, and ${legacyUsed} of their units are sponsored. Gifts already placed on them stay there, so a new partner gets none of those. Move them into a partner (the gifts stay with them), or remove them and release their gifts so they can be placed again.</p>
     <div class="actions"><select id="al-adopt" aria-label="Partner"><option value="">Move them into...</option>${projects.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("")}</select><button data-action="adopt-legacy">Move them</button><button data-action="clear-legacy">Remove them and release their gifts</button></div></div>` : "";
-  return `${head}${summary}${legacyCard}<div class="cols2">${left}${right}</div>`;
+  // The places a manager may release: unpaid beyond the grace days. Nothing is released by itself (DECISIONS 74).
+  const approvals = releaseApprovals(allocations, commitments, fws, opts.policy);
+  const byKey = new Map(commitments.map((c) => [c.subscriptionId, c]));
+  const approvalsCard = approvals.length ? `<div class="card"><h2>Release approvals <span class="muted">(${approvals.length})</span></h2>
+    <p class="muted">Each of these payments is unpaid more than ${v.graceDays ?? 15} days after it was due. The place stays until a manager approves the release, and then the child can be given to another sponsor. Only a manager can approve.</p>
+    <div class="twrap"><table><thead><tr><th>Sponsor</th><th>Gift</th><th>Beneficiary</th><th>Days overdue</th><th></th></tr></thead><tbody>${approvals.slice(0, 100).map((x) => { const c = byKey.get(x.commitmentKey); return `<tr><td>${esc(c?.supporterName ?? "")}</td><td>${esc(c?.itemName ?? "")} <span class="muted">${x.parts} part${x.parts === 1 ? "" : "s"}</span></td><td>${esc(byOutcome.get(x.outcomeId)?.name ?? x.outcomeId)}</td><td>${x.daysOverdue}</td><td><button data-action="approve-release" data-key="${esc(x.commitmentKey)}">Approve release</button></td></tr>`; }).join("")}</tbody></table></div>${approvals.length > 100 ? `<p class="muted">Showing 100 of ${approvals.length}.</p>` : ""}</div>` : "";
+  return `${head}${summary}${approvalsCard}${legacyCard}<div class="cols2">${left}${right}</div>`;
 }

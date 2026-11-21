@@ -41,7 +41,7 @@ describe("allocationPage", () => {
     expect(html).toContain('draggable="true"');
     expect(html).toContain('data-drop-node="');
     expect(html).toContain('data-place-select="S1"');
-    expect(html).toContain("data-buffer");
+    expect(html).toContain("data-grace");
   });
   it("says whether each partner takes gifts and why not, and how many gifts are asking for a place", () => {
     const { projects, nodes, outcomes } = built();
@@ -72,6 +72,19 @@ describe("allocationPage", () => {
     expect(html).toContain('data-action="adopt-legacy"');
     expect(html).toContain('data-action="clear-legacy"');
     expect(allocationPage(base({ projects, nodes, outcomes }))).not.toContain("Beneficiaries not in a partner");
+  });
+  it("lists the places a manager may release, with an Approve button, and keeps the grace days setting in days", () => {
+    const { projects, nodes, outcomes } = built();
+    const late = order("1", "S1", "Aghosh", { planNextDue: "2026-10-01", planPaid: 1 }); // 50 days overdue on 20 Nov
+    const placed = [{ commitmentKey: "S1", outcomeId: outcomes[0]!.id, parts: 1, how: "auto" as const, at: "t" }];
+    const html = allocationPage(base({ projects, nodes, outcomes, allocations: placed, workOrders: [late], graceDays: 15 }));
+    expect(html).toContain("Release approvals");
+    expect(html).toContain('data-action="approve-release" data-key="S1"');
+    expect(html).toContain("<td>50</td>"); // days overdue
+    expect(html).toContain("The place stays until a manager approves the release");
+    expect(html).toContain('type="number" min="0" max="90" value="15" data-grace');
+    const ontime = allocationPage(base({ projects, nodes, outcomes, allocations: placed, workOrders: [order("1", "S1", "Aghosh")], graceDays: 15 }));
+    expect(ontime).not.toContain("Release approvals");
   });
   it("says so when there is nothing to place, and when there are no partners", () => {
     expect(allocationPage(base())).toContain("No partners yet");

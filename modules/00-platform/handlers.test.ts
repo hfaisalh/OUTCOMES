@@ -481,14 +481,27 @@ describe("projects (DECISIONS 65)", () => {
 
 describe("placing gifts and the payment buffer (DECISIONS 66)", () => {
   const post = (cookie: string, body: unknown) => handleOutcomes(as(cookie, { method: "POST", body }), d);
-  it("sets the buffer, refuses a bad one, and reports it", async () => {
+  it("sets the grace days, refuses a bad number, and reports it", async () => {
     const cookie = await signIn(d);
-    expect((await post(cookie, { action: "set-buffer", months: 2 })).status).toBe(200);
-    expect((await post(cookie, { action: "set-buffer", months: 40 })).status).toBe(400);
-    expect(((await handleOutcomes(as(cookie), d)).body as { bufferMonths: number }).bufferMonths).toBe(2);
+    expect((await post(cookie, { action: "set-grace", days: 20 })).status).toBe(200);
+    expect((await post(cookie, { action: "set-grace", days: 400 })).status).toBe(400);
+    expect(((await handleOutcomes(as(cookie), d)).body as { graceDays: number }).graceDays).toBe(20);
   });
   it("answers a plain error when a gift is placed in a place that does not exist", async () => {
     const cookie = await signIn(d);
     expect((await post(cookie, { action: "place-in-node", commitmentKey: "nope", nodeId: "nope" })).status).toBe(400);
   });
 });
+
+describe("manager approval of a release (DECISIONS 74)", () => {
+  const post = (cookie: string, body: unknown) => handleOutcomes(as(cookie, { method: "POST", body }), d);
+  it("refuses someone without the manager permission, and refuses a place that is not due", async () => {
+    const worker = await signIn(d, { perms: [P.access, P.viewWorkOrders, P.mapFrameworks] });
+    expect((await post(worker, { action: "approve-release", commitmentKey: "x" })).status).toBe(403);
+    const manager = await signIn(d);
+    const r = await post(manager, { action: "approve-release", commitmentKey: "x" });
+    expect(r.status).toBe(400);
+    expect((r.body as { error: string }).error).toContain("not due");
+  });
+});
+

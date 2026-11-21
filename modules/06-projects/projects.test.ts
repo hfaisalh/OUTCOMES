@@ -142,7 +142,7 @@ describe("the allocation summary, suggestions, and placing a gift by hand (DECIS
     const projects = made.map((p) => ({ ...p, status: "active" as const, ddStatus: "approved" as const })); // only active partners take gifts
     const pid = projects[0]!.id;
     const kids = addBeneficiaries([], projects, nodes, { projectId: pid, nodeId: nodes[2]!.id, typeId: "child", name: "Orphan", count: 2 }).value;
-    return { projects, nodes, kids, pid, opts: allocOptions(projects, 1, "2026-11-20") };
+    return { projects, nodes, kids, pid, opts: allocOptions(projects, 15, "2026-11-20") };
   }
 
   it("totals each project, with waiting gifts directed to it and general ones counted on their own", () => {
@@ -150,15 +150,16 @@ describe("the allocation summary, suggestions, and placing a gift by hand (DECIS
     const gifts = [gift("1", 3, "Aghosh"), gift("2", 3, "Aghosh"), gift("3", 3, "Aghosh"), gift("4", 1, "Where Needed Most")];
     const alloc: Allocation[] = [{ commitmentKey: "1", outcomeId: kids[0]!.id, parts: 3, how: "auto", at: "x" }];
     const sum = allocationSummary(projects, kids, FW, alloc, gifts, opts);
-    expect(sum.rows[0]).toMatchObject({ name: "Aghosh Orphan Homes", beneficiaries: 2, capacity: 6, used: 3, free: 3, waitingParts: 6, inBuffer: 0 });
+    expect(sum.rows[0]).toMatchObject({ name: "Aghosh Orphan Homes", beneficiaries: 2, capacity: 6, used: 3, free: 3, waitingParts: 6, inGrace: 0, releaseDue: 0 });
     expect(sum.generalWaiting).toEqual({ gifts: 1, parts: 1 });
     expect(sum.waitingGifts).toBe(3);
   });
-  it("counts a sponsor who is behind but inside the buffer", () => {
+  it("counts a sponsor who is behind but inside the grace days, and one waiting for a manager's release", () => {
     const { projects, kids, opts } = world();
-    const late = gift("1", 3, "Aghosh", { planStatus: "active", nextDue: "2026-11-05", planned: 12, planPaid: 2 });
-    const alloc: Allocation[] = [{ commitmentKey: "1", outcomeId: kids[0]!.id, parts: 3, how: "auto", at: "x" }];
-    expect(allocationSummary(projects, kids, FW, alloc, [late], opts).rows[0]?.inBuffer).toBe(1);
+    const late = gift("1", 3, "Aghosh", { planStatus: "active", nextDue: "2026-11-10", planned: 12, planPaid: 2 }); // 10 days
+    const lapsed = gift("2", 3, "Aghosh", { planStatus: "active", nextDue: "2026-10-01", planned: 12, planPaid: 2 }); // 50 days
+    const alloc: Allocation[] = [{ commitmentKey: "1", outcomeId: kids[0]!.id, parts: 3, how: "auto", at: "x" }, { commitmentKey: "2", outcomeId: kids[1]!.id, parts: 3, how: "auto", at: "x" }];
+    expect(allocationSummary(projects, kids, FW, alloc, [late, lapsed], opts).rows[0]).toMatchObject({ inGrace: 1, releaseDue: 1, used: 6 });
   });
   it("suggests where each waiting gift would go, without changing anything", () => {
     const { kids, opts } = world();

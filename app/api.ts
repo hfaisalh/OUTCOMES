@@ -80,7 +80,7 @@ export interface OutcomesReply {
   allocations: Allocation[];
   projects?: Project[];
   nodes?: Node[];
-  bufferMonths?: number;
+  graceDays?: number;
   partnerTypes?: string[];
   partnerFields?: string[];
   warning?: string;

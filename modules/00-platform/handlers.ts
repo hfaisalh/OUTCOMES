@@ -20,7 +20,7 @@ import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSIO
 import { excludeWorkOrder, restoreWorkOrder, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import { allocatable } from "../04b-commitments/commitments.js";
 import { adoptLegacy, allocOptions, applyProjectAction, clearLegacy, placeInNode, placeInPartner } from "../06-projects/projects.js";
-import { addOutcomes, autoAllocate, DEFAULT_BUFFER_MONTHS, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive } from "../05-outcomes/outcomes.js";
+import { addOutcomes, autoAllocate, DEFAULT_GRACE_DAYS, releaseApprovals, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive } from "../05-outcomes/outcomes.js";
 import { applyDecision, buildAttention } from "../04-triage/triage.js";
 import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
 import { backfillFrameworks, reapplyFrameworks, rerouteUnrouted, runPickup } from "./pickup.js";
@@ -306,7 +306,8 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   let allocations = config.allocations ?? [];
   let projects = config.projects ?? [];
   let nodes = config.nodes ?? [];
-  let bufferMonths = config.bufferMonths ?? DEFAULT_BUFFER_MONTHS;
+  let graceDays = config.graceDays ?? DEFAULT_GRACE_DAYS;
+  let releaseLog = config.releaseLog ?? [];
   let partnerTypes = config.partnerTypes ?? [];
   let partnerFields = config.partnerFields ?? [];
   let extra: Record<string, unknown> = {};
@@ -347,25 +348,25 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
         break;
       }
       case "auto": {
-        const r = autoAllocate(await commitments(), outcomes, fw, allocations, at, allocOptions(projects, bufferMonths, at.slice(0, 10)));
+        const r = autoAllocate(await commitments(), outcomes, fw, allocations, at, allocOptions(projects, graceDays, at.slice(0, 10)));
         allocations = r.allocations;
         extra = { placed: r.placed, released: r.released, unplaced: r.unplaced };
         break;
       }
       case "move": {
-        const r = moveAllocation(allocations, await commitments(), outcomes, fw, str("commitmentKey"), str("outcomeId"), at, allocOptions(projects, bufferMonths, at.slice(0, 10)).policy);
+        const r = moveAllocation(allocations, await commitments(), outcomes, fw, str("commitmentKey"), str("outcomeId"), at, allocOptions(projects, graceDays, at.slice(0, 10)).policy);
         if (r.error) return fail(r.error);
         allocations = r.value;
         break;
       }
       case "place-in-node": {
-        const r = placeInNode(allocations, await commitments(), outcomes, nodes, fw, str("commitmentKey"), str("nodeId"), at, allocOptions(projects, bufferMonths, at.slice(0, 10)).policy);
+        const r = placeInNode(allocations, await commitments(), outcomes, nodes, fw, str("commitmentKey"), str("nodeId"), at, allocOptions(projects, graceDays, at.slice(0, 10)).policy);
         if (r.error) return fail(r.error);
         allocations = r.value;
         break;
       }
       case "place-in-partner": {
-        const r = placeInPartner(allocations, await commitments(), outcomes, projects, fw, str("commitmentKey"), str("projectId"), at, allocOptions(projects, bufferMonths, at.slice(0, 10)).policy);
+        const r = placeInPartner(allocations, await commitments(), outcomes, projects, fw, str("commitmentKey"), str("projectId"), at, allocOptions(projects, graceDays, at.slice(0, 10)).policy);
         if (r.error) return fail(r.error);
         allocations = r.value;
         break;
@@ -384,10 +385,20 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
         extra = { removed: r.removed, released: r.released };
         break;
       }
-      case "set-buffer": {
-        const n = Number(b["months"]);
-        if (!Number.isInteger(n) || n < 0 || n > 12) return fail("The buffer is a whole number of months, from 0 to 12.");
-        bufferMonths = n;
+      case "set-grace": {
+        const n = Number(b["days"]);
+        if (!Number.isInteger(n) || n < 0 || n > 90) return fail("The grace period is a whole number of days, from 0 to 90.");
+        graceDays = n;
+        break;
+      }
+      // Rule (DECISIONS 74): a place is released only when a manager approves it, and only if it is really due. The server checks, and keeps a record of who approved.
+      case "approve-release": {
+        if (!a.claims.perms.includes(P.approveRelease)) return json(403, { error: "Only a manager can approve releasing a place." });
+        const policy = allocOptions(projects, graceDays, at.slice(0, 10)).policy;
+        const due = releaseApprovals(allocations, await commitments(), fw, policy).find((x) => x.commitmentKey === str("commitmentKey"));
+        if (!due) return fail("That place is not due for release.");
+        allocations = releaseAllocation(allocations, due.commitmentKey);
+        releaseLog = [...releaseLog, { commitmentKey: due.commitmentKey, outcomeId: due.outcomeId, by: a.claims.name, at, daysOverdue: due.daysOverdue }].slice(-2000);
         break;
       }
       case "release":
@@ -402,7 +413,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
         if (r.warning) extra = { warning: r.warning };
       }
     }
-    await d.store.putConfig(org, { ...config, outcomes, allocations, projects, nodes, bufferMonths, partnerTypes, partnerFields });
+    await d.store.putConfig(org, { ...config, outcomes, allocations, projects, nodes, graceDays, releaseLog, partnerTypes, partnerFields });
   }
-  return json(200, { outcomes, allocations, projects, nodes, bufferMonths, partnerTypes, partnerFields, ...extra });
+  return json(200, { outcomes, allocations, projects, nodes, graceDays, partnerTypes, partnerFields, ...extra });
 }

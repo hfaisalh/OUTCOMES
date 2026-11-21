@@ -65,36 +65,55 @@ const frameworkOf = (fw: FrameworkTemplate[], id: string) => fw.find((f) => f.id
 // Capacity of one outcome, from its framework. Without a framework it takes nothing.
 export const capacityOf = (o: Outcome, fw: FrameworkTemplate[]): number => frameworkOf(fw, o.frameworkId)?.unitsPerBeneficiary ?? 0;
 
-// The rule for plans that stop paying (DECISIONS 66). A plan that has missed more than `bufferMonths` payments no longer holds its place.
+// The rule for plans that stop paying (DECISIONS 66, 74). A payment that is still unpaid more than `graceDays` after it was due makes the plan eligible for
+// reallocation. It keeps its place until a manager approves the release, so nobody loses a child by a date alone.
 export interface Policy {
   today: string; // YYYY-MM-DD
-  bufferMonths: number; // missed payments a plan may have and still hold its place. The sheet's "1 month payment policy" is 1
+  graceDays: number; // days after a due date, with the payment still unpaid, before the place may be released. Faisal's rule is 15
 }
-export const DEFAULT_BUFFER_MONTHS = 1;
+export const DEFAULT_GRACE_DAYS = 15;
 
-const monthIdx = (d: string): number => Number(d.slice(0, 4)) * 12 + Number(d.slice(5, 7));
+const dayNumber = (d: string): number => Math.round(Date.parse(`${d.slice(0, 10)}T00:00:00Z`) / 86_400_000);
 
-// How many payments a plan is behind: its next due date and each monthly due date after it that has come, and no more than it has left to pay.
-export function overdueMonths(c: Commitment, today: string): number {
+// How many days the plan's next payment is overdue: 0 when it is not due yet, or the plan is paused, cancelled, completed, a one-off, or has nothing left to pay.
+export function daysOverdue(c: Commitment, today: string): number {
   if (c.once || c.nextDue === "" || c.nextDue > today) return 0;
   if (c.planStatus === "paused" || c.planStatus === "cancelled" || c.planStatus === "completed") return 0;
   const left = c.planned === null ? Infinity : Math.max(c.planned - (c.planPaid ?? c.paid), 0);
-  const dueByNow = monthIdx(today) - monthIdx(c.nextDue) + (Number(today.slice(8, 10)) >= Number(c.nextDue.slice(8, 10)) ? 1 : 0);
-  return Math.min(dueByNow, left);
+  return left <= 0 ? 0 : dayNumber(today) - dayNumber(c.nextDue);
 }
 
-// Rule: behind, but still inside the buffer, so it keeps its place for now.
-export const inBuffer = (c: Commitment, p: Policy): boolean => overdueMonths(c, p.today) > 0 && overdueMonths(c, p.today) <= p.bufferMonths;
+// Rule: behind, but still inside the grace days, so nothing is due yet.
+export const inGrace = (c: Commitment, p: Policy): boolean => daysOverdue(c, p.today) > 0 && daysOverdue(c, p.today) <= p.graceDays;
+// Rule: unpaid beyond the grace days: a manager may release its place.
+export const releaseDue = (c: Commitment, p: Policy): boolean => daysOverdue(c, p.today) > p.graceDays;
 
-// Rule: does this commitment still hold capacity? A fully paid limited per-period commitment has run its course, a cancelled plan
-// has gone, and (when a policy is given) a plan that is behind by more than the buffer has lapsed. A commitment to a whole item keeps it.
-export function takesCapacity(c: Commitment, fw: FrameworkTemplate[], policy?: Policy): boolean {
+// Rule: does this commitment hold a place? A fully paid limited per-period commitment has run its course, and a cancelled plan has gone. A plan that is
+// behind keeps its place until a manager approves the release (releaseApprovals). A commitment to a whole item keeps it.
+export function takesCapacity(c: Commitment, fw: FrameworkTemplate[]): boolean {
   const f = frameworkOf(fw, c.frameworkId);
   if (!f || f.instalment === undefined) return false;
   // Rule (DECISIONS 60, 62): a plan the CRM has cancelled no longer holds capacity, so it reopens for someone else.
   if (c.planStatus === "cancelled") return false;
-  if (policy && overdueMonths(c, policy.today) > policy.bufferMonths) return false;
   return f.instalment === "per_period" ? c.state !== "complete" : true;
+}
+
+// Rule: does it ask for a new place? Only if it would hold one, and is not overdue beyond the grace days.
+export const asksForPlace = (c: Commitment, fw: FrameworkTemplate[], policy?: Policy): boolean => takesCapacity(c, fw) && !(policy && releaseDue(c, policy));
+
+export interface ReleaseApproval {
+  commitmentKey: string;
+  outcomeId: string;
+  parts: number;
+  daysOverdue: number;
+}
+
+// Rule (DECISIONS 74): the places a manager may release: allocated, and unpaid beyond the grace days. Most overdue first.
+export function releaseApprovals(allocations: Allocation[], commitments: Commitment[], fw: FrameworkTemplate[], policy: Policy): ReleaseApproval[] {
+  const byKey = new Map(commitments.filter((c) => takesCapacity(c, fw)).map((c) => [c.subscriptionId, c]));
+  return allocations
+    .flatMap((a) => { const c = byKey.get(a.commitmentKey); return c && releaseDue(c, policy) ? [{ commitmentKey: a.commitmentKey, outcomeId: a.outcomeId, parts: a.parts, daysOverdue: daysOverdue(c, policy.today) }] : []; })
+    .sort((x, y) => y.daysOverdue - x.daysOverdue);
 }
 
 export interface HoldingReport {
@@ -104,23 +123,23 @@ export interface HoldingReport {
   noRule: number; // their framework does not say how an instalment counts
   cancelled: number; // the CRM plan is cancelled
   finished: number; // fully paid and per period, so the capacity is free
-  lapsed: number; // behind by more than the buffer, so they no longer hold a place
-  inBuffer: number; // behind, but inside the buffer, so they still hold a place (counted in holding too)
+  lapsed: number; // unpaid beyond the grace days: they ask for no new place, and a manager may release one they hold
+  inGrace: number; // behind, but inside the grace days (counted in holding too)
 }
 
 // Rule: say why commitments are not asking for capacity, so "0 waiting" is never a mystery.
 export function holdingReport(commitments: Commitment[], fw: FrameworkTemplate[], policy?: Policy): HoldingReport {
-  const r: HoldingReport = { total: commitments.length, holding: 0, noFramework: 0, noRule: 0, cancelled: 0, finished: 0, lapsed: 0, inBuffer: 0 };
+  const r: HoldingReport = { total: commitments.length, holding: 0, noFramework: 0, noRule: 0, cancelled: 0, finished: 0, lapsed: 0, inGrace: 0 };
   for (const c of commitments) {
     const f = frameworkOf(fw, c.frameworkId);
     if (!f) r.noFramework++;
     else if (f.instalment === undefined) r.noRule++;
     else if (c.planStatus === "cancelled") r.cancelled++;
-    else if (policy && overdueMonths(c, policy.today) > policy.bufferMonths) r.lapsed++;
+    else if (policy && releaseDue(c, policy)) r.lapsed++;
     else if (!takesCapacity(c, fw)) r.finished++;
     else {
       r.holding++;
-      if (policy && inBuffer(c, policy)) r.inBuffer++;
+      if (policy && inGrace(c, policy)) r.inGrace++;
     }
   }
   return r;
@@ -129,7 +148,7 @@ export function holdingReport(commitments: Commitment[], fw: FrameworkTemplate[]
 // How full one outcome is, from the allocations that are still live.
 export function fillOf(o: Outcome, fw: FrameworkTemplate[], allocations: Allocation[], commitments: Commitment[], policy?: Policy): Fill {
   const capacity = capacityOf(o, fw);
-  const live = new Set(commitments.filter((c) => takesCapacity(c, fw, policy)).map((c) => c.subscriptionId));
+  const live = new Set(commitments.filter((c) => takesCapacity(c, fw)).map((c) => c.subscriptionId));
   const used = allocations.filter((a) => a.outcomeId === o.id && live.has(a.commitmentKey)).reduce((n, a) => n + a.parts, 0);
   const free = Math.max(capacity - used, 0);
   const state: Availability = !o.active ? "inactive" : used >= capacity && capacity > 0 ? "full" : used > 0 ? "part" : "open";
@@ -225,13 +244,14 @@ export function pickOutcome(candidates: Outcome[], fw: FrameworkTemplate[], used
 
 /**
  * Rule: automatic allocation (DECISIONS 60d, 66). First release what no longer holds: allocations to an inactive or missing
- * outcome, and to commitments that no longer hold capacity (cancelled, fully paid, or behind by more than the buffer). Then place every
+ * outcome, and to commitments that no longer hold capacity (cancelled or fully paid). A plan that is behind keeps its place until a manager approves its release (decision 74). Then place every
  * unallocated commitment, oldest first. A gift whose project matches a project here is **directed** and can only go to that project, and
  * waits when it is full. Any other gift is **general** and can go to any project's places. A commitment already allocated and still valid is never moved.
  */
 export function autoAllocate(commitments: Commitment[], outcomes: Outcome[], fw: FrameworkTemplate[], allocations: Allocation[], at: string, opts: AllocOptions = {}): AutoResult {
   const byId = new Map(outcomes.map((o) => [o.id, o]));
-  const holding = new Map(commitments.filter((c) => takesCapacity(c, fw, opts.policy)).map((c) => [c.subscriptionId, c]));
+  const holding = new Map(commitments.filter((c) => takesCapacity(c, fw)).map((c) => [c.subscriptionId, c])); // a plan that is behind keeps its place until a manager approves the release
+  const asking = new Map([...holding].filter(([, c]) => asksForPlace(c, fw, opts.policy)));
   const kept = allocations.filter((a) => byId.get(a.outcomeId)?.active === true && holding.has(a.commitmentKey));
   const released = allocations.length - kept.length;
   const next = [...kept];
@@ -239,7 +259,7 @@ export function autoAllocate(commitments: Commitment[], outcomes: Outcome[], fw:
   const used = new Map<string, number>();
   for (const a of next) used.set(a.outcomeId, (used.get(a.outcomeId) ?? 0) + a.parts);
 
-  const todo = [...holding.values()].filter((c) => !placedKeys.has(c.subscriptionId)).sort((a, b) => (a.firstPaid || "9999").localeCompare(b.firstPaid || "9999") || a.subscriptionId.localeCompare(b.subscriptionId));
+  const todo = [...asking.values()].filter((c) => !placedKeys.has(c.subscriptionId)).sort((a, b) => (a.firstPaid || "9999").localeCompare(b.firstPaid || "9999") || a.subscriptionId.localeCompare(b.subscriptionId));
   const unplaced: AutoResult["unplaced"] = [];
   let placed = 0;
   for (const c of todo) {
@@ -327,7 +347,7 @@ export interface MonthSlots {
 
 // Rule: the row for one outcome. Its capacity is a number of slots, filled in order by the live allocations, and each slot takes the status of its commitment in each month.
 export function timelineOf(o: Outcome, fw: FrameworkTemplate[], allocations: Allocation[], commitments: Commitment[], months: string[], today: string, policy?: Policy): MonthSlots[] {
-  const byKey = new Map(commitments.filter((c) => takesCapacity(c, fw, policy)).map((c) => [c.subscriptionId, c]));
+  const byKey = new Map(commitments.filter((c) => takesCapacity(c, fw)).map((c) => [c.subscriptionId, c]));
   const slots: (Commitment | null)[] = [];
   for (const a of allocations.filter((x) => x.outcomeId === o.id).sort((x, y) => x.commitmentKey.localeCompare(y.commitmentKey))) {
     const c = byKey.get(a.commitmentKey);
