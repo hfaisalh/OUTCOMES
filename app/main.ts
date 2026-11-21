@@ -12,6 +12,7 @@
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, clearLegacy, placeInNode, placeInPartner, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
+import { giftListHtml, giftsPage, shownGiftKeys } from "./gifts-page";
 import { partnersPage } from "./partners-page";
 import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
@@ -33,7 +34,7 @@ import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
 import { landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
-import { outcomesPage, commitmentsPage, commitmentList, listBlock, listHtml, listBase, workOrderList, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, workOrdersPage, giftsPage, type Filter, type View } from "./pages";
+import { outcomesPage, listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, type Filter, type View } from "./pages";
 
 const state = {
   live: (): boolean => state.me !== null,
@@ -65,11 +66,8 @@ const state = {
   requireRef: false, // place gifts only on beneficiaries that have an ID (DECISIONS 75)
   graceDays: 15, // days a payment may be unpaid before the place may be released (DECISIONS 74)
   openProject: "", // the project open on the Projects page
-  giftView: "payments" as "payments" | "commitments", // how the Gifts page shows the gifts (DECISIONS 66)
   ocFilter: { cohort: "", type: "", status: "" }, // the Outcomes list filters
   openCommit: "", // the commitment whose details are open on the Outcomes page
-  commitTab: "all", // Commitments page tab
-  commitText: "", // Commitments page search text
   message: "",
   pendingFiles: [] as File[], // export files chosen but not loaded yet (demo only)
   loadNote: "", // what the last load did, shown in the load card
@@ -172,7 +170,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, giftView: state.giftView, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -281,13 +279,14 @@ async function applyExclusion(keys: string[], restoring: boolean, reason: string
 // The keys a list is showing now (after its filter boxes), for "tick all".
 function listShownKeys(scope: string): string[] {
   const v = view();
+  if (scope === "main") return shownGiftKeys(v);
   const c = scope === "main" ? state.criteria : state.scopeCriteria[scope] ?? NO_CRITERIA;
   return filterWorkOrders(listBase(v, scope), c).slice(0, 500).map((w) => w.key);
 }
 
 // Redraws every list (the ticked count is shown in each), leaving the filter boxes alone.
 function redrawLists(): void {
-  for (const el of Array.from(document.querySelectorAll("[data-list]"))) el.innerHTML = listHtml(view(), (el as HTMLElement).dataset.list as string);
+  for (const el of Array.from(document.querySelectorAll("[data-list]"))) el.innerHTML = (el as HTMLElement).dataset.list === "main" ? giftListHtml(view()) : listHtml(view(), (el as HTMLElement).dataset.list as string);
 }
 
 function draw(): void {
@@ -300,7 +299,6 @@ function draw(): void {
     ? `<h1>No access</h1><p class="sub">Your CRM role has no OUTCOMES permission. In the live product you would not have been shown the OUTCOMES button.</p>`
     : state.page === "work-orders" ? giftsPage(v)
     : state.page === "attention" ? attentionPage(v)
-    : state.page === "commitments" ? commitmentsPage(v)
     : state.page === "allocation" ? allocationPage(v)
     : state.page === "outcomes" ? outcomesPage(v)
     : state.page === "projects" ? projectsPage(v)
@@ -398,25 +396,13 @@ document.addEventListener("click", (e) => {
   if (ocRemove) return void outcomeChange({ action: "remove", id: ocRemove.dataset.ocRemove });
   const ocRelease = target.closest("[data-oc-release]") as HTMLElement | null;
   if (ocRelease) return void outcomeChange({ action: "release", commitmentKey: ocRelease.dataset.ocRelease });
-  // Commitments tabs.
-  const ctab = target.closest("[data-ctab]") as HTMLElement | null;
-  if (ctab) {
-    state.commitTab = ctab.dataset.ctab as string;
-    return draw();
-  }
   // Needs attention: jump to the matching lines in Work orders.
   const viewItem = target.closest("[data-view-item]") as HTMLElement | null;
   const viewKey = target.closest("[data-view-key]") as HTMLElement | null;
   if (viewItem || viewKey) {
     state.criteria = { ...NO_CRITERIA, ...(viewItem ? { itemId: viewItem.dataset.viewItem as string } : { text: viewKey?.dataset.viewKey as string }) };
     state.filter = viewItem ? "unrouted" : "all";
-    state.giftView = "payments";
     state.page = "work-orders";
-    return draw();
-  }
-  const giftSw = target.closest("[data-gift-view]") as HTMLElement | null;
-  if (giftSw) {
-    state.giftView = giftSw.dataset.giftView === "commitments" ? "commitments" : "payments";
     return draw();
   }
   const el = target.closest("[data-page],[data-filter],[data-action]") as HTMLElement | null;
@@ -640,20 +626,13 @@ async function loadFiles(files: File[]): Promise<void> {
 // The filter boxes (Work orders page and inside Needs attention entries). Rule: only the list is redrawn, never the boxes, so typing is never interrupted.
 function onFilterInput(e: Event): void {
   const t = e.target as HTMLInputElement | HTMLSelectElement;
-  // The Commitments search box redraws only its list.
-  if (t.dataset?.cf === "text") {
-    state.commitText = t.value;
-    const list = document.getElementById("commit-list");
-    if (list) list.innerHTML = commitmentList(view());
-    return;
-  }
   const field = t.dataset?.f;
   if (!field) return;
   const scope = t.dataset.scope ?? "main";
   if (scope === "main") state.criteria = { ...state.criteria, [field]: t.value } as Criteria;
   else state.scopeCriteria = { ...state.scopeCriteria, [scope]: { ...(state.scopeCriteria[scope] ?? NO_CRITERIA), [field]: t.value } as Criteria };
   const list = document.querySelector(`[data-list="${scope}"]`);
-  if (list) list.innerHTML = listHtml(view(), scope);
+  if (list) list.innerHTML = scope === "main" ? giftListHtml(view()) : listHtml(view(), scope);
 }
 // Opening an entry's lines in Needs attention draws them then (they are not drawn while closed).
 document.addEventListener("toggle", (e) => {
@@ -669,12 +648,18 @@ document.addEventListener("input", onFilterInput);
 
 document.addEventListener("change", (e) => {
   const el = e.target as HTMLInputElement;
-  if (el.dataset?.f || el.dataset?.cf) return onFilterInput(e);
+  if (el.dataset?.f) return onFilterInput(e);
   // The setting that places gifts only on beneficiaries that have an ID (DECISIONS 75).
   if (el.dataset?.requireRef !== undefined) return void outcomeChange({ action: "set-require-ref", on: el.checked });
   // Tick boxes: one work order, or all shown in a list. Only the lists are redrawn.
   if (el.dataset?.sel !== undefined) {
     state.selected = el.checked ? [...new Set([...state.selected, el.dataset.sel])] : state.selected.filter((k) => k !== el.dataset.sel);
+    return redrawLists();
+  }
+  // Tick a whole gift: every payment it holds (DECISIONS 77).
+  if (el.dataset?.selGift !== undefined) {
+    const keys = (el.dataset.keys ?? "").split(" ").filter((k) => k !== "");
+    state.selected = el.checked ? [...new Set([...state.selected, ...keys])] : state.selected.filter((k) => !keys.includes(k));
     return redrawLists();
   }
   if (el.dataset?.selall !== undefined) {

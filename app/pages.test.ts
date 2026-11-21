@@ -10,7 +10,8 @@ import { MWF_CRM_CONFIG, readFeed } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { demoCategories, demoFeedRows, starterFrameworks } from "./demo-data";
 import { suggestAll } from "../modules/02-project-rules/categories";
-import { signinNote, attentionPage, auditPage, esc, categoriesPage, commitmentsPage, outcomesPage, workOrderList, workOrdersPage, type View } from "./pages";
+import { giftsPage } from "./gifts-page";
+import { signinNote, attentionPage, auditPage, esc, categoriesPage, outcomesPage, type View } from "./pages";
 
 const lines = readFeed(demoFeedRows(), MWF_CRM_CONFIG).lines;
 const MAP = { I10: "sponsorship", I11: "transactional", I13: "sponsorship" }; // the item "I14" is left unsorted on purpose
@@ -19,28 +20,7 @@ const plan = planWorkOrders(lines, [], { categoryByItem: MAP, usesFrameworks: tr
 const flagged = [{ id: "I10", name: "Orphan Sponsorship Monthly", count: 1 }, { id: "I14", name: "Animal Sacrifice", count: 1 }];
 const view = (over: Partial<View> = {}): View => ({ workOrders: plan.created, review: [], itemCategories: MAP, flaggedItems: flagged, filter: "all", message: "", config: MWF_CRM_CONFIG, categories, suggestions: suggestAll(flagged, MAP, categories), selectedItem: "", live: false, canPickup: false, run: null, ...over });
 
-describe("workOrdersPage", () => {
-  it("lists the four flagged lines and shows the unrouted one with a picker", () => {
-    const html = workOrdersPage(view());
-    expect(html).toContain("Animal Sacrifice");
-    expect(html).toContain('data-assign="I14"');
-    expect(html).toContain("1 of 12");
-    expect(html).toContain("2 of Indefinitely");
-  });
-
-  it("filters to unrouted only", () => {
-    const html = workOrderList(view({ filter: "unrouted" })); // the list only, the filter boxes name every item
-    expect(html).toContain("Animal Sacrifice");
-    expect(html).not.toContain("Orphan Sponsorship Monthly");
-  });
-
-  it("narrows the list by the filter boxes and says how many are shown", () => {
-    const html = workOrderList(view({ criteria: { text: "animal", itemId: "", categoryId: "", status: "", kind: "any", legacy: "", from: "", to: "" } }));
-    expect(html).toContain("Animal Sacrifice");
-    expect(html).not.toContain("Orphan Sponsorship Monthly");
-    expect(html).toMatch(/Showing \d+ of \d+/);
-  });
-
+describe("the lines behind a Needs attention entry", () => {
   it("opens the lines behind a Needs attention entry with filter boxes and bulk buttons", () => {
     const w = plan.created[0] as WorkOrder;
     const entry = { id: "changed:1", kind: "changed" as const, title: "Changed", detail: "d", status: "open" as const, workOrderKey: w.key, was: "amount 1", now: "amount 2" };
@@ -70,34 +50,6 @@ describe("workOrdersPage", () => {
   it("shows no empty 'Show the lines' for a note it cannot tie to lines", () => {
     const html = attentionPage(view({ live: true, attention: [{ id: "import:y", kind: "import", title: "Import problem", detail: "Something else.", status: "open" }] }));
     expect(html).not.toContain("Show the lines");
-  });
-
-  it("shows commitments grouped by subscription, with paid of planned", () => {
-    const base = plan.created[0] as WorkOrder;
-    const orders = [1, 2, 3].map((n) => ({ ...base, key: `s${n}`, subscriptionId: "S9", instalmentNumber: String(n), instalmentCount: "10" }));
-    const html = commitmentsPage(view({ workOrders: orders }));
-    expect(html).toContain("3 of 10");
-    expect(html).toContain("S9");
-    expect(html).toContain("Needs a look");
-    expect(commitmentsPage(view({ workOrders: orders, commitTab: "complete" }))).toContain("No commitments in this list.");
-  });
-
-  it("shows units from the framework's rule, who they go to, and asks for the framework when there is none", () => {
-    const base = plan.created[0] as WorkOrder;
-    const fws = starterFrameworks();
-    const mk = (frameworkId: string, over: Partial<WorkOrder> = {}) => [1, 2, 3, 4].map((n) => ({ ...base, key: `u${n}`, subscriptionId: "S7", instalmentNumber: String(n), instalmentCount: "12", frameworkId, ...over }));
-    const per = commitmentsPage(view({ workOrders: mk("sponsorship-whole"), frameworks: fws }));
-    expect(per).toContain("4 of 12");
-    expect(per).toContain("month");
-    const orphan = commitmentsPage(view({ workOrders: mk("sponsorship-shared-parts"), frameworks: fws }));
-    expect(orphan).toContain("1 of 3 parts: shared with other donors");
-    const bundle = commitmentsPage(view({ workOrders: mk("sponsorship-shared-parts", { bundleQty: 3 }), frameworks: fws }));
-    expect(bundle).toContain("1 dedicated child each month");
-    const share = commitmentsPage(view({ workOrders: mk("delivered-once"), frameworks: fws }));
-    expect(share).toContain("0.33 of 1");
-    expect(share).toContain("whole item not paid yet");
-    expect(commitmentsPage(view({ workOrders: mk(""), frameworks: fws }))).toContain("No framework chosen");
-    expect(commitmentsPage(view({ workOrders: mk("x"), frameworks: [{ ...fws[0]!, id: "x", instalment: undefined }] }))).toContain("Set how an instalment counts in the framework");
   });
 
   it("lists frameworks, lets a category pick one and an item differ, and says where each is used", () => {
@@ -159,7 +111,7 @@ describe("workOrdersPage", () => {
 
   it("never lets CRM text become HTML", () => {
     const evil = plan.created.map((w) => ({ ...w, supporterName: "<img src=x onerror=alert(1)>" }));
-    const html = workOrdersPage(view({ workOrders: evil }));
+    const html = giftsPage(view({ workOrders: evil }));
     expect(html).not.toContain("<img");
     expect(esc("a&b")).toBe("a&amp;b");
   });
@@ -200,14 +152,14 @@ describe("auditPage", () => {
   });
 });
 
-describe("credit chain on the work orders page", () => {
+describe("credit chain on the Gifts page", () => {
   it("shows who a gift is credited to and flags a group's own gift, and shows nothing when there is no chain", () => {
     const first = plan.created[0]!;
     const withChain = { ...first, supporterKind: "group", credits: [{ role: "agent", id: "A1", name: "Sample Rep" }, { role: "group", id: "G1", name: "<b>Branch</b>" }] };
-    const html = workOrdersPage(view({ workOrders: [withChain] }));
+    const html = giftsPage(view({ workOrders: [withChain] }));
     expect(html).toContain("Credited: agent: Sample Rep › group: &lt;b&gt;Branch&lt;/b&gt;");
     expect(html).toContain("No individual donor");
-    expect(workOrdersPage(view({ workOrders: [first] }))).not.toContain("Credited:");
+    expect(giftsPage(view({ workOrders: [first] }))).not.toContain("Credited:");
   });
 });
 

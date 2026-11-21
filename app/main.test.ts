@@ -32,8 +32,8 @@ const fire = (type: string, e: unknown) => (handlers[type] ?? []).forEach((h) =>
 const click = (attrs: Record<string, string>, match: string) => fire("click", { target: el(attrs, [match]) });
 
 describe("the shell", () => {
-  it("opens on work orders with every flagged line unrouted", () => {
-    expect(shell.innerHTML).toContain("Work orders");
+  it("opens on the Gifts list with every flagged line unrouted", () => {
+    expect(shell.innerHTML).toContain("<h1>Gifts</h1>");
     expect(shell.innerHTML).toContain("Unrouted");
     expect(shell.innerHTML).toContain('data-assign="I14"');
   });

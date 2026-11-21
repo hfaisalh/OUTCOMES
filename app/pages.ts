@@ -22,7 +22,7 @@ import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-or
 import type { RunInfo } from "../modules/00-platform/store";
 import { allocationShape, CYCLE_LABELS, groupItems, INSTALMENT_LABELS, missingFramework, unitsForCommitment, type Category, type Cycle, type FrameworkTemplate, type InstalmentRule, type ItemInfo } from "../modules/02-project-rules/categories";
 
-export type Filter = "all" | "ready" | "unrouted" | "review" | "excluded";
+export type Filter = "all" | "ready" | "unrouted" | "review" | "look" | "excluded";
 
 export interface View {
   workOrders: WorkOrder[];
@@ -40,15 +40,12 @@ export interface View {
   today?: string; // today as YYYY-MM-DD, so the month by month view can be drawn and tested for any date
   requireRef?: boolean; // place gifts only on beneficiaries that have an ID (DECISIONS 75)
   graceDays?: number; // days a payment may be unpaid before the place may be released (DECISIONS 74)
-  giftView?: "payments" | "commitments"; // which way the Gifts page shows the gifts (DECISIONS 66)
   giftProjects?: GiftProject[]; // the projects donors choose and the partners that deliver them (DECISIONS 76)
   benFilter?: BenFilter; // the filters on the Beneficiaries page
   projects?: Project[]; // the partners (the code still calls a partner a Project) and their structures (DECISIONS 65)
   nodes?: Node[]; // the places in them
   openProject?: string; // the project open on the Projects page
   openCommit?: string; // the commitment whose details are open on the Outcomes page ("" when none)
-  commitTab?: string; // Commitments page tab: all, progress, complete, open, look
-  commitText?: string; // Commitments page search text
   message: string;
   config: typeof MWF_CRM_CONFIG;
   categories: Category[];
@@ -72,19 +69,19 @@ export interface View {
 // Text that came from the CRM is never trusted as HTML.
 export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);
 
-const categoryName = (categories: Category[], id: string) => categories.find((c) => c.id === id)?.name ?? (id === "default" ? "Default journey" : id);
+export const categoryName = (categories: Category[], id: string) => categories.find((c) => c.id === id)?.name ?? (id === "default" ? "Default journey" : id);
 
 // A category picker. `item` is the CRM item id that the choice applies to.
-const picker = (categories: Category[], item: string, current: string) =>
+export const picker = (categories: Category[], item: string, current: string) =>
   `<select data-assign="${esc(item)}"><option value="">Choose category...</option>${categories.map((c) => `<option value="${c.id}"${c.id === current ? " selected" : ""}>${esc(c.name)}</option>`).join("")}</select>`;
 
-const metric = (value: number, label: string, cls = "") => `<div class="metric ${cls}"><b>${value}</b><span>${label}</span></div>`;
+export const metric = (value: number, label: string, cls = "") => `<div class="metric ${cls}"><b>${value}</b><span>${label}</span></div>`;
 
 // Rule shown to staff: the instalment as "2 of 12" or "2 of Indefinitely". Blank for a one-off.
 const instalment = (w: WorkOrder) => (w.instalmentNumber === "" ? `<span class="muted">One-off</span>` : `${esc(w.instalmentNumber)} of ${esc(w.instalmentCount)}`);
 
 // The last pick-up, in plain words (live only).
-function liveBar(v: View): string {
+export function liveBar(v: View): string {
   const r = v.run;
   if (!r) return `<div class="note">No pick-up has run yet. Work orders appear after the first pick-up from the CRM.</div>`;
   const when = esc(r.at.replace("T", " ").slice(0, 16));
@@ -94,7 +91,7 @@ function liveBar(v: View): string {
 }
 
 // Demo only: the owner signs in with a passphrase to use saved data. It is a plain form post, so it works without any script. Rule: the passphrase goes to the server over HTTPS and is never kept in the page.
-const ownerCard = (v: View): string => `<div class="card"><h2>Not signed in: nothing is being saved</h2>
+export const ownerCard = (v: View): string => `<div class="card"><h2>Not signed in: nothing is being saved</h2>
   <div class="note warnnote"><b>Everything on this page is forgotten when you refresh or open a new address.</b> Sign in as the owner first to keep your work on the server, then load your files. Always use the same address, https://outcomes-beryl.vercel.app/app/, because the sign-in belongs to that address.</div>
   <form method="post" action="/api/owner-login">
     <div class="filebox"><input type="password" name="passphrase" placeholder="Owner passphrase" autocomplete="current-password" required></div>
@@ -107,7 +104,7 @@ export const signinNote = (search: string): string => (new URLSearchParams(searc
 
 // Demo only: load your own CRM export files. They are read in this browser and go nowhere else.
 // Two steps so it is clear what happens: choose the files, then press the button.
-const loadCard = (v: View): string => `<div class="card"><h2>Use your own CRM export files</h2>
+export const loadCard = (v: View): string => `<div class="card"><h2>Use your own CRM export files</h2>
   <p class="muted">Choose the Donation lines, Catalogue items and (optionally) Recurring plans files from the CRM Export Centre, all at once, then press Load. ${v.live ? "They are read in this browser. Only the lines needed for work orders and the audit are sent to your saved data, with no contact details." : "They are read in this browser only. Nothing is uploaded or saved, so sign in above first if you want to keep the result."}</p>
   <div class="filebox"><input type="file" id="feedfile" multiple accept=".csv,text/csv"${v.loading ? " disabled" : ""}></div>
   ${v.pendingFiles?.length ? `<p>Chosen: ${v.pendingFiles.map(esc).join(", ")}</p>` : ""}
@@ -116,7 +113,7 @@ const loadCard = (v: View): string => `<div class="card"><h2>Use your own CRM ex
   ${v.loadNote && !v.loading ? `<div class="note">${esc(v.loadNote)}</div>` : ""}</div>`;
 
 // Who else the gift is credited to (agent, group, organisation), and a flag when there is no individual donor (DECISIONS 44). Empty when the feed has neither.
-const creditLine = (w: WorkOrder): string => {
+export const creditLine = (w: WorkOrder): string => {
   const chain = (w.credits ?? []).map((c) => `${c.role ? esc(c.role) + ": " : ""}${esc(c.name || c.id)}`).join(" › ");
   const flag = noIndividualDonor(w) && (w.credits?.length || w.supporterKind === "group") ? ` <span class="pill review">No individual donor</span>` : "";
   return chain || flag ? `<div class="muted">${chain ? "Credited: " + chain : ""}${flag}</div>` : "";
@@ -127,7 +124,7 @@ const creditLine = (w: WorkOrder): string => {
 export function listBase(v: View, id: string): WorkOrder[] {
   if (id === "main") {
     const reviewKeys = new Set(v.review.map((r) => r.key));
-    return v.workOrders.filter((w) => (v.filter === "all" ? w.status !== "excluded" : v.filter === "review" ? reviewKeys.has(w.key) && w.status !== "excluded" : w.status === v.filter));
+    return v.workOrders.filter((w) => (v.filter === "all" || v.filter === "look" ? w.status !== "excluded" : v.filter === "review" ? reviewKeys.has(w.key) && w.status !== "excluded" : w.status === v.filter));
   }
   const i = (v.attention ?? []).find((x) => `a:${x.id}` === id);
   return i ? attentionBase(v, i) : [];
@@ -150,7 +147,7 @@ function attentionBase(v: View, i: AttentionItem): WorkOrder[] {
 export const criteriaFor = (v: View, id: string): Criteria => (id === "main" ? v.criteria : v.scopeCriteria?.[id]) ?? NO_CRITERIA;
 
 // The filter boxes above a list. Typing or choosing only redraws the list, never the boxes (main.ts), so typing is not interrupted.
-function filterBar(v: View, id: string, base: WorkOrder[]): string {
+export function filterBar(v: View, id: string, base: WorkOrder[]): string {
   const c = criteriaFor(v, id);
   const items = new Map<string, string>();
   for (const w of base) items.set(w.itemId, w.itemName);
@@ -168,7 +165,7 @@ function filterBar(v: View, id: string, base: WorkOrder[]): string {
     <button data-action="clear-filters" data-scope="${esc(id)}">Clear filters</button></div>`;
 }
 
-const MAX_ROWS = 500; // the most rows drawn at once. The filter boxes narrow the rest.
+export const MAX_ROWS = 500; // the most rows drawn at once. The filter boxes narrow the rest.
 
 // A list with its filter boxes and bulk exclude and restore. Used on the Work orders page and inside each Needs attention entry.
 export function listBlock(v: View, id: string): string {
@@ -204,43 +201,6 @@ export function listHtml(v: View, id: string): string {
           )
           .join("")}</tbody></table>`
   }`;
-}
-
-// The Work orders page list, kept under its old name.
-export const workOrderList = (v: View): string => listHtml(v, "main");
-
-// Gifts (DECISIONS 66): payments and commitments are one thing seen two ways, so they share one menu entry and a switch.
-export function giftsPage(v: View): string {
-  const mode = v.giftView === "commitments" ? "commitments" : "payments";
-  const sw = `<div class="seg" role="group" aria-label="Show gifts"><button data-gift-view="payments" class="${mode === "payments" ? "on" : ""}">By payment</button><button data-gift-view="commitments" class="${mode === "commitments" ? "on" : ""}">By commitment</button></div>`;
-  return `${sw}${mode === "commitments" ? commitmentsPage(v) : workOrdersPage(v)}`;
-}
-
-export function workOrdersPage(v: View): string {
-  // Rule: excluded work orders are out of the active list and the counts. They show only under the Excluded tab (DECISIONS 47).
-  const active = v.workOrders.filter((w) => w.status !== "excluded");
-  const count = (s: string) => v.workOrders.filter((w) => w.status === s).length;
-  const tab = (id: Filter, label: string) => `<button data-filter="${id}" class="${v.filter === id ? "on" : ""}">${label}</button>`;
-  return `
-    <h1>Gifts, by payment</h1>
-    <p class="sub">Arrive from the CRM feed. Only items the CRM marks as needing feedback appear here, so nothing is imported by hand.</p>
-    ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
-    <div class="metrics">${metric(active.length, "Work orders")}${metric(count("ready"), "Ready", "ok")}${metric(count("unrouted"), "Unrouted", count("unrouted") ? "warn" : "")}${metric(v.review.length, "To review", v.review.length ? "warn" : "")}</div>
-    ${v.live ? liveBar(v) : ""}
-    <div class="actions">
-      <button class="primary" data-action="refresh">${v.live ? "Reload" : "Refresh from CRM"}</button>
-      ${v.live ? (v.canPickup ? `<button data-action="pickup-now">Run pickup now</button>` : "") : `<button data-action="demo-new">Demo: a new paid line arrives in the CRM</button>
-      <button data-action="demo-change">Demo: the CRM changes an amount</button>`}
-    </div>
-    ${v.live ? "" : ownerCard(v)}
-    ${v.live && !v.upload ? "" : loadCard(v)}
-    <div class="tabs">${tab("all", "All")}${tab("ready", "Ready")}${tab("unrouted", "Unrouted")}${tab("review", "To review")}${tab("excluded", `Excluded (${count("excluded")})`)}</div>
-    ${listBlock(v, "main")}
-    ${
-      v.review.length
-        ? `<div class="card"><h2>Held for review</h2><p class="muted">These changed in the CRM after the work order was made. Nothing was changed automatically.</p><table><tbody>${v.review.map((r) => `<tr><td>${esc(r.key)}</td><td>${esc(r.message)}</td></tr>`).join("")}</tbody></table></div>`
-        : ""
-    }`;
 }
 
 export function dashboardPage(v: View): string {
@@ -382,64 +342,6 @@ export function attentionPage(v: View): string {
     <div class="metrics">${metric(open.length, "Open", open.length ? "warn" : "ok")}${metric(open.filter((i) => i.kind === "unrouted").length, "Items to sort")}${metric(done.length, "Reviewed")}</div>
     <div class="card"><h2>Open</h2>${open.length === 0 ? `<div class="empty">Nothing needs attention.</div>` : `<table><tbody>${open.map(card).join("")}</tbody></table>`}</div>
     ${done.length ? `<div class="card"><h2>Reviewed</h2><table><tbody>${done.map(card).join("")}</tbody></table></div>` : ""}`;
-}
-
-// Commitments (Module 4b): every recurring gift as one record, instalments grouped by subscription. Read only (DECISIONS 53).
-const COMMIT_TABS: [string, string][] = [["all", "All"], ["progress", "In progress"], ["complete", "Complete"], ["open", "Open ended"], ["look", "Needs a look"]];
-
-const commitNotes = (c: Commitment): string =>
-  [
-    c.gaps.length ? `<span class="pill review">Missing instalment ${c.gaps.join(", ")}</span>` : "",
-    c.legacyOpening ? `<span class="pill review" title="The first record was loaded from the old website. Instalments paid there are not in our data and are not counted.">Legacy opening</span>` : "",
-    c.startsLate && !c.legacyOpening ? `<span class="pill review">Starts at ${c.numbers[0]}: earlier ones are not in our data</span>` : "",
-    c.partsVary ? `<span class="pill review">Parts differ between instalments</span>` : "",
-    c.conflict ? `<span class="pill review">Lines disagree on supporter or item</span>` : "",
-  ].join(" ");
-
-// The list and its numbers. Redrawn alone while typing in the search box, like the work order lists.
-export function commitmentList(v: View): string {
-  const all = buildCommitments(v.workOrders);
-  const tab = v.commitTab ?? "all";
-  const words = (v.commitText ?? "").toLowerCase().split(/\s+/).filter((x) => x !== "");
-  const keep = (c: Commitment) =>
-    (tab === "all" || (tab === "progress" && c.state === "in_progress") || (tab === "complete" && c.state === "complete") || (tab === "open" && c.state === "open_ended") || (tab === "look" && needsLook(c))) &&
-    words.every((w) => [c.subscriptionId, c.supporterName, c.supporterId, c.itemName, ...c.lines.map((l) => l.key + " " + l.transactionRef)].join(" ").toLowerCase().includes(w));
-  const rows = all.commitments.filter(keep);
-  // Units, from the category's rule for how an instalment counts (DECISIONS 52, 58). No rule set, no guess.
-  const num = (n: number) => String(Math.round(n * 100) / 100);
-  const unitsCell = (c: Commitment): string => {
-    const fw = (v.frameworks ?? []).find((x) => x.id === c.frameworkId);
-    const rule = fw?.instalment;
-    if (fw === undefined) return `<span class="muted">${c.categoryId === "" ? "Not in a category" : "No framework chosen for this item or its category"}</span>`;
-    if (rule === undefined) return `<span class="muted">Set how an instalment counts in the framework ${esc(fw.name)}</span>`;
-    const u = unitsForCommitment(rule, { parts: c.partsPerInstalment, paid: c.paid, planned: c.planned });
-    if (rule === "share_of_whole") return u.target === null ? `<span class="muted">Count unknown</span>` : `${num(u.units)} of ${num(u.target)}${u.complete ? ` <span class="pill ready">Complete, can be delivered</span>` : ` <span class="muted">(whole item not paid yet)</span>`}`;
-    // Who the units go to: whole beneficiaries (dedicated) and a shared remainder, from the framework's units per beneficiary.
-    const shape = allocationShape(c.partsPerInstalment, fw.unitsPerBeneficiary);
-    const who = fw.unitsPerBeneficiary <= 1 ? "" : shape.dedicated > 0 ? `<div class="muted">${shape.dedicated} dedicated ${esc(fw.unit || "beneficiary")}${shape.dedicated === 1 ? "" : "s"}${shape.shared ? ` and ${shape.shared} shared part${shape.shared === 1 ? "" : "s"}` : ""} each month</div>` : `<div class="muted">${shape.shared} of ${fw.unitsPerBeneficiary} parts: shared with other donors</div>`;
-    return `${num(u.units)}${u.target === null ? "" : ` of ${num(u.target)}`} <span class="muted">${c.partsPerInstalment === 1 ? "month" : "part-months"}</span>${who}`;
-  };
-  const progress = (c: Commitment) => `${c.paid} of ${c.planned ?? "ongoing"}${c.planned ? `<div class="bar"><span style="width:${Math.min(100, Math.round((c.paid / c.planned) * 100))}%"></span></div>` : ""}`;
-  const row = (c: Commitment) => `<tr><td>${esc(c.subscriptionId)}</td>
-    <td>${esc(c.supporterName)}<div class="muted">${esc(c.supporterId)}</div></td>
-    <td>${esc(c.itemName)}<div class="muted">${c.partsPerInstalment} part${c.partsPerInstalment === 1 ? "" : "s"} each instalment</div></td>
-    <td>${progress(c)}</td><td>${unitsCell(c)}</td><td>${c.firstPaid ? `${esc(c.firstPaid)}<div class="muted">to ${esc(c.lastPaid)}</div>` : `<span class="muted">none since the load</span>`}</td>
-    <td>${commitNotes(c)}<details><summary>Instalments</summary>${c.lines.map((l) => `<div class="muted">No. ${esc(l.instalmentNumber) || "?"} · Line ${esc(l.key)} · ${l.legacyUpload ? `<span class="pill review">Legacy upload</span> load date ${esc(l.paidDate)}` : esc(l.paidDate)} · ${esc(l.transactionRef) || "no reference"}</div>`).join("")}</details></td></tr>`;
-  const unlinked = all.unlinked.filter((u) => words.length === 0 || words.every((w) => [u.key, u.workOrder.supporterName, u.workOrder.supporterId, u.workOrder.itemName, u.workOrder.transactionRef].join(" ").toLowerCase().includes(w)));
-  const link = (u: (typeof all.unlinked)[number]) =>
-    u.suggestions.length === 0 ? `<span class="muted">No commitment for the same supporter and item</span>` : u.suggestions.map((s) => `Possibly subscription <b>${esc(s.subscriptionId)}</b> <span class="muted">(${s.daysApart === null ? "legacy upload, date not comparable" : s.daysApart === 0 ? "same day" : `${Math.abs(s.daysApart)} day${Math.abs(s.daysApart) === 1 ? "" : "s"} ${s.daysApart < 0 ? "before its first instalment" : "after its first instalment"}`})</span>`).join("<br>");
-  return `<div class="metrics">${metric(all.commitments.length, "Commitments")}${metric(all.commitments.filter((c) => c.state === "in_progress").length, "In progress")}${metric(all.commitments.filter((c) => c.state === "complete").length, "Complete", "ok")}${metric(all.commitments.filter(needsLook).length, "Need a look", all.commitments.some(needsLook) ? "warn" : "")}${metric(all.unlinked.length, "Recurring, no subscription", all.unlinked.length ? "warn" : "")}</div>
-    <div class="tabs">${COMMIT_TABS.map(([id, label]) => `<button data-ctab="${id}" class="${tab === id ? "on" : ""}">${label}</button>`).join("")}</div>
-    <div class="card">${rows.length === 0 ? `<div class="empty">No commitments in this list.</div>` : `<table><thead><tr><th>Subscription</th><th>Supporter</th><th>Item</th><th>Paid</th><th>Units</th><th>Dates</th><th>Notes</th></tr></thead><tbody>${rows.map(row).join("")}</tbody></table>`}</div>
-    ${unlinked.length ? `<div class="card"><h2>Recurring lines with no subscription</h2><p class="muted">The CRM did not link these to a subscription. The suggestion is only a hint, check each in the CRM. Nothing is linked here.</p><table><thead><tr><th>Line</th><th>Supporter</th><th>Item</th><th>Paid</th><th>Suggestion</th></tr></thead><tbody>${unlinked.map((u) => `<tr><td>${esc(u.key)}<div class="muted">${esc(u.workOrder.transactionRef) || "no reference"}${u.workOrder.legacyUpload ? ` <span class="pill review">Legacy upload</span>` : ""}</div></td><td>${esc(u.workOrder.supporterName)}<div class="muted">${esc(u.workOrder.supporterId)}</div></td><td>${esc(u.workOrder.itemName)}</td><td>${esc(u.workOrder.paidDate.slice(0, 10))}</td><td>${link(u)}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
-}
-
-export function commitmentsPage(v: View): string {
-  return `
-    <h1>Gifts, by commitment</h1>
-    <p class="sub">Each recurring gift as one record: its paid instalments grouped by subscription. Read only. It shows what is paid out of what is planned, so you can see a sponsorship or an instalment plan before anything is allocated.</p>
-    <div class="card filters"><input type="search" data-cf="text" placeholder="Search subscription, supporter, item, line id..." value="${esc(v.commitText ?? "")}"></div>
-    <div id="commit-list">${commitmentList(v)}</div>`;
 }
 
 // Outcomes (Module 5): what the gifts are for, how full each outcome is, and which commitment fills it. Colours show fulfilment, never donors:

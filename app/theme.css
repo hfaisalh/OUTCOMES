@@ -128,3 +128,6 @@ td.bad{color:#d23b3b;font-weight:600}
 .rowlink{cursor:pointer}.rowlink:hover{background:var(--accent-bg)}.ptable td,.ptable th{white-space:nowrap}
 .pf-body table{width:100%}.pf-body section{margin-top:18px}
 .refbox{width:110px;font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:6px}
+
+/* The Gifts list (DECISIONS 77): one row for each gift, with its payments inside */
+.giftlist td{vertical-align:top}.giftlist details summary{margin-top:6px}.subtable{margin-top:8px;font-size:13px;width:100%}.subtable th,.subtable td{padding:4px 8px}
