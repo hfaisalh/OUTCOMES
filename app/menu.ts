@@ -22,7 +22,7 @@ export const PERMISSIONS = {
   approveRelease: "outcomes.approve_release", // a manager may approve releasing a sponsor's place after a missed payment (DECISIONS 74)
 } as const;
 
-export type PageId = "work-orders" | "attention" | "commitments" | "outcomes" | "projects" | "allocation" | "audit" | "categories" | "dashboard" | "sources" | "settings";
+export type PageId = "work-orders" | "attention" | "commitments" | "outcomes" | "projects" | "partners" | "beneficiaries" | "allocation" | "audit" | "categories" | "dashboard" | "sources" | "settings";
 
 export interface MenuItem {
   id: PageId;
@@ -47,11 +47,13 @@ export const MODULES: ModuleInfo[] = [
   { id: "setup", label: "Settings", icon: "⚙", section: "Set up", blurb: "What needs a person, the audit, categories and sponsorship types, and other sources." },
 ];
 
-// Rule (DECISIONS 66): the side menu follows the journey of a gift: Gifts, Projects, Allocation. Everything about setting up and checking
+// Rule (DECISIONS 66, 76): the side menu has the gifts, then the three registers (Projects, Partners, Beneficiaries), then Allocation, which matches gifts to beneficiaries. Everything about setting up and checking
 // sits behind the Settings gear. Gifts holds both the payments and the commitments (a switch on the page), since they are one thing seen two ways.
 export const MENU: MenuItem[] = [
   { id: "work-orders", label: "Gifts", icon: "☰", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
-  { id: "projects", label: "Partners", icon: "▤", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
+  { id: "projects", label: "Projects", icon: "▥", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
+  { id: "partners", label: "Partners", icon: "▤", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
+  { id: "beneficiaries", label: "Beneficiaries", icon: "☺", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "allocation", label: "Place gifts", icon: "⇄", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "outcomes", label: "Month by month", icon: "◎", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "dashboard", label: "Dashboard", icon: "◔", permission: PERMISSIONS.dashboards, section: "Work" },

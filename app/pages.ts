@@ -12,7 +12,8 @@ import type { AttentionItem } from "../modules/04-triage/triage";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { partsOf } from "../modules/01c-crm-connector/work-orders";
 import { autoAllocate, fillOf, holdingReport, monthsAround, perPeriodRule, timelineOf, type UnitStatus, type Allocation, type Availability, type Outcome } from "../modules/05-outcomes/outcomes";
-import { allocOptions, type Node, type Project } from "../modules/06-projects/projects";
+import { allocOptions, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
+import type { BenFilter } from "./beneficiaries-page";
 import { allocatable, buildCommitments, needsLook, type Commitment } from "../modules/04b-commitments/commitments";
 import { noIndividualDonor } from "../modules/01c-crm-connector/credits";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
@@ -40,7 +41,9 @@ export interface View {
   requireRef?: boolean; // place gifts only on beneficiaries that have an ID (DECISIONS 75)
   graceDays?: number; // days a payment may be unpaid before the place may be released (DECISIONS 74)
   giftView?: "payments" | "commitments"; // which way the Gifts page shows the gifts (DECISIONS 66)
-  projects?: Project[]; // the projects and their structures (DECISIONS 65)
+  giftProjects?: GiftProject[]; // the projects donors choose and the partners that deliver them (DECISIONS 76)
+  benFilter?: BenFilter; // the filters on the Beneficiaries page
+  projects?: Project[]; // the partners (the code still calls a partner a Project) and their structures (DECISIONS 65)
   nodes?: Node[]; // the places in them
   openProject?: string; // the project open on the Projects page
   openCommit?: string; // the commitment whose details are open on the Outcomes page ("" when none)
@@ -450,7 +453,7 @@ export function outcomesPage(v: View): string {
   const today = v.today ?? "2026-01-01";
   const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
   const byKey = new Map(commitments.map((c) => [c.subscriptionId, c]));
-  const opts = allocOptions(v.projects ?? [], v.graceDays, today, v.requireRef === true);
+  const opts = allocOptions(v.projects ?? [], v.graceDays, today, v.requireRef === true, v.giftProjects ?? []);
   const fills = new Map(outcomes.map((o) => [o.id, fillOf(o, fws, allocations, commitments, opts.policy)]));
   const waiting = autoAllocate(commitments, outcomes, fws, allocations, "", opts).unplaced; // a dry run: nothing is saved
   const hold = holdingReport(commitments, fws, opts.policy);

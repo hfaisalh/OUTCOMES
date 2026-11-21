@@ -11,8 +11,11 @@
  */
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
-import { adoptLegacy, allocOptions, applyProjectAction, clearLegacy, placeInNode, placeInPartner, type Node, type Project } from "../modules/06-projects/projects";
+import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, clearLegacy, placeInNode, placeInPartner, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
+import { partnersPage } from "./partners-page";
 import { projectsPage } from "./projects-page";
+import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
+import { projectFormHtml, readProjectForm } from "./project-form";
 import { NEW_CONTACT_ROW, NEW_DOC_ROW, readPartnerForm } from "./partner-form";
 import { partnerWindowHtml, type PartnerTab } from "./partner-window";
 import { allocationPage } from "./allocation-page";
@@ -53,6 +56,9 @@ const state = {
   allocations: [] as Allocation[],
   projects: [] as Project[], // the projects and the places in them (DECISIONS 65)
   nodes: [] as Node[],
+  giftProjects: [] as GiftProject[], // the projects donors choose, and the partners that deliver them (DECISIONS 76)
+  benFilter: { ...NO_BEN_FILTER } as BenFilter, // the filters on the Beneficiaries page
+  projectWin: { open: false, id: "" }, // the project form
   partnerWin: { open: false, id: "", tab: "profile" as PartnerTab, draft: null as Record<string, unknown> | null }, // the partner window (DECISIONS 70)
   partnerTypes: [] as string[], // the organisation's own list of partner types (DECISIONS 69)
   partnerFields: [] as string[], // and its own extra partner fields
@@ -97,7 +103,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
-    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; }).catch(() => undefined);
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
     state.message = "";
   } catch (e) {
@@ -166,7 +172,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, projects: state.projects, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, giftView: state.giftView, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, giftView: state.giftView, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, commitTab: state.commitTab, commitText: state.commitText, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -193,6 +199,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.outcomes = r.outcomes;
       state.allocations = r.allocations;
       state.projects = r.projects ?? state.projects;
+      state.giftProjects = r.giftProjects ?? state.giftProjects;
       state.nodes = r.nodes ?? state.nodes;
       state.graceDays = r.graceDays ?? state.graceDays;
       state.requireRef = r.requireRef ?? state.requireRef;
@@ -212,23 +219,23 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "add": { const r = addOutcomes(state.outcomes, { name: str("name"), count: Number(body["count"] ?? 1), type: str("type"), cohort: str("cohort"), frameworkId: str("frameworkId") }); if (!state.frameworks.some((f) => f.id === str("frameworkId"))) error = "Choose a framework for the outcome."; else if (r.error) error = r.error; else state.outcomes = r.value; break; }
         case "active": state.outcomes = setActive(state.outcomes, str("id"), body["active"] === true); break;
         case "remove": { const r = removeOutcome(state.outcomes, state.allocations, str("id")); if (r.error) error = r.error; else state.outcomes = r.value; break; }
-        case "auto": { const r = autoAllocate(commitments, state.outcomes, state.frameworks, state.allocations, at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef)); state.allocations = r.allocations; state.message = `Placed ${r.placed}, released ${r.released}, ${r.unplaced.length} waiting.`; break; }
-        case "move": { const r = moveAllocation(state.allocations, commitments, state.outcomes, state.frameworks, str("commitmentKey"), str("outcomeId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10)).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
+        case "auto": { const r = autoAllocate(commitments, state.outcomes, state.frameworks, state.allocations, at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects)); state.allocations = r.allocations; state.message = `Placed ${r.placed}, released ${r.released}, ${r.unplaced.length} waiting.`; break; }
+        case "move": { const r = moveAllocation(state.allocations, commitments, state.outcomes, state.frameworks, str("commitmentKey"), str("outcomeId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
         case "remove-many": { const r = removeUnused(state.outcomes, state.allocations, Array.isArray(body["ids"]) ? (body["ids"] as string[]) : []); state.outcomes = r.value; state.message = `Removed ${r.removed}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`; break; }
-        case "place-in-node": { const r = placeInNode(state.allocations, commitments, state.outcomes, state.nodes, state.frameworks, str("commitmentKey"), str("nodeId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10)).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
-        case "place-in-partner": { const r = placeInPartner(state.allocations, commitments, state.outcomes, state.projects, state.frameworks, str("commitmentKey"), str("projectId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10)).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
+        case "place-in-node": { const r = placeInNode(state.allocations, commitments, state.outcomes, state.nodes, state.frameworks, str("commitmentKey"), str("nodeId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
+        case "place-in-partner": { const r = placeInPartner(state.allocations, commitments, state.outcomes, state.projects, state.frameworks, str("commitmentKey"), str("projectId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
         case "adopt-legacy": { const r = adoptLegacy(state.outcomes, state.projects, str("projectId")); if (r.error) error = r.error; else { state.outcomes = r.value; state.message = `Moved ${r.moved} into the partner.`; } break; }
         case "clear-legacy": { const r = clearLegacy(state.outcomes, state.allocations); state.outcomes = r.outcomes; state.allocations = r.allocations; state.message = `Removed ${r.removed} and released ${r.released} gift${r.released === 1 ? "" : "s"}.`; break; }
         case "set-require-ref": state.requireRef = body["on"] === true; break;
         case "set-grace": { const n = Number(body["days"]); if (!Number.isInteger(n) || n < 0 || n > 90) error = "The grace period is a whole number of days, from 0 to 90."; else state.graceDays = n; break; }
-        case "approve-release": { const due = releaseApprovals(state.allocations, commitments, state.frameworks, allocOptions(state.projects, state.graceDays, at.slice(0, 10)).policy).find((x) => x.commitmentKey === str("commitmentKey")); if (!due) error = "That place is not due for release."; else state.allocations = releaseAllocation(state.allocations, due.commitmentKey); break; }
+        case "approve-release": { const due = releaseApprovals(state.allocations, commitments, state.frameworks, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy).find((x) => x.commitmentKey === str("commitmentKey")); if (!due) error = "That place is not due for release."; else state.allocations = releaseAllocation(state.allocations, due.commitmentKey); break; }
         case "release": state.allocations = releaseAllocation(state.allocations, str("commitmentKey")); break;
         default: {
           // Projects (DECISIONS 65): the same pure rule the server uses.
-          const r = applyProjectAction({ projects: state.projects, nodes: state.nodes, outcomes: state.outcomes, partnerTypes: state.partnerTypes, partnerFields: state.partnerFields }, state.frameworks, body, new Date().toISOString().slice(0, 10));
+          const r = applyProjectAction({ projects: state.projects, nodes: state.nodes, outcomes: state.outcomes, partnerTypes: state.partnerTypes, partnerFields: state.partnerFields, giftProjects: state.giftProjects }, state.frameworks, body, new Date().toISOString().slice(0, 10));
           if (!r) error = "That request is not understood.";
           else if (r.error) error = r.error;
-          else { state.projects = r.state.projects; state.nodes = r.state.nodes; state.outcomes = r.state.outcomes; state.partnerTypes = r.state.partnerTypes; state.partnerFields = r.state.partnerFields; if (r.warning) state.message = r.warning; }
+          else { state.projects = r.state.projects; state.nodes = r.state.nodes; state.outcomes = r.state.outcomes; state.partnerTypes = r.state.partnerTypes; state.partnerFields = r.state.partnerFields; state.giftProjects = r.state.giftProjects; if (r.warning) state.message = r.warning; }
         }
       }
       lastError = error ?? "";
@@ -297,6 +304,8 @@ function draw(): void {
     : state.page === "allocation" ? allocationPage(v)
     : state.page === "outcomes" ? outcomesPage(v)
     : state.page === "projects" ? projectsPage(v)
+    : state.page === "partners" ? partnersPage(v)
+    : state.page === "beneficiaries" ? beneficiariesPage(v)
     : state.page === "audit" ? auditPage(v)
     : state.page === "dashboard" ? dashboardPage(v)
     : state.page === "categories" ? categoriesPage(v)
@@ -450,10 +459,10 @@ document.addEventListener("click", (e) => {
     afterConfig();
   }
   // Matching a CRM project name to a project (DECISIONS 67).
-  if (action === "assign-crm") return void outcomeChange({ action: "toggle-crm-name", name: el.dataset.name, projectId: el.dataset.project, on: true });
+  if (action === "assign-crm") return void outcomeChange({ action: "assign-crm-name", name: el.dataset.name, giftProjectId: el.dataset.project });
   if (action === "assign-crm-all") {
     const pairs = JSON.parse(el.dataset.pairs ?? "[]") as [string, string][];
-    void (async () => { for (const [name, projectId] of pairs) await outcomeChange({ action: "toggle-crm-name", name, projectId, on: true }); })();
+    void (async () => { for (const [name, projectId] of pairs) await outcomeChange({ action: "assign-crm-name", name, giftProjectId: projectId }); })();
     return;
   }
   // Projects (DECISIONS 65).
@@ -480,10 +489,17 @@ document.addEventListener("click", (e) => {
     if (window.confirm("Remove the beneficiaries that are not in a partner and release their gifts? The gifts can then be placed again. This cannot be undone.")) void outcomeChange({ action: "clear-legacy" });
     return;
   }
+  // Add beneficiaries from the Beneficiaries page: a partner, a name, a number and how they are sponsored (DECISIONS 72, 76).
+  if (action === "ben-add") {
+    const val = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value ?? "";
+    if (val("ben-partner") === "") { state.message = "Choose the partner first."; return draw(); }
+    state.benFilter = { ...state.benFilter, partner: val("ben-partner") };
+    return void outcomeChange({ action: "add-beneficiaries", projectId: val("ben-partner"), typeId: "", name: val("ben-name"), count: Number(val("ben-count") || 1), frameworkId: val("ben-fw"), nodeId: "" });
+  }
   // Give every beneficiary of the open partner that has no ID the next number (DECISIONS 75).
   if (action === "assign-refs") {
     const val = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value ?? "";
-    return void outcomeChange({ action: "assign-refs", projectId: state.openProject, prefix: val("pj-ref-prefix"), start: Number(val("pj-ref-start") || 1) });
+    return void outcomeChange({ action: "assign-refs", projectId: el.dataset.partner ?? state.openProject, prefix: val("pj-ref-prefix"), start: Number(val("pj-ref-start") || 1) });
   }
   // A manager approves releasing a place that has been unpaid beyond the grace days (DECISIONS 74).
   if (action === "approve-release") return void outcomeChange({ action: "approve-release", commitmentKey: el.dataset.key });
@@ -656,8 +672,6 @@ document.addEventListener("change", (e) => {
   if (el.dataset?.f || el.dataset?.cf) return onFilterInput(e);
   // The setting that places gifts only on beneficiaries that have an ID (DECISIONS 75).
   if (el.dataset?.requireRef !== undefined) return void outcomeChange({ action: "set-require-ref", on: el.checked });
-  // A partner ticked or unticked for a CRM project name (DECISIONS 68).
-  if (el.dataset?.crmToggle !== undefined) return void outcomeChange({ action: "toggle-crm-name", name: el.dataset.crmName, projectId: el.dataset.crmToggle, on: el.checked });
   // Tick boxes: one work order, or all shown in a list. Only the lists are redrawn.
   if (el.dataset?.sel !== undefined) {
     state.selected = el.checked ? [...new Set([...state.selected, el.dataset.sel])] : state.selected.filter((k) => k !== el.dataset.sel);
@@ -677,7 +691,7 @@ document.addEventListener("change", (e) => {
   }
   // Rule: only a field the page knows about causes a redraw. Any other field (the owner passphrase box, for example)
   // must be left alone, because a redraw would wipe what was typed and replace the button the person is about to press.
-  const known = t.id === "role" || t.dataset.ocMove !== undefined || t.dataset.ocf !== undefined || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords || t.dataset.pjOpen !== undefined || t.dataset.levelParent !== undefined || t.dataset.placeSelect !== undefined || t.dataset.grace !== undefined || t.dataset.ref !== undefined;
+  const known = t.id === "role" || t.dataset.ocMove !== undefined || t.dataset.ocf !== undefined || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords || t.dataset.pjOpen !== undefined || t.dataset.levelParent !== undefined || t.dataset.placeSelect !== undefined || t.dataset.grace !== undefined || t.dataset.ref !== undefined || t.dataset.crmProject !== undefined || t.dataset.setPlace !== undefined || t.dataset.setGroup !== undefined || t.dataset.benf !== undefined;
   if (!known) return;
   // A level moved under another, or to the top (DECISIONS 71).
   if (t.dataset.levelParent !== undefined) return void outcomeChange({ action: "move-level", projectId: state.openProject, levelId: t.dataset.levelParent, parentId: t.value });
@@ -688,6 +702,16 @@ document.addEventListener("change", (e) => {
   }
   if (t.dataset.grace !== undefined) return void outcomeChange({ action: "set-grace", days: Number(t.value) });
   if (t.dataset.ref !== undefined) return void outcomeChange({ action: "set-ref", outcomeId: t.dataset.ref, ref: t.value });
+  // A CRM name put in a project, or in none (DECISIONS 76).
+  if (t.dataset.crmProject !== undefined) return void outcomeChange({ action: "assign-crm-name", name: t.dataset.crmProject, giftProjectId: t.value });
+  // A beneficiary placed afterwards in a place, or in a group of a kind (DECISIONS 76).
+  if (t.dataset.setPlace !== undefined) return void outcomeChange({ action: "set-place", outcomeId: t.dataset.setPlace, nodeId: t.value });
+  if (t.dataset.setGroup !== undefined) return void outcomeChange({ action: "set-group", outcomeId: t.dataset.setGroup, levelId: t.dataset.level, groupId: t.value });
+  // The filters on the Beneficiaries page.
+  if (t.dataset.benf !== undefined) {
+    state.benFilter = { ...state.benFilter, [t.dataset.benf]: t.value } as BenFilter;
+    return draw();
+  }
   if (t.dataset.pjOpen !== undefined) {
     state.openProject = t.value;
     return draw();
@@ -889,6 +913,15 @@ document.addEventListener("change", (e) => {
   if (id === "pj-ben-type" || id === "pj-ben-node") filterPlaces();
   if (id === "pj-node-level") filterParents();
 });
+document.addEventListener("click", (e) => {
+  const nav = (e.target as HTMLElement).closest("[data-nav]") as HTMLElement | null;
+  if (!nav) return;
+  // A link from one register to another, for example from a partner to its beneficiaries.
+  state.page = nav.dataset.nav as PageId;
+  if (nav.dataset.partner) state.benFilter = { ...NO_BEN_FILTER, partner: nav.dataset.partner };
+  closePartnerWindow();
+  draw();
+});
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && state.partnerWin.open) closePartnerWindow();
   const row = (e.target as HTMLElement).closest?.(".rowlink") as HTMLElement | null;
@@ -938,8 +971,62 @@ document.addEventListener("click", (e) => {
       if (made) { w.id = made.id; state.openProject = made.id; }
       w.draft = null;
       // A new partner goes on to its structure. An edited one stays where it is and says it was saved.
-      if (wasNew) w.tab = "beneficiaries";
+      if (wasNew) w.tab = "structure";
       renderPartnerWindow(wasNew ? "" : "Saved.", !wasNew);
     });
   }
+});
+
+
+// ---- The project form (DECISIONS 76) ----
+// A pop-up like the partner window, outside the page that is redrawn.
+function renderProjectWindow(error = "", draft?: Record<string, unknown>): void {
+  const w = state.projectWin;
+  if (!w.open) return;
+  let root = document.getElementById("project-root");
+  if (!root) {
+    root = document.createElement("div");
+    root.id = "project-root";
+    document.body.appendChild(root);
+  }
+  const existing = state.giftProjects.find((g) => g.id === w.id);
+  const names = crmNamesOf(state.workOrders, state.giftProjects).map((n) => ({ name: n.name, gifts: n.gifts }));
+  root.innerHTML = projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects }, error);
+}
+function closeProjectWindow(): void {
+  state.projectWin = { open: false, id: "" };
+  const root = document.getElementById("project-root");
+  if (root) root.innerHTML = "";
+}
+document.addEventListener("click", (e) => {
+  const el = (e.target as HTMLElement).closest("[data-pj]") as HTMLElement | null;
+  if (!el) return;
+  const what = el.dataset.pj;
+  if (what === "new") { state.projectWin = { open: true, id: "" }; return renderProjectWindow(); }
+  if (what === "open") { state.projectWin = { open: true, id: el.dataset.id ?? "" }; return renderProjectWindow(); }
+  // A new project from a CRM name: the form opens with that name filled in and ticked.
+  if (what === "from-name") { state.projectWin = { open: true, id: "" }; return renderProjectWindow("", { name: el.dataset.name ?? "", partnerIds: [] }); }
+  if (what === "cancel") return closeProjectWindow();
+  const root = document.getElementById("project-root");
+  if (!root) return;
+  if (what === "remove") {
+    void outcomeChange({ action: "remove-gift-project", giftProjectId: state.projectWin.id }).then(() => closeProjectWindow());
+    return;
+  }
+  if (what === "save") {
+    const profile = readProjectForm(root);
+    void outcomeChange({ action: "save-gift-project", giftProjectId: state.projectWin.id, profile }).then(() => {
+      if (lastError !== "") {
+        const box = document.getElementById("pr-error");
+        if (box) box.textContent = lastError;
+        return;
+      }
+      closeProjectWindow();
+    });
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && state.projectWin.open) closeProjectWindow();
+  const row = (e.target as HTMLElement).closest?.(".rowlink[data-pj]") as HTMLElement | null;
+  if (row && e.key === "Enter") { state.projectWin = { open: true, id: row.dataset.id ?? "" }; renderProjectWindow(); }
 });

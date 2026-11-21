@@ -281,6 +281,44 @@ export function addBeneficiaries(outcomes: Outcome[], projects: Project[], nodes
   return { value: [...outcomes, ...added] };
 }
 
+// ---- Placing a beneficiary afterwards (DECISIONS 76) ----
+
+// Rule: put a beneficiary in a place of its partner, or take it out of any place when the id is empty. The place must suit the beneficiary's kind. Groups it was in
+// that are not inside the new place are dropped.
+export function setPlace(outcomes: Outcome[], partners: Project[], nodes: Node[], outcomeId: string, nodeId: string): Changed<Outcome[]> {
+  const o = outcomes.find((x) => x.id === outcomeId);
+  if (!o || !o.projectId) return { value: outcomes, error: "That beneficiary was not found, or it belongs to no partner." };
+  const p = partners.find((x) => x.id === o.projectId);
+  const type = p?.types.find((t) => t.id === o.typeId);
+  const node = nodeId === "" ? undefined : nodes.find((x) => x.id === nodeId && x.projectId === o.projectId);
+  if (nodeId !== "" && !node) return { value: outcomes, error: "That place was not found in this partner." };
+  if (node && type && type.levelId !== "" && node.levelId !== type.levelId) return { value: outcomes, error: `${type.name} beneficiaries belong to a ${p?.levels.find((l) => l.id === type.levelId)?.name ?? "place"}, not a ${p?.levels.find((l) => l.id === node.levelId)?.name ?? "this one"}.` };
+  const inside = (gid: string): boolean => { let up = nodes.find((x) => x.id === gid)?.parentId ?? ""; while (up !== "" && up !== node?.id) up = nodes.find((x) => x.id === up)?.parentId ?? ""; return node !== undefined && up === node.id; };
+  const groupIds = (o.groupIds ?? []).filter(inside);
+  return { value: outcomes.map((x) => { if (x.id !== outcomeId) return x; const { nodeId: _n, groupIds: _g, ...rest } = x; return { ...rest, ...(node ? { nodeId: node.id } : {}), ...(groupIds.length ? { groupIds } : {}) }; }) };
+}
+
+// Rule: put a beneficiary in one group of a kind (a class, a house), replacing the one it was in, or take it out of that kind of group when the group id is empty. It needs a place first, the group must be inside that place, and the kind of group must be one its type is grouped by.
+export function setGroup(outcomes: Outcome[], partners: Project[], nodes: Node[], outcomeId: string, levelId: string, groupId: string): Changed<Outcome[]> {
+  const o = outcomes.find((x) => x.id === outcomeId);
+  if (!o || !o.projectId) return { value: outcomes, error: "That beneficiary was not found, or it belongs to no partner." };
+  if (!o.nodeId) return { value: outcomes, error: "Put the beneficiary in a place first, since a group is inside a place." };
+  const p = partners.find((x) => x.id === o.projectId);
+  const type = p?.types.find((t) => t.id === o.typeId);
+  if (!type || !(type.groupingIds ?? []).includes(levelId)) return { value: outcomes, error: "That kind of group does not apply to this kind of beneficiary." };
+  const without = (o.groupIds ?? []).filter((g) => nodes.find((n) => n.id === g)?.levelId !== levelId);
+  let next = without;
+  if (groupId !== "") {
+    const g = nodes.find((x) => x.id === groupId && x.projectId === o.projectId && x.levelId === levelId);
+    if (!g) return { value: outcomes, error: "That group was not found." };
+    let up = g.parentId;
+    while (up !== "" && up !== o.nodeId) up = nodes.find((x) => x.id === up)?.parentId ?? "";
+    if (up !== o.nodeId) return { value: outcomes, error: `${g.name} is not in this beneficiary's place.` };
+    next = [...without, g.id];
+  }
+  return { value: outcomes.map((x) => { if (x.id !== outcomeId) return x; const { groupIds: _g, ...rest } = x; return next.length ? { ...rest, groupIds: next } : rest; }) };
+}
+
 // ---- The beneficiary's own ID (DECISIONS 75) ----
 
 // Rule: a beneficiary's ID is unique across the organisation, ignoring capitals. Empty clears it.
@@ -406,9 +444,10 @@ export interface ProjectState {
   outcomes: Outcome[];
   partnerTypes: string[]; // the organisation's own list of partner types
   partnerFields: string[]; // the organisation's own extra profile fields, by label
+  giftProjects: GiftProject[]; // the projects donors choose, and the partners that deliver them (DECISIONS 76)
 }
 
-export const PROJECT_ACTIONS = ["set-ref", "assign-refs", "toggle-crm-name", "save-partner", "add-partner-type", "add-partner-field", "remove-partner-field", "add-level", "move-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "set-field", "add-beneficiaries"];
+export const PROJECT_ACTIONS = ["set-place", "set-group", "set-ref", "assign-refs", "save-gift-project", "remove-gift-project", "assign-crm-name", "save-partner", "add-partner-type", "add-partner-field", "remove-partner-field", "add-level", "move-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "set-field", "add-beneficiaries"];
 export const MAX_RECORDS = 5000;
 
 /**
@@ -423,6 +462,14 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
   const done = (state: ProjectState, warning?: string) => ({ state, ...(warning ? { warning } : {}) });
   const fail = (error: string) => ({ state: s, error });
   switch (action) {
+    case "set-place": {
+      const r = setPlace(s.outcomes, s.projects, s.nodes, str("outcomeId"), str("nodeId"));
+      return r.error ? fail(r.error) : done({ ...s, outcomes: r.value });
+    }
+    case "set-group": {
+      const r = setGroup(s.outcomes, s.projects, s.nodes, str("outcomeId"), str("levelId"), str("groupId"));
+      return r.error ? fail(r.error) : done({ ...s, outcomes: r.value });
+    }
     case "set-ref": {
       const r = setRef(s.outcomes, str("outcomeId"), str("ref", 40));
       return r.error ? fail(r.error) : done({ ...s, outcomes: r.value });
@@ -431,9 +478,15 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
       const r = assignRefs(s.outcomes, str("projectId"), str("prefix", 20), Number(body["start"] ?? 1));
       return r.error ? fail(r.error) : done({ ...s, outcomes: r.value });
     }
-    case "toggle-crm-name": {
-      const r = setCrmName(s.projects, str("name", 200), str("projectId"), body["on"] === true);
-      return r.error ? fail(r.error) : done({ ...s, projects: r.value });
+    case "save-gift-project": {
+      const r = saveGiftProject(s.giftProjects, s.projects, (body["profile"] ?? {}) as Record<string, unknown>, str("giftProjectId"));
+      return r.error ? fail(r.error) : done({ ...s, giftProjects: r.value });
+    }
+    case "remove-gift-project":
+      return done({ ...s, giftProjects: removeGiftProject(s.giftProjects, str("giftProjectId")) });
+    case "assign-crm-name": {
+      const r = assignCrmName(s.giftProjects, str("name", 200), str("giftProjectId"));
+      return r.error ? fail(r.error) : done({ ...s, giftProjects: r.value });
     }
     case "save-partner": {
       const r = savePartner(s, (body["profile"] ?? {}) as Record<string, unknown>, str("projectId"), str("copyFrom"), today);
@@ -517,10 +570,10 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
 }
 
 // The options automatic allocation needs from the setup: how long a plan that stops paying keeps its place, and how a gift's project name finds its project.
-export const allocOptions = (projects: Project[], graceDays: number | undefined, today: string, requireRef = false): AllocOptions & { policy: Policy } => ({
+export const allocOptions = (projects: Project[], graceDays: number | undefined, today: string, requireRef = false, giftProjects: GiftProject[] = []): AllocOptions & { policy: Policy } => ({
   requireRef,
   policy: { today, graceDays: graceDays ?? DEFAULT_GRACE_DAYS },
-  projectIdsFor: (name) => matchProjects(projects, name).map((p) => p.id),
+  projectIdsFor: (name) => partnersForGift(giftProjects, projects, name).map((p) => p.id),
   partnerOk: (projectId, itemId) => partnerAccepts(projects, projectId, itemId, today),
 });
 
@@ -645,46 +698,94 @@ export function suggestions(commitments: Commitment[], outcomes: Outcome[], fw: 
   return new Map(r.allocations.filter((a) => !before.has(a.commitmentKey)).map((a) => [a.commitmentKey, a.outcomeId]));
 }
 
-// ---- Matching the names the CRM uses to projects (DECISIONS 67) ----
+// ---- Projects: what a donor chooses, and which partners deliver it (DECISIONS 76) ----
+
+// A project is the page of the website a donor gave from (Aghosh, Dadyal Orphan Complex). It is defined in the CRM as a name on the gift. Here it says which
+// CRM names it answers to and which partners deliver it. The code calls it a GiftProject because `Project` still means a partner (to be renamed).
+export interface GiftProject {
+  id: string;
+  name: string;
+  crmNames: string[]; // other names the CRM uses for it
+  partnerIds: string[]; // the partners that deliver it. Any of them can take a gift for it
+  notes?: string;
+}
+
+// Used when a gift names a project that has no partner yet: the gift waits for a person, instead of being treated as general.
+export const NO_PARTNER = "__no_partner__";
+
+export function saveGiftProject(gps: GiftProject[], partners: Project[], raw: Record<string, unknown>, id: string): Changed<GiftProject[]> {
+  const name = text(raw["name"], 100);
+  if (name === "") return { value: gps, error: "Give the project a name." };
+  const existing = id !== "" ? gps.find((g) => g.id === id) : undefined;
+  if (id !== "" && !existing) return { value: gps, error: "That project was not found." };
+  if (gps.some((g) => g.id !== id && same(g.name, name))) return { value: gps, error: `There is already a project called "${name}".` };
+  const crmNames = [...new Set((Array.isArray(raw["crmNames"]) ? raw["crmNames"] : []).map((x) => text(x, 100)).filter((x) => x !== "" && !same(x, name)))].slice(0, 50);
+  // A CRM name goes to one project only, so a name taken here is taken off the others.
+  const taken = new Set(crmNames.map((x) => x.toLowerCase()));
+  const partnerIds = [...new Set((Array.isArray(raw["partnerIds"]) ? raw["partnerIds"] : []).filter((x): x is string => typeof x === "string" && partners.some((p) => p.id === x)))];
+  const notes = text(raw["notes"], 1000);
+  const gp: GiftProject = { id: existing?.id ?? uniqueId(name, new Set(gps.map((g) => g.id))), name, crmNames, partnerIds, ...(notes !== "" ? { notes } : {}) };
+  const others = gps.filter((g) => g.id !== gp.id).map((g) => ({ ...g, crmNames: g.crmNames.filter((x) => !taken.has(x.toLowerCase())) }));
+  return { value: existing ? gps.map((g) => (g.id === gp.id ? gp : others.find((o) => o.id === g.id) as GiftProject)) : [...others, gp] };
+}
+
+export const removeGiftProject = (gps: GiftProject[], id: string): GiftProject[] => gps.filter((g) => g.id !== id);
+
+/**
+ * Rule (DECISIONS 76): the partners a gift goes to, from the project name on it. A project matches by its name or any of its CRM names. Its partners can all take
+ * the gift. A project with no partner returns a marker that matches none, so the gift waits for a person. Before a name is set up as a project, a partner whose own
+ * name or older alias matches still takes it. No match at all means a general gift, and the list is empty.
+ */
+export function partnersForGift(gps: GiftProject[], partners: Project[], crmName: string): Project[] {
+  const n = clean(crmName);
+  if (n === "") return [];
+  const hit = gps.filter((g) => same(g.name, n) || g.crmNames.some((x) => same(x, n)));
+  if (hit.length > 0) {
+    const ids = new Set(hit.flatMap((g) => g.partnerIds));
+    const found = partners.filter((p) => ids.has(p.id));
+    return found.length > 0 ? found : [{ id: NO_PARTNER, name: "", aliases: [], levels: [], types: [] }];
+  }
+  return matchProjects(partners, n);
+}
 
 export interface CrmName {
   name: string; // as the CRM spells it on the donation lines
   gifts: number; // how many gifts carry it
-  projectIds: string[]; // the partners it goes to, none for general (any partner)
-  suggestion: string; // a partner id that looks like the same thing, "" when none. Only for names not matched yet
+  giftProjectId: string; // the project it belongs to, "" when it belongs to none (a general gift)
+  suggestion: string; // a project id that looks like the same thing, "" when none. Only for names not in a project yet
 }
 
 const words = (s: string): string[] => s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
 
-/**
- * Rule: the names the CRM uses on gifts, with how many gifts each has and where each goes now. Names are read from the work orders, so the
- * list is always real. A name that already matches a project (by its name or an alias) shows that project. For one that does not, a project
- * that shares a whole word with it is suggested (Aghosh with Aghosh Orphan Homes). A person decides: nothing is matched by itself.
- */
-export function crmProjectNames(workOrders: { projectName?: string; status: string }[], projects: Project[]): CrmName[] {
+// Rule: the names the CRM uses on gifts, with how many gifts each has and the project each belongs to. Names are read from the work orders, so the list is always real.
+// For a name in no project, a project that shares a whole word with it is suggested (Aghosh with Aghosh Orphan Homes). A person decides.
+export function crmNamesOf(workOrders: { projectName?: string; status: string }[], gps: GiftProject[]): CrmName[] {
   const count = new Map<string, number>();
   for (const w of workOrders) {
     const n = clean(w.projectName ?? "");
     if (n !== "" && w.status !== "excluded") count.set(n, (count.get(n) ?? 0) + 1);
   }
   return [...count.entries()].map(([name, gifts]): CrmName => {
-    const matched = matchProjects(projects, name);
-    const suggestion = matched.length > 0 ? "" : (projects.find((p) => words(p.name).some((w) => words(name).includes(w)))?.id ?? "");
-    return { name, gifts, projectIds: matched.map((m) => m.id), suggestion };
+    const own = gps.find((g) => same(g.name, name) || g.crmNames.some((x) => same(x, name)));
+    return { name, gifts, giftProjectId: own?.id ?? "", suggestion: own ? "" : (gps.find((g) => words(g.name).some((w) => words(name).includes(w)))?.id ?? "") };
   }).sort((a, b) => b.gifts - a.gifts || a.name.localeCompare(b.name));
 }
 
-// Rule (DECISIONS 68): turn one partner's answer to a CRM name on or off. A name can go to several partners, and to none (general).
-export function setCrmName(projects: Project[], crmName: string, projectId: string, on: boolean): Changed<Project[]> {
+// Rule: put a CRM name in one project, or in none. It is taken off every other project first.
+export function assignCrmName(gps: GiftProject[], crmName: string, giftProjectId: string): Changed<GiftProject[]> {
   const name = clean(crmName);
-  if (name === "") return { value: projects, error: "That name is empty." };
-  if (!projects.some((p) => p.id === projectId)) return { value: projects, error: "That partner was not found." };
-  const value = projects.map((p) => {
-    if (p.id !== projectId) return p;
-    const aliases = p.aliases.filter((x) => !same(x, name));
-    // A partner already answers to its own name, so nothing is added for that.
-    return on && !same(p.name, name) ? { ...p, aliases: [...aliases, name] } : { ...p, aliases };
-  });
-  return { value };
+  if (name === "") return { value: gps, error: "That name is empty." };
+  if (giftProjectId !== "" && !gps.some((g) => g.id === giftProjectId)) return { value: gps, error: "That project was not found." };
+  return { value: gps.map((g) => { const rest = g.crmNames.filter((x) => !same(x, name)); return g.id === giftProjectId && !same(g.name, name) ? { ...g, crmNames: [...rest, name] } : { ...g, crmNames: rest }; }) };
+}
+
+// Rule: a setup from before projects existed has CRM names on its partners. Each distinct name becomes a project with those partners, once, and the partners' own names are cleared.
+export function migrateGiftProjects(partners: Project[], gps: GiftProject[]): { partners: Project[]; giftProjects: GiftProject[] } {
+  if (gps.length > 0 || !partners.some((p) => p.aliases.length > 0)) return { partners, giftProjects: gps };
+  const byName = new Map<string, { name: string; ids: string[] }>();
+  for (const p of partners) for (const a of p.aliases) { const k = a.toLowerCase(); const e = byName.get(k) ?? { name: a, ids: [] }; byName.set(k, { ...e, ids: [...new Set([...e.ids, p.id])] }); }
+  const taken = new Set<string>();
+  const giftProjects = [...byName.values()].map((e): GiftProject => { const id = uniqueId(e.name, taken); taken.add(id); return { id, name: e.name, crmNames: [], partnerIds: e.ids }; });
+  return { partners: partners.map((p) => ({ ...p, aliases: [] })), giftProjects };
 }
 

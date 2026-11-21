@@ -9,7 +9,7 @@
  * stays in demo mode with its invented data.
  */
 
-import type { Node, Project } from "../modules/06-projects/projects";
+import type { GiftProject, Node, Project } from "../modules/06-projects/projects";
 import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import type { RunInfo } from "../modules/00-platform/store";
 import type { AttentionItem } from "../modules/04-triage/triage";
@@ -79,6 +79,7 @@ export interface OutcomesReply {
   outcomes: Outcome[];
   allocations: Allocation[];
   projects?: Project[];
+  giftProjects?: GiftProject[];
   nodes?: Node[];
   graceDays?: number;
   requireRef?: boolean;

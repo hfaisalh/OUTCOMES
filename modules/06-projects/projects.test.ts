@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Allocation } from "../05-outcomes/outcomes";
 import type { Commitment } from "../04b-commitments/commitments";
-import { assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, setCrmName, crmProjectNames, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
+import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -182,34 +182,88 @@ describe("the allocation summary, suggestions, and placing a gift by hand (DECIS
   });
 });
 
-describe("matching the CRM's project names (DECISIONS 67)", () => {
+describe("projects: what a donor chooses, and the partners that deliver it (DECISIONS 76)", () => {
   const orders = (names: string[]) => names.map((projectName) => ({ projectName, status: "ready" }));
-  it("lists the names on real gifts with their counts, most first, and leaves blanks and excluded gifts out", () => {
+  const partners = () => {
     const { projects } = sample();
-    const list = crmProjectNames([...orders(["Where Needed Most", "Where Needed Most", "Aghosh", "", "Dadyal Orphan Complex"]), { projectName: "Aghosh", status: "excluded" }], projects);
-    expect(list.map((x) => [x.name, x.gifts])).toEqual([["Where Needed Most", 2], ["Aghosh", 1], ["Dadyal Orphan Complex", 1]]);
+    return addProject(projects, "Dadyal Orphan Complex").value; // aghosh-orphan-homes and dadyal-orphan-complex
+  };
+  const gp = (over: Partial<GiftProject> = {}): GiftProject => ({ id: "aghosh", name: "Aghosh", crmNames: [], partnerIds: ["aghosh-orphan-homes"], ...over });
+
+  it("saves a project with its CRM names and partners, refuses an empty or repeated name, and keeps a CRM name in one project only", () => {
+    const ps = partners();
+    const first = saveGiftProject([], ps, { name: "Aghosh", crmNames: ["Aghosh Lahore", "Aghosh"], partnerIds: ["aghosh-orphan-homes", "nope"] }, "");
+    expect(first.value[0]).toEqual({ id: "aghosh", name: "Aghosh", crmNames: ["Aghosh Lahore"], partnerIds: ["aghosh-orphan-homes"] }); // its own name is not repeated, an unknown partner is dropped
+    expect(saveGiftProject([], ps, { name: " " }, "").error).toContain("name");
+    expect(saveGiftProject(first.value, ps, { name: "aghosh" }, "").error).toContain("already");
+    const second = saveGiftProject(first.value, ps, { name: "Dadyal", crmNames: ["Aghosh Lahore"], partnerIds: [] }, "");
+    expect(second.value.find((g) => g.id === "aghosh")?.crmNames).toEqual([]); // taken off the first
+    expect(saveGiftProject(first.value, ps, { name: "X" }, "nope").error).toContain("not found");
   });
-  it("shows where a name already goes, and suggests a partner that shares a word with one that is not matched", () => {
-    const { projects } = sample(); // Aghosh Orphan Homes, alias Aghosh
-    const list = crmProjectNames(orders(["Aghosh", "Aghosh Girls Home", "Hope for Palestine"]), projects);
-    expect(list.find((x) => x.name === "Aghosh")).toMatchObject({ projectIds: ["aghosh-orphan-homes"], suggestion: "" });
-    expect(list.find((x) => x.name === "Aghosh Girls Home")).toMatchObject({ projectIds: [], suggestion: "aghosh-orphan-homes" });
-    expect(list.find((x) => x.name === "Hope for Palestine")).toMatchObject({ projectIds: [], suggestion: "" });
+  it("sends a gift to every partner of the project it names, by the project's name or any of its CRM names", () => {
+    const ps = partners();
+    const gps = [gp({ crmNames: ["Aghosh Lahore"], partnerIds: ["aghosh-orphan-homes", "dadyal-orphan-complex"] })];
+    expect(partnersForGift(gps, ps, "AGHOSH").map((p) => p.id)).toEqual(["aghosh-orphan-homes", "dadyal-orphan-complex"]);
+    expect(partnersForGift(gps, ps, "aghosh lahore")).toHaveLength(2);
+    expect(partnersForGift(gps, ps, "Where Needed Most")).toEqual([]);
+    expect(partnersForGift(gps, ps, "")).toEqual([]);
   });
-  it("lets a name go to several partners, turns one off, and refuses an unknown partner", () => {
-    const { projects } = sample();
-    const two = addProject(projects, "Dadyal Orphan Complex").value;
-    const a = setCrmName(two, "Orphan Care Complex", "dadyal-orphan-complex", true).value;
-    const both = setCrmName(a, "Orphan Care Complex", "aghosh-orphan-homes", true).value;
-    expect(crmProjectNames(orders(["Orphan Care Complex"]), both)[0]?.projectIds).toEqual(["aghosh-orphan-homes", "dadyal-orphan-complex"]);
-    const off = setCrmName(both, "Orphan Care Complex", "aghosh-orphan-homes", false).value;
-    expect(crmProjectNames(orders(["Orphan Care Complex"]), off)[0]?.projectIds).toEqual(["dadyal-orphan-complex"]);
-    expect(setCrmName(off, "x", "nope", true).error).toContain("not found");
+  it("makes a gift for a project with no partner wait, instead of treating it as general", () => {
+    const ps = partners();
+    const got = partnersForGift([gp({ partnerIds: [] })], ps, "Aghosh");
+    expect(got.map((p) => p.id)).toEqual([NO_PARTNER]);
+  });
+  it("still lets a partner whose own name matches take a gift, until the name is set up as a project", () => {
+    const ps = partners();
+    expect(partnersForGift([], ps, "Aghosh Orphan Homes").map((p) => p.id)).toEqual(["aghosh-orphan-homes"]);
+  });
+  it("lists the names on real gifts with their counts, the project each is in, and a suggestion for one that is not", () => {
+    const gps = [gp({ name: "Aghosh Orphan Homes", crmNames: ["Aghosh"] })];
+    const list = crmNamesOf([...orders(["Where Needed Most", "Where Needed Most", "Aghosh", "", "Aghosh Girls Home", "Hope for Palestine"]), { projectName: "Aghosh", status: "excluded" }], gps);
+    expect(list.map((x) => [x.name, x.gifts])).toEqual([["Where Needed Most", 2], ["Aghosh", 1], ["Aghosh Girls Home", 1], ["Hope for Palestine", 1]]);
+    expect(list.find((x) => x.name === "Aghosh")).toMatchObject({ giftProjectId: "aghosh", suggestion: "" });
+    expect(list.find((x) => x.name === "Aghosh Girls Home")).toMatchObject({ giftProjectId: "", suggestion: "aghosh" });
+    expect(list.find((x) => x.name === "Hope for Palestine")).toMatchObject({ giftProjectId: "", suggestion: "" });
+  });
+  it("puts a CRM name in one project, moves it, and takes it out", () => {
+    const gps = [gp(), gp({ id: "dadyal", name: "Dadyal", partnerIds: [] })];
+    const a = assignCrmName(gps, "Orphan Care Complex", "dadyal").value;
+    expect(a.find((g) => g.id === "dadyal")?.crmNames).toEqual(["Orphan Care Complex"]);
+    const moved = assignCrmName(a, "orphan care complex", "aghosh").value;
+    expect(moved.find((g) => g.id === "dadyal")?.crmNames).toEqual([]);
+    expect(moved.find((g) => g.id === "aghosh")?.crmNames).toEqual(["orphan care complex"]);
+    expect(assignCrmName(moved, "orphan care complex", "").value.every((g) => g.crmNames.length === 0)).toBe(true);
+    expect(assignCrmName(moved, "x", "nope").error).toContain("not found");
+  });
+  it("turns the CRM names that were on partners into projects, once", () => {
+    const ps = partners().map((p) => ({ ...p, aliases: p.id === "aghosh-orphan-homes" ? ["Aghosh", "Orphan Care Complex"] : ["Orphan Care Complex"] }));
+    const m = migrateGiftProjects(ps, []);
+    expect(m.giftProjects.map((g) => [g.name, g.partnerIds])).toEqual([["Aghosh", ["aghosh-orphan-homes"]], ["Orphan Care Complex", ["aghosh-orphan-homes", "dadyal-orphan-complex"]]]);
+    expect(m.partners.every((p) => p.aliases.length === 0)).toBe(true);
+    expect(migrateGiftProjects(m.partners, m.giftProjects)).toEqual(m); // nothing more the second time
+  });
+  it("shows a gift's partners to the allocation rules", () => {
+    const ps = partners();
+    const opts = allocOptions(ps, 15, "2026-11-20", false, [gp({ partnerIds: ["dadyal-orphan-complex"] })]);
+    expect(opts.projectIdsFor?.("Aghosh")).toEqual(["dadyal-orphan-complex"]);
+    expect(opts.projectIdsFor?.("Nothing")).toEqual([]);
+  });
+  it("places a beneficiary afterwards in a place and groups, and refuses a wrong one", () => {
+    const { projects, nodes } = sample();
+    const kids = addBeneficiaries([], projects, nodes, { projectId: projects[0]!.id, nodeId: nodes[2]!.id, typeId: "child", name: "Orphan", count: 2 }).value;
+    const bare = kids.map(({ nodeId: _n, ...o }) => o);
+    const placed = setPlace(bare, projects, nodes, bare[0]!.id, nodes[2]!.id);
+    expect(placed.error).toBeUndefined();
+    expect(placed.value[0]?.nodeId).toBe(nodes[2]!.id);
+    expect(setPlace(bare, projects, nodes, bare[0]!.id, nodes[0]!.id).error).toContain("belong to a");
+    expect(setPlace(placed.value, projects, nodes, bare[0]!.id, "").value[0]).not.toHaveProperty("nodeId");
+    expect(setPlace(bare, projects, nodes, "nope", "x").error).toContain("not found");
+    expect(setGroup(bare, projects, nodes, bare[0]!.id, "class", "x").error).toContain("place first");
   });
 });
 
 describe("the partner profile (DECISIONS 69)", () => {
-  const empty = (): ProjectState => ({ projects: [], nodes: [], outcomes: [], partnerTypes: [], partnerFields: ["Parent charity number"] });
+  const empty = (): ProjectState => ({ projects: [], nodes: [], outcomes: [], partnerTypes: [], partnerFields: ["Parent charity number"], giftProjects: [] });
   const save = (st: ProjectState, raw: Record<string, unknown>, id = "", copy = "") => savePartner(st, raw, id, copy, "2026-11-20");
 
   it("needs only a name and a type, starts pending, and adds a new type to the list", () => {
@@ -351,7 +405,7 @@ describe("groupings inside a place: Class, House and School are not a chain (DEC
 
 describe("adding beneficiaries with the fewest steps (DECISIONS 72)", () => {
   const empty = (): ProjectState => {
-    const made = savePartner({ projects: [], nodes: [], outcomes: [], partnerTypes: [], partnerFields: [] }, { name: "Home Partner", type: "Family sponsorship" }, "", "", "2026-11-20");
+    const made = savePartner({ projects: [], nodes: [], outcomes: [], partnerTypes: [], partnerFields: [], giftProjects: [] }, { name: "Home Partner", type: "Family sponsorship" }, "", "", "2026-11-20");
     return made.value;
   };
   const add = (st: ProjectState, over: Record<string, unknown>) => applyProjectAction(st, FW, { action: "add-beneficiaries", projectId: "home-partner", typeId: "", name: "Orphan", count: 3, frameworkId: "shared", nodeId: "", ...over })!;
@@ -381,7 +435,7 @@ describe("adding beneficiaries with the fewest steps (DECISIONS 72)", () => {
   });
   it("lets them be placed in the same step when a place is chosen, and refuses groups without a place", () => {
     const { projects } = sample();
-    const st: ProjectState = { projects, nodes: sample().nodes, outcomes: [], partnerTypes: [], partnerFields: [] };
+    const st: ProjectState = { projects, nodes: sample().nodes, outcomes: [], partnerTypes: [], partnerFields: [], giftProjects: [] };
     const placed = applyProjectAction(st, FW, { action: "add-beneficiaries", projectId: projects[0]!.id, typeId: "child", name: "Orphan", count: 2, nodeId: sample().nodes[2]!.id })!;
     expect(placed.error).toBeUndefined();
     expect(placed.state.outcomes[0]?.nodeId).toBe(sample().nodes[2]!.id);

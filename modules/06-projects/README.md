@@ -22,7 +22,7 @@ Framework templates (Module 2), outcomes and allocations (Module 5), commitments
 - A partner's profile is one record with the groups of decision 69. Only the name and the type are required. Types and extra fields are the organisation's own lists. A partner can be active only while its due diligence is approved and in date, and only active partners that deliver a gift's item are offered the gift.
 - Nothing is removed while it is in use: a place with places or beneficiaries, a type with beneficiaries.
 
-- A gift's project (the CRM's Project on the line) decides where it can go: a match makes it directed, anything else is general. The Partners page lists the names the CRM uses with their counts, and a person ticks the partners each goes to (a name can go to several partners, DECISIONS 68). A suggestion is offered for a name that shares a whole word with a project (DECISIONS 67).
+- A gift's project (the CRM's Project on the line) decides where it can go: a match makes it directed, anything else is general. Projects (what a donor chooses) are separate from partners: a project carries CRM names and the partners that deliver it, and a gift goes to the partners of its project (DECISIONS 76). A name the CRM uses is in one project only. A suggestion is offered for a name that shares a whole word with a project (DECISIONS 67).
 - General gifts are spread across places, and a directed gift whose project is full waits for a person (DECISIONS 66).
 - The summary per project (beneficiaries, units, sponsored, free, in buffer, waiting, surplus or deficit), suggestions, and placing a gift by hand into a place are pure functions here too.
 
@@ -35,7 +35,7 @@ Framework templates (Module 2), outcomes and allocations (Module 5), commitments
 | `projects.ts` | All the rules above as pure functions, and `applyProjectAction`, which the server and the demo both use |
 | `projects.test.ts` | Tests and examples on invented data |
 
-The screens are `app/projects-page.ts` (the table of partners and the CRM names), `app/partner-window.ts` and `app/partner-form.ts` (one partner's window: profile, structure, beneficiaries) and `app/allocation-page.ts` (Allocation, Place gifts). The server actions are on `/api/outcomes` (Vercel's Hobby plan allows only 12 functions).
+The screens are `app/projects-page.ts` and `app/project-form.ts` (Projects), `app/partners-page.ts`, `app/partner-window.ts` and `app/partner-form.ts` (Partners: profile and structure), `app/beneficiaries-page.ts` (Beneficiaries) and `app/allocation-page.ts` (Allocation, Place gifts). The server actions are on `/api/outcomes` (Vercel's Hobby plan allows only 12 functions).
 
 ## How to test
 `npm test`. To try it: Partners, New partner (name and type), Save. Then on its Structure tab add the levels (Branch, then Class and House under it), a type (Child, belongs to Branch, grouped by Class and House, sponsored as shared parts) and a place (Branch 1) with its groups (Class 5A, Rose House). Then on its Beneficiaries tab add 20 to Branch 1 in Class 5A and Rose House.

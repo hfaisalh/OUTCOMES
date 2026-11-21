@@ -37,14 +37,13 @@ describe("partnerWindowHtml", () => {
     expect(html).toContain("New partner");
     expect(html).toContain("Save the profile first");
     expect(html).toMatch(/data-pf-tab="structure"[^>]*disabled/);
-    expect(html).toMatch(/data-pf-tab="beneficiaries"[^>]*disabled/);
-    expect(html).toContain("Who they are");
+        expect(html).toContain("Who they are");
   });
-  it("shows the partner's name, type, status and due diligence in the header, and all three tabs", () => {
+  it("shows the partner's name, type, status and due diligence in the header, and the tabs", () => {
     const { projects, nodes, outcomes, id } = built();
     const p = { ...projects[0]!, type: "Institute", status: "active" as const, ddStatus: "approved" as const };
     const html = partnerWindowHtml(base({ projects: [p], nodes, outcomes }), id, "profile", ctx, p);
-    for (const w of ["Aghosh Orphan Homes", "Institute", "Active", "Due diligence: Approved", "Profile", "Structure", "Beneficiaries"]) expect(html).toContain(w);
+    for (const w of ["Aghosh Orphan Homes", "Institute", "Active", "Due diligence: Approved", "Profile", "Structure"]) expect(html).toContain(w);
     expect(html).not.toMatch(/data-pf-tab="structure"[^>]*disabled/);
   });
   it("shows the levels with where each sits, the types with what groups them, and the places and groups with what each adds up to", () => {
@@ -64,32 +63,16 @@ describe("partnerWindowHtml", () => {
     expect(html).toContain('data-action="remove-level" data-id="house"');
     expect(html).not.toContain('data-action="remove-level" data-id="branch"'); // Class and House are under it
   });
-  it("shows the beneficiaries as a table with their place, their groups and how many units each has sponsored, and a form that asks for groups", () => {
+  it("has two tabs, the profile and an optional structure, and shows the projects it delivers and a link to its beneficiaries", () => {
     const { projects, nodes, outcomes, id } = built();
-    const html = partnerWindowHtml(base({ projects, nodes, outcomes }), id, "beneficiaries", ctx, {});
-    for (const w of ["<th>Groups</th>", "<th>Sponsored of units</th>", "Orphan 1", "Branch 1", "Class 5A, Rose House", "0 of 3"]) expect(html).toContain(w);
-    expect(html).toContain('data-action="add-beneficiaries"');
-    expect(html).toContain("Remove 3 with no sponsor");
-    expect(html).toContain('data-oc-remove="orphan-1"');
-    expect(html).toContain('data-level="branch" data-groups="class house"'); // the type says its place and its groupings
-    expect(html).toContain('id="pj-ben-fw"'); // the simple form: a name, a number and how they are sponsored
-    expect(html).toContain("A new kind, named above");
-    expect(html).toContain("<details>");
-    expect(html).toContain("That is all that is needed");
-    expect(html).toContain("<th>ID</th>");
-    expect(html).toContain('data-ref="orphan-1"'); // an ID can be typed for each beneficiary
-    expect(html).toContain('data-action="assign-refs"'); // or given to all of them in one go
-    expect(html).toContain('class="pj-ben-group" data-group-level="class"'); // one list for each grouping
-    expect(html).toContain('data-group-level="house"');
-    expect(html).toMatch(/data-in="aghosh-orphan-homes-branch-1"/); // a group lists the place it is in, so only its own place's groups are offered
-  });
-  it("opens on the profile and offers the beneficiaries before the optional structure, and the add button needs no type or place set up", () => {
-    const { projects } = built();
-    const bare = [{ ...projects[0]!, types: [], levels: [] }];
-    const html = partnerWindowHtml(base({ projects: bare }), bare[0]!.id, "beneficiaries", ctx, {});
-    expect(html.indexOf('data-pf-tab="beneficiaries"')).toBeLessThan(html.indexOf('data-pf-tab="structure"'));
+    const p = { ...projects[0]!, type: "Institute", status: "active" as const, ddStatus: "approved" as const };
+    const html = partnerWindowHtml(base({ projects: [p], nodes, outcomes, giftProjects: [{ id: "aghosh", name: "Aghosh", crmNames: [], partnerIds: [id] }] }), id, "profile", ctx, p);
     expect(html).toContain("Structure (optional)");
-    expect(html).not.toMatch(/data-action="add-beneficiaries"[^>]*disabled/);
+    expect(html).not.toContain('data-pf-tab="beneficiaries"');
+    expect(html).toContain("Delivers: Aghosh");
+    expect(html).toContain('data-nav="beneficiaries"');
+    expect(html).toContain("3 beneficiaries");
+    expect(partnerWindowHtml(base({ projects: [p], nodes, outcomes }), id, "profile", ctx, p)).toContain("no project yet");
   });
   it("never trusts names as HTML", () => {
     const { projects, nodes, outcomes, id } = built();

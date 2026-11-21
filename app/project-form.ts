@@ -1,0 +1,44 @@
+/**
+ * project-form.ts
+ *
+ * What it does: draws the project form (a pop-up) and reads it back (DECISIONS 76). A project has a name, the CRM names it answers to (ticked from the names
+ * the CRM really uses, with room for others), the partners that deliver it (ticked), and notes. The HTML builder is pure. The reader needs a page.
+ * Who calls it: app/main.ts. Depends on: Module 6 (GiftProject) and esc from pages.ts.
+ */
+
+import type { GiftProject, Project } from "../modules/06-projects/projects";
+import { esc } from "./pages";
+
+export interface ProjectFormContext {
+  crmNames: { name: string; gifts: number }[]; // the names the CRM uses on gifts
+  partners: Project[];
+}
+
+export function projectFormHtml(g: Partial<GiftProject>, id: string, ctx: ProjectFormContext, error = ""): string {
+  const names = new Set((g.crmNames ?? []).map((x) => x.toLowerCase()));
+  const known = new Set(ctx.crmNames.map((n) => n.name.toLowerCase()));
+  const extra = (g.crmNames ?? []).filter((n) => !known.has(n.toLowerCase()));
+  const partners = new Set(g.partnerIds ?? []);
+  const tick = (n: string, gifts?: number) => `<label class="tick"><input type="checkbox" class="pr-name" value="${esc(n)}"${names.has(n.toLowerCase()) ? " checked" : ""} /> ${esc(n)}${gifts === undefined ? "" : ` <span class="muted">(${gifts})</span>`}</label>`;
+  return `<div class="pf-overlay" role="dialog" aria-modal="true" aria-label="Project"><div class="pf-box">
+    <header><h2>${id ? esc(g.name ?? "Project") : "New project"}</h2><button data-pj="cancel" aria-label="Close">Close</button></header>
+    <div class="pf-body">
+      <section><div class="pf-grid"><label class="pf-field"><span>Project name</span><input id="pr-name" value="${esc(g.name ?? "")}" placeholder="For example Aghosh" required /></label></div></section>
+      <section><h3>CRM names</h3><p class="muted">The name above always counts. Tick other names the CRM uses for this project. A name can be in one project only.</p>
+        <div class="pf-items">${ctx.crmNames.length ? ctx.crmNames.map((n) => tick(n.name, n.gifts)).join("") : '<span class="muted">No gifts carry a project name yet.</span>'}${extra.map((n) => tick(n)).join("")}</div>
+        <div class="actions"><input id="pr-extra" placeholder="Another name, if the CRM spells it differently" /></div></section>
+      <section><h3>Delivered by</h3><p class="muted">Tick the partners that deliver this project. A gift for it can go to any of them. With none ticked, its gifts wait for a person to decide.</p>
+        <div class="pf-items">${ctx.partners.length ? ctx.partners.map((p) => `<label class="tick"><input type="checkbox" class="pr-partner" value="${esc(p.id)}"${partners.has(p.id) ? " checked" : ""} /> ${esc(p.name)}</label>`).join("") : '<span class="muted">No partners yet. Create one on the Partners page.</span>'}</div></section>
+      <section><label class="pf-field wide"><span>Notes</span><textarea id="pr-notes" rows="2">${esc(g.notes ?? "")}</textarea></label></section>
+    </div>
+    <footer><span id="pr-error" class="pf-error" role="alert">${esc(error)}</span>${id ? '<button data-pj="remove" title="Remove this project. Its CRM names become general gifts">Remove project</button>' : ""}<button data-pj="cancel">Cancel</button><button class="primary" data-pj="save">Save project</button></footer>
+  </div></div>`;
+}
+
+// Reads the form back as the profile the server expects. Needs a page.
+export function readProjectForm(root: ParentNode): Record<string, unknown> {
+  const val = (id: string) => (root.querySelector(`#${id}`) as HTMLInputElement | null)?.value ?? "";
+  const names = [...root.querySelectorAll(".pr-name:checked")].map((i) => (i as HTMLInputElement).value);
+  const extra = val("pr-extra").trim();
+  return { name: val("pr-name"), crmNames: extra !== "" ? [...names, extra] : names, partnerIds: [...root.querySelectorAll(".pr-partner:checked")].map((i) => (i as HTMLInputElement).value), notes: val("pr-notes") };
+}

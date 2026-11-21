@@ -1,73 +1,69 @@
 /**
  * projects-page.test.ts
  *
- * What it does: tests the Partners page on invented partners: the empty start, the table of partners with one line each, the CRM names list, and escaping.
- * Who calls it: vitest. Depends on: projects-page.ts and Module 6.
+ * What it does: tests the Projects page and its form on invented projects: the table, the names the CRM uses, suggestions, and escaping.
+ * Who calls it: vitest. Depends on: projects-page.ts and project-form.ts.
  */
 
 import { describe, expect, it } from "vitest";
 import { MWF_CRM_CONFIG } from "../modules/01c-crm-connector/feed";
-import { addBeneficiaries, addLevel, addNode, addProject, addType } from "../modules/06-projects/projects";
-import { starterFrameworks } from "./demo-data";
+import { addProject } from "../modules/06-projects/projects";
 import type { View } from "./pages";
+import { projectFormHtml } from "./project-form";
 import { projectsPage } from "./projects-page";
 
-const fws = starterFrameworks();
-const base = (over: Partial<View> = {}): View => ({ workOrders: [], review: [], itemCategories: {} as Record<string, string>, flaggedItems: [], filter: "all", message: "", config: MWF_CRM_CONFIG, categories: [], suggestions: {}, selectedItem: "", live: false, canPickup: false, run: null, frameworks: fws, ...over });
-
-function built() {
-  let projects = addProject([], "Aghosh Orphan Homes", ["Aghosh"]).value;
-  const id = projects[0]!.id;
-  projects = addLevel(projects, id, "Branch", "").value;
-  projects = addLevel(projects, id, "Class", "branch").value;
-  projects = addType(projects, id, { name: "Child", levelId: "class", frameworkId: fws[0]!.id }, fws).value;
-  let nodes = addNode([], projects, id, "branch", "", "Branch 1", { Location: "Lahore" }).value;
-  nodes = addNode(nodes, projects, id, "class", nodes[0]!.id, "Class 5A").value;
-  const outcomes = addBeneficiaries([], projects, nodes, { projectId: id, nodeId: nodes[1]!.id, typeId: "child", name: "Orphan", count: 4 }).value;
-  return { projects, nodes, outcomes };
-}
+const base = (over: Partial<View> = {}): View => ({ workOrders: [], review: [], itemCategories: {} as Record<string, string>, flaggedItems: [], filter: "all", message: "", config: MWF_CRM_CONFIG, categories: [], suggestions: {}, selectedItem: "", live: false, canPickup: false, run: null, ...over });
+const wo = (n: string) => ({ key: n, projectName: n, status: "ready", subscriptionId: "", instalmentCount: "", paidDate: "" }) as never;
+const partners = addProject(addProject([], "Aghosh Orphan Homes").value, "Dadyal Orphan Complex").value;
 
 describe("projectsPage", () => {
-  it("starts with a New partner button, and no fixed list of partner types", () => {
+  it("starts with a New project button and says so when there are no projects", () => {
     const html = projectsPage(base());
-    expect(html).toContain("No partners yet");
-    expect(html).toContain('data-pf="new"');
-    expect(html).not.toContain("Another charity");
+    expect(html).toContain("No projects yet");
+    expect(html).toContain('data-pj="new"');
   });
-  it("lists the partners as a table, one line each, that opens the partner's window", () => {
-    const { projects, nodes, outcomes } = built();
-    const html = projectsPage(base({ projects: [{ ...projects[0]!, type: "Institute", status: "pending", ddStatus: "pending", capacity: 40, itemIds: ["A", "B"], contacts: [{ name: "A Person", position: "", phone: "", mobile: "", email: "", handles: "" }] }], nodes, outcomes }));
-    expect(html).toContain('class="ptable"');
-    expect(html).toContain('data-pf="open" data-id="aghosh-orphan-homes"');
-    for (const w of ["Aghosh Orphan Homes", "Institute", "Pending", "2 items", "40", "4", "0 of 12", "A Person"]) expect(html).toContain(w);
-    expect(html).toContain("A partner takes gifts only when it is Active");
-    expect(html).not.toContain("Levels"); // the structure is in the partner's window now
-    expect(html).not.toContain("Add beneficiaries");
+  it("lists the projects as a table with their other CRM names, their partners and their gifts, and warns of one with no partner", () => {
+    const gps = [{ id: "aghosh", name: "Aghosh", crmNames: ["Aghosh Lahore"], partnerIds: ["aghosh-orphan-homes", "dadyal-orphan-complex"] }, { id: "empty", name: "Orphan Care Complex", crmNames: [], partnerIds: [] }];
+    const html = projectsPage(base({ projects: partners, giftProjects: gps, workOrders: [wo("Aghosh"), wo("Aghosh"), wo("Aghosh Lahore")] }));
+    expect(html).toContain('data-pj="open" data-id="aghosh"');
+    for (const w of ["Aghosh Lahore", "Aghosh Orphan Homes, Dadyal Orphan Complex", "<td>3</td>", "No partner"]) expect(html).toContain(w);
+    expect(html).toContain("A project with no partner makes its gifts wait");
   });
-  it("shows an active, approved partner as Active", () => {
-    const { projects, nodes, outcomes } = built();
-    const html = projectsPage(base({ projects: [{ ...projects[0]!, status: "active", ddStatus: "approved" }], nodes, outcomes, today: "2026-11-20" }));
-    expect(html).toContain('<span class="pill ok">Active</span>');
-    expect(html).toContain('<span class="pill ok">Approved</span>');
+  it("lists the names the CRM uses, lets each be put in a project, and suggests one that shares a word", () => {
+    const gps = [{ id: "aghosh", name: "Aghosh Orphan Homes", crmNames: [], partnerIds: [] }];
+    const html = projectsPage(base({ projects: partners, giftProjects: gps, workOrders: [wo("Where Needed Most"), wo("Where Needed Most"), wo("Aghosh Girls Home"), wo("Hope for Palestine")] }));
+    expect(html).toContain("Names the CRM uses");
+    expect(html).toContain('data-crm-project="Where Needed Most"');
+    expect(html).toContain("No project (general)");
+    expect(html).toContain('data-action="assign-crm" data-name="Aghosh Girls Home" data-project="aghosh"');
+    expect(html).toContain("Use 1 suggestion");
+    expect(html).toContain('data-pj="from-name" data-name="Hope for Palestine"'); // a name with no project and no suggestion can start one
   });
-  it("never trusts a name as HTML", () => {
-    const projects = addProject([], "<img src=x onerror=alert(1)>").value;
-    const html = projectsPage(base({ projects }));
+  it("says so when no gift carries a project name, and never trusts a name as HTML", () => {
+    expect(projectsPage(base())).toContain("No gifts carry a project name yet");
+    const html = projectsPage(base({ giftProjects: [{ id: "x", name: "<img src=x onerror=alert(1)>", crmNames: [], partnerIds: [] }] }));
     expect(html).not.toContain("<img");
     expect(html).toContain("&lt;img");
   });
-  it("lists the names the CRM uses with their counts and a tick box for every partner, and a suggestion", () => {
-    const { projects, nodes, outcomes } = built();
-    const wo = (n: string) => ({ key: n, projectName: n, status: "ready", subscriptionId: "", instalmentCount: "", paidDate: "" }) as never;
-    const html = projectsPage(base({ projects, nodes, outcomes, workOrders: [wo("Where Needed Most"), wo("Where Needed Most"), wo("Aghosh"), wo("Aghosh Girls Home")] }));
-    expect(html).toContain("Names the CRM uses");
-    expect(html).toContain('data-crm-name="Where Needed Most"');
-    expect(html).toContain('data-crm-toggle="aghosh-orphan-homes"');
-    expect(html).toContain("General, any partner.");
-    expect(html).toContain('data-action="assign-crm"');
-    expect(html).toContain("Use 1 suggestion");
+});
+
+describe("projectFormHtml", () => {
+  const ctx = { crmNames: [{ name: "Aghosh", gifts: 22 }, { name: "Where Needed Most", gifts: 279 }], partners };
+  it("asks for a name, ticks the CRM names and partners it has, and offers the real CRM names and every partner", () => {
+    const html = projectFormHtml({ name: "Aghosh", crmNames: ["Aghosh", "Aghosh Lahore"], partnerIds: ["aghosh-orphan-homes"], notes: "A note" }, "aghosh", ctx);
+    expect(html).toContain('value="Aghosh"');
+    expect(html).toMatch(/class="pr-name" value="Aghosh" checked/);
+    expect(html).not.toMatch(/class="pr-name" value="Where Needed Most" checked/);
+    expect(html).toContain("Aghosh Lahore"); // a name the CRM does not have yet is kept
+    expect(html).toMatch(/class="pr-partner" value="aghosh-orphan-homes" checked/);
+    expect(html).not.toMatch(/class="pr-partner" value="dadyal-orphan-complex" checked/);
+    expect(html).toContain("(279)");
+    expect(html).toContain('data-pj="remove"');
   });
-  it("says so when no gift carries a project name", () => {
-    expect(projectsPage(base())).toContain("No gifts carry a project name yet");
+  it("has no Remove button for a new project, shows an error, and never trusts text as HTML", () => {
+    const html = projectFormHtml({ name: "<script>alert(1)</script>" }, "", ctx, "Give the project a name.");
+    expect(html).not.toContain('data-pj="remove"');
+    expect(html).toContain("Give the project a name.");
+    expect(html).not.toContain("<script>");
   });
 });

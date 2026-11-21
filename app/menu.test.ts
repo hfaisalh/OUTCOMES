@@ -15,7 +15,7 @@ describe("visibleMenu", () => {
 
   it("shows only the items the role allows", () => {
     const ids = visibleMenu([P.access, P.viewWorkOrders, P.dashboards]).map((m) => m.id);
-    expect(ids).toEqual(["work-orders", "projects", "allocation", "outcomes", "dashboard", "attention", "audit"]);
+    expect(ids).toEqual(["work-orders", "projects", "partners", "beneficiaries", "allocation", "outcomes", "dashboard", "attention", "audit"]);
   });
 
   it("lands on the first allowed item", () => {
@@ -23,12 +23,12 @@ describe("visibleMenu", () => {
   });
 
   it("shows everything to a role with every permission", () => {
-    expect(visibleMenu(Object.values(P))).toHaveLength(10);
+    expect(visibleMenu(Object.values(P))).toHaveLength(12);
   });
 
-  it("keeps the journey in the side menu (Gifts, Projects, Allocation) and puts setup behind one Settings entry", () => {
+  it("keeps the registers and the journey in the side menu (Gifts, Projects, Partners, Beneficiaries, Allocation) and puts setup behind one Settings entry", () => {
     const all = menuEntries(Object.values(P));
-    expect(all.filter((e) => e.section === "Work").map((e) => e.id)).toEqual(["work-orders", "projects", "allocation", "dashboard"]);
+    expect(all.filter((e) => e.section === "Work").map((e) => e.id)).toEqual(["work-orders", "projects", "partners", "beneficiaries", "allocation", "dashboard"]);
     expect(all.find((e) => e.id === "allocation")?.pages.map((p) => p.id)).toEqual(["allocation", "outcomes"]);
     const setup = all.filter((e) => e.section === "Set up");
     expect(setup.map((e) => e.id)).toEqual(["setup"]);

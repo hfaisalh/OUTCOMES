@@ -25,7 +25,7 @@ export function allocationPage(v: View): string {
   const allocations = v.allocations ?? [];
   const fws = v.frameworks ?? [];
   const today = v.today ?? "2026-01-01";
-  const opts = allocOptions(projects, v.graceDays, today, v.requireRef === true);
+  const opts = allocOptions(projects, v.graceDays, today, v.requireRef === true, v.giftProjects ?? []);
   const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
   const sum = allocationSummary(projects, outcomes, fws, allocations, commitments, opts);
   const byOutcome = new Map(outcomes.map((o) => [o.id, o]));
