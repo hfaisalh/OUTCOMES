@@ -430,7 +430,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
         break;
       default: {
         // Projects (DECISIONS 65): the structure each project defines, and the beneficiaries in it.
-        const r = applyProjectAction({ projects, nodes, outcomes, partnerTypes, partnerFields, giftProjects }, fw, b, at.slice(0, 10));
+        const r = applyProjectAction({ projects, nodes, outcomes, partnerTypes, partnerFields, giftProjects }, fw, b, at.slice(0, 10), new Set(allocations.map((x) => x.outcomeId)));
         if (!r) return fail("That request is not understood.");
         if (r.error) return fail(r.error);
         ({ projects, nodes, outcomes, partnerTypes, partnerFields, giftProjects } = r.state);

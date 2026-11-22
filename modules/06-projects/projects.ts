@@ -447,14 +447,37 @@ export interface ProjectState {
   giftProjects: GiftProject[]; // the projects donors choose, and the partners that deliver them (DECISIONS 76)
 }
 
-export const PROJECT_ACTIONS = ["set-place", "set-group", "set-ref", "assign-refs", "save-gift-project", "remove-gift-project", "assign-crm-name", "save-partner", "add-partner-type", "add-partner-field", "remove-partner-field", "add-level", "move-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "set-field", "add-beneficiaries"];
+export const PROJECT_ACTIONS = ["remove-partner", "set-place", "set-group", "set-ref", "assign-refs", "save-gift-project", "remove-gift-project", "assign-crm-name", "save-partner", "add-partner-type", "add-partner-field", "remove-partner-field", "add-level", "move-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "set-field", "add-beneficiaries"];
 export const MAX_RECORDS = 5000;
+
+/**
+ * Rule (DECISIONS 104): removing a partner. It is refused while beneficiaries belong to it, unless the person says to remove them too, and then only when
+ * none of them has a gift allocated (`allocatedIds` are the outcomes that do). Its structure (places and groups) goes with it. It is taken off any project
+ * a donor can choose, which keeps its other partners. Nothing else is touched, and the partner's gifts are not lost, since gifts belong to outcomes.
+ */
+export function removePartner(s: ProjectState, projectId: string, withBeneficiaries: boolean, allocatedIds: Set<string>): { state: ProjectState; error?: string; removed?: number } {
+  if (!s.projects.some((p) => p.id === projectId)) return { state: s, error: "That partner was not found." };
+  const own = s.outcomes.filter((o) => o.projectId === projectId);
+  if (own.length > 0 && !withBeneficiaries) return { state: s, error: `${own.length} beneficiar${own.length === 1 ? "y belongs" : "ies belong"} to this partner. Remove them first, or remove the partner together with them.` };
+  const held = own.filter((o) => allocatedIds.has(o.id)).length;
+  if (held > 0) return { state: s, error: `${held} of its beneficiaries have gifts allocated, so they cannot be removed. Release those gifts first.` };
+  return {
+    state: {
+      ...s,
+      projects: s.projects.filter((p) => p.id !== projectId),
+      nodes: s.nodes.filter((n) => n.projectId !== projectId),
+      outcomes: s.outcomes.filter((o) => o.projectId !== projectId),
+      giftProjects: s.giftProjects.map((g) => ({ ...g, partnerIds: g.partnerIds.filter((id) => id !== projectId) })),
+    },
+    removed: own.length,
+  };
+}
 
 /**
  * Rule: one place where a request from the screen becomes a change, so the server and the demo behave the same. Returns nothing when the
  * action is not a project action. Text is cut to a sensible length, and the number of places or beneficiaries is capped.
  */
-export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], body: Record<string, unknown>, today = ""): { state: ProjectState; warning?: string; error?: string } | undefined {
+export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], body: Record<string, unknown>, today = "", allocatedIds: Set<string> = new Set()): { state: ProjectState; warning?: string; error?: string } | undefined {
   const action = typeof body["action"] === "string" ? body["action"] : "";
   if (!PROJECT_ACTIONS.includes(action)) return undefined;
   const str = (k: string, max = 100): string => (typeof body[k] === "string" ? (body[k] as string).slice(0, max) : "");
@@ -462,6 +485,10 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
   const done = (state: ProjectState, warning?: string) => ({ state, ...(warning ? { warning } : {}) });
   const fail = (error: string) => ({ state: s, error });
   switch (action) {
+    case "remove-partner": {
+      const r = removePartner(s, str("projectId"), body["withBeneficiaries"] === true, allocatedIds);
+      return r.error ? fail(r.error) : done(r.state);
+    }
     case "set-place": {
       const r = setPlace(s.outcomes, s.projects, s.nodes, str("outcomeId"), str("nodeId"));
       return r.error ? fail(r.error) : done({ ...s, outcomes: r.value });

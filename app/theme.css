@@ -200,3 +200,4 @@ td.bad{color:#d23b3b;font-weight:600}
 .ot-fw{margin:6px 0;font-size:13px}.ot-check{display:inline-flex;gap:4px;align-items:center;margin-right:10px}
 .ot-fields{font-size:13px;margin-top:6px}.ot-fields th,.ot-fields td{padding:4px 8px}.ot-fields input[type=text],.ot-fields td input:not([type=checkbox]){font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit}.ot-actions{white-space:nowrap}.ot-actions button{padding:1px 8px}
 .ot-add{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.ot-add input{flex:1 1 220px}
+.pf-box footer .danger{margin-right:8px;border-color:#d23b3b;color:#d23b3b;background:none}.pf-box footer .danger:hover{background:rgba(210,59,59,.1)}

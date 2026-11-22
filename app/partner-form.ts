@@ -59,7 +59,7 @@ export function partnerProfileHtml(p: Partial<Project>, id: string, ctx: FormCon
         <div class="actions"><input id="pf-newfield" placeholder="Name of a new field" /><button data-pf="add-field">Add field</button></div></section>
       ${id ? "" : `<section><h3>Structure</h3><label class="pf-field"><span>Start the structure from</span><select id="pf-copy"><option value="">Nothing, I will build it</option>${ctx.others.map((o) => `<option value="${esc(o.id)}">A copy of ${esc(o.name)}</option>`).join("")}</select></label></section>`}
     </div>
-    <footer><span id="pf-error" class="pf-error" role="alert">${esc(error)}</span><button data-pf="cancel">Close</button><button class="primary" data-pf="save">Save partner</button></footer>
+    <footer>${id ? `<button class="danger" data-pf="remove" title="Remove this partner">Remove partner</button>` : ""}<span id="pf-error" class="pf-error" role="alert">${esc(error)}</span><button data-pf="cancel">Close</button><button class="primary" data-pf="save">Save partner</button></footer>
   </div>`;
 }
 

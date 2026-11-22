@@ -243,7 +243,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "release": state.allocations = releaseAllocation(state.allocations, str("commitmentKey")); break;
         default: {
           // Projects (DECISIONS 65): the same pure rule the server uses.
-          const r = applyProjectAction({ projects: state.projects, nodes: state.nodes, outcomes: state.outcomes, partnerTypes: state.partnerTypes, partnerFields: state.partnerFields, giftProjects: state.giftProjects }, state.frameworks, body, new Date().toISOString().slice(0, 10));
+          const r = applyProjectAction({ projects: state.projects, nodes: state.nodes, outcomes: state.outcomes, partnerTypes: state.partnerTypes, partnerFields: state.partnerFields, giftProjects: state.giftProjects }, state.frameworks, body, new Date().toISOString().slice(0, 10), new Set(state.allocations.map((x) => x.outcomeId)));
           if (!r) error = "That request is not understood.";
           else if (r.error) error = r.error;
           else { state.projects = r.state.projects; state.nodes = r.state.nodes; state.outcomes = r.state.outcomes; state.partnerTypes = r.state.partnerTypes; state.partnerFields = r.state.partnerFields; state.giftProjects = r.state.giftProjects; if (r.warning) state.message = r.warning; }
@@ -1085,6 +1085,22 @@ document.addEventListener("click", (e) => {
   if (what === "cancel") return closePartnerWindow();
   const root = document.getElementById("modal-root") as HTMLElement | null;
   if (!root) return;
+  // Removing a partner (DECISIONS 104). The question says what goes with it. A partner with beneficiaries is removed together with them, only when none has a gift.
+  if (what === "remove") {
+    const id = state.partnerWin.id;
+    const p = state.projects.find((x) => x.id === id);
+    const own = state.outcomes.filter((o) => o.projectId === id).length;
+    const places = state.nodes.filter((n) => n.projectId === id).length;
+    const words = `${p?.name ?? "This partner"}${own || places ? `, its ${own} beneficiar${own === 1 ? "y" : "ies"} and ${places} place${places === 1 ? "" : "s"} and group${places === 1 ? "" : "s"}` : ""}`;
+    if (!window.confirm(`Remove ${words}? This cannot be undone. A beneficiary with a gift allocated is never removed: release the gift first.`)) return;
+    void outcomeChange({ action: "remove-partner", projectId: id, withBeneficiaries: own > 0 }).then(() => {
+      if (lastError !== "") { const box = document.getElementById("pf-error"); if (box) box.textContent = lastError; return; }
+      closePartnerWindow();
+      state.message = `Removed ${p?.name ?? "the partner"}.`;
+      draw();
+    });
+    return;
+  }
   if (what === "add-contact") return void document.getElementById("pf-contacts")?.insertAdjacentHTML("beforeend", NEW_CONTACT_ROW);
   if (what === "add-doc") return void document.getElementById("pf-docs")?.insertAdjacentHTML("beforeend", NEW_DOC_ROW);
   // Adding or removing an extra field changes the organisation's list, so the form is drawn again with what was typed kept.

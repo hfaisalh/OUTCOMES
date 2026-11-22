@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Allocation } from "../05-outcomes/outcomes";
 import type { Commitment } from "../04b-commitments/commitments";
-import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
+import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, removePartner, rollupOf, setNodeField, type Node, type Project } from "./projects";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -500,3 +500,40 @@ describe("the beneficiary's own ID (DECISIONS 75)", () => {
   });
 });
 
+describe("removing a partner (DECISIONS 104)", () => {
+  const base = (): ProjectState => ({
+    projects: [{ id: "a", name: "Aghosh", aliases: [], levels: [], types: [] } as unknown as Project, { id: "b", name: "Other", aliases: [], levels: [], types: [] } as unknown as Project],
+    nodes: [{ id: "n1", projectId: "a", name: "Branch", levelId: "l1", parentId: "" } as unknown as Node],
+    outcomes: [{ id: "o1", name: "Child 1", type: "child", cohort: "", frameworkId: "f", active: true, projectId: "a" }, { id: "o2", name: "Child 2", type: "child", cohort: "", frameworkId: "f", active: true, projectId: "b" }],
+    partnerTypes: [], partnerFields: [],
+    giftProjects: [{ id: "g", name: "Orphans", crmNames: [], partnerIds: ["a", "b"] }],
+  });
+  it("refuses while beneficiaries belong to it, and says how many", () => {
+    const r = removePartner(base(), "a", false, new Set());
+    expect(r.error).toContain("1 beneficiary belongs");
+    expect(r.state.projects).toHaveLength(2);
+  });
+  it("removes the partner with its beneficiaries and structure, and takes it off the projects donors choose, keeping the other partners", () => {
+    const r = removePartner(base(), "a", true, new Set());
+    expect(r.error).toBeUndefined();
+    expect(r.removed).toBe(1);
+    expect(r.state.projects.map((p) => p.id)).toEqual(["b"]);
+    expect(r.state.nodes).toEqual([]);
+    expect(r.state.outcomes.map((o) => o.id)).toEqual(["o2"]); // the other partner's beneficiary stays
+    expect(r.state.giftProjects[0]?.partnerIds).toEqual(["b"]);
+  });
+  it("never removes a beneficiary that has a gift allocated", () => {
+    const r = removePartner(base(), "a", true, new Set(["o1"]));
+    expect(r.error).toContain("have gifts allocated");
+    expect(r.state.projects).toHaveLength(2);
+  });
+  it("removes a partner with nothing under it, and refuses one that does not exist", () => {
+    const empty = { ...base(), outcomes: [], nodes: [] };
+    expect(removePartner(empty, "a", false, new Set()).state.projects.map((p) => p.id)).toEqual(["b"]);
+    expect(removePartner(base(), "zzz", false, new Set()).error).toContain("not found");
+  });
+  it("is a project action the server and the demo both answer", () => {
+    expect(applyProjectAction(base(), [], { action: "remove-partner", projectId: "a", withBeneficiaries: true })!.state.projects).toHaveLength(1);
+    expect(applyProjectAction(base(), [], { action: "remove-partner", projectId: "a", withBeneficiaries: true }, "", new Set(["o1"]))!.error).toContain("have gifts allocated");
+  });
+});
