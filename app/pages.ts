@@ -15,6 +15,7 @@ import { autoAllocate, fillOf, holdingReport, monthsAround, perPeriodRule, timel
 import { allocOptions, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
 import type { BenFilter } from "./beneficiaries-page";
 import { outcomeTypesCard } from "./outcome-types-card";
+import { ICONS, iconHtml, itemIcon } from "./icons";
 import type { OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { allocatable, buildCommitments, needsLook, type Commitment } from "../modules/04b-commitments/commitments";
 import { noIndividualDonor } from "../modules/01c-crm-connector/credits";
@@ -52,6 +53,7 @@ export interface View {
   config: typeof MWF_CRM_CONFIG;
   categories: Category[];
   frameworks?: FrameworkTemplate[]; // framework templates (DECISIONS 59)
+  itemIcons?: Record<string, string>; // the icon chosen for an item (DECISIONS 107)
   outcomeTypes?: OutcomeType[]; // the kinds of outcome and their profile fields (DECISIONS 103)
   itemFramework?: Record<string, string>; // an item's own framework, where it differs from its category
   itemFrameworkSuggestions?: Record<string, string>; // suggested item frameworks, for a person to accept
@@ -240,6 +242,22 @@ const frameworkCard = (f: FrameworkTemplate, v: View): string => {
     <p class="muted">Duration and instalment counts are not set here. They come from the CRM item. A bundle multiplies the units of the same framework.</p></details>`;
 };
 
+// The icon of each item that needs feedback (DECISIONS 107). It shows in the Gifts list and on outcome profiles. A suggestion from the name is used until one is chosen.
+function itemIconsCard(v: View): string {
+  const chosen = v.itemIcons ?? {};
+  const typeIconOf = (itemId: string): string => {
+    const fw = (v.itemFramework ?? {})[itemId] ?? "";
+    return (v.outcomeTypes ?? []).find((t) => fw !== "" && t.frameworkIds.includes(fw))?.icon ?? "";
+  };
+  const rows = [...v.flaggedItems].sort((a, b) => a.name.localeCompare(b.name)).map((i) => {
+    const cur = chosen[i.id] ?? "";
+    const shown = itemIcon(i.id, i.name, chosen, typeIconOf(i.id));
+    return `<tr><td>${iconHtml(shown, i.name)}</td><td>${esc(i.name)}</td><td><select data-icon-item="${esc(i.id)}" aria-label="Icon for ${esc(i.name)}"><option value=""${cur === "" ? " selected" : ""}>Suggested${shown ? ": " + esc(ICONS.find((x) => x.id === shown)?.label ?? "") : ""}</option>${ICONS.map((x) => `<option value="${x.id}"${cur === x.id ? " selected" : ""}>${esc(x.label)}</option>`).join("")}</select></td></tr>`;
+  }).join("");
+  return `<div class="card"><h2>Icons <span class="muted">(${v.flaggedItems.length} items)</span></h2><p class="muted">Each item has an icon in the Gifts list and on outcome profiles. One is suggested from the item's name. Choose another if it does not fit.</p>
+    <div class="twrap"><table class="icontable"><tbody>${rows || `<tr><td class="muted">No items yet.</td></tr>`}</tbody></table></div></div>`;
+}
+
 export function categoriesPage(v: View): string {
   const items: ItemInfo[] = v.flaggedItems.map((i) => ({ id: i.id, name: i.name }));
   const { unsorted, byCategory } = groupItems(items, v.itemCategories, v.categories);
@@ -273,6 +291,7 @@ export function categoriesPage(v: View): string {
         <button data-action="suggest-item-frameworks"${nItemSuggest ? "" : " disabled"}>Suggest ${nItemSuggest} item framework${nItemSuggest === 1 ? "" : "s"} (Hifz, school and similar)</button>
         <button data-action="apply-frameworks" title="Work orders keep the framework they were made under. This moves every one to the framework that now applies to its item">Apply frameworks to existing work orders</button></div>
       ${frameworks.length ? frameworks.map((f) => frameworkCard(f, v)).join("") : `<div class="empty">No frameworks yet. Add the starting frameworks, or add your own.</div>`}</div>
+    ${itemIconsCard(v)}
     ${outcomeTypesCard(v.outcomeTypes ?? [], frameworks, Object.fromEntries((v.outcomeTypes ?? []).map((t) => [t.id, (v.outcomes ?? []).filter((o) => o.outcomeTypeId === t.id).length])))}
     <div class="actions"><button class="primary" data-action="accept-suggestions"${nSuggest ? "" : " disabled"}>Accept ${nSuggest} suggestion${nSuggest === 1 ? "" : "s"}</button>
       <input id="newcat" placeholder="New category name" /><button data-action="add-category">Add category</button></div>

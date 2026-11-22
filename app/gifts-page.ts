@@ -11,6 +11,7 @@
 
 import { filterWorkOrders, isFiltering } from "../modules/01c-crm-connector/filter";
 import { lineValue } from "../modules/01c-crm-connector/work-orders";
+import { iconHtml, itemIcon } from "./icons";
 import { plusMonths } from "../modules/04b-commitments/catch-up";
 import { allocatable, type Commitment } from "../modules/04b-commitments/commitments";
 import { giftRows, type GiftRow } from "../modules/04b-commitments/gifts";
@@ -108,6 +109,9 @@ export function shownGiftKeys(v: View): string[] {
   return listData(v).rows.slice(0, MAX_ROWS).flatMap((r) => r.payments.map((w) => w.key));
 }
 
+// The icon of a gift's item (DECISIONS 107): the one chosen, else a suggestion from its name, else its outcome type's icon.
+const giftIcon = (v: View, g: GiftRow, size: "sm" | "lg" = "sm"): string => iconHtml(itemIcon(g.itemId, g.itemName, v.itemIcons, (v.outcomeTypes ?? []).find((t) => g.frameworkId !== "" && t.frameworkIds.includes(g.frameworkId))?.icon ?? ""), g.itemName, size);
+
 // Everything about where gifts are allocated, worked out once for the list and for the window.
 function allocationContext(v: View) {
   const fws = v.frameworks ?? [];
@@ -195,7 +199,7 @@ export function giftListHtml(v: View): string {
       <td class="c">${kindIcon(g)}</td>
       <td class="num muted">${g.kind === "recurring" ? esc(g.key) : ""}</td>
       <td class="clip" title="${esc(g.supporterName)} ${esc(g.supporterId)}">${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span></td>
-      <td class="clip" title="${esc(g.itemName)}">${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${picker(v.categories, first.itemId, "")}` : ""}</td>
+      <td class="clip" title="${esc(g.itemName)}">${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${picker(v.categories, first.itemId, "")}` : ""}</td>
       <td class="num">${planCell(g)}</td>
       <td class="num muted" title="Total of its payments, for reference">${money(g.payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0), currencyOf(g))}</td>
       <td class="num">${esc(paid)}</td>
@@ -237,7 +241,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
     <header><h2>${esc(g.supporterName)} <span class="muted">${esc(g.itemName)}</span></h2><button data-gift-close="x" aria-label="Close">Close</button></header>
     <div class="pf-body compact">${catchUp}${partFix}<div class="fgrid">
         ${row("Donor", `${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span>${first && first.group ? ` <span class="muted">· ${esc(first.group)}</span>` : ""}`)}
-        ${row("Item", `${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${picker(v.categories, first.itemId, "")}` : `<div class="muted">${esc(categoryName(v.categories, g.categoryId))}${first && first.bundleQty && first.bundleQty > 1 && g.kind !== "recurring" ? ` \u00B7 bundle of ${first.bundleQty}${first.quantity > 1 ? ` x ${first.quantity}` : ""}` : ""}</div>`}`)}
+        ${row("Item", `${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${picker(v.categories, first.itemId, "")}` : `<div class="muted">${esc(categoryName(v.categories, g.categoryId))}${first && first.bundleQty && first.bundleQty > 1 && g.kind !== "recurring" ? ` \u00B7 bundle of ${first.bundleQty}${first.quantity > 1 ? ` x ${first.quantity}` : ""}` : ""}</div>`}`)}
         ${row("Type", esc(kindName))}
         ${row("Recurring ID", g.kind === "recurring" ? `<b>${esc(g.key)}</b>` : "")}
         ${row("Value (reference)", money(g.payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0), currencyOf(g)))}

@@ -92,6 +92,7 @@ export interface OutcomesReply {
   partnerFields?: string[];
   outcomeTypes?: OutcomeType[];
   idCounters?: Record<string, number>;
+  itemIcons?: Record<string, string>;
   warning?: string;
   placed?: number;
   removed?: number;

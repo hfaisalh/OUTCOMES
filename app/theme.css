@@ -201,3 +201,8 @@ td.bad{color:#d23b3b;font-weight:600}
 .ot-fields{font-size:13px;margin-top:6px}.ot-fields th,.ot-fields td{padding:4px 8px}.ot-fields input[type=text],.ot-fields td input:not([type=checkbox]){font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit}.ot-actions{white-space:nowrap}.ot-actions button{padding:1px 8px}
 .ot-add{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.ot-add input{flex:1 1 220px}
 .pf-box footer .danger{margin-right:8px;border-color:#d23b3b;color:#d23b3b;background:none}.pf-box footer .danger:hover{background:rgba(210,59,59,.1)}
+
+/* Icons (DECISIONS 107) */
+.ico{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;border-radius:8px;background:var(--accent-bg);color:var(--accent);flex:0 0 auto}.ico svg{display:block}
+.ico-sm{width:24px;height:24px}.ico-sm svg{width:16px;height:16px}.ico-lg{width:40px;height:40px;border-radius:10px}.ico-lg svg{width:26px;height:26px}
+.icontable td{padding:4px 8px}.icontable select{font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit}

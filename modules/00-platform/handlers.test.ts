@@ -485,6 +485,18 @@ describe("outcomes (DECISIONS 61)", () => {
     expect(((await handleOutcomes(as(cookie), d)).body as typeof more).outcomes.map((o) => o.ref)).toEqual(["ORP-0001", "ORP-0002", "KID-0001"]);
   });
 
+  it("keeps the icon chosen for an item, and takes the choice back (DECISIONS 107)", async () => {
+    const cookie = await signIn(d);
+    const set = (await post(cookie, { action: "item-icon", itemId: "I9", icon: "tanker" })).body as { itemIcons: Record<string, string> };
+    expect(set.itemIcons).toEqual({ I9: "tanker" });
+    expect((await post(cookie, { action: "item-icon", itemId: "I9", icon: "not-an-icon" })).status).toBe(400);
+    expect(((await handleOutcomes(as(cookie), d)).body as typeof set).itemIcons).toEqual({ I9: "tanker" }); // kept
+    expect(((await post(cookie, { action: "item-icon", itemId: "I9", icon: "" })).body as typeof set).itemIcons).toEqual({}); // taken back
+    // an outcome type has an icon too
+    const t = (await post(cookie, { action: "ot-icon", typeId: "water-pump", icon: "pump-lg" })).body as { outcomeTypes: { id: string; icon?: string }[] };
+    expect(t.outcomeTypes.find((x) => x.id === "water-pump")?.icon).toBe("pump-lg");
+  });
+
   it("refuses a missing framework, a bad action, a viewer and a signed-out caller, and keeps organisations apart", async () => {
     const cookie = await signIn(d);
     expect((await post(cookie, { action: "add", name: "Orphan", count: 1, type: "", cohort: "", frameworkId: "ghost" })).status).toBe(400);

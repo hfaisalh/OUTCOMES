@@ -137,4 +137,11 @@ describe("giftsPage", () => {
     expect(page).toContain('data-list="main-metrics"');
     expect(page).toMatch(/class="tabrow"[\s\S]*Gifts are brought in under/);
   });
+  it("shows an icon beside the item, chosen or suggested from its name (DECISIONS 107)", () => {
+    const html = giftListHtml(view({ workOrders: [sub(1, { itemName: "Small Pump", itemId: "I9" })] }));
+    expect(html).toContain('class="ico ico-sm" title="Small Pump"');
+    const chosen = giftListHtml(view({ workOrders: [sub(1, { itemName: "Small Pump", itemId: "I9" })], itemIcons: { I9: "tanker" } }));
+    expect(chosen).toContain("<rect x=\"2\" y=\"9\" width=\"12\""); // the tanker's shape, not the pump's
+    expect(giftListHtml(view({ workOrders: [sub(1, { itemName: "Something unusual", itemId: "I8" })] }))).not.toContain('class="ico ico-sm"');
+  });
 });

@@ -8,6 +8,7 @@
  */
 
 import { FIELD_KINDS, type OutcomeType } from "../modules/05-outcomes/outcome-types";
+import { ICONS, iconHtml } from "./icons";
 import type { FrameworkTemplate } from "../modules/02-project-rules/categories";
 
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -15,8 +16,8 @@ const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;"
 export function outcomeTypesCard(types: OutcomeType[], frameworks: FrameworkTemplate[], used: Record<string, number>): string {
   const kindName = (id: string) => FIELD_KINDS.find((k) => k.id === id)?.label ?? id;
   const typeHtml = (t: OutcomeType): string => `<div class="ot" data-ot-type="${esc(t.id)}">
-    <div class="ot-head"><input class="ot-name" data-ot="rename" data-type-id="${esc(t.id)}" value="${esc(t.name)}" aria-label="Type name">
-      <label class="ot-prefix">ID prefix <input data-ot="prefix" data-type-id="${esc(t.id)}" value="${esc(t.prefix ?? "")}" maxlength="5" size="6" aria-label="ID prefix"></label><span class="muted">${esc(t.prefix ?? "")}-0001, ${esc(t.prefix ?? "")}-0002 ...</span>
+    <div class="ot-head">${iconHtml(t.icon ?? "", t.name, "lg")}<input class="ot-name" data-ot="rename" data-type-id="${esc(t.id)}" value="${esc(t.name)}" aria-label="Type name">
+      <label class="ot-prefix">Icon <select data-ot="icon" data-type-id="${esc(t.id)}" aria-label="Icon"><option value=""${!t.icon ? " selected" : ""}>None</option>${ICONS.map((x) => `<option value="${x.id}"${t.icon === x.id ? " selected" : ""}>${esc(x.label)}</option>`).join("")}</select></label> <label class="ot-prefix">ID prefix <input data-ot="prefix" data-type-id="${esc(t.id)}" value="${esc(t.prefix ?? "")}" maxlength="5" size="6" aria-label="ID prefix"></label><span class="muted">${esc(t.prefix ?? "")}-0001, ${esc(t.prefix ?? "")}-0002 ...</span>
       <span class="muted">${used[t.id] ?? 0} outcome${(used[t.id] ?? 0) === 1 ? "" : "s"} use it</span>
       <button data-ot-act="remove" data-type-id="${esc(t.id)}"${(used[t.id] ?? 0) > 0 ? " disabled" : ""} title="${(used[t.id] ?? 0) > 0 ? "Outcomes use this type" : "Remove this type"}">Remove</button></div>
     <div class="ot-rules">

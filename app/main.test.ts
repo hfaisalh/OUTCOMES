@@ -177,4 +177,10 @@ describe("outcome types on the Categories and frameworks page (DECISIONS 103)", 
     expect(shell.innerHTML).toContain('data-ot-act="add"');
     expect(shell.innerHTML).toContain('data-ot="framework"'); // a type is linked to the frameworks that use it
   });
+  it("shows an Icons card with an icon for each item and a choice of fourteen (DECISIONS 107)", () => {
+    click({ page: "categories" }, "data-page");
+    expect(shell.innerHTML).toContain("<h2>Icons");
+    expect(shell.innerHTML).toContain("data-icon-item=");
+    expect(shell.innerHTML).toContain('data-ot="icon"'); // an outcome type has an icon too
+  });
 });

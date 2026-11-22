@@ -40,6 +40,7 @@ export type AssignMode = "auto" | "suggest";
 export interface OutcomeType {
   id: string;
   name: string; // singular, in the organisation's words: Orphan, Water pump
+  icon?: string; // the icon id its outcomes show by default (DECISIONS 107)
   prefix?: string; // the start of the IDs of its outcomes (ORP for ORP-0007). Changing it changes new IDs only (DECISIONS 105)
   source: OutcomeSource;
   assign: AssignMode;
@@ -59,7 +60,7 @@ const field = (label: string, kind: FieldKind, required = false, inReport = fals
 // The two types to start with (DECISIONS 103). Staff add the rest.
 export function starterOutcomeTypes(): OutcomeType[] {
   const make = (id: string, name: string, source: OutcomeSource, assign: AssignMode, fields: Omit<ProfileField, "id">[]): OutcomeType => ({
-    id, name, prefix: id === "orphan" ? "ORP" : "PMP", source, assign, frameworkIds: [],
+    id, name, prefix: id === "orphan" ? "ORP" : "PMP", icon: id === "orphan" ? "orphan" : "pump", source, assign, frameworkIds: [],
     fields: fields.reduce<ProfileField[]>((all, f) => [...all, { ...f, id: uniqueId(f.label, all.map((x) => x.id)) }], []),
   });
   return [
@@ -104,6 +105,8 @@ export function setPrefix(types: OutcomeType[], id: string, prefix: string): Res
   if (types.some((t) => t.id !== id && t.prefix === p)) return { error: `Another outcome type already uses ${p}.` };
   return edit(types, id, (t) => ({ ...t, prefix: p }));
 }
+
+export const setIcon = (types: OutcomeType[], id: string, icon: string): Result => edit(types, id, (t) => { const { icon: _old, ...rest } = t; return icon === "" ? rest : { ...rest, icon: icon.slice(0, 20) }; });
 
 export const setSource = (types: OutcomeType[], id: string, source: OutcomeSource): Result =>
   source !== "pick_existing" && source !== "create_new" ? { error: "That source rule is not known." } : edit(types, id, (t) => ({ ...t, source }));
@@ -168,6 +171,7 @@ export function applyOutcomeTypeAction(types: OutcomeType[], knownFrameworks: st
     case "ot-rename": return renameOutcomeType(types, s("typeId"), s("name"));
     case "ot-remove": return removeOutcomeType(types, s("typeId"), usedTypeIds);
     case "ot-prefix": return setPrefix(types, s("typeId"), s("prefix"));
+    case "ot-icon": return setIcon(types, s("typeId"), s("icon"));
     case "ot-source": return setSource(types, s("typeId"), s("source") as OutcomeSource);
     case "ot-assign": return setAssignMode(types, s("typeId"), s("assign") as AssignMode);
     case "ot-framework": return setTypeFramework(types, s("typeId"), s("frameworkId"), body["on"] === true, knownFrameworks);
