@@ -186,6 +186,6 @@ describe("outcome types on the Categories and frameworks page (DECISIONS 103)", 
   it("has a Prices page under Data (DECISIONS 127)", () => {
     click({ page: "prices" }, "data-page");
     expect(shell.innerHTML).toContain("<h1>Prices</h1>");
-    expect(shell.innerHTML).toContain("checked against the prices its item has really sold at");
+    expect(shell.innerHTML).toContain("compared with the prices its item has really sold at");
   });
 });

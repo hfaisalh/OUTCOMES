@@ -25,10 +25,18 @@ describe("the Prices page", () => {
     expect(html).toContain("Orphan Sponsorship");
     expect(html).toContain("<b>35</b>");
     expect(html).toContain("Seen often"); // 4 gifts
-    expect(html).toContain('class="pill review" title="Fewer than 3 gifts'); // 70 on two gifts is unusual
+    expect(html).toContain('class="pill review" title="A whole multiple or a fraction of a normal price'); // 70 is 2 x 35, so it is unusual
     expect(html).toContain("10/09/26"); // short dates
     expect(html).toMatch(/<b>1<\/b><span>Unusual prices/);
     expect(html).toMatch(/<b>2<\/b><span>Gifts at unusual prices/);
+  });
+  it("shows an earlier or newer price as assumed, not unusual, with accept and reject (DECISIONS 128)", () => {
+    const html = pricesPage(view({ workOrders: [...[1, 2, 3, 4].map((n) => wo(`a${n}`, 48)), wo("old", 42)] }));
+    expect(html).toContain('class="pill blue"');
+    expect(html).toContain(">Assumed<");
+    expect(html).toMatch(/<b>0<\/b><span>Unusual prices/); // 42 is not a multiple or a fraction of 48
+    expect(html).toContain('data-price-act="accept" data-item="ORP" data-price="42"');
+    expect(html).toContain('data-price-act="reject" data-item="ORP" data-price="42"');
   });
   it("offers accept for an unusual price and reject for a normal one, as icon buttons in their own columns", () => {
     const html = pricesPage(view());

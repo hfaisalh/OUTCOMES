@@ -40,7 +40,7 @@ describe("the prices an item has sold at", () => {
   });
   it("makes a price valid when it is in the catalogue, accepted, or seen often, and unusual otherwise or when rejected", () => {
     const orders = [...base(), wo("odd1", { amount: 70 }), wo("odd2", { amount: 70 })];
-    expect(priceTable(orders, emptyBook()).find((e) => e.price === 70)).toMatchObject({ gifts: 2, valid: false }); // two gifts is not enough
+    expect(priceTable(orders, emptyBook()).find((e) => e.price === 70)).toMatchObject({ gifts: 2, valid: false, kind: "unusual" }); // two gifts is not enough, and 70 is 2 x 35
     const cat: PriceBook = { ...emptyBook(), catalogue: { ORP: [35, 40, 70] } };
     expect(priceTable(orders, cat).find((e) => e.price === 70)).toMatchObject({ valid: true, inCatalogue: true });
     expect(priceTable(orders, choosePrice(emptyBook(), "ORP", 70, "accept")).find((e) => e.price === 70)).toMatchObject({ valid: true, accepted: true });
@@ -61,19 +61,33 @@ describe("judging a payment", () => {
     expect(judgePayment(oneOff("a", { amount: 480, periodCount: 12 }), t)).toEqual({ ok: true }); // a year at 40
     expect(judgePayment(oneOff("a", { amount: 420, periodCount: 12 }), t)).toEqual({ ok: true }); // a year at 35, an older price still valid
   });
-  it("is custom at any other price, and names the prices seen, even a multiple like 70", () => {
+  it("is custom when the price is a whole multiple or a fraction of a normal price, even 70, and says why", () => {
     const v = judgePayment(wo("a", { amount: 70 }), t);
     expect(v).toMatchObject({ ok: false, valid: [35, 40] });
-    expect(!v.ok && v.reason).toBe("A custom amount: 70 a part a month. Prices seen for this item: 35, 40");
-    expect(judgePayment(wo("a", { amount: 17.5 }), t).ok).toBe(false);
+    expect(!v.ok && v.reason).toBe("A custom amount: 2 times a normal price (35). 70 a part a month. Prices seen for this item: 35, 40");
+    const half = judgePayment(wo("a", { amount: 17.5 }), t);
+    expect(!half.ok && half.reason).toContain("a half of a normal price (35)");
+    expect(judgePayment(wo("a", { amount: 105 }), t).ok).toBe(false); // 3 x 35, entered as an amount with no bundle
   });
-  it("has nothing to check an item with no valid price against, so it flags nothing", () => {
+  it("treats a price that is an earlier or newer catalogue price as the going price, without flagging it (DECISIONS 128)", () => {
+    // an item sold at 42, then 48 now: neither is a multiple of the other, so a gift at the old price is not custom
+    const history = [...many(48, 5), wo("old", { amount: 42, subscriptionId: "SOLD", itemId: "ORP" })];
+    const table = priceTable(history, emptyBook());
+    expect(table.find((e) => e.price === 42)).toMatchObject({ gifts: 1, valid: false, kind: "assumed" });
+    expect(judgePayment(wo("a", { amount: 42 }), table)).toEqual({ ok: true });
+    expect(applyPrices(history, emptyBook())).toEqual([]); // nothing is marked
+    // the same with a catalogue that already lists only the new price
+    expect(judgePayment(wo("a", { amount: 42 }), priceTable([wo("old", { amount: 42, subscriptionId: "SOLD" })], { ...emptyBook(), catalogue: { ORP: [48] } }))).toEqual({ ok: true });
+    // a price 1 gift at 37 (not a multiple or a fraction of 35 or 40) is assumed too
+    expect(judgePayment(wo("a", { amount: 37 }), t)).toEqual({ ok: true });
+  });
+  it("has nothing to compare an item with no normal price against, so it flags nothing", () => {
     expect(judgePayment(wo("a", { itemId: "NEW", amount: 999 }), t)).toEqual({ ok: true });
   });
-  it("suggests the months for a single payment that has none, from a valid price", () => {
-    const v = judgePayment(oneOff("a", { amount: 480 }), t); // paid once, no months: 480 / 40 = 12
+  it("suggests the months for a single payment that has none, when it is a whole multiple of a normal price", () => {
+    const v = judgePayment(oneOff("a", { amount: 480 }), t); // paid once, no months: 480 / 40 = 12, and 12 x 40 is a multiple
     expect(v).toMatchObject({ ok: false, months: 12 });
-    expect(judgePayment(oneOff("a", { amount: 4 }), t)).not.toHaveProperty("months");
+    expect(judgePayment(oneOff("a", { amount: 37 }), t)).toEqual({ ok: true }); // 37 is not a multiple or a simple fraction of 35 or 40, so it is assumed
   });
 });
 
@@ -82,7 +96,8 @@ describe("marking payments", () => {
     const orders = [...base(), wo("odd", { amount: 70, subscriptionId: "SODD" })];
     const marked = applyPrices(orders, emptyBook());
     expect(marked).toHaveLength(1);
-    expect(marked[0]).toMatchObject({ key: "odd", partsManual: "A custom amount: 70 a part a month. Prices seen for this item: 35, 40" });
+    expect(marked[0]).toMatchObject({ key: "odd" });
+    expect(marked[0]?.partsManual).toContain("A custom amount: 2 times a normal price (35). 70 a part a month");
     // accept the price: the mark goes
     const after = orders.map((w) => marked.find((m) => m.key === w.key) ?? w);
     const cleared = applyPrices(after, choosePrice(emptyBook(), "ORP", 70, "accept"));
@@ -93,11 +108,9 @@ describe("marking payments", () => {
     expect(rejected).toHaveLength(5);
     expect(rejected.every((w) => w.partsManual !== undefined)).toBe(true);
   });
-  it("finds a price change by itself: a new price seen on several gifts stops being unusual", () => {
-    const early = [...many(35, 5), wo("n1", { amount: 40 }), wo("n2", { amount: 40 })];
-    expect(applyPrices(early, emptyBook()).filter((w) => w.amount === 40)).toHaveLength(2); // two gifts: still unusual
-    const later = [...early, wo("n3", { amount: 40 })];
-    expect(applyPrices(later, emptyBook())).toEqual([]); // three gifts: a valid price
+  it("finds a price change by itself: a new price is the going price at once, not flagged", () => {
+    const early = [...many(35, 5), wo("n1", { amount: 40 })];
+    expect(applyPrices(early, emptyBook())).toEqual([]); // 40 is not a multiple or a fraction of 35
   });
   it("leaves alone a legacy upload, an excluded payment, a person's parts and a person's mark", () => {
     const orders = [...base(), wo("l", { amount: 70, legacyUpload: true }), wo("e", { amount: 70, status: "excluded" }), wo("f", { amount: 70, partsFixed: 2 }), wo("m", { amount: 70, partsByPerson: true, partsManual: "Marked by a person" })];
@@ -123,8 +136,8 @@ describe("what a person decides for a gift", () => {
     const next = applyPrices([...base(), ...decided, sub("c", 3)], emptyBook());
     expect(next).toHaveLength(1);
     expect(next[0]).toMatchObject({ key: "c", partsFixed: 2 });
-    const other = applyPrices([...base(), ...decided, sub("d", 4, { amount: 90 })], emptyBook());
-    expect(other[0]?.partsManual).toContain("A custom amount: 90"); // a different amount is its own question
+    const other = applyPrices([...base(), ...decided, sub("d", 4, { amount: 140 })], emptyBook());
+    expect(other[0]?.partsManual).toContain("A custom amount: 4 times a normal price (35)"); // a different amount is its own question
   });
   it("a payment that arrives later takes a manual mark a person made", () => {
     const marked = (setManual(wo("a", { subscriptionId: "SM", amount: 35 }), true) as { order: WorkOrder }).order;

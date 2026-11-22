@@ -22,19 +22,20 @@ function status(e: PriceEntry): string {
   if (e.accepted) return `<span class="pill ready" title="A person accepted this price">Accepted</span>`;
   if (e.inCatalogue) return `<span class="pill ready" title="This price is in the catalogue price list">In catalogue</span>`;
   if (e.valid) return `<span class="pill ready" title="Seen on ${MIN_GIFTS} or more gifts of this item">Seen often</span>`;
-  return `<span class="pill review" title="Fewer than ${MIN_GIFTS} gifts, and not in the catalogue. Gifts at this price are allocated manually.">Unusual</span>`;
+  if (e.kind === "assumed") return `<span class="pill blue" title="Not in the catalogue and seen on fewer than ${MIN_GIFTS} gifts, but not a multiple or a fraction of a normal price. It is treated as the going price of those gifts, an earlier or a newer catalogue price. Reject it if it is wrong.">Assumed</span>`;
+  return `<span class="pill review" title="A whole multiple or a fraction of a normal price, so it looks like a chosen amount. Gifts at this price are allocated manually. Accept it if it is right.">Unusual</span>`;
 }
 
 export function pricesPage(v: View): string {
   const book = v.priceBook ?? emptyBook();
   const table = priceTable(v.workOrders, book);
   const items = [...new Set(table.map((e) => e.itemId))];
-  const unusual = table.filter((e) => !e.valid && !e.rejected);
+  const unusual = table.filter((e) => e.kind === "unusual");
   const gifts = unusual.reduce((n, e) => n + e.gifts, 0);
-  const row = (e: PriceEntry): string => `<tr class="${e.valid ? "" : "oddprice"}"><td class="num"><b>${esc(money(e.price))}</b></td><td class="num">${e.gifts || "–"}</td><td class="num">${e.payments || "–"}</td>
+  const row = (e: PriceEntry): string => `<tr class="${e.kind === "unusual" ? "oddprice" : ""}"><td class="num"><b>${esc(money(e.price))}</b></td><td class="num">${e.gifts || "–"}</td><td class="num">${e.payments || "–"}</td>
       <td class="date">${e.first ? esc(shortDate(e.first)) : ""}</td><td class="date">${e.last ? esc(shortDate(e.last)) : ""}</td><td>${status(e)}</td>
       <td class="actcol"><div class="actbox">${e.accepted || e.rejected ? `<button class="iconact" data-price-act="clear" data-item="${esc(e.itemId)}" data-price="${e.price}" title="Take the choice back" aria-label="Take the choice back">${UNDO}</button>` : e.valid ? "" : `<button class="iconact ok" data-price-act="accept" data-item="${esc(e.itemId)}" data-price="${e.price}" title="Accept this as a normal price" aria-label="Accept this as a normal price">${TICK}</button>`}</div></td>
-      <td class="actcol"><div class="actbox">${e.rejected || e.accepted ? "" : `<button class="iconact" data-price-act="reject" data-item="${esc(e.itemId)}" data-price="${e.price}" title="Reject this price" aria-label="Reject this price">${CROSS}</button>`}</div></td></tr>`;
+      <td class="actcol"><div class="actbox">${e.rejected || e.accepted || e.kind === "unusual" ? "" : `<button class="iconact" data-price-act="reject" data-item="${esc(e.itemId)}" data-price="${e.price}" title="Reject this price" aria-label="Reject this price">${CROSS}</button>`}</div></td></tr>`;
   const block = (itemId: string): string => {
     const entries = table.filter((e) => e.itemId === itemId);
     const name = entries[0]?.itemName ?? itemId;
@@ -43,7 +44,7 @@ export function pricesPage(v: View): string {
   };
   return `
     <h1>Prices</h1>
-    <p class="sub">Donors cannot give custom amounts at item level: an item's amounts are set in the CRM catalogue. So each payment is checked against the prices its item has really sold at: the catalogue price list, prices seen on ${MIN_GIFTS} or more gifts, and prices you accept. A payment at any other price is a custom amount and is allocated manually. When the CRM changes a price, nothing here needs changing: the new price is learned from the gifts and the next catalogue upload.</p>
+    <p class="sub">Donors cannot give custom amounts at item level: an item's amounts are set in the CRM catalogue. So each payment is compared with the prices its item has really sold at: the catalogue price list, prices seen on ${MIN_GIFTS} or more gifts, and prices you accept. A payment at any other price is a custom amount and is allocated manually. When the CRM changes a price, nothing here needs changing: the new price is learned from the gifts and the next catalogue upload.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics">${metric(items.length, "Items")}${metric(table.length, "Prices found")}${metric(unusual.length, "Unusual prices", unusual.length ? "warn" : "")}${metric(gifts, "Gifts at unusual prices", gifts ? "warn" : "")}</div>
     ${v.live ? "" : `<p class="muted">This is the demo with invented data.</p>`}

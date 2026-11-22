@@ -8,13 +8,17 @@
  * Who calls it: the pick-up, the Gifts list read and the price actions (modules/00-platform), the demo (app/main.ts), the Prices page and the Gifts window.
  * Depends on: the work order type only. Pure functions: no database, no screen.
  *
- * Rules:
+ * Rules (DECISIONS 127, refined by 128):
  * - The unit price of a payment is its amount / bundle size / months covered (months only for a single payment that covers several).
- * - A unit price is valid for an item when it is in the catalogue price list, or has been seen on at least MIN_GIFTS gifts of that item, or a person accepted it.
- *   A person can also reject a price, which makes it unusual however often it was seen.
- * - An item with no valid price at all has nothing to be checked against, so its gifts are not flagged.
- * - A payment at a valid price is normal and its parts are what the CRM sent (bundle times quantity). One at any other price is a custom amount: marked
- *   for manual allocation, with the valid prices and, for a single payment whose months are missing, the months that would make it normal.
+ * - A unit price is NORMAL for an item when it is in the catalogue price list, or has been seen on at least MIN_GIFTS gifts of that item, or a person accepted it.
+ *   A person can also reject a price.
+ * - A price that is not normal is still treated as the going price of that gift (ASSUMED) as long as it does not look like a custom amount: an earlier or newer
+ *   catalogue price (42 when the list now says 48, 40 when it was 35) is not a whole multiple or a simple fraction of a normal price. It is not flagged.
+ * - A price that IS a whole multiple (2 or more) or a simple fraction (a half, a third...) of a normal price is UNUSUAL: it looks like an amount somebody chose
+ *   (70 for a normal 35, 17.50). It is marked for manual allocation. A rejected price is unusual however often it was seen.
+ * - An item with no normal price at all has nothing to compare with, so its gifts are not flagged.
+ * - A payment at a normal or assumed price keeps the parts the CRM sent (bundle times quantity). A single payment with no months given that is a whole multiple of a
+ *   normal price is unusual, and the months that would make it normal are suggested (300 is 12 months at 25).
  * - A person's own setting (`partsFixed`) always wins and a person can mark any gift manual (`partsManual` with `partsByPerson`).
  * - What a person decided for a gift carries to its later payments of the same amount.
  * - Legacy uploads are left alone: their amount is a placeholder for payments made on the old website.
@@ -54,12 +58,25 @@ export interface PriceEntry {
   inCatalogue: boolean;
   accepted: boolean;
   rejected: boolean;
-  valid: boolean;
+  valid: boolean; // normal: in the catalogue, seen on several gifts, or accepted
+  kind: "normal" | "assumed" | "unusual"; // assumed: not normal, but not a multiple or fraction of a normal price, so treated as the going price (DECISIONS 128)
 }
 
 const real = (w: WorkOrder): boolean => w.status !== "excluded" && w.legacyUpload !== true && w.paidDate !== "";
 
 // Rule: every price each item was paid at, how many gifts and payments, and whether it is valid. Items in A to Z order, most used price first.
+// Rule (DECISIONS 128): does a price look like a whole multiple (2 or more) or a simple fraction of one of the normal prices? Returns the reason, or "".
+export function looksCustom(price: number, normal: number[]): string {
+  for (const v of normal) {
+    if (v <= 0 || price <= 0) continue;
+    const up = price / v;
+    if (up >= 2 && Math.abs(up - Math.round(up)) <= 0.005 * Math.round(up)) return `${Math.round(up)} times a normal price (${money(v)})`;
+    const down = v / price;
+    if (down >= 2 && Math.abs(down - Math.round(down)) <= 0.005 * Math.round(down)) return `a ${Math.round(down) === 2 ? "half" : `1/${Math.round(down)}`} of a normal price (${money(v)})`;
+  }
+  return "";
+}
+
 export function priceTable(orders: WorkOrder[], book: PriceBook): PriceEntry[] {
   const by = new Map<string, { itemName: string; prices: Map<number, { gifts: Set<string>; payments: number; first: string; last: string }> }>();
   for (const w of orders.filter(real)) {
@@ -86,21 +103,29 @@ export function priceTable(orders: WorkOrder[], book: PriceBook): PriceEntry[] {
       const inCatalogue = (book.catalogue[itemId] ?? []).map(cents).includes(price);
       const accepted = book.accepted.some((k) => k.itemId === itemId && cents(k.price) === price);
       const rejected = book.rejected.some((k) => k.itemId === itemId && cents(k.price) === price);
-      out.push({ itemId, itemName: item.itemName, price, gifts: e.gifts.size, payments: e.payments, first: e.first === "9999-99-99" ? "" : e.first, last: e.last, inCatalogue, accepted, rejected, valid: !rejected && (inCatalogue || accepted || e.gifts.size >= MIN_GIFTS) });
+      out.push({ itemId, itemName: item.itemName, price, gifts: e.gifts.size, payments: e.payments, first: e.first === "9999-99-99" ? "" : e.first, last: e.last, inCatalogue, accepted, rejected, valid: !rejected && (inCatalogue || accepted || e.gifts.size >= MIN_GIFTS), kind: "assumed" });
     }
+  }
+  // Classify: a price that is not normal is assumed unless it looks like a multiple or fraction of a normal price of the same item (or it was rejected).
+  for (const e of out) {
+    const normal = out.filter((x) => x.itemId === e.itemId && x.valid).map((x) => x.price);
+    e.kind = e.valid ? "normal" : e.rejected || (normal.length > 0 && looksCustom(e.price, normal) !== "") ? "unusual" : "assumed";
   }
   return out.sort((a, b) => a.itemName.localeCompare(b.itemName) || b.gifts - a.gifts || a.price - b.price);
 }
 
 export type Verdict = { ok: true } | { ok: false; reason: string; valid: number[]; months?: number };
 
-// Rule: is this payment at a valid price for its item? When it is not, why, and for a single payment with no months given, the months that would make it normal.
+// Rule: is this payment at a price to be flagged? Normal and assumed prices are not. When it is unusual, why, and for a single payment with no months given, the
+// months that would make it normal.
 export function judgePayment(w: WorkOrder, table: PriceEntry[]): Verdict {
   const forItem = table.filter((e) => e.itemId === w.itemId);
-  const valid = forItem.filter((e) => e.valid).map((e) => e.price).sort((a, b) => a - b);
-  if (valid.length === 0) return { ok: true }; // nothing to check it against
+  const normal = forItem.filter((e) => e.valid).map((e) => e.price).sort((a, b) => a - b);
+  if (normal.length === 0) return { ok: true }; // nothing to compare it with
   const p = unitPrice(w);
-  if (valid.includes(p)) return { ok: true };
+  const entry = forItem.find((e) => e.price === p);
+  if (entry ? entry.kind !== "unusual" : looksCustom(p, normal) === "") return { ok: true };
+  const why = entry?.rejected ? "A price that was rejected" : `A custom amount: ${looksCustom(p, normal)}`;
   let months: number | undefined;
   if (isOneOff(w) && periodsOf(w) === 1) {
     for (const v of [...forItem].filter((e) => e.valid).sort((a, b) => b.gifts - a.gifts).map((e) => e.price)) {
@@ -108,7 +133,7 @@ export function judgePayment(w: WorkOrder, table: PriceEntry[]): Verdict {
       if (Number.isInteger(cents(m)) && m >= 2 && m <= 36) { months = m; break; }
     }
   }
-  return { ok: false, reason: `A custom amount: ${money(p)} a part a month. Prices seen for this item: ${valid.map(money).join(", ")}`, valid, ...(months !== undefined ? { months } : {}) };
+  return { ok: false, reason: `${why}. ${money(p)} a part a month. Prices seen for this item: ${normal.map(money).join(", ")}`, valid: normal, ...(months !== undefined ? { months } : {}) };
 }
 
 /**

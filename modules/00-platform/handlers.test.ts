@@ -507,7 +507,7 @@ describe("outcomes (DECISIONS 61)", () => {
     const after = await read();
     const by = (amount: number) => after.filter((w) => w.amount === amount);
     expect(by(35).every((w) => w.partsManual === undefined)).toBe(true); // seen on three gifts: a normal price
-    expect(by(70)[0]?.partsManual).toContain("A custom amount: 70 a part a month. Prices seen for this item: 35"); // an unusual one
+    expect(by(70)[0]?.partsManual).toContain("A custom amount: 2 times a normal price (35). 70 a part a month. Prices seen for this item: 35"); // an unusual one
     // accept the price: its gift is normal again, and the choice is kept
     const accepted = (await post(cookie, { action: "price-accept", itemId: "ORP", price: 70 })).body as { acceptedPrices: unknown[]; changed: number };
     expect(accepted.acceptedPrices).toEqual([{ itemId: "ORP", price: 70 }]);
