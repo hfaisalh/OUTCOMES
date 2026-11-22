@@ -61,8 +61,12 @@ describe("giftsPage", () => {
     const per = detail(mk("sponsorship-whole"));
     expect(per).toContain("4 of 12");
     expect(per).toContain("month");
-    expect(detail(mk("sponsorship-shared-parts"))).toContain("1 of 3 parts: shared with other donors");
-    expect(detail(mk("sponsorship-shared-parts", { bundleQty: 3 }))).toContain("1 dedicated child each month");
+    // Units are a row of small pies, one for each instalment. How parts are shared out is Allocation's business, so no such words are shown here.
+    const pies = detail(mk("sponsorship-shared-parts"));
+    expect((pies.match(/class="upie"/g) ?? []).length).toBe(12);
+    expect(pies).toContain("Instalment 1");
+    expect(pies).toContain(": paid");
+    expect(pies).not.toContain("shared with other donors");
     const share = detail(mk("delivered-once"));
     expect(share).toContain("0.33 of 1");
     expect(share).toContain("whole item not paid yet");

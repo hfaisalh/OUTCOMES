@@ -16,7 +16,7 @@ const FW: FrameworkTemplate[] = [
   { id: "once", name: "Delivered once", unit: "pump", cycle: "on_delivery", reportType: "", instalment: "share_of_whole", unitsPerBeneficiary: 1 },
 ];
 const com = (sub: string, parts: number, over: Partial<Commitment> = {}): Commitment => ({
-  planStatus: "", nextDue: "", planPaid: null, paidMonths: [], projectName: "",
+  planStatus: "", nextDue: "", planPaid: null, catchUpMonths: [], paidMonths: [], projectName: "",
   subscriptionId: sub, supporterId: "D1", supporterName: "Sample", itemId: "I1", itemName: "Item", categoryId: "c", frameworkId: "shared", partsPerInstalment: parts, partsVary: false, planned: 12, paid: 2,
   state: "in_progress", firstPaid: `2026-0${Math.min(Number(sub) % 9 + 1, 9)}-01`, lastPaid: "2026-10-01", numbers: [], gaps: [], legacyOpening: false, startsLate: false, conflict: false, lines: [], ...over,
 });

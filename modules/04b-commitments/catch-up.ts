@@ -42,18 +42,19 @@ const real = (payments: WorkOrder[]): WorkOrder[] => payments.filter((w) => w.st
  * Rule: the months each payment covers. Every payment covers the month it was paid in. One that covers more also fills earlier months (see fillMonths).
  * Returns the months for each payment key, and all months together.
  */
-export function coverage(payments: WorkOrder[]): { byKey: Map<string, string[]>; months: string[] } {
+export function coverage(payments: WorkOrder[]): { byKey: Map<string, string[]>; months: string[]; filled: string[] } {
   const list = real(payments);
   const taken = new Set(list.map((w) => monthOf(w.paidDate)));
   const byKey = new Map<string, string[]>();
+  const filled: string[] = [];
   for (const w of list) {
     const own = monthOf(w.paidDate);
     const extra = Math.max(0, (w.covers ?? 1) - 1);
     const fills = extra > 0 ? fillMonths(own, extra, taken) : [];
-    for (const m of fills) taken.add(m);
+    for (const m of fills) { taken.add(m); filled.push(m); }
     byKey.set(w.key, [...fills, own].sort());
   }
-  return { byKey, months: [...taken].sort() };
+  return { byKey, months: [...taken].sort(), filled: filled.sort() };
 }
 
 export interface CatchUp {

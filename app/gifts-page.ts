@@ -11,6 +11,7 @@
 
 import { filterWorkOrders, isFiltering } from "../modules/01c-crm-connector/filter";
 import { lineValue } from "../modules/01c-crm-connector/work-orders";
+import { plusMonths } from "../modules/04b-commitments/catch-up";
 import { allocatable, type Commitment } from "../modules/04b-commitments/commitments";
 import { giftRows, type GiftRow } from "../modules/04b-commitments/gifts";
 import { allocationShape, unitsForCommitment } from "../modules/02-project-rules/categories";
@@ -39,28 +40,39 @@ function unitsCell(g: GiftRow, v: View): string {
   return `${num(u.units)}${u.target === null ? "" : ` of ${num(u.target)}`} <span class="muted">${c.partsPerInstalment === 1 ? "month" : "part-months"}</span>${who}`;
 }
 
-// Units as pies (DECISIONS 80): one pie for each beneficiary, with a slice for each part of it. Slices this gift pays for are coloured, whatever the
-// others are: green when the gift is allocated to a beneficiary, orange when it is not yet. Slices of other donors stay grey.
-function unitsVisual(g: GiftRow, v: View, allocated: boolean): string {
+// Units as a row of small pies (DECISIONS 85): one pie for each instalment of the plan, coloured by what has happened to it.
+// green = paid, blue = filled by a catch-up payment, orange = due this month and not paid, red = missed, grey = upcoming.
+// Each pie has a slice for each part of a beneficiary and the gift's own parts are coloured. How the parts are shared out belongs to Allocation, not here.
+function unitsVisual(g: GiftRow, v: View): string {
   const c = g.commitment;
   const fw = c ? (v.frameworks ?? []).find((x) => x.id === c.frameworkId) : undefined;
   if (!c || !fw || fw.instalment === undefined) return unitsCell(g, v);
-  const u = unitsForCommitment(fw.instalment, { parts: c.partsPerInstalment, paid: c.paid, planned: c.planned });
   if (fw.instalment === "share_of_whole") {
+    const u = unitsForCommitment(fw.instalment, { parts: c.partsPerInstalment, paid: c.paid, planned: c.planned });
     const pct = u.target ? Math.min(100, Math.round((u.units / u.target) * 100)) : 0;
     return `${u.target ? `<div class="ubar"><span style="width:${pct}%"></span><b>${num(u.units)} / ${num(u.target)}</b></div>` : ""}<div class="muted small">${unitsCell(g, v)}</div>`;
   }
+  const now = (v.today ?? "2026-01-01").slice(0, 7);
   const slots = Math.max(1, fw.unitsPerBeneficiary);
-  const total = Math.max(1, c.partsPerInstalment);
-  const colour = allocated ? "p" : "e";
-  const pie = (held: number): string => {
+  const held = Math.min(slots, Math.max(1, c.partsPerInstalment));
+  const start = c.paidMonths[0] ?? now;
+  const count = Math.min(24, c.planned ?? Math.max(12, c.paid + 3));
+  const paid = new Set(c.paidMonths), caught = new Set(c.catchUpMonths);
+  const pie = (cls: string, tip: string): string => {
     const R = 14, C = 2 * Math.PI * R, len = C / slots;
-    const arcs = Array.from({ length: slots }, (_, i) => `<circle class="seg ${i < held ? colour : "f"}" cx="18" cy="18" r="${R}" fill="none" stroke-width="8" stroke-dasharray="${slots === 1 ? C : Math.max(len - 1.6, 0.5)} ${C}" stroke-dashoffset="${-i * len}" transform="rotate(-90 18 18)"/>`).join("");
-    return `<svg class="upie" viewBox="0 0 36 36" width="40" height="40">${arcs}</svg>`;
+    const arcs = Array.from({ length: slots }, (_, i) => `<circle class="seg ${i < held ? cls : "f"}" cx="18" cy="18" r="${R}" fill="none" stroke-width="9" stroke-dasharray="${slots === 1 ? C : Math.max(len - 2, 0.5)} ${C}" stroke-dashoffset="${-i * len}" transform="rotate(-90 18 18)"/>`).join("");
+    return `<svg class="upie" viewBox="0 0 36 36" width="22" height="22" role="img" aria-label="${esc(tip)}"><title>${esc(tip)}</title>${arcs}</svg>`;
   };
-  const full = Math.min(8, Math.floor(total / slots)), rest = total % slots;
-  const pies = `${Array.from({ length: full }, () => pie(slots)).join("")}${rest > 0 ? pie(rest) : ""}`;
-  return `<div class="upies" title="${total} part${total === 1 ? "" : "s"} of ${slots} per ${esc(fw.unit || "beneficiary")}: ${allocated ? "allocated" : "not allocated yet"}">${pies}</div><div class="muted small">${unitsCell(g, v)}</div>`;
+  const pies = Array.from({ length: count }, (_, i) => {
+    const m = plusMonths(start, i);
+    if (caught.has(m)) return pie("c", `Instalment ${i + 1}, ${m}: filled by a catch-up payment`);
+    if (paid.has(m)) return pie("p", `Instalment ${i + 1}, ${m}: paid`);
+    if (m < now) return pie("m", `Instalment ${i + 1}, ${m}: missed`);
+    if (m === now) return pie("e", `Instalment ${i + 1}, ${m}: due this month`);
+    return pie("u", `Instalment ${i + 1}, ${m}: upcoming`);
+  }).join("");
+  const key = `<div class="ukey muted"><i class="p"></i>paid <i class="c"></i>catch-up <i class="e"></i>due <i class="m"></i>missed <i class="f"></i>upcoming</div>`;
+  return `<div class="upies">${pies}</div>${key}`;
 }
 
 // The payments of a gift, as a small table: the lines the CRM sent, each of which can be excluded or restored, or sorted into a category.
@@ -216,7 +228,7 @@ export function giftDetailHtml(v: View, giftKey: string): string {
         ${row("Dates", `${esc(g.firstPaid)}${g.lastPaid && g.lastPaid !== g.firstPaid ? ` \u2192 ${esc(g.lastPaid)}` : ""}${g.nextDue ? `<div class="muted">next due ${esc(g.nextDue)}</div>` : ""}`)}
         ${row("Plan status", g.planStatus ? `<span class="pill ${g.planStatus === "active" ? "ready" : "review"}">${esc(g.planStatus)}</span>` : "")}
         ${row("Project chosen", esc(g.projectName))}
-        ${row("Units", g.kind === "recurring" ? unitsVisual(g, v, a.state === "placed") : "", true)}
+        ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
         ${row("Allocated to", allocation)}
         ${row("Status", status)}
         ${first ? row("Credit", creditLine(first), true) : ""}
