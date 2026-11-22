@@ -12,7 +12,7 @@
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, clearLegacy, placeInNode, placeInPartner, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
-import { setCovers, setLooked, setParts } from "../modules/04b-commitments/catch-up";
+import { setCovers, setLooked, setParts, setPeriods } from "../modules/04b-commitments/catch-up";
 import { applyPartPrices, setManual } from "../modules/04b-commitments/parts";
 import { giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts-page";
 import { partnersPage } from "./partners-page";
@@ -30,7 +30,7 @@ import { acceptSuggestions, addCategory, addFramework, addPartPrice, removePartP
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
 import { buildAttention, type AttentionItem } from "../modules/04-triage/triage";
-import { changeOutcomes, loadOutcomes, decideAttention, signOut, setExcluded, setCovers as setCoversApi, setLooked as setLookedApi, setParts as setPartsApi, setManualApi, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
+import { changeOutcomes, loadOutcomes, decideAttention, signOut, setExcluded, setCovers as setCoversApi, setLooked as setLookedApi, setParts as setPartsApi, setManualApi, setPeriodsApi, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
 import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
@@ -340,6 +340,41 @@ document.addEventListener("click", (e) => {
   if (!b) return;
   const key = b.dataset.increase ?? "";
   void applyCovers(key, 1).then(() => applyParts([key], Number(b.dataset.n)));
+});
+// The months a one-off payment covers (DECISIONS 126). The server then works the parts out again, so the list is read again.
+async function applyPeriods(keys: string[], periods: number): Promise<void> {
+  try {
+    if (state.live()) {
+      await setPeriodsApi(keys, periods);
+      await reloadLive();
+    } else {
+      state.workOrders = state.workOrders.map((w) => {
+        if (!keys.includes(w.key)) return w;
+        const r = setPeriods(w, periods);
+        return "order" in r ? r.order : w;
+      });
+      deriveDemoParts();
+    }
+    state.message = periods === 0 ? "Back to what the CRM says." : `Saved: ${periods} month${periods === 1 ? "" : "s"}.`;
+  } catch (e) {
+    state.message = e instanceof Error ? e.message : "That did not work.";
+  }
+  draw();
+}
+document.addEventListener("click", (e) => {
+  const t = e.target as HTMLElement;
+  const save = t.closest?.("[data-periods-save]") as HTMLElement | null;
+  if (save) { const key = save.dataset.periodsSave ?? ""; return void applyPeriods([key], Number((document.getElementById(`pm-select-${key}`) as HTMLSelectElement | null)?.value ?? "1")); }
+  const back = t.closest?.("[data-periods-set]") as HTMLElement | null;
+  if (back) return void applyPeriods([back.dataset.periodsSet ?? ""], Number(back.dataset.n));
+  // Add the price that makes a custom amount clean, from the payment's date (DECISIONS 126). The old prices stay.
+  const add = t.closest?.("[data-add-price]") as HTMLElement | null;
+  if (add) {
+    const r = addPartPrice(state.frameworks, add.dataset.addPrice ?? "", add.dataset.from ?? "", Number(add.dataset.price));
+    state.frameworks = r.value;
+    state.message = r.error ?? "Price added. Gifts waiting for a price are worked out again.";
+    if (!r.error) { deriveDemoParts(); afterConfig(false); } else draw();
+  }
 });
 // Marks a gift for manual allocation, or takes the mark back (DECISIONS 113).
 async function applyManual(keys: string[], on: boolean): Promise<void> {

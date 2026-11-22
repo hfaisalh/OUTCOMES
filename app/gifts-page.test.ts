@@ -260,4 +260,19 @@ describe("giftsPage", () => {
     const win = giftDetailHtml(view({ workOrders: [sub(1, { key: "n1", subscriptionId: "SN", partsAuto: 1 })] }), "SN");
     expect(win).toMatch(/<div class="statusact"><button[^>]*data-manual-set="n1"/);
   });
+  it("for a one-off year paid at once, offers the months to change, and a price that would make it clean (DECISIONS 126)", () => {
+    const fws = starterFrameworks().map((f) => (f.id === "sponsorship-shared-parts" ? { ...f, partPrices: [{ from: "2000-01-01", price: 35 }] } : f));
+    const year = { ...base, key: "Y1", subscriptionId: "", instalmentNumber: "", instalmentCount: "", amount: 480, quantity: 1, periodCount: 12, paidDate: "2026-11-07 10:00:00", frameworkId: "sponsorship-shared-parts", partsManual: "A custom amount: 480 over 12 months is not the price of a part (420)" } as WorkOrder;
+    const win = giftDetailHtml(view({ workOrders: [year], frameworks: fws }), "once-Y1");
+    expect(win).toContain("If one part costs <b>40</b> from 07/11/26, this is 1 part (the price now is 35)");
+    expect(win).toContain('data-add-price="sponsorship-shared-parts" data-from="2026-11-07" data-price="40"');
+    // the calendar offers months up to a year or two for a one-off, with the current 12 chosen, and saves as periods
+    expect(win).toContain('<option value="12" selected>12 months</option>');
+    expect(win).toContain('<option value="24">24 months</option>');
+    expect(win).toContain('data-periods-save="Y1"');
+    expect(win).toContain("one-off \u00B7 12 months");
+    expect(win).not.toContain("data-months-save"); // a subscription's catch-up control is not used here
+    // once a person has set the months, there is an undo back to the CRM's
+    expect(giftDetailHtml(view({ workOrders: [{ ...year, periodsFixed: 12 }], frameworks: fws }), "once-Y1")).toContain('data-periods-set="Y1" data-n="0"');
+  });
 });

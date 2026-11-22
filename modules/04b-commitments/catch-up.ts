@@ -161,3 +161,14 @@ export function setParts(w: WorkOrder, parts: number): { order: WorkOrder } | { 
   }
   return { order: { ...w, partsFixed: parts } };
 }
+
+// Rule (DECISIONS 126): a person says how many months a one-off payment covers, 1 to 36. 0 takes the setting back, so the CRM's count is used again.
+export function setPeriods(w: WorkOrder, periods: number): { order: WorkOrder } | { error: string } {
+  if (!Number.isInteger(periods) || periods < 0 || periods > 36) return { error: "A payment covers 1 to 36 months, or 0 to go back." };
+  if (w.status !== "unrouted" && w.status !== "ready") return { error: "Work has already started on this one, or it is excluded, so it cannot be changed." };
+  if (periods === 0) {
+    const { periodsFixed: _p, ...rest } = w;
+    return { order: rest };
+  }
+  return { order: { ...w, periodsFixed: periods } };
+}

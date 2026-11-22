@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorkOrder } from "../01c-crm-connector/work-orders";
 import { buildCommitments } from "./commitments";
-import { setParts } from "./catch-up";
+import { setParts, setPeriods } from "./catch-up";
 import { applyPartPrices, derivePartsFor, priceAt, setManual, type PartPrice } from "./parts";
 
 const PRICES: PartPrice[] = [{ from: "2000-01-01", price: 35 }, { from: "2027-01-01", price: 40 }];
@@ -133,5 +133,25 @@ describe("what a person decides for a gift (DECISIONS 114)", () => {
     expect(buildCommitments([reset]).commitments[0]?.manual).toContain("A custom amount"); // back to manual, as the system had it
     expect(setParts(chosen, 21)).toHaveProperty("error");
     expect(setParts(chosen, -1)).toHaveProperty("error");
+  });
+  it("a year paid at once at 40 a month is 1 part once the price of 40 has started, and a person can set the months (DECISIONS 126)", () => {
+    const yearly = (over: Partial<WorkOrder> = {}) => wo("y", { subscriptionId: "", instalmentNumber: "", instalmentCount: "", amount: 480, paidDate: "2026-11-07 10:00:00", ...over });
+    const prices: PartPrice[] = [{ from: "2000-01-01", price: 35 }];
+    // with only 35 on file, 480 over 12 months is a custom amount
+    expect(applyPartPrices([yearly({ periodCount: 12 })], () => prices)[0]?.partsManual).toContain("A custom amount: 480 over 12 months is not the price of a part (420)");
+    // once 40 has started, it is clean
+    const later: PartPrice[] = [...prices, { from: "2026-11-01", price: 40 }];
+    expect(applyPartPrices([yearly({ periodCount: 12 })], () => later)[0]?.partsAuto).toBe(1);
+    // the CRM gave no months: the payment cannot be judged until a person sets them
+    const noMonths = applyPartPrices([yearly()], () => later)[0];
+    expect(noMonths?.partsManual).toContain("is not the price of a part (40)");
+    const set = (setPeriods(yearly(), 12) as { order: WorkOrder }).order;
+    expect(set.periodsFixed).toBe(12);
+    expect(applyPartPrices([set], () => later)[0]?.partsAuto).toBe(1);
+    // a person's months win over the CRM's, and 0 takes them back
+    expect((setPeriods(yearly({ periodCount: 6 }), 12) as { order: WorkOrder }).order.periodsFixed).toBe(12);
+    expect((setPeriods(set, 0) as { order: WorkOrder }).order.periodsFixed).toBeUndefined();
+    expect(setPeriods(set, 40)).toHaveProperty("error");
+    expect(setPeriods(set, -1)).toHaveProperty("error");
   });
 });

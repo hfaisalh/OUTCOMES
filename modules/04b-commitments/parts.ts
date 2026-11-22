@@ -18,7 +18,7 @@
  * - Legacy uploads are left alone: their amount is a placeholder for payments made on the old website.
  */
 
-import { lineValue, type WorkOrder } from "../01c-crm-connector/work-orders.js";
+import { lineValue, periodsOf, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 
 export interface PartPrice { from: string; price: number } // from is YYYY-MM-DD
 
@@ -42,7 +42,7 @@ export function derivePartsFor(w: WorkOrder, prices: PartPrice[], firstDate: str
   const price = priceAt(prices, firstDate);
   if (price === null || price <= 0) return { manual: `No price for a part had started by ${firstDate.slice(0, 10)}` };
   const oneOff = w.subscriptionId === "" && w.instalmentCount === "";
-  const periods = oneOff ? Math.max(1, w.periodCount ?? 1) : 1;
+  const periods = oneOff ? periodsOf(w) : 1;
   const expected = price * periods;
   if (Math.abs(w.amount - expected) <= 0.005 * expected && w.quantity >= 1) return { parts: w.quantity };
   return { manual: `A custom amount: ${money(w.amount)}${periods > 1 ? ` over ${periods} months` : ""} is not the price of a part (${money(expected)})` };

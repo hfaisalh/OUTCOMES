@@ -22,7 +22,7 @@
  *   category (DECISIONS 52), so units belong to the allocation module.
  */
 
-import { partsOf, type WorkOrder } from "../01c-crm-connector/work-orders.js";
+import { partsOf, periodsOf, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import { coverage, plusMonths } from "./catch-up.js";
 
 // Rule (DECISIONS 84): the parts of one instalment. A payment that covers several instalments holds that many instalments worth of parts.
@@ -172,7 +172,7 @@ export function oneOffCommitments(workOrders: WorkOrder[], isPerPeriod: (framewo
   return workOrders
     .filter((w) => w.status !== "excluded" && w.legacyUpload !== true && w.subscriptionId === "" && w.instalmentCount === "" && w.paidDate !== "" && isPerPeriod(w.frameworkId ?? ""))
     .map((w): Commitment => {
-      const periods = w.periodCount ?? 1;
+      const periods = periodsOf(w);
       const first = w.paidDate.slice(0, 7);
       const months = Array.from({ length: periods }, (_, i) => plusMonths(first, i));
       const endMonth = months[months.length - 1] as string;

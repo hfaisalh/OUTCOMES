@@ -52,6 +52,7 @@ export interface WorkOrder {
   bundleQty?: number; // parts of the item in the bundle bought, absent means 1 (DECISIONS 51)
   cause?: string; // the cause the gift was given to (DECISIONS 109)
   projectName?: string; // the project the donor chose on the line, absent when none or when general (DECISIONS 66)
+  periodsFixed?: number; // the months a one-off payment covers, as a person set them when the CRM's count was missing or wrong (DECISIONS 126). Wins over periodCount
   periodCount?: number; // for a one-off payment: the months it covers (the item's plan length), absent means one period (DECISIONS 64)
   intention: string;
   subscriptionId: string;
@@ -261,6 +262,9 @@ export function restoreWorkOrder(w: WorkOrder): { order: WorkOrder } | { error: 
   const { exclusion, ...rest } = w;
   return { order: { ...rest, status: exclusion.was } };
 }
+
+// Rule (DECISIONS 126): the months a one-off payment covers: the person's setting, else the CRM's count, else one.
+export const periodsOf = (w: Pick<WorkOrder, "periodsFixed" | "periodCount">): number => Math.max(1, w.periodsFixed ?? w.periodCount ?? 1);
 
 // Rule (DECISIONS 82): what a line cost, for reference. The CRM's total when it sends one, else the unit price times the quantity.
 export const lineValue = (w: Pick<WorkOrder, "amount" | "quantity" | "lineTotal">): number => w.lineTotal ?? w.amount * w.quantity;

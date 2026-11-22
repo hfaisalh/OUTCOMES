@@ -21,7 +21,7 @@ import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
 import { isCurrentCategory, isFrameworkTemplate, migrateSetup, type Category, type FrameworkTemplate } from "../02-project-rules/categories.js";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSION_SECONDS, verifyToken, signToken, clearSessionCookie, type Claims } from "./launch-token.js";
-import { setCovers, setLooked, setParts } from "../04b-commitments/catch-up.js";
+import { setCovers, setLooked, setParts, setPeriods } from "../04b-commitments/catch-up.js";
 import { setManual } from "../04b-commitments/parts.js";
 import { excludeWorkOrder, restoreWorkOrder, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import { allocatable } from "../04b-commitments/commitments.js";
@@ -278,9 +278,9 @@ export async function handleExclude(req: HttpRequest, d: Deps): Promise<HttpResp
   const a = need(req, d, P.mapFrameworks);
   if ("response" in a) return a.response;
   const org = a.claims.org;
-  const b = req.body as { key?: unknown; keys?: unknown; action?: unknown; reason?: unknown; covers?: unknown; looked?: unknown; parts?: unknown; manual?: unknown } | undefined;
+  const b = req.body as { key?: unknown; keys?: unknown; action?: unknown; reason?: unknown; covers?: unknown; looked?: unknown; parts?: unknown; manual?: unknown; periods?: unknown } | undefined;
   const keys = Array.isArray(b?.keys) ? b.keys : typeof b?.key === "string" ? [b.key] : [];
-  if (keys.length === 0 || keys.length > MAX_BULK || !keys.every((k): k is string => typeof k === "string" && k !== "" && k.length <= 200) || (b?.action !== "exclude" && b?.action !== "restore" && b?.action !== "covers" && b?.action !== "looked" && b?.action !== "parts" && b?.action !== "manual")) return json(400, { error: "That request is not understood." });
+  if (keys.length === 0 || keys.length > MAX_BULK || !keys.every((k): k is string => typeof k === "string" && k !== "" && k.length <= 200) || (b?.action !== "exclude" && b?.action !== "restore" && b?.action !== "covers" && b?.action !== "looked" && b?.action !== "parts" && b?.action !== "manual" && b?.action !== "periods")) return json(400, { error: "That request is not understood." });
   const byKey = new Map((await d.store.listWorkOrders(org)).map((w) => [w.key, w]));
   const config = (await d.store.getConfig(org)) ?? defaultConfig();
   const at = new Date(d.nowMs()).toISOString();
@@ -289,7 +289,7 @@ export async function handleExclude(req: HttpRequest, d: Deps): Promise<HttpResp
   let firstError = "";
   for (const key of new Set(keys)) {
     const w = byKey.get(key);
-    const r = !w ? { error: "That work order was not found." } : b.action === "manual" ? setManual(w, b.manual === true) : b.action === "parts" ? setParts(w, Number(b.parts)) : b.action === "looked" ? setLooked(w, typeof b.looked === "string" ? b.looked : "") : b.action === "covers" ? setCovers(w, Number(b.covers)) : b.action === "exclude" ? excludeWorkOrder(w, typeof b.reason === "string" ? b.reason : "", a.claims.name, at) : restoreWorkOrder(w);
+    const r = !w ? { error: "That work order was not found." } : b.action === "periods" ? setPeriods(w, Number(b.periods)) : b.action === "manual" ? setManual(w, b.manual === true) : b.action === "parts" ? setParts(w, Number(b.parts)) : b.action === "looked" ? setLooked(w, typeof b.looked === "string" ? b.looked : "") : b.action === "covers" ? setCovers(w, Number(b.covers)) : b.action === "exclude" ? excludeWorkOrder(w, typeof b.reason === "string" ? b.reason : "", a.claims.name, at) : restoreWorkOrder(w);
     if ("error" in r) {
       skipped++;
       firstError ||= r.error;

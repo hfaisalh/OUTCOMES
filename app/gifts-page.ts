@@ -10,7 +10,7 @@
  */
 
 import { filterWorkOrders, isFiltering } from "../modules/01c-crm-connector/filter";
-import { lineValue, partsOf, sentPartsOf, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
+import { lineValue, partsOf, periodsOf, sentPartsOf, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { shortDate, shortDateTime } from "./dates";
 import { iconHtml, itemIcon } from "./icons";
 import { plusMonths } from "../modules/04b-commitments/catch-up";
@@ -89,10 +89,15 @@ const ICON_TICK = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" strok
 const ICON_UNDO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v4.5h4.5"/></svg>`;
 function monthsControl(w: WorkOrder): string {
   if (w.legacyUpload || (w.status !== "unrouted" && w.status !== "ready")) return "";
-  const cur = w.covers ?? 1;
-  return `<details class="mo"><summary class="iconact sm" title="Months this payment pays for" aria-label="Months this payment pays for">${ICON_CAL}</summary>
-    <div class="mo-pop"><select id="pm-select-${esc(w.key)}" aria-label="Months this payment pays for">${[1, 2, 3, 4].map((n) => `<option value="${n}"${cur === n ? " selected" : ""}>${n} month${n === 1 ? "" : "s"}</option>`).join("")}</select>
-      <button class="iconact ok" data-months-save="${esc(w.key)}" title="Save" aria-label="Save the months">${ICON_TICK}</button>${cur > 1 ? `<button class="iconact" data-covers-set="${esc(w.key)}" data-n="1" title="Back to one month" aria-label="Back to one month">${ICON_UNDO}</button>` : ""}</div></details>`;
+  // A one-off payment says how many months it covers (a year paid at once is 12). A subscription payment says how many instalments it pays for (a catch-up) (DECISIONS 126).
+  const oneOff = w.subscriptionId === "" && w.instalmentCount === "";
+  const cur = oneOff ? periodsOf(w) : w.covers ?? 1;
+  const choices = oneOff ? [...new Set([1, 2, 3, 6, 12, 18, 24, cur])].sort((x, y) => x - y) : [1, 2, 3, 4];
+  const undo = oneOff ? (w.periodsFixed !== undefined ? `<button class="iconact" data-periods-set="${esc(w.key)}" data-n="0" title="Back to what the CRM says" aria-label="Back to what the CRM says">${ICON_UNDO}</button>` : "") : (cur > 1 ? `<button class="iconact" data-covers-set="${esc(w.key)}" data-n="1" title="Back to one month" aria-label="Back to one month">${ICON_UNDO}</button>` : "");
+  const title = oneOff ? "Months this one payment pays for" : "Months this payment pays for";
+  return `<details class="mo"><summary class="iconact sm" title="${title}" aria-label="${title}">${ICON_CAL}</summary>
+    <div class="mo-pop"><select id="pm-select-${esc(w.key)}" aria-label="${title}">${choices.map((n) => `<option value="${n}"${cur === n ? " selected" : ""}>${n} month${n === 1 ? "" : "s"}</option>`).join("")}</select>
+      <button class="iconact ok" data-${oneOff ? "periods" : "months"}-save="${esc(w.key)}" title="Save" aria-label="Save the months">${ICON_TICK}</button>${undo}</div></details>`;
 }
 
 // The payments of a gift (DECISIONS 120): one line each, with icons and only what matters. A green circle is ready, a hand is a manual or custom amount,
@@ -107,7 +112,7 @@ function paymentsTable(g: GiftRow, v: View): string {
       : `<span class="dotok" title="Ready" aria-label="Ready"></span>`;
     const hand = w.legacyUpload ? "" : w.partsFixed !== undefined ? `<span class="gi manual" title="Parts set manually. The CRM says ${sentPartsOf(w)}.">${SYMBOL.manual}</span>` : w.partsManual !== undefined ? `<span class="gi manual" title="${esc(w.partsManual)}">${SYMBOL.manual}</span>` : "";
     const legacy = w.legacyUpload ? `<span class="legacyico" title="Uploaded from the old system. This date is the day it was loaded, not the day it was paid.">${ICON_ARCHIVE}</span>` : "";
-    const inst = w.instalmentNumber === "" ? `<span class="muted">one-off</span>` : `${esc(w.instalmentNumber)} of ${countText(w.instalmentCount)}`;
+    const inst = w.instalmentNumber === "" ? `<span class="muted">one-off${periodsOf(w) > 1 ? ` \u00B7 ${periodsOf(w)} months` : ""}</span>` : `${esc(w.instalmentNumber)} of ${countText(w.instalmentCount)}`;
     const catchUp = w.covers && w.covers > 1 ? ` <span class="pill blue" title="One payment that pays for ${w.covers} months. The months it fills are blue in the circles.">\u00D7${w.covers} months</span>` : "";
     // Each button has its own narrow column, so they line up row after row (DECISIONS 123).
     const restorable = w.status === "excluded";
@@ -295,8 +300,15 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   // The choice applies to every real payment of the gift, since each one carries the mark (DECISIONS 114).
   const firstReal = g.payments.find((w) => w.legacyUpload !== true);
   const realKeys = g.payments.filter((w) => w.legacyUpload !== true).map((w) => w.key).join(" ");
+  // When a custom amount would be clean at another price (a year paid at 480 is 12 x 40), offer to add that price from this payment's date (DECISIONS 126).
+  const fwOfGift = (v.frameworks ?? []).find((f) => f.id === g.frameworkId);
+  const unit = firstReal ? Math.round((firstReal.amount / (firstReal.subscriptionId === "" && firstReal.instalmentCount === "" ? periodsOf(firstReal) : 1)) * 100) / 100 : 0;
+  const nowPrice = firstReal && fwOfGift?.partPrices ? [...fwOfGift.partPrices].filter((p) => p.from <= firstReal.paidDate.slice(0, 10)).sort((a, b) => b.from.localeCompare(a.from))[0]?.price : undefined;
+  const priceTip = g.manual !== "" && firstReal && fwOfGift && fwOfGift.partPrices && unit > 0 && unit !== nowPrice
+    ? `<div class="priceTip">If one part costs <b>${money(unit)}</b> from ${esc(shortDate(firstReal.paidDate))}, this is ${firstReal.quantity} part${firstReal.quantity === 1 ? "" : "s"}${nowPrice !== undefined ? ` (the price now is ${money(nowPrice)})` : ""}. <button class="primary" data-add-price="${esc(fwOfGift.id)}" data-from="${esc(firstReal.paidDate.slice(0, 10))}" data-price="${unit}">Add ${money(unit)} from ${esc(shortDate(firstReal.paidDate))}</button></div>`
+    : "";
   const manualBox = g.manual !== "" && firstReal
-    ? `<div class="suggest-box"><b>Allocate manually.</b> ${esc(g.manual)}. Choose how many parts each payment is under <b>Parts</b> below and press Save, then allocate it in Allocation.${firstReal.partsByPerson ? `<div class="actions"><button data-manual-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-on="0">Back to automatic</button></div>` : ""}</div>`
+    ? `<div class="suggest-box"><b>Allocate manually.</b> ${esc(g.manual)}. Choose how many parts each payment is under <b>Parts</b> below and press Save, then allocate it in Allocation.${priceTip}${firstReal.partsByPerson ? `<div class="actions"><button data-manual-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-on="0">Back to automatic</button></div>` : ""}</div>`
     : "";
   // Parts (DECISIONS 116): a standing control, always there. Choose, then Save. Reset takes a person's choice back.
   const fixed = g.payments.some((w) => w.legacyUpload !== true && w.partsFixed !== undefined);
