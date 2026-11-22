@@ -36,6 +36,7 @@ import { PERMISSIONS } from "./menu";
 import { dataFeedPage, dataFilesPage } from "./data-page";
 import { createMapping } from "./mapping-controller";
 import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from "../modules/05-outcomes/outcome-types";
+import { ensureRefs } from "../modules/05-outcomes/refs";
 import { checkingHtml, signinHtml } from "./signin-page";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
 import { landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
@@ -67,6 +68,7 @@ const state = {
   projectWin: { open: false, id: "" }, // the project form
   giftWin: { key: "", log: false }, // the gift details window (DECISIONS 78): the key of the gift it shows, "" when closed
   partnerWin: { open: false, id: "", tab: "profile" as PartnerTab, draft: null as Record<string, unknown> | null }, // the partner window (DECISIONS 70)
+  idCounters: {} as Record<string, number>, // the last number used for each ID prefix (DECISIONS 105)
   outcomeTypes: starterOutcomeTypes() as OutcomeType[], // the kinds of outcome and their profile fields (DECISIONS 103)
   partnerTypes: [] as string[], // the organisation's own list of partner types (DECISIONS 69)
   partnerFields: [] as string[], // and its own extra partner fields
@@ -110,7 +112,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
-    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; }).catch(() => undefined);
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
     state.message = "";
   } catch (e) {
@@ -213,6 +215,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.partnerTypes = r.partnerTypes ?? state.partnerTypes;
       state.partnerFields = r.partnerFields ?? state.partnerFields;
       state.outcomeTypes = r.outcomeTypes ?? state.outcomeTypes;
+      state.idCounters = r.idCounters ?? state.idCounters;
       if (body["action"] === "remove-many") state.message = `Removed ${r.removed ?? 0}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`;
       else if (body["action"] === "adopt-legacy") state.message = `Moved ${(r as unknown as { moved?: number }).moved ?? 0} into the partner.`;
       else if (body["action"] === "clear-legacy") state.message = `Removed ${(r as unknown as { removed?: number }).removed ?? 0} and released ${(r as unknown as { released?: number }).released ?? 0} gifts.`;
@@ -249,6 +252,9 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
           else { state.projects = r.state.projects; state.nodes = r.state.nodes; state.outcomes = r.state.outcomes; state.partnerTypes = r.state.partnerTypes; state.partnerFields = r.state.partnerFields; state.giftProjects = r.state.giftProjects; if (r.warning) state.message = r.warning; }
         }
       }
+      // Rule (DECISIONS 105): every outcome and allocation has an ID, in the demo too.
+      const refs = ensureRefs({ outcomes: state.outcomes, allocations: state.allocations, counters: state.idCounters }, state.outcomeTypes);
+      state.outcomes = refs.outcomes; state.allocations = refs.allocations; state.idCounters = refs.counters;
       lastError = error ?? "";
       state.message = error ?? (body["action"] === "auto" || state.message !== "" ? state.message : "");
     }
@@ -1221,6 +1227,7 @@ document.addEventListener("change", (e) => {
   const typeId = t.dataset["typeId"] ?? "";
   const fieldId = t.dataset["fieldId"] ?? "";
   if (what === "rename") void outcomeChange({ action: "ot-rename", typeId, name: t.value });
+  else if (what === "prefix") void outcomeChange({ action: "ot-prefix", typeId, prefix: t.value });
   else if (what === "source") void outcomeChange({ action: "ot-source", typeId, source: t.value });
   else if (what === "assign") void outcomeChange({ action: "ot-assign", typeId, assign: t.value });
   else if (what === "framework") void outcomeChange({ action: "ot-framework", typeId, frameworkId: t.dataset["frameworkId"] ?? "", on: (t as HTMLInputElement).checked });

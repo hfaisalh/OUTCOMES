@@ -91,6 +91,7 @@ export interface OutcomesReply {
   partnerTypes?: string[];
   partnerFields?: string[];
   outcomeTypes?: OutcomeType[];
+  idCounters?: Record<string, number>;
   warning?: string;
   placed?: number;
   removed?: number;

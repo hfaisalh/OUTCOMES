@@ -39,6 +39,7 @@ export interface Outcome {
 }
 
 export interface Allocation {
+  ref?: string; // its ID, a prefix and a number such as AL-0012 (DECISIONS 105)
   commitmentKey: string; // the subscription id, or "once-" and the line id for a one-off payment
   outcomeId: string;
   parts: number; // capacity taken: the commitment's parts per instalment when it was allocated

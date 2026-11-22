@@ -467,6 +467,24 @@ describe("outcomes (DECISIONS 61)", () => {
     expect(((await handleOutcomes(as(cookie), d)).body as typeof added).outcomeTypes).toHaveLength(3);
   });
 
+  it("gives every outcome and allocation an ID with its type's prefix, and keeps the count going (DECISIONS 105)", async () => {
+    const cookie = await signIn(d);
+    await handleImport(as(cookie, { method: "POST", body: up([line("1", "501", "1"), line("2", "502", "1")]) }), d);
+    await handleConfig(as(cookie, { method: "PUT", body: fwSetup }), d);
+    const added = (await post(cookie, { action: "add", name: "Orphan", count: 2, type: "child", cohort: "", frameworkId: "shared" })).body as { outcomes: { ref?: string; outcomeTypeId?: string }[] };
+    expect(added.outcomes.map((o) => o.ref)).toEqual(["CHD-0001", "CHD-0002"]);
+    expect(added.outcomes[0]?.outcomeTypeId).toBe("child");
+    const placed = (await post(cookie, { action: "auto" })).body as { allocations: { ref?: string }[] };
+    expect(placed.allocations.map((a) => a.ref)).toEqual(["AL-0001", "AL-0002"]);
+    // a new outcome continues the count, and a changed prefix is for new IDs only
+    await post(cookie, { action: "ot-prefix", typeId: "child", prefix: "kid" });
+    const more = (await post(cookie, { action: "add", name: "Orphan B", count: 1, type: "child", cohort: "", frameworkId: "shared" })).body as { outcomes: { ref?: string }[] };
+    expect(more.outcomes.map((o) => o.ref)).toEqual(["CHD-0001", "CHD-0002", "KID-0001"]);
+    expect((await post(cookie, { action: "ot-prefix", typeId: "child", prefix: "PMP" })).status).toBe(400); // another type uses it
+    // a read is steady: the same IDs, nothing given twice
+    expect(((await handleOutcomes(as(cookie), d)).body as typeof more).outcomes.map((o) => o.ref)).toEqual(["CHD-0001", "CHD-0002", "KID-0001"]);
+  });
+
   it("refuses a missing framework, a bad action, a viewer and a signed-out caller, and keeps organisations apart", async () => {
     const cookie = await signIn(d);
     expect((await post(cookie, { action: "add", name: "Orphan", count: 1, type: "", cohort: "", frameworkId: "ghost" })).status).toBe(400);

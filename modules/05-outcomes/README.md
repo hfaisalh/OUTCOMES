@@ -39,3 +39,7 @@ The endpoint is `/api/outcomes` (`handleOutcomes`), the screens are Allocation, 
 
 ## Outcome types (DECISIONS 103)
 `outcome-types.ts` holds outcome types as configuration: a name, how a gift gets its outcome (pick an existing one or create a draft), automatic or suggested assignment, the frameworks that use the type, and its profile fields. `completeness` says how much of a profile is filled and whether the required minimum is there. Tests: `outcome-types.test.ts`.
+
+
+## IDs (DECISIONS 105)
+`refs.ts` gives every outcome and allocation an ID: a prefix from its outcome type (CHD, PMP, ...) or AL for allocations, a dash and a number (CHD-0007). Numbers count up per prefix and are never used twice. `ensureRefs` gives an ID to anything without one, so older outcomes get theirs. Tests: `refs.test.ts`.

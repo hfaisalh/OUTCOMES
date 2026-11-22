@@ -34,6 +34,8 @@ export interface OrgConfig {
   outcomes?: Outcome[]; // what gifts are allocated to (DECISIONS 61). Kept in the setup for now, to move to their own table when there are many
   allocations?: Allocation[];
   giftProjects?: GiftProject[]; // the projects donors choose, and the partners that deliver them (DECISIONS 76)
+  idCounters?: Record<string, number>; // the last number used for each ID prefix, so an ID is never used twice (DECISIONS 105)
+  allocationPrefix?: string; // the prefix of allocation IDs, AL by default
   outcomeTypes?: OutcomeType[]; // the kinds of outcome, with their profile fields and how a gift gets its outcome (DECISIONS 103). Absent: the starter types
   partnerTypes?: string[]; // the organisation's own list of partner types (DECISIONS 69)
   partnerFields?: string[]; // the organisation's own extra partner profile fields, by label

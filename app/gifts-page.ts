@@ -118,12 +118,12 @@ function allocationContext(v: View) {
   const allocationOf = new Map((v.allocations ?? []).map((a) => [a.commitmentKey, a]));
   const partnerName = (id: string | undefined) => (v.projects ?? []).find((p) => p.id === id)?.name ?? "";
   // Where a gift is allocated: the beneficiary and its partner, or why it is not.
-  return (g: GiftRow): { state: "placed" | "waiting" | "none" | "n/a"; who: string; partner: string; parts: number | null; why: string } => {
+  return (g: GiftRow): { state: "placed" | "waiting" | "none" | "n/a"; who: string; partner: string; parts: number | null; why: string; ref?: string; allocRef?: string } => {
     if (g.allocationKey === "") return { state: "n/a", who: "", partner: "", parts: null, why: "" };
     if (keys.has(g.allocationKey)) {
       const a = allocationOf.get(g.allocationKey);
       const o = a ? outcomeById.get(a.outcomeId) : undefined;
-      return o ? { state: "placed", who: o.name, partner: partnerName(o.projectId) || "No partner", parts: a && a.parts !== g.parts ? a.parts : null, why: "" } : { state: "waiting", who: "", partner: "", parts: null, why: g.planStatus === "paused" ? "Plan paused, parked until payments resume" : "" };
+      return o ? { state: "placed", who: o.name, partner: partnerName(o.projectId) || "No partner", parts: a && a.parts !== g.parts ? a.parts : null, why: "", ref: o.ref ?? "", allocRef: a?.ref ?? "" } : { state: "waiting", who: "", partner: "", parts: null, why: g.planStatus === "paused" ? "Plan paused, parked until payments resume" : "" };
     }
     // Rule (DECISIONS 98): every gift needs an allocation. One that cannot be allocated yet is waiting, with the reason, except a cancelled plan, which needs none.
     // Rule (DECISIONS 102): a paused plan stays parked and says so. A cancelled one is parked as cancelled, and can be excluded by hand until the donor pays again.
@@ -181,7 +181,7 @@ export function giftListHtml(v: View): string {
   };
   const allocCell = (g: GiftRow): string => {
     const a = where(g);
-    if (a.state === "placed") return `<span title="${esc(a.who)} at ${esc(a.partner)}">${esc(a.who)} <span class="muted">${esc(a.partner)}</span></span>`;
+    if (a.state === "placed") return `<span title="${esc(a.who)} ${esc(a.ref ?? "")} at ${esc(a.partner)}">${esc(a.who)} <span class="muted">${esc(a.ref ?? "")} ${esc(a.partner)}</span></span>`;
     if (a.state === "waiting") return a.why.startsWith("Plan paused") ? icon("muted", PLAN_ICON["paused"]![0], a.why) : icon("warn", SYMBOL.waiting, a.why ? `Waiting for allocation. ${a.why}` : "Waiting for allocation");
     return a.state === "none" ? `<span class="muted" title="${esc(a.why)}">\u2013</span>` : "";
   };
@@ -216,7 +216,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   const kindName = g.kind === "recurring" ? "Recurring gift" : g.kind === "unlinked" ? "Recurring payment the CRM did not link to a subscription" : g.kind === "excluded" ? "Excluded payment" : "One payment";
   const row = (label: string, value: string, wide = false) => value === "" ? "" : `<div class="f${wide ? " w" : ""}"><span>${label}</span><div>${value}</div></div>`;
   const progress = g.kind === "recurring" || g.kind === "unlinked" ? `${g.paid} of ${g.planned ?? "ongoing"}${g.planned ? `<div class="bar"><span style="width:${Math.min(100, Math.round((g.paid / g.planned) * 100))}%"></span></div>` : ""}` : g.periodCount > 0 ? `covers ${g.periodCount} month${g.periodCount === 1 ? "" : "s"}` : "";
-  const allocation = a.state === "placed" ? `${esc(a.who)}<div class="muted">${esc(a.partner)}${a.parts !== null ? ` · ${a.parts} part${a.parts === 1 ? "" : "s"}` : ""}</div>` : a.state === "waiting" ? `<span class="pill review">Waiting for allocation</span>${a.why ? `<div class="muted">${esc(a.why)}</div>` : ""}` : a.why ? `<span class="muted">${esc(a.why)}</span>` : "";
+  const allocation = a.state === "placed" ? `${esc(a.who)}${a.ref ? ` <b>${esc(a.ref)}</b>` : ""}<div class="muted">${a.allocRef ? `Allocation ${esc(a.allocRef)} \u00B7 ` : ""}${esc(a.partner)}${a.parts !== null ? ` · ${a.parts} part${a.parts === 1 ? "" : "s"}` : ""}</div>` : a.state === "waiting" ? `<span class="pill review">Waiting for allocation</span>${a.why ? `<div class="muted">${esc(a.why)}</div>` : ""}` : a.why ? `<span class="muted">${esc(a.why)}</span>` : "";
   const status = [
     g.kind === "excluded" ? "" : g.unrouted ? `<span class="pill unrouted">Unrouted</span>` : `<span class="pill ready">Ready</span>`,
     g.inReview ? `<span class="pill review">Review</span>` : "",

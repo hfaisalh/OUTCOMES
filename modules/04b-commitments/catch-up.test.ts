@@ -129,4 +129,14 @@ describe("catch-up payments", () => {
     expect(giftDetailHtml({ ...v, workOrders: done.map((w) => ({ ...w, currency: "XYZ" })) } as View, "S1")).toContain("XYZ 70");
     expect(giftDetailHtml({ ...v, workOrders: done.map((w) => ({ ...w, currency: undefined })) } as View, "S1")).toContain(">70<"); // none given, none shown
   });
+  it("shows the IDs of the outcome and the allocation in the gift window (DECISIONS 105)", () => {
+    const done = [inst(1, "2026-08-11"), inst(2, "2026-09-11")];
+    const v = { workOrders: done, review: [], categories: [], today: "2026-11-22",
+      frameworks: [{ id: "f", name: "F", unit: "child", cycle: "monthly", reports: [], instalment: "per_period", unitsPerBeneficiary: 1 }],
+      outcomes: [{ id: "o1", name: "Ali", type: "child", cohort: "", frameworkId: "f", active: true, ref: "CHD-0007", outcomeTypeId: "child" }],
+      allocations: [{ commitmentKey: "S1", outcomeId: "o1", parts: 1, how: "auto", at: "t", ref: "AL-0012" }] } as unknown as View;
+    const html = giftDetailHtml({ ...v, workOrders: done.map((w) => ({ ...w, frameworkId: "f" })) } as View, "S1");
+    expect(html).toContain("CHD-0007");
+    expect(html).toContain("Allocation AL-0012");
+  });
 });

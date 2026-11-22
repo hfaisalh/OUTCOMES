@@ -14,6 +14,7 @@
 import { PERMISSIONS as P } from "../../app/menu.js";
 import { roleById } from "./roles.js";
 import { applyOutcomeTypeAction, starterOutcomeTypes } from "../05-outcomes/outcome-types.js";
+import { ensureRefs, withPrefixes } from "../05-outcomes/refs.js";
 import { currentFeedConfig } from "../01c-crm-connector/feed.js";
 import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
 import { isCurrentCategory, isFrameworkTemplate, migrateSetup, type Category, type FrameworkTemplate } from "../02-project-rules/categories.js";
@@ -320,7 +321,14 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   let requireRef = config.requireRef === true;
   let partnerTypes = config.partnerTypes ?? [];
   let partnerFields = config.partnerFields ?? [];
-  let outcomeTypes = config.outcomeTypes ?? starterOutcomeTypes();
+  let outcomeTypes = withPrefixes(config.outcomeTypes ?? starterOutcomeTypes());
+  let idCounters = config.idCounters ?? {};
+  // Rule (DECISIONS 105): every outcome and allocation has an ID. Any without one are given one here, so older ones get theirs too.
+  const settle = (): boolean => {
+    const r = ensureRefs({ outcomes, allocations, counters: idCounters }, outcomeTypes, config.allocationPrefix);
+    ({ outcomes, allocations, counters: idCounters } = r);
+    return r.changed;
+  };
   let extra: Record<string, unknown> = {};
 
   if (write) {
@@ -339,7 +347,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if ("error" in r) return fail(r.error);
       outcomeTypes = r.types;
       await d.store.putConfig(org, { ...config, outcomeTypes });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters });
     }
     switch (b["action"]) {
       case "add": {
@@ -437,7 +445,10 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
         if (r.warning) extra = { warning: r.warning };
       }
     }
-    await d.store.putConfig(org, { ...config, outcomes, allocations, projects, giftProjects, nodes, graceDays, releaseLog, requireRef, partnerTypes, partnerFields, outcomeTypes });
+    settle();
+    await d.store.putConfig(org, { ...config, outcomes, allocations, projects, giftProjects, nodes, graceDays, releaseLog, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters });
+  } else if (settle()) {
+    await d.store.putConfig(org, { ...config, outcomes, allocations, outcomeTypes, idCounters });
   }
-  return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, ...extra });
+  return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, ...extra });
 }

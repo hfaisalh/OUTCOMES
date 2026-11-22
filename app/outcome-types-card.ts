@@ -16,6 +16,7 @@ export function outcomeTypesCard(types: OutcomeType[], frameworks: FrameworkTemp
   const kindName = (id: string) => FIELD_KINDS.find((k) => k.id === id)?.label ?? id;
   const typeHtml = (t: OutcomeType): string => `<div class="ot" data-ot-type="${esc(t.id)}">
     <div class="ot-head"><input class="ot-name" data-ot="rename" data-type-id="${esc(t.id)}" value="${esc(t.name)}" aria-label="Type name">
+      <label class="ot-prefix">ID prefix <input data-ot="prefix" data-type-id="${esc(t.id)}" value="${esc(t.prefix ?? "")}" maxlength="5" size="6" aria-label="ID prefix"></label><span class="muted">${esc(t.prefix ?? "")}-0001, ${esc(t.prefix ?? "")}-0002 ...</span>
       <span class="muted">${used[t.id] ?? 0} outcome${(used[t.id] ?? 0) === 1 ? "" : "s"} use it</span>
       <button data-ot-act="remove" data-type-id="${esc(t.id)}"${(used[t.id] ?? 0) > 0 ? " disabled" : ""} title="${(used[t.id] ?? 0) > 0 ? "Outcomes use this type" : "Remove this type"}">Remove</button></div>
     <div class="ot-rules">
@@ -32,7 +33,7 @@ export function outcomeTypesCard(types: OutcomeType[], frameworks: FrameworkTemp
     <div class="ot-add"><input id="otf-label-${esc(t.id)}" placeholder="New field, for example GPS location"><select id="otf-kind-${esc(t.id)}">${FIELD_KINDS.map((k) => `<option value="${k.id}">${esc(k.label)}</option>`).join("")}</select><button data-ot-act="field-add" data-type-id="${esc(t.id)}">Add field</button></div>
   </div>`;
   return `<div class="card"><h2>Outcome types <span class="muted">(${types.length})</span></h2>
-    <p class="muted">An outcome is the specific thing a gift becomes: a child, a pump, a house, animals, furniture, an activity. Each type has its own profile and report. "Needed first" fields are the minimum before a partner takes it. An outcome can be created and receive gifts with the profile still incomplete. A framework belongs to one type.</p>
+    <p class="muted">An outcome is the specific thing a gift becomes: a child, a pump, a house, animals, furniture, an activity. Each outcome gets an ID from its type's prefix (such as CHD-0007), and so does every allocation (AL-0012). Changing a prefix changes new IDs only. Each type has its own profile and report. "Needed first" fields are the minimum before a partner takes it. An outcome can be created and receive gifts with the profile still incomplete. A framework belongs to one type.</p>
     ${types.map(typeHtml).join("")}
     <div class="actions"><input id="newot" placeholder="New outcome type, for example House build"><button data-ot-act="add">Add outcome type</button></div></div>`;
 }

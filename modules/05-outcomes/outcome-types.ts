@@ -15,6 +15,8 @@
  * - A type that outcomes already use cannot be removed.
  */
 
+import { cleanPrefix, defaultPrefix, validPrefix } from "./refs.js";
+
 export type FieldKind = "text" | "longtext" | "number" | "date" | "gps" | "photo" | "video" | "choice";
 export const FIELD_KINDS: { id: FieldKind; label: string }[] = [
   { id: "text", label: "Short text" }, { id: "longtext", label: "Long text" }, { id: "number", label: "Number" }, { id: "date", label: "Date" },
@@ -38,6 +40,7 @@ export type AssignMode = "auto" | "suggest";
 export interface OutcomeType {
   id: string;
   name: string; // singular, in the organisation's words: Child, Water pump
+  prefix?: string; // the start of the IDs of its outcomes (CHD for CHD-0007). Changing it changes new IDs only (DECISIONS 105)
   source: OutcomeSource;
   assign: AssignMode;
   frameworkIds: string[];
@@ -56,7 +59,7 @@ const field = (label: string, kind: FieldKind, required = false, inReport = fals
 // The two types to start with (DECISIONS 103). Staff add the rest.
 export function starterOutcomeTypes(): OutcomeType[] {
   const make = (id: string, name: string, source: OutcomeSource, assign: AssignMode, fields: Omit<ProfileField, "id">[]): OutcomeType => ({
-    id, name, source, assign, frameworkIds: [],
+    id, name, prefix: id === "child" ? "CHD" : "PMP", source, assign, frameworkIds: [],
     fields: fields.reduce<ProfileField[]>((all, f) => [...all, { ...f, id: uniqueId(f.label, all.map((x) => x.id)) }], []),
   });
   return [
@@ -82,7 +85,7 @@ export function addOutcomeType(types: OutcomeType[], name: string): Result {
   const n = name.trim();
   if (n.length < 2) return { error: "Give the outcome type a name." };
   if (types.some((t) => t.name.toLowerCase() === n.toLowerCase())) return { error: "There is already an outcome type with that name." };
-  return { types: [...types, { id: uniqueId(n, types.map((t) => t.id)), name: n.slice(0, 60), source: "create_new", assign: "suggest", frameworkIds: [], fields: [] }] };
+  return { types: [...types, { id: uniqueId(n, types.map((t) => t.id)), name: n.slice(0, 60), prefix: defaultPrefix(n, types.map((t) => t.prefix ?? "")), source: "create_new", assign: "suggest", frameworkIds: [], fields: [] }] };
 }
 
 // Rule: a type that outcomes already use cannot be removed. `usedIds` are the type ids those outcomes carry.
@@ -93,6 +96,14 @@ export function removeOutcomeType(types: OutcomeType[], id: string, usedIds: str
 
 export const renameOutcomeType = (types: OutcomeType[], id: string, name: string): Result =>
   name.trim().length < 2 ? { error: "Give the outcome type a name." } : types.some((t) => t.id !== id && t.name.toLowerCase() === name.trim().toLowerCase()) ? { error: "There is already an outcome type with that name." } : edit(types, id, (t) => ({ ...t, name: name.trim().slice(0, 60) }));
+
+// Rule (DECISIONS 105): a prefix is 2 to 5 capital letters or digits, and no two types share one. It changes new IDs only.
+export function setPrefix(types: OutcomeType[], id: string, prefix: string): Result {
+  const p = cleanPrefix(prefix);
+  if (!validPrefix(p)) return { error: "A prefix is 2 to 5 letters or digits, for example CHD." };
+  if (types.some((t) => t.id !== id && t.prefix === p)) return { error: `Another outcome type already uses ${p}.` };
+  return edit(types, id, (t) => ({ ...t, prefix: p }));
+}
 
 export const setSource = (types: OutcomeType[], id: string, source: OutcomeSource): Result =>
   source !== "pick_existing" && source !== "create_new" ? { error: "That source rule is not known." } : edit(types, id, (t) => ({ ...t, source }));
@@ -156,6 +167,7 @@ export function applyOutcomeTypeAction(types: OutcomeType[], knownFrameworks: st
     case "ot-add": return addOutcomeType(types, s("name"));
     case "ot-rename": return renameOutcomeType(types, s("typeId"), s("name"));
     case "ot-remove": return removeOutcomeType(types, s("typeId"), usedTypeIds);
+    case "ot-prefix": return setPrefix(types, s("typeId"), s("prefix"));
     case "ot-source": return setSource(types, s("typeId"), s("source") as OutcomeSource);
     case "ot-assign": return setAssignMode(types, s("typeId"), s("assign") as AssignMode);
     case "ot-framework": return setTypeFramework(types, s("typeId"), s("frameworkId"), body["on"] === true, knownFrameworks);
