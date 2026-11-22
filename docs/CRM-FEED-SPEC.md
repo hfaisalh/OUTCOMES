@@ -23,7 +23,8 @@ Paid lines only is not required: OUTCOMES filters by status itself. Send all lin
 | `is_recurring` | 1 if the line is recurring | Taken from the line, not the item |
 | `instalment_count` | Number of payments the plan has, for example 12 | **Set on the catalogue line the supporter chose, never on the item.** Empty on a recurring line means Indefinitely (DECISIONS 18, 41). Blank on a one-off |
 | `subscription_id`, `instalment_number` | Link to the recurring plan, and which instalment this line is | Empty for a one-off |
-| `amount`, `quantity` | For reference only. OUTCOMES does not manage money | |
+| `amount`, `quantity` | `amount` is the price of **one unit** (the CRM's Item Cost), `quantity` the number of units. For reference only. OUTCOMES does not manage money | Decision 81 |
+| `line_total` | Optional. What the whole line cost (the CRM's Total Amount). When present it is shown as the value, otherwise `amount` x `quantity` is | Decision 82 |
 | `currency` | Optional. The currency code of the amount, for example GBP. Shown beside values, never used in a rule | Decision 80 |
 | `project_name` | Optional. The project the donor chose on the line, as the CRM names it (for example "Aghosh"). Blank or "Where Needed Most" means a general gift that can go to any project. Matched to an OUTCOMES project by name or alias | Decision 66 |
 | `period_count` | Optional. For a one-off line: the months it covers, which is the item's instalment plan length (for example 12). Blank or missing means one period. Ignored on recurring lines | Decision 64 |

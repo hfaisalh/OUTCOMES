@@ -58,7 +58,8 @@ export interface FeedLine {
   method: string;
   itemId: string;
   itemName: string;
-  amount: number; // for reference only
+  amount: number; // the price of one unit, for reference only (DECISIONS 81)
+  lineTotal: number | null; // optional: what the whole line cost, when the CRM sends it. Null when not given (DECISIONS 82)
   currency: string; // the currency code of the amount (for example GBP), "" when the feed has none
   quantity: number;
   bundleQty: number; // parts of the item in the bundle the line was bought as, 1 when none (DECISIONS 51)
@@ -196,6 +197,7 @@ export function readFeed(rows: FeedRow[], config: FeedConfig = MWF_CRM_CONFIG): 
       itemId: (r["item_id"] ?? "").trim(),
       itemName: (r["item_name"] ?? "").trim(),
       amount: amount ?? 0,
+      lineTotal: num(r["line_total"]),
       currency: (r["currency"] ?? "").trim().toUpperCase(),
       quantity: num(r["quantity"]) ?? 1,
       bundleQty: bundleOf(r["bundle_qty"]),

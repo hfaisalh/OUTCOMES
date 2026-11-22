@@ -179,6 +179,8 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 
 81. **The gifts feed carries the currency each line was paid in, and `amount` is a unit price (22 Nov 2026, from Faisal).** The export adapter fills the feed's `currency` column (decision 80) from the Donation lines export's **Currency** column, which is the currency as paid; nothing is converted. It is blank only when the export has no Currency column. Finding from the 20 Nov export: `amount` comes from **Item Cost**, which is the price of **one unit**, not the line total. Of 920 lines with a quantity above 1 (and no bundle), 835 equal the catalogue unit price and none equal price x quantity. So the line total is Item Cost x Order Quantity. OUTCOMES still never works out or uses amounts in a rule (decision 80). If the line total is wanted, the Export Centre's **Total Amount** column should be exported and mapped to `amount`.
 
+82. **The value of a gift is the line total, worked out as unit price x quantity until the CRM sends a total (22 Nov 2026).** After decision 81 showed that `amount` is a unit price, the Gifts list and window show the value as `line_total` when the feed has it, else `amount` x `quantity` (`lineValue`). Still reference only, never used in a rule. This keeps the display right whichever way the CRM export is mapped later, since a `line_total` column wins over the calculation.
+
 ## Open questions
 
 - Categories: the starting list is confirmed (decision 36). What should each category change besides the default feedback cycle? (Sponsorship: beneficiaries, allocation, renewals. Transactional: deliver once, then report. Proposed, for Module 5.)
