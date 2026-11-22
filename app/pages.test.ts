@@ -10,7 +10,8 @@ import { MWF_CRM_CONFIG, readFeed } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { demoCategories, demoFeedRows, starterFrameworks } from "./demo-data";
 import { suggestAll } from "../modules/02-project-rules/categories";
-import { giftsPage } from "./gifts-page";
+import { giftDetailHtml, giftsPage } from "./gifts-page";
+import { giftRows } from "../modules/04b-commitments/gifts";
 import { signinNote, attentionPage, auditPage, esc, categoriesPage, outcomesPage, type View } from "./pages";
 
 const lines = readFeed(demoFeedRows(), MWF_CRM_CONFIG).lines;
@@ -156,10 +157,10 @@ describe("credit chain on the Gifts page", () => {
   it("shows who a gift is credited to and flags a group's own gift, and shows nothing when there is no chain", () => {
     const first = plan.created[0]!;
     const withChain = { ...first, supporterKind: "group", credits: [{ role: "agent", id: "A1", name: "Sample Rep" }, { role: "group", id: "G1", name: "<b>Branch</b>" }] };
-    const html = giftsPage(view({ workOrders: [withChain] }));
+    const html = giftDetailHtml(view({ workOrders: [withChain] }), giftRows([withChain], [withChain], new Set())[0]!.key);
     expect(html).toContain("Credited: agent: Sample Rep › group: &lt;b&gt;Branch&lt;/b&gt;");
     expect(html).toContain("No individual donor");
-    expect(giftsPage(view({ workOrders: [first] }))).not.toContain("Credited:");
+    expect(giftDetailHtml(view({ workOrders: [first] }), giftRows([first], [first], new Set())[0]!.key)).not.toContain("Credited:");
   });
 });
 

@@ -11,7 +11,7 @@ import { MWF_CRM_CONFIG, readFeed } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { suggestAll } from "../modules/02-project-rules/categories";
 import { demoCategories, demoFeedRows, starterFrameworks } from "./demo-data";
-import { giftListHtml, giftsPage, shownGiftKeys } from "./gifts-page";
+import { giftDetailHtml, giftListHtml, giftsPage, shownGiftKeys } from "./gifts-page";
 import type { View } from "./pages";
 
 const lines = readFeed(demoFeedRows(), MWF_CRM_CONFIG).lines;
@@ -30,36 +30,44 @@ describe("giftsPage", () => {
     expect(html).not.toContain("By commitment"); // there is no second view to switch to
     expect(html).toContain("Animal Sacrifice");
     expect(html).toContain('data-assign="I14"');
-    expect(html).toContain("1 of 12");
-    expect(html).toContain("2 of Indefinitely");
+    expect(html).toContain("1/12"); // the plan is the short form in the list
+    expect(html).toContain("1/\u221E");
   });
   it("shows a subscription as one row with paid of planned, and its payments inside it", () => {
     const orders = [1, 2, 3].map((n) => sub(n));
     const html = giftListHtml(view({ workOrders: orders }));
     expect((html.match(/data-sel-gift=/g) ?? []).length).toBe(1);
-    expect(html).toContain("3 of 10");
-    expect(html).toContain("Payments (3)");
+    expect(html).toContain("3/10");
     expect(html).toContain('data-keys="s1 s2 s3"'); // one tick box takes every payment
-    expect(giftListHtml(view({ workOrders: [sub(1), sub(3)] }))).toContain("Missing instalment 2"); // what needs a look is said in words
+    expect(html).toContain('data-gift-open="S9"'); // a click opens the details
+    expect(html).not.toContain("<details"); // the payments are in the window, not the row
+    const detail = giftDetailHtml(view({ workOrders: orders }), "S9");
+    expect(detail).toContain("3 of 10");
+    expect(detail).toContain("Payments (3)");
+    expect(giftListHtml(view({ workOrders: [sub(1), sub(3)] }))).toContain('title="Missing instalment 2'); // what needs a look is a symbol with the words in its tooltip
+    expect(giftDetailHtml(view({ workOrders: [sub(1), sub(3)] }), "S9")).toContain("Missing instalment 2"); // and in words in the window
+    expect(giftDetailHtml(view({ workOrders: orders }), "nope")).toBe(""); // a gift that is gone closes the window
   });
   it("shows a single payment as its own row, and how many months it covers", () => {
     const html = giftListHtml(view({ workOrders: [{ ...base, key: "o1", subscriptionId: "", instalmentNumber: "", instalmentCount: "", periodCount: 12 }] }));
+    expect(html).toContain("12 mo");
     expect(html).toContain("One payment");
-    expect(html).toContain("covers 12 months");
+    expect(giftDetailHtml(view({ workOrders: [{ ...base, key: "o1", subscriptionId: "", instalmentNumber: "", instalmentCount: "", periodCount: 12 }] }), "once-o1")).toContain("covers 12 months");
   });
   it("shows units from the framework's rule, who they go to, and asks for the framework when there is none", () => {
     const fws = starterFrameworks();
     const mk = (frameworkId: string, over: Partial<WorkOrder> = {}) => [1, 2, 3, 4].map((n) => sub(n, { instalmentCount: "12", frameworkId, ...over }));
-    const per = giftListHtml(view({ workOrders: mk("sponsorship-whole"), frameworks: fws }));
+    const detail = (orders: WorkOrder[], frameworks = fws) => giftDetailHtml(view({ workOrders: orders, frameworks }), "S9");
+    const per = detail(mk("sponsorship-whole"));
     expect(per).toContain("4 of 12");
     expect(per).toContain("month");
-    expect(giftListHtml(view({ workOrders: mk("sponsorship-shared-parts"), frameworks: fws }))).toContain("1 of 3 parts: shared with other donors");
-    expect(giftListHtml(view({ workOrders: mk("sponsorship-shared-parts", { bundleQty: 3 }), frameworks: fws }))).toContain("1 dedicated child each month");
-    const share = giftListHtml(view({ workOrders: mk("delivered-once"), frameworks: fws }));
+    expect(detail(mk("sponsorship-shared-parts"))).toContain("1 of 3 parts: shared with other donors");
+    expect(detail(mk("sponsorship-shared-parts", { bundleQty: 3 }))).toContain("1 dedicated child each month");
+    const share = detail(mk("delivered-once"));
     expect(share).toContain("0.33 of 1");
     expect(share).toContain("whole item not paid yet");
-    expect(giftListHtml(view({ workOrders: mk(""), frameworks: fws }))).toContain("No framework chosen");
-    expect(giftListHtml(view({ workOrders: mk("x"), frameworks: [{ ...fws[0]!, id: "x", instalment: undefined }] }))).toContain("Set how an instalment counts in the framework");
+    expect(detail(mk(""))).toContain("No framework chosen");
+    expect(detail(mk("x"), [{ ...fws[0]!, id: "x", instalment: undefined }])).toContain("Set how an instalment counts in the framework");
   });
   it("shows where a gift is allocated, or that it waits for a place, or why it has none", () => {
     const fws = starterFrameworks();

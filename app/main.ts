@@ -12,7 +12,7 @@
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, clearLegacy, placeInNode, placeInPartner, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
-import { giftListHtml, giftsPage, shownGiftKeys } from "./gifts-page";
+import { giftDetailHtml, giftListHtml, giftsPage, shownGiftKeys } from "./gifts-page";
 import { partnersPage } from "./partners-page";
 import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
@@ -60,6 +60,7 @@ const state = {
   giftProjects: [] as GiftProject[], // the projects donors choose, and the partners that deliver them (DECISIONS 76)
   benFilter: { ...NO_BEN_FILTER } as BenFilter, // the filters on the Beneficiaries page
   projectWin: { open: false, id: "" }, // the project form
+  giftWin: { key: "" }, // the gift details window (DECISIONS 78): the key of the gift it shows, "" when closed
   partnerWin: { open: false, id: "", tab: "profile" as PartnerTab, draft: null as Record<string, unknown> | null }, // the partner window (DECISIONS 70)
   partnerTypes: [] as string[], // the organisation's own list of partner types (DECISIONS 69)
   partnerFields: [] as string[], // and its own extra partner fields
@@ -330,7 +331,32 @@ function draw(): void {
   void role;
   // The partner window sits outside the page, so it is drawn again from the new state, except on the profile tab, which keeps what is being typed.
   if (state.partnerWin.open && state.partnerWin.tab !== "profile") renderPartnerWindow();
+  renderGiftWindow();
 }
+
+// ---- The gift details window (DECISIONS 78) ----
+// A pop-up outside the redrawn page. It is drawn again from the new state after every change, and closes itself when the gift is no longer there.
+function renderGiftWindow(): void {
+  let root = document.getElementById("gift-root");
+  if (state.giftWin.key === "") { if (root) root.innerHTML = ""; return; }
+  if (!root) {
+    root = document.createElement("div");
+    root.id = "gift-root";
+    document.body.appendChild(root);
+  }
+  const html = giftDetailHtml(view(), state.giftWin.key);
+  if (html === "") state.giftWin.key = "";
+  root.innerHTML = html;
+}
+document.addEventListener("click", (e) => {
+  const t = e.target as HTMLElement;
+  const close = t.closest("[data-gift-close]") as HTMLElement | null;
+  if (close && (close.dataset.giftClose !== "overlay" || t === close)) { state.giftWin.key = ""; return renderGiftWindow(); }
+  // A click on a row opens it, unless the click was on a tick box, a drop-down or a button of its own.
+  const open = t.closest("[data-gift-open]") as HTMLElement | null;
+  if (open && !t.closest("input,select,button:not(.gi-open),a,details")) { state.giftWin.key = open.dataset.giftOpen ?? ""; renderGiftWindow(); }
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && state.giftWin.key !== "") { state.giftWin.key = ""; renderGiftWindow(); } });
 
 document.addEventListener("click", (e) => {
   const target = e.target as HTMLElement;

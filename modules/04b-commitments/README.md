@@ -1,7 +1,7 @@
 # Module 4b: Commitments
 
 ## Purpose
-Groups the work orders into commitments, and `gifts.ts` turns them into the rows of the Gifts list (DECISIONS 77), which replaced the separate Commitments page. A commitment is each recurring gift as one record: all its paid instalments grouped by subscription id, with "paid out of planned", the parts per instalment and anything odd (DECISIONS 53). Read only. It prepares the ground for allocation without allocating anything.
+Groups the work orders into commitments, and `gifts.ts` turns them into the rows of the Gifts list (DECISIONS 77), which replaced the separate Commitments page. The list is one compact line per gift with symbols and a details window (DECISIONS 78). A commitment is each recurring gift as one record: all its paid instalments grouped by subscription id, with "paid out of planned", the parts per instalment and anything odd (DECISIONS 53). Read only. It prepares the ground for allocation without allocating anything.
 
 ## Inputs
 The saved work orders (excluded ones are left out).

@@ -4,6 +4,8 @@
  * What it does: draws the Gifts page (DECISIONS 77): one list, one row for each gift. A gift is a subscription with all its payments, a single payment, a
  * recurring line the CRM did not link, or an excluded payment. A row shows the donor, the item and parts, the plan (paid of planned, units), the dates and plan
  * status, where the gift is allocated, and what needs a look, with the payments inside it to open. Filters, tabs and bulk exclude and restore are as before.
+ * The list is compact (DECISIONS 78): one line per gift, with symbols for what a gift is and what needs attention, and a window (giftDetailHtml) that opens
+ * on a click and holds everything else: the plan, the units, the dates, the payments and the notes.
  * Who calls it: app/main.ts. Depends on: Modules 4b and 5 and 6, and the helpers in pages.ts. Pure: it takes a View and returns HTML.
  */
 
@@ -34,10 +36,9 @@ function unitsCell(g: GiftRow, v: View): string {
 }
 
 // The payments of a gift, as a small table: the lines the CRM sent, each of which can be excluded or restored, or sorted into a category.
-function paymentsTable(g: GiftRow, v: View, picked: Set<string>): string {
+function paymentsTable(g: GiftRow, v: View): string {
   const reviewKeys = new Set(v.review.map((r) => r.key));
-  return `<table class="subtable"><thead><tr><th></th><th>Reference</th><th>Paid</th><th>Instalment</th><th>Category</th><th>Status</th><th></th></tr></thead><tbody>${g.payments.map((w) => `<tr><td><input type="checkbox" data-sel="${esc(w.key)}"${picked.has(w.key) ? " checked" : ""}></td>
-    <td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)}</div></td>
+  return `<table class="subtable"><thead><tr><th>Reference</th><th>Paid</th><th>Instalment</th><th>Category</th><th>Status</th><th></th></tr></thead><tbody>${g.payments.map((w) => `<tr><td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)}</div></td>
     <td>${w.legacyUpload ? `${esc(w.paidDate.slice(0, 10))} <span class="pill review" title="Uploaded from the old system. This date is the day it was loaded, not the day it was paid.">Legacy upload</span>` : esc(w.paidDate.slice(0, 10))}</td>
     <td>${w.instalmentNumber === "" ? `<span class="muted">One-off</span>` : `${esc(w.instalmentNumber)} of ${esc(w.instalmentCount)}`}</td>
     <td>${w.status === "unrouted" ? picker(v.categories, w.itemId, "") : esc(categoryName(v.categories, w.categoryId))}</td>
@@ -60,60 +61,136 @@ export function shownGiftKeys(v: View): string[] {
   return listData(v).rows.slice(0, MAX_ROWS).flatMap((r) => r.payments.map((w) => w.key));
 }
 
-// The list itself (the part that is redrawn as you type or tick): the count, the bulk bar and the table.
-export function giftListHtml(v: View): string {
-  const { base, c, rows } = listData(v);
-  const shown = rows.slice(0, MAX_ROWS);
-  const picked = new Set(v.selected ?? []);
+// Everything about where gifts are allocated, worked out once for the list and for the window.
+function allocationContext(v: View) {
   const fws = v.frameworks ?? [];
   const today = v.today ?? "2026-01-01";
   // The gifts that hold a place: they are allocated, or waiting for one. Others (no framework, cancelled, fully paid) are not given to a beneficiary.
   const keys = new Set(allocatable(v.workOrders, perPeriodRule(fws), today).filter((c) => takesCapacity(c, fws)).map((x) => x.subscriptionId));
   const outcomeById = new Map((v.outcomes ?? []).map((o) => [o.id, o]));
-  const partnerName = (id: string | undefined) => (v.projects ?? []).find((p) => p.id === id)?.name ?? "";
   const allocationOf = new Map((v.allocations ?? []).map((a) => [a.commitmentKey, a]));
+  const partnerName = (id: string | undefined) => (v.projects ?? []).find((p) => p.id === id)?.name ?? "";
+  // Where a gift is allocated: the beneficiary and its partner, or why it is not.
+  return (g: GiftRow): { state: "placed" | "waiting" | "none" | "n/a"; who: string; partner: string; parts: number | null; why: string } => {
+    if (g.allocationKey === "") return { state: "n/a", who: "", partner: "", parts: null, why: "" };
+    if (keys.has(g.allocationKey)) {
+      const a = allocationOf.get(g.allocationKey);
+      const o = a ? outcomeById.get(a.outcomeId) : undefined;
+      return o ? { state: "placed", who: o.name, partner: partnerName(o.projectId) || "No partner", parts: a && a.parts !== g.parts ? a.parts : null, why: "" } : { state: "waiting", who: "", partner: "", parts: null, why: "Waiting for a place" };
+    }
+    return { state: "none", who: "", partner: "", parts: null, why: g.frameworkId === "" ? "No framework yet" : "Not given to a beneficiary" };
+  };
+}
+
+// Symbols (DECISIONS 78). Each has a plain-words tooltip, and the window says it all in words.
+const SYMBOL = { recurring: "\u21BB", one: "\u2460", unlinked: "\u21BB?", excluded: "\u26D4", ok: "\u2714", unrouted: "\u2298", look: "\u26A0", review: "\u2691", waiting: "\u23F3", info: "\u24D8" };
+const icon = (cls: string, glyph: string, tip: string) => `<span class="gi ${cls}" title="${esc(tip)}" aria-label="${esc(tip)}">${glyph}</span>`;
+const PLAN_ICON: Record<string, [string, string]> = { paused: ["\u23F8", "Plan paused"], cancelled: ["\u2715", "Plan cancelled"], past_due: ["\u23F0", "Plan past due"], pending: ["\u2026", "Plan pending"], completed: ["\u25A0", "Plan completed"] };
+
+const kindIcon = (g: GiftRow): string =>
+  g.kind === "recurring" ? icon("rec", SYMBOL.recurring, "Recurring gift")
+  : g.kind === "unlinked" ? icon("rec warn", SYMBOL.unlinked, "Recurring, but the CRM did not link it to a subscription")
+  : g.kind === "excluded" ? icon("off", SYMBOL.excluded, "Excluded payment")
+  : icon("one", SYMBOL.one, "One payment");
+
+// The status symbols of one gift: only what is not normal is shown, so a clean row has just a tick.
+function statusIcons(g: GiftRow): string {
+  if (g.kind === "excluded") return "";
+  const out: string[] = [];
+  if (g.unrouted) out.push(icon("warn", SYMBOL.unrouted, "Unrouted: choose its category"));
+  if (g.inReview) out.push(icon("warn", SYMBOL.review, "Held for review: it changed in the CRM"));
+  if (g.needsLook) out.push(icon("warn", SYMBOL.look, g.notes.map((n) => n.text).join(". ") || "Needs a look"));
+  const p = PLAN_ICON[g.planStatus];
+  if (p) out.push(icon("muted", p[0], p[1]));
+  return out.length > 0 ? out.join("") : icon("good", SYMBOL.ok, "Ready");
+}
+
+// The list itself (the part that is redrawn as you type or tick): the count, the bulk bar, the key to the symbols and the table.
+export function giftListHtml(v: View): string {
+  const { base, c, rows } = listData(v);
+  const shown = rows.slice(0, MAX_ROWS);
+  const picked = new Set(v.selected ?? []);
+  const where = allocationContext(v);
   const allTicked = shown.length > 0 && shown.every((g) => g.payments.every((w) => picked.has(w.key)));
 
   const bulk = `<div class="bulkbar"><span><b>${picked.size}</b> selected</span>
     <button data-bulk="exclude"${picked.size ? "" : " disabled"}>Exclude selected</button><button data-bulk="restore"${picked.size ? "" : " disabled"}>Restore selected</button><button data-bulk="clear"${picked.size ? "" : " disabled"}>Clear selection</button></div>`;
   const note = `${isFiltering(c) ? `<p class="muted">Showing ${rows.length} gift${rows.length === 1 ? "" : "s"} from ${filterWorkOrders(base, c).length} of ${base.length} payments.</p>` : ""}${rows.length > MAX_ROWS ? `<p class="muted">Only the first ${MAX_ROWS} are drawn. Narrow the list with the filter boxes.</p>` : ""}`;
   if (base.length === 0) return `<div class="empty">No gifts in this list.</div>`;
+  const key = `<p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; ${SYMBOL.waiting} waiting for a place &nbsp; ${SYMBOL.ok} ready &nbsp; ${SYMBOL.look} needs a look &nbsp; ${SYMBOL.review} held for review &nbsp; ${SYMBOL.unrouted} unrouted &nbsp; ${SYMBOL.excluded} excluded &nbsp; Click a row for the details.</p>`;
 
-  // Where a gift is allocated: the beneficiary and its partner, or why it is not.
-  const allocatedCell = (g: GiftRow): string => {
-    if (g.allocationKey === "") return "";
-    if (keys.has(g.allocationKey)) {
-      const a = allocationOf.get(g.allocationKey);
-      const o = a ? outcomeById.get(a.outcomeId) : undefined;
-      return o ? `${esc(o.name)}<div class="muted">${esc(partnerName(o.projectId)) || "No partner"}${a && a.parts !== g.parts ? ` · ${a.parts} part${a.parts === 1 ? "" : "s"}` : ""}</div>` : `<span class="pill review">Waiting for a place</span>`;
-    }
-    return g.frameworkId === "" ? `<span class="muted">No framework yet</span>` : `<span class="muted">Not given to a beneficiary</span>`;
+  // Rule: the plan column is the short form: paid/planned for a subscription, the months covered for a single payment.
+  const planCell = (g: GiftRow): string => {
+    if (g.kind === "excluded") return "";
+    if (g.kind === "one_off") return g.periodCount > 1 ? `${g.periodCount} mo` : "";
+    const pct = g.planned ? Math.min(100, Math.round((g.paid / g.planned) * 100)) : 0;
+    return `${g.paid}/${g.planned ?? "\u221E"}${g.planned ? `<div class="bar"><span style="width:${pct}%"></span></div>` : ""}`;
   };
-  const typeCell = (g: GiftRow): string => {
-    if (g.kind === "one_off") return `One payment${g.periodCount > 0 ? `<div class="muted">covers ${g.periodCount} months</div>` : ""}`;
-    if (g.kind === "excluded") return `<span class="muted">Excluded</span>`;
-    const progress = `${g.paid} of ${g.planned ?? "ongoing"}${g.planned ? `<div class="bar"><span style="width:${Math.min(100, Math.round((g.paid / g.planned) * 100))}%"></span></div>` : ""}`;
-    return `${g.kind === "unlinked" ? "Recurring, no subscription" : "Recurring"}<div>${progress}</div>${g.kind === "recurring" ? `<div>${unitsCell(g, v)}</div>` : ""}`;
+  const allocCell = (g: GiftRow): string => {
+    const a = where(g);
+    if (a.state === "placed") return `<span title="${esc(a.who)} at ${esc(a.partner)}">${esc(a.who)} <span class="muted">${esc(a.partner)}</span></span>`;
+    if (a.state === "waiting") return icon("warn", SYMBOL.waiting, "Waiting for a place");
+    return a.state === "none" ? `<span class="muted" title="${esc(a.why)}">\u2013</span>` : "";
   };
-  const datesCell = (g: GiftRow): string => `${g.firstPaid ? `${esc(g.firstPaid)}${g.lastPaid && g.lastPaid !== g.firstPaid ? `<div class="muted">to ${esc(g.lastPaid)}</div>` : ""}` : `<span class="muted">none since the load</span>`}${g.nextDue ? `<div class="muted">next due ${esc(g.nextDue)}</div>` : ""}${g.planStatus ? `<div><span class="pill ${g.planStatus === "active" ? "ready" : "review"}">${esc(g.planStatus)}</span></div>` : ""}`;
-  const statusCell = (g: GiftRow): string => [
-    g.kind === "excluded" ? "" : g.unrouted ? `<span class="pill unrouted">Unrouted</span>` : `<span class="pill ready">Ready</span>`,
-    g.inReview ? `<span class="pill review">Review</span>` : "",
-    ...g.notes.map((n) => `<span class="pill review"${n.title ? ` title="${esc(n.title)}"` : ""}>${esc(n.text)}</span>`),
-    g.needsLook && g.kind === "recurring" ? `<span class="pill review">Needs a look</span>` : "",
-  ].filter((x) => x !== "").join(" ");
-  const link = (g: GiftRow): string => g.kind !== "unlinked" ? "" : g.suggestions.length === 0 ? `<div class="muted">No commitment for the same supporter and item</div>` : g.suggestions.map((s) => `<div class="muted">Possibly subscription <b>${esc(s.subscriptionId)}</b> (${s.daysApart === null ? "legacy upload, date not comparable" : s.daysApart === 0 ? "same day" : `${Math.abs(s.daysApart)} day${Math.abs(s.daysApart) === 1 ? "" : "s"} ${s.daysApart < 0 ? "before its first instalment" : "after its first instalment"}`})</div>`).join("");
 
   const row = (g: GiftRow): string => {
     const first = g.payments[0];
     const ticked = g.payments.length > 0 && g.payments.every((w) => picked.has(w.key));
-    return `<tr><td><input type="checkbox" data-sel-gift="${esc(g.key)}" data-keys="${esc(g.payments.map((w) => w.key).join(" "))}" title="Tick every payment of this gift"${ticked ? " checked" : ""}></td>
-      <td>${esc(g.supporterName)}<div class="muted">${esc(g.supporterId)}${first && first.group ? " · " + esc(first.group) : ""}</div>${first ? creditLine(first) : ""}
-        <details><summary>Payments (${g.payments.length})</summary>${paymentsTable(g, v, picked)}</details></td>
-      <td>${esc(g.itemName)}<div class="muted">${g.parts} part${g.parts === 1 ? "" : "s"}${first && first.bundleQty && first.bundleQty > 1 && g.kind !== "recurring" ? ` (bundle of ${first.bundleQty}${first.quantity > 1 ? ` x ${first.quantity}` : ""})` : ""}${g.projectName ? ` · ${esc(g.projectName)}` : ""}</div>${g.unrouted && first ? `<div>${picker(v.categories, first.itemId, "")}</div>` : `<div class="muted">${esc(categoryName(v.categories, g.categoryId))}</div>`}</td>
-      <td>${typeCell(g)}</td><td>${datesCell(g)}</td><td>${allocatedCell(g)}</td><td>${statusCell(g)}${link(g)}</td></tr>`;
+    const paid = g.kind === "excluded" ? (g.payments[0]?.paidDate ?? "").slice(0, 10) : g.lastPaid || g.firstPaid;
+    const reason = g.kind === "excluded" ? g.payments[0]?.exclusion?.reason ?? "" : "";
+    return `<tr class="gift${g.kind === "excluded" ? " off" : ""}" data-gift-open="${esc(g.key)}"><td><input type="checkbox" data-sel-gift="${esc(g.key)}" data-keys="${esc(g.payments.map((w) => w.key).join(" "))}" title="Tick every payment of this gift"${ticked ? " checked" : ""}></td>
+      <td class="c">${kindIcon(g)}</td>
+      <td class="clip" title="${esc(g.supporterName)} ${esc(g.supporterId)}">${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span></td>
+      <td class="clip" title="${esc(g.itemName)}">${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${picker(v.categories, first.itemId, "")}` : ""}</td>
+      <td class="num">${planCell(g)}</td>
+      <td class="num">${esc(paid)}</td>
+      <td class="num muted">${esc(g.nextDue)}</td>
+      <td class="clip">${allocCell(g)}</td>
+      <td class="c st">${statusIcons(g)}${g.kind === "excluded" && first ? `<button data-excl="${esc(first.key)}" data-excl-action="restore" title="${esc(reason || "Excluded")}">Restore</button>` : ""}</td>
+      <td class="c"><button class="gi-open" data-gift-open="${esc(g.key)}" title="Open the details" aria-label="Open the details">${SYMBOL.info}</button></td></tr>`;
   };
-  return `${bulk}${note}${rows.length === 0 ? `<div class="empty">No gifts match the filters.</div>` : `<table class="giftlist"><thead><tr><th><input type="checkbox" data-selall="main" title="Tick all shown"${allTicked ? " checked" : ""}></th><th>Donor</th><th>Item</th><th>Gift</th><th>Dates</th><th>Allocated to</th><th>Status</th></tr></thead><tbody>${shown.map(row).join("")}</tbody></table>`}`;
+  return `${bulk}${note}${rows.length === 0 ? `<div class="empty">No gifts match the filters.</div>` : `${key}<div class="tablewrap"><table class="giftlist"><thead><tr><th><input type="checkbox" data-selall="main" title="Tick all shown"${allTicked ? " checked" : ""}></th><th></th><th>Donor</th><th>Item</th><th>Plan</th><th>Paid</th><th>Next</th><th>Allocated to</th><th>Status</th><th></th></tr></thead><tbody>${shown.map(row).join("")}</tbody></table></div>`}`;
+}
+
+// The window for one gift: everything the list leaves out (DECISIONS 78). Returns "" when the gift is not in the data, so the caller closes the window.
+export function giftDetailHtml(v: View, giftKey: string): string {
+  const g = giftRows(v.workOrders, v.workOrders, new Set(v.review.map((r) => r.key))).find((r) => r.key === giftKey);
+  if (!g) return "";
+  const first = g.payments[0];
+  const a = allocationContext(v)(g);
+  const kindName = g.kind === "recurring" ? "Recurring gift" : g.kind === "unlinked" ? "Recurring payment the CRM did not link to a subscription" : g.kind === "excluded" ? "Excluded payment" : "One payment";
+  const row = (label: string, value: string) => value === "" ? "" : `<tr><th>${label}</th><td>${value}</td></tr>`;
+  const progress = g.kind === "recurring" || g.kind === "unlinked" ? `${g.paid} of ${g.planned ?? "ongoing"}${g.planned ? `<div class="bar"><span style="width:${Math.min(100, Math.round((g.paid / g.planned) * 100))}%"></span></div>` : ""}` : g.periodCount > 0 ? `covers ${g.periodCount} month${g.periodCount === 1 ? "" : "s"}` : "";
+  const allocation = a.state === "placed" ? `${esc(a.who)}<div class="muted">${esc(a.partner)}${a.parts !== null ? ` · ${a.parts} part${a.parts === 1 ? "" : "s"}` : ""}</div>` : a.state === "waiting" ? `<span class="pill review">Waiting for a place</span>` : a.why ? `<span class="muted">${esc(a.why)}</span>` : "";
+  const status = [
+    g.kind === "excluded" ? "" : g.unrouted ? `<span class="pill unrouted">Unrouted</span>` : `<span class="pill ready">Ready</span>`,
+    g.inReview ? `<span class="pill review">Review</span>` : "",
+    ...g.notes.map((n) => `<span class="pill review"${n.title ? ` title="${esc(n.title)}"` : ""}>${esc(n.text)}</span>`),
+  ].filter((x) => x !== "").join(" ");
+  const link = g.kind !== "unlinked" ? "" : g.suggestions.length === 0 ? `<div class="muted">No commitment for the same supporter and item</div>` : g.suggestions.map((s) => `<div class="muted">Possibly subscription <b>${esc(s.subscriptionId)}</b> (${s.daysApart === null ? "legacy upload, date not comparable" : s.daysApart === 0 ? "same day" : `${Math.abs(s.daysApart)} day${Math.abs(s.daysApart) === 1 ? "" : "s"} ${s.daysApart < 0 ? "before its first instalment" : "after its first instalment"}`})</div>`).join("");
+  return `<div class="pf-overlay" data-gift-close="overlay"><div class="pf-box" role="dialog" aria-label="Gift details">
+    <header><h2>${esc(g.supporterName)} <span class="muted">${esc(g.itemName)}</span></h2><button data-gift-close="x" aria-label="Close">Close</button></header>
+    <div class="pf-body">
+      <section><h3>Gift</h3><table class="facts">
+        ${row("Type", esc(kindName))}
+        ${row("Donor", `${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span>${first && first.group ? ` <span class="muted">· ${esc(first.group)}</span>` : ""}${first ? creditLine(first) : ""}`)}
+        ${row("Item", `${esc(g.itemName)}${g.unrouted && first ? ` ${picker(v.categories, first.itemId, "")}` : ""}`)}
+        ${row("Category", g.unrouted ? "" : esc(categoryName(v.categories, g.categoryId)))}
+        ${row("Parts", `${g.parts}${first && first.bundleQty && first.bundleQty > 1 && g.kind !== "recurring" ? ` (bundle of ${first.bundleQty}${first.quantity > 1 ? ` x ${first.quantity}` : ""})` : ""}`)}
+        ${row("Project the donor chose", esc(g.projectName))}
+        ${row("Subscription", g.kind === "recurring" ? esc(g.key) : "")}
+      </table></section>
+      <section><h3>Plan and dates</h3><table class="facts">
+        ${row("Paid", progress)}
+        ${row("Units", g.kind === "recurring" ? unitsCell(g, v) : "")}
+        ${row("First paid", esc(g.firstPaid))}
+        ${row("Last paid", g.lastPaid && g.lastPaid !== g.firstPaid ? esc(g.lastPaid) : "")}
+        ${row("Next due", esc(g.nextDue))}
+        ${row("Plan status", g.planStatus ? `<span class="pill ${g.planStatus === "active" ? "ready" : "review"}">${esc(g.planStatus)}</span>` : "")}
+      </table></section>
+      <section><h3>Allocation and status</h3><table class="facts">${row("Allocated to", allocation)}${row("Status", status)}</table>${link}</section>
+      <section><h3>Payments (${g.payments.length})</h3>${paymentsTable(g, v)}</section>
+    </div></div></div>`;
 }
 
 export function giftsPage(v: View): string {
