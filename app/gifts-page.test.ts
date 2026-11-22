@@ -198,7 +198,8 @@ describe("giftsPage", () => {
     expect(byPerson).toContain('data-manual-set="m1" data-keys="m1 m2" data-on="0"');
     // once every payment has its parts, the gift is no longer manual: no hand, no orange box, and it waits for allocation
     const decided = giftListHtml(v({ workOrders: [...clean, ...custom.map((w) => ({ ...w, partsFixed: 2 }))] }));
-    expect(decided).not.toContain('class="gi manual"'); // no hand on a row (the key still names it)
+    expect(decided).not.toContain('title="Allocate by hand.'); // no hand on a row (the key still names it)
+    expect(decided).toContain("manual changes that the CRM does not know about"); // the orange tick says a person set the parts
     expect(giftDetailHtml(v({ workOrders: [...clean, ...custom.map((w) => ({ ...w, partsFixed: 2 }))] }), "SM")).not.toContain("Allocate by hand.");
   });
 });
