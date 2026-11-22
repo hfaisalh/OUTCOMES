@@ -13,6 +13,7 @@ import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import type { FeedRow } from "../modules/01c-crm-connector/feed";
 import feedCsv from "../samples/crm-feed-sample.csv?raw";
 import { addCategory, setKeywords, type Category, type FrameworkTemplate, type Setup } from "../modules/02-project-rules/categories";
+import { ROLES } from "../modules/00-platform/roles";
 import { PERMISSIONS as P } from "./menu";
 
 export const demoFeedRows = (): FeedRow[] => toRecords(parseCsv(feedCsv)).records;
@@ -65,9 +66,5 @@ export function demoCategories(): Category[] {
   return c;
 }
 
-// What three CRM roles might be allowed to do (DECISIONS 32). Names are invented.
-export const DEMO_ROLES: { id: string; name: string; permissions: string[] }[] = [
-  { id: "admin", name: "Outcomes administrator", permissions: Object.values(P) },
-  { id: "agent", name: "Fulfilment agent", permissions: [P.access, P.viewWorkOrders, P.dashboards] },
-  { id: "none", name: "No OUTCOMES permission", permissions: [] },
-];
+// The example roles (DECISIONS 91), shared with the test sign-in.
+export const DEMO_ROLES: { id: string; name: string; permissions: string[] }[] = ROLES;

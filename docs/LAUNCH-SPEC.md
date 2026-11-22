@@ -15,6 +15,7 @@ For the developers of the CRM (DECISIONS 32). When a person clicks the OUTCOMES 
 | `outcomes.dashboards` | See dashboards |
 | `outcomes.other_sources` | Use file and Google Sheet sources |
 | `outcomes.settings` | See settings and run a pick-up now |
+| `outcomes.approve_release` | Approve releasing a sponsor's place after a missed payment (a manager, DECISIONS 74) |
 
 ## The launch token
 Two parts joined by a dot: `base64url(JSON claims)` and `base64url(HMAC-SHA256(secret, first part))`. "base64url" is base64 with `-` and `_` instead of `+` and `/`, and no `=` padding.

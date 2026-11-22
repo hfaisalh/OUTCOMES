@@ -29,10 +29,11 @@ import { acceptSuggestions, addCategory, addFramework, assignItem, duplicateFram
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
 import { buildAttention, type AttentionItem } from "../modules/04-triage/triage";
-import { changeOutcomes, loadOutcomes, decideAttention, setExcluded, setCovers as setCoversApi, setLooked as setLookedApi, setParts as setPartsApi, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
+import { changeOutcomes, loadOutcomes, decideAttention, signOut, setExcluded, setCovers as setCoversApi, setLooked as setLookedApi, setParts as setPartsApi, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
 import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
+import { checkingHtml, signinHtml } from "./signin-page";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
 import { landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
 import { outcomesPage, listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, type Filter, type View } from "./pages";
@@ -75,6 +76,7 @@ const state = {
   loadNote: "", // what the last load did, shown in the load card
   audits: [] as AuditRecord[], // batch audit history (live only)
   attention: [] as AttentionItem[], // Needs attention, from the server when live (Module 4)
+  gate: "app" as "app" | "checking" | "signin", // before anything starts (DECISIONS 91): checking the session, the sign-in screen, or the app
   ownerNote: "", // what the last owner sign-in attempt said
   loading: "", // what the load is doing right now, "" when idle (shows a spinner)
   me: null as Me | null, // set when signed in from the CRM (live mode)
@@ -369,6 +371,11 @@ function redrawLists(): void {
 }
 
 function draw(): void {
+  // Rule (DECISIONS 91): until a session is found, or the demo is chosen, only the sign-in screen is shown.
+  if (state.gate !== "app") {
+    (document.getElementById("shell") as HTMLElement).innerHTML = state.gate === "checking" ? checkingHtml() : signinHtml(state.ownerNote);
+    return;
+  }
   const menu = visibleMenu(permissions());
   const role = DEMO_ROLES.find((r) => r.id === state.roleId);
   // Rule: if the current page is not allowed for this role, go to the first allowed page.
@@ -403,7 +410,7 @@ function draw(): void {
   shell.innerHTML = `<div class="app">
     <aside class="side"><div class="brand">OUTCOMES<small>Minhaj Welfare Foundation</small></div><nav class="nav">${sections}</nav><div class="foot">${state.me ? "Live data from your CRM." : "Demo with invented data. Nothing is saved."}</div></aside>
     <header class="top">${state.me ? `<span class="badge-demo">Signed in from the CRM${state.me.storage === "memory" ? " · TEMPORARY STORAGE, nothing is kept" : ""}</span>
-      <div class="who"><span>${esc(state.me.name)} · ${esc(state.me.org)}</span>${gear}</div>` : `<span class="badge-demo">Opened from the CRM (imitated)</span>
+      <div class="who"><span>${esc(state.me.name)} · ${esc(state.me.org)}</span>${gear}<button data-action="sign-out" title="Sign out">Sign out</button></div>` : `<span class="badge-demo">Opened from the CRM (imitated)</span>
       <div class="who"><span>Signed in as Sample User</span><select id="role" title="Pretend to hold this CRM role">${DEMO_ROLES.map((r) => `<option value="${r.id}"${r.id === state.roleId ? " selected" : ""}>${esc(r.name)}</option>`).join("")}</select>${gear}</div>`}</header>
     <main class="content">${moduleTabs}${body}</main></div>`;
   void role;
@@ -525,6 +532,10 @@ document.addEventListener("click", (e) => {
     const scope = el.dataset.scope ?? "main";
     if (scope === "main") state.criteria = { ...NO_CRITERIA };
     else state.scopeCriteria = { ...state.scopeCriteria, [scope]: { ...NO_CRITERIA } };
+  }
+  if (action === "sign-out") {
+    void signOut().finally(() => (globalThis as { location?: { assign(u: string): void } }).location?.assign("/app/"));
+    return;
   }
   if (action === "refresh") {
     if (state.live()) return void reloadLive().then(draw);
@@ -858,13 +869,20 @@ refresh();
 state.message = "";
 // After the owner sign-in form was sent with a wrong passphrase the address says so. Show it, then tidy the address.
 const loc = (globalThis as { location?: { search: string; pathname: string } }).location;
+const wantsDemo = new URLSearchParams(loc?.search ?? "").get("demo") === "1"; // read before the address is tidied
 if (loc) {
   state.ownerNote = signinNote(loc.search);
   if (loc.search !== "") (globalThis as { history?: { replaceState(a: null, b: string, c: string): void } }).history?.replaceState(null, "", loc.pathname);
 }
+// In a browser nothing is shown until the session is checked. Without one the sign-in screen appears, unless the demo was asked for (?demo=1).
+if (loc && !wantsDemo) state.gate = "checking";
 draw();
 // If the person arrived from the CRM there is a session: switch from demo to live data.
-void fetchMe().then((me) => (me ? enterLive(me) : undefined));
+void fetchMe().then((me) => {
+  if (me) { state.gate = "app"; return enterLive(me); }
+  if (state.gate === "checking") { state.gate = "signin"; draw(); }
+  return undefined;
+});
 
 // Drag and drop: drag an item chip onto a category or onto Unsorted.
 document.addEventListener("dragstart", (e) => {

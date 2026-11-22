@@ -218,6 +218,19 @@ describe("owner sign-in", () => {
     const bad = await handleOwnerLogin(form("nope"), t());
     expect([bad.status, bad.headers?.["location"], bad.headers?.["set-cookie"]]).toEqual([302, "/app/?signin=wrong", undefined]);
   });
+  it("signs in as the chosen example role, with only that role's permissions, and treats an unknown role as no permissions (DECISIONS 91)", async () => {
+    const as_ = async (role: string) => {
+      const r = await handleOwnerLogin(req({ method: "POST", body: { passphrase: "a-long-owner-passphrase", role } }), t());
+      return (await handleMe(as((r.headers?.["set-cookie"] ?? "").split(";")[0] as string), t())).body as { name: string; perms: string[] };
+    };
+    const viewer = await as_("viewer");
+    expect(viewer.perms).toEqual(["outcomes.access", "outcomes.dashboards"]);
+    expect(viewer.name).toBe("Test: Dashboard viewer");
+    expect((await as_("manager")).perms).toContain("outcomes.approve_release");
+    expect((await as_("gifts")).perms).not.toContain("outcomes.settings");
+    expect((await as_("nonsense")).perms).toEqual([]); // never the administrator by accident
+    expect((await as_("admin")).perms.length).toBeGreaterThan(5);
+  });
   it("answers 404 to anything but POST", async () => {
     expect((await handleOwnerLogin(req(), t())).status).toBe(404);
   });

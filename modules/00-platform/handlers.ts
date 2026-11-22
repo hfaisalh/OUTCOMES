@@ -12,6 +12,7 @@
  */
 
 import { PERMISSIONS as P } from "../../app/menu.js";
+import { roleById } from "./roles.js";
 import { currentFeedConfig } from "../01c-crm-connector/feed.js";
 import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
 import { isCurrentCategory, isFrameworkTemplate, migrateSetup, type Category, type FrameworkTemplate } from "../02-project-rules/categories.js";
@@ -198,7 +199,10 @@ export async function handleOwnerLogin(req: HttpRequest, d: Deps): Promise<HttpR
   const now = nowSeconds(d);
   const config = (await d.store.getConfig(OWNER_ORG)) ?? defaultConfig();
   if (config.crm.kind === "none") await d.store.putConfig(OWNER_ORG, { ...config, crm: { kind: "upload" } });
-  const claims: Claims = { typ: "launch", jti: d.newId(), sub: "owner", name: "Owner", org: OWNER_ORG, perms: Object.values(P), iat: now, exp: now + 60 };
+  // Rule (DECISIONS 91): the test sign-in can be taken as any example role, so each kind of person can be tried. No role means the administrator, as before.
+  const wanted = (req.body as { role?: unknown } | undefined)?.role;
+  const role = typeof wanted === "string" && wanted !== "" ? roleById(wanted) : roleById("admin");
+  const claims: Claims = { typ: "launch", jti: d.newId(), sub: `test-${role.id}`, name: role.id === "admin" ? "Owner" : `Test: ${role.name}`, org: OWNER_ORG, perms: role.permissions, iat: now, exp: now + 60 };
   const session = signToken(d.secrets.session, sessionFrom(claims, d.newId(), now));
   const headers = { "set-cookie": sessionCookie(session, SESSION_SECONDS), "cache-control": "no-store" };
   return isForm ? { status: 302, headers: { ...headers, location: "/app/" } } : json(200, { ok: true }, headers);
