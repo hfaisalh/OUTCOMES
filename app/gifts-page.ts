@@ -273,7 +273,7 @@ export function giftMetricsHtml(v: View): string {
     <div class="metric"><b>${recurring}</b><span>Recurring</span><div class="smrow">${small(count((g) => g.kind === "one_off"), "one payments")}</div></div>
     <div class="metric"><b>${value}</b><span>Value</span></div>
     <div class="metric"><span>Plan status</span><div class="smrow">${small(status("cancelled"), "cancelled")}${small(status("paused"), "paused")}${small(status("completed"), "completed")}</div></div>
-    <div class="metric${waiting ? " warn" : ""}"><b>${waiting}</b><span>Unallocated</span></div>
+    <div class="metric${waiting ? " warn" : ""}"><b>${waiting}</b><span>Unallocated</span><div class="smrow">${small(count((g) => where(g).state === "placed"), "allocated")}${small(count((g) => where(g).state === "none"), "need none")}</div></div>
     <div class="metric${review ? " warn" : ""}"><b>${review}</b><span>Review</span></div>`;
 }
 

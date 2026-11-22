@@ -126,6 +126,7 @@ describe("giftsPage", () => {
     expect(all).toMatch(/<span>Value<\/span>/);
     expect(all).toMatch(/<b>0<\/b> cancelled[\s\S]*<b>1<\/b> paused[\s\S]*<b>0<\/b> completed/); // plan statuses share one tile
     expect(all).toContain("<span>Unallocated</span>");
+    expect(all).toMatch(/<b>0<\/b> allocated[\s\S]*<b>0<\/b> need none/); // allocated + unallocated + need none = gifts, so the tile adds up
     expect(all).toContain("<span>Review</span>");
     // a narrower filter changes the tiles
     const narrowed = giftMetricsHtml(view({ workOrders: orders, criteria: { text: "no-such-donor", itemId: "", categoryId: "", status: "", kind: "any", legacy: "", from: "", to: "" } }));
