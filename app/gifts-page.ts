@@ -141,10 +141,10 @@ function statusIcons(g: GiftRow): string {
   const out: string[] = [];
   if (g.unrouted) out.push(icon("warn", SYMBOL.unrouted, "Unrouted: choose its category"));
   if (g.inReview) out.push(icon("warn", SYMBOL.review, "Held for review: it changed in the CRM"));
-  if (g.needsLook) out.push(icon("warn", SYMBOL.look, g.notes.map((n) => n.text).join(". ") || "Needs a look"));
+  if (g.needsLook) out.push(icon("warn", SYMBOL.look, g.notes.filter((n) => !n.resolved).map((n) => n.text).join(". ") || "Needs a look"));
   const p = PLAN_ICON[g.planStatus];
   if (p) out.push(icon("muted", p[0], p[1]));
-  return out.length > 0 ? out.join("") : icon("good", SYMBOL.ok, "Ready");
+  return out.length > 0 ? out.join("") : icon("good", SYMBOL.ok, g.notes.some((n) => n.resolved) ? "Ready. What needed a look is resolved." : "Ready");
 }
 
 // The list itself (the part that is redrawn as you type or tick): the count, the bulk bar, the key to the symbols and the table.
@@ -209,8 +209,11 @@ export function giftDetailHtml(v: View, giftKey: string): string {
   const status = [
     g.kind === "excluded" ? "" : g.unrouted ? `<span class="pill unrouted">Unrouted</span>` : `<span class="pill ready">Ready</span>`,
     g.inReview ? `<span class="pill review">Review</span>` : "",
-    ...g.notes.map((n) => `<span class="pill review"${n.title ? ` title="${esc(n.title)}"` : ""}>${esc(n.text)}</span>`),
+    ...g.notes.map((n) => n.resolved ? `<span class="pill done" title="${esc(n.title ?? (g.checked ? "Checked by a person" : "Resolved"))}"><s>${esc(n.text)}</s> resolved</span>` : `<span class="pill review"${n.title ? ` title="${esc(n.title)}"` : ""}>${esc(n.text)}</span>`),
   ].filter((x) => x !== "").join(" ");
+  const first0 = g.payments.find((w) => w.legacyUpload !== true) ?? g.payments[0];
+  // A person can say they have checked what the notes say. It holds until the notes change.
+  const checkBtn = !first0 || g.kind !== "recurring" ? "" : g.checked ? `<button data-looked="${esc(first0.key)}" data-text="">Reopen</button>` : g.lookSignature !== "" && g.needsLook ? `<button data-looked="${esc(first0.key)}" data-text="${esc(g.lookSignature)}" title="Use this when you have looked at it and it is fine as it is, for example when the CRM data is wrong and is being fixed there.">Mark as checked</button>` : "";
   const link = g.kind !== "unlinked" ? "" : g.suggestions.length === 0 ? `<div class="muted">No commitment for the same supporter and item</div>` : g.suggestions.map((s) => `<div class="muted">Possibly subscription <b>${esc(s.subscriptionId)}</b> (${s.daysApart === null ? "legacy upload, date not comparable" : s.daysApart === 0 ? "same day" : `${Math.abs(s.daysApart)} day${Math.abs(s.daysApart) === 1 ? "" : "s"} ${s.daysApart < 0 ? "before its first instalment" : "after its first instalment"}`})</div>`).join("");
   // The suggestion for a payment that looks like a catch-up: what it would cover, with one click to agree or to say it is normal.
   const monthName = (m: string) => m;
@@ -230,7 +233,7 @@ export function giftDetailHtml(v: View, giftKey: string): string {
         ${row("Project chosen", esc(g.projectName))}
         ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
         ${row("Allocated to", allocation)}
-        ${row("Status", status)}
+        ${row("Status", `${status}${checkBtn ? `<div class="actions">${checkBtn}</div>` : ""}`)}
         ${first ? row("Credit", creditLine(first), true) : ""}
         ${row("Could belong to", link, true)}
       </div>

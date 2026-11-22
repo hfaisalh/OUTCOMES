@@ -12,7 +12,7 @@
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, clearLegacy, placeInNode, placeInPartner, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
-import { setCovers } from "../modules/04b-commitments/catch-up";
+import { setCovers, setLooked } from "../modules/04b-commitments/catch-up";
 import { giftDetailHtml, giftListHtml, giftsPage, shownGiftKeys } from "./gifts-page";
 import { partnersPage } from "./partners-page";
 import { projectsPage } from "./projects-page";
@@ -29,7 +29,7 @@ import { acceptSuggestions, addCategory, addFramework, assignItem, duplicateFram
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
 import { buildAttention, type AttentionItem } from "../modules/04-triage/triage";
-import { changeOutcomes, loadOutcomes, decideAttention, setExcluded, setCovers as setCoversApi, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
+import { changeOutcomes, loadOutcomes, decideAttention, setExcluded, setCovers as setCoversApi, setLooked as setLookedApi, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
 import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
@@ -298,6 +298,30 @@ async function applyCovers(key: string, covers: number): Promise<void> {
   }
   draw();
 }
+// A person says they checked what the notes of a gift say (DECISIONS 86), or reopens it.
+async function applyLooked(key: string, looked: string): Promise<void> {
+  try {
+    if (state.live()) {
+      const r = await setLookedApi(key, looked);
+      const back = new Map(r.workOrders.map((w) => [w.key, w]));
+      state.workOrders = state.workOrders.map((w) => back.get(w.key) ?? w);
+    } else {
+      state.workOrders = state.workOrders.map((w) => {
+        if (w.key !== key) return w;
+        const r = setLooked(w, looked);
+        return "order" in r ? r.order : w;
+      });
+    }
+    state.message = looked === "" ? "Reopened." : "Marked as checked.";
+  } catch (e) {
+    state.message = e instanceof Error ? e.message : "That did not work.";
+  }
+  draw();
+}
+document.addEventListener("click", (e) => {
+  const l = (e.target as HTMLElement).closest("[data-looked]") as HTMLElement | null;
+  if (l) void applyLooked(l.dataset.looked as string, l.dataset.text ?? "");
+});
 document.addEventListener("click", (e) => {
   const b = (e.target as HTMLElement).closest("[data-covers-set]") as HTMLElement | null;
   if (b) void applyCovers(b.dataset.coversSet as string, Number(b.dataset.n));

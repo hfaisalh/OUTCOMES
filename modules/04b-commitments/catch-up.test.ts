@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorkOrder } from "../01c-crm-connector/work-orders";
 import { buildCommitments } from "./commitments";
-import { coverage, fillMonths, setCovers, suggestCatchUps } from "./catch-up";
+import { coverage, fillMonths, setCovers, setLooked, suggestCatchUps } from "./catch-up";
 import { giftRows } from "./gifts";
 
 const inst = (n: number, date: string, amount = 35, over: Partial<WorkOrder> = {}): WorkOrder => ({
@@ -63,5 +63,29 @@ describe("catch-up payments", () => {
     expect(setCovers(inst(1, "2026-08-11"), 0)).toHaveProperty("error");
     expect(setCovers(inst(1, "2026-08-11"), 2.5)).toHaveProperty("error");
     expect(setCovers(inst(1, "2026-08-11", 35, { status: "excluded" }), 2)).toHaveProperty("error");
+  });
+  it("shows parts that differ as resolved, not hidden, once a catch-up is applied, and the gift stops needing a look", () => {
+    const raw = [inst(1, "2026-08-11", 70, { quantity: 2 }), inst(2, "2026-09-11"), inst(3, "2026-10-11")];
+    expect(giftRows(raw, raw)[0]?.notes.some((n) => n.text === "Parts differ between instalments" && !n.resolved)).toBe(true);
+    const fixed = [{ ...raw[0]!, covers: 2 }, ...raw.slice(1)];
+    const row = giftRows(fixed, fixed)[0]!;
+    expect(row.notes).toEqual([{ text: "Parts differ between instalments", title: "Resolved: a payment was marked as covering more than one instalment.", resolved: true }]);
+    expect(row.needsLook).toBe(false);
+  });
+  it("lets a person check what is left, which holds until the notes change", () => {
+    const gap = [inst(1, "2026-08-11"), inst(3, "2026-10-11"), inst(4, "2026-11-11")];
+    const open = giftRows(gap, gap)[0]!;
+    expect(open.needsLook).toBe(true);
+    expect(open.lookSignature).toBe("Missing instalment 2");
+    const checked = gap.map((w, i) => (i === 0 ? (setLooked(w, open.lookSignature) as { order: WorkOrder }).order : w));
+    const done = giftRows(checked, checked)[0]!;
+    expect(done.checked).toBe(true);
+    expect(done.needsLook).toBe(false);
+    expect(done.notes.every((n) => n.resolved)).toBe(true);
+    // a new problem (another missing instalment) makes the notes differ, so it is open again
+    const more = [...checked, inst(6, "2027-01-11")];
+    expect(giftRows(more, more)[0]?.needsLook).toBe(true);
+    // and the check can be taken back
+    expect((setLooked(checked[0]!, "") as { order: WorkOrder }).order.looked).toBeUndefined();
   });
 });

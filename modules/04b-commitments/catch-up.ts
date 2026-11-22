@@ -103,3 +103,11 @@ export function setCovers(w: WorkOrder, covers: number): { order: WorkOrder } | 
   if (w.status !== "unrouted" && w.status !== "ready") return { error: "Work has already started on this one, or it is excluded, so it cannot be changed." };
   return { order: { ...w, covers } };
 }
+
+// Rule (DECISIONS 86): a person says they have checked what a gift's Needs a look notes say. The text kept is the notes themselves, so a new problem reopens it.
+export function setLooked(w: WorkOrder, looked: string): { order: WorkOrder } | { error: string } {
+  if (looked.length > 400) return { error: "That is too long." };
+  if (w.status === "excluded") return { error: "That payment is excluded." };
+  const { looked: _old, ...rest } = w;
+  return { order: looked === "" ? rest : { ...rest, looked } };
+}

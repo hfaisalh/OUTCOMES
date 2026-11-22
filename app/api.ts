@@ -74,6 +74,7 @@ export const ownerLogin = (passphrase: string) => call<{ ok: boolean }>("/api/ow
 export const loadAttention = () => call<{ items: AttentionItem[] }>("/api/triage");
 export const decideAttention = (id: string, action: "review" | "reopen", note = "") => call<{ items: AttentionItem[] }>("/api/triage", { method: "POST", body: { id, action, note } });
 export const setCovers = (key: string, covers: number) => call<{ ok: boolean; workOrders: WorkOrder[]; skipped: number; firstError?: string }>("/api/work-orders", { method: "POST", body: { keys: [key], action: "covers", covers } });
+export const setLooked = (key: string, looked: string) => call<{ ok: boolean; workOrders: WorkOrder[]; skipped: number; firstError?: string }>("/api/work-orders", { method: "POST", body: { keys: [key], action: "looked", looked } });
 export const setExcluded = (keys: string[], action: "exclude" | "restore", reason = "") => call<{ ok: boolean; workOrders: WorkOrder[]; skipped: number; firstError?: string }>("/api/work-orders", { method: "POST", body: { keys, action, reason } });
 
 export interface OutcomesReply {

@@ -40,7 +40,9 @@ export interface GiftRow {
   nextDue: string;
   periodCount: number; // months a one-off payment covers, 0 when not given
   payments: WorkOrder[]; // every live payment of the gift, oldest first
-  notes: { text: string; title?: string }[]; // what needs a look, in words
+  notes: { text: string; title?: string; resolved?: boolean }[]; // what needs a look, in words. A resolved note was fixed (by a catch-up) or checked by a person (DECISIONS 86)
+  lookSignature: string; // the open notes joined, which a person's check is kept against. "" when there is nothing to check
+  checked: boolean; // a person has checked the notes as they are now
   needsLook: boolean;
   inReview: boolean; // a payment is held for review
   unrouted: boolean; // a payment is waiting for a category
@@ -51,14 +53,14 @@ export interface GiftRow {
 
 const byDate = (a: WorkOrder, b: WorkOrder) => Number(a.legacyUpload === true) - Number(b.legacyUpload === true) || a.paidDate.localeCompare(b.paidDate) || a.key.localeCompare(b.key);
 
-const notesOf = (c: Commitment): GiftRow["notes"] =>
-  [
+const notesOf = (c: Commitment, catchUpFixedParts: boolean): GiftRow["notes"] =>
+  ([
     c.gaps.length ? { text: `Missing instalment ${c.gaps.join(", ")}` } : null,
     c.legacyOpening ? { text: "Legacy opening", title: "The first record was loaded from the old website. Instalments paid there are not in our data and are not counted." } : null,
     c.startsLate && !c.legacyOpening ? { text: `Starts at ${c.numbers[0]}`, title: "Earlier instalments are not in our data." } : null,
-    c.partsVary ? { text: "Parts differ between instalments" } : null,
+    c.partsVary ? { text: "Parts differ between instalments" } : catchUpFixedParts ? { text: "Parts differ between instalments", title: "Resolved: a payment was marked as covering more than one instalment.", resolved: true } : null,
     c.conflict ? { text: "Lines disagree on supporter or item" } : null,
-  ].filter((x): x is { text: string; title?: string } => x !== null);
+  ] as (GiftRow["notes"][number] | null)[]).filter((x): x is GiftRow["notes"][number] => x !== null);
 
 /**
  * Rule: the rows for a list. `shown` is the payments the list has after its filters, `all` is every work order (so a gift's totals are right whatever the
@@ -99,12 +101,20 @@ export function giftRows(shown: WorkOrder[], all: WorkOrder[], reviewKeys: Set<s
     };
     if (kind === "recurring" && c) {
       const catchUps = suggestCatchUps(own);
-      const notes = [...notesOf(c), ...(catchUps.length ? [{ text: "Possible catch-up payment", title: catchUps.map((x) => x.reason).join(". ") }] : [])];
-      rows.push({ ...base, allocationKey: key, parts: c.partsPerInstalment, paid: c.paid, planned: c.planned, firstPaid: c.firstPaid, lastPaid: c.lastPaid, planStatus: c.planStatus, nextDue: c.nextDue, periodCount: 0, notes, needsLook: needsLook(c) || catchUps.length > 0, suggestions: [], catchUps, commitment: c });
+      // Rule (DECISIONS 86): parts that differ only until a catch-up is applied are shown as resolved, not hidden.
+      const realOwn = own.filter((w) => w.legacyUpload !== true);
+      const rawVary = realOwn.some((w) => partsOf(w) !== partsOf(realOwn[0] as WorkOrder));
+      const notes = [...notesOf(c, !c.partsVary && rawVary && realOwn.some((w) => (w.covers ?? 1) > 1)), ...(catchUps.length ? [{ text: "Possible catch-up payment", title: catchUps.map((x) => x.reason).join(". ") }] : [])];
+      // Rule: a person's check holds while the open notes are exactly what they checked. A new problem makes the text differ and reopens it.
+      const open = notes.filter((n) => !n.resolved);
+      const lookSignature = open.map((n) => n.text).join("|");
+      const checked = lookSignature !== "" && realOwn.some((w) => w.looked === lookSignature);
+      const looking = needsLook(c) || catchUps.length > 0;
+      rows.push({ ...base, allocationKey: key, parts: c.partsPerInstalment, paid: c.paid, planned: c.planned, firstPaid: c.firstPaid, lastPaid: c.lastPaid, planStatus: c.planStatus, nextDue: c.nextDue, periodCount: 0, notes: checked ? notes.map((n) => ({ ...n, resolved: true })) : notes, lookSignature, checked, needsLook: looking && !checked, suggestions: [], catchUps: checked ? [] : catchUps, commitment: c });
     } else if (kind === "one_off") {
-      rows.push({ ...base, allocationKey: key, parts: partsOf(first), paid: 1, planned: 1, firstPaid: first.paidDate.slice(0, 10), lastPaid: first.paidDate.slice(0, 10), planStatus: "", nextDue: "", periodCount: first.periodCount ?? 0, notes: [], needsLook: false, suggestions: [], catchUps: [] });
+      rows.push({ ...base, allocationKey: key, parts: partsOf(first), paid: 1, planned: 1, firstPaid: first.paidDate.slice(0, 10), lastPaid: first.paidDate.slice(0, 10), planStatus: "", nextDue: "", periodCount: first.periodCount ?? 0, notes: [], lookSignature: "", checked: false, needsLook: false, suggestions: [], catchUps: [] });
     } else {
-      rows.push({ ...base, allocationKey: "", parts: partsOf(first), paid: real.length, planned: Number.isInteger(Number(first.instalmentCount)) && Number(first.instalmentCount) > 0 ? Number(first.instalmentCount) : null, firstPaid: real[0]?.paidDate.slice(0, 10) ?? first.paidDate.slice(0, 10), lastPaid: lastReal?.paidDate.slice(0, 10) ?? first.paidDate.slice(0, 10), planStatus: first.planStatus ?? "", nextDue: first.planNextDue ?? "", periodCount: 0, notes: kind === "unlinked" ? [{ text: "Recurring line with no subscription", title: "The CRM did not link this line to a subscription. The suggestion is only a hint. Check it in the CRM. Nothing is linked here." }] : [], needsLook: kind === "unlinked", suggestions: sug?.suggestions ?? [], catchUps: [] });
+      rows.push({ ...base, allocationKey: "", parts: partsOf(first), paid: real.length, planned: Number.isInteger(Number(first.instalmentCount)) && Number(first.instalmentCount) > 0 ? Number(first.instalmentCount) : null, firstPaid: real[0]?.paidDate.slice(0, 10) ?? first.paidDate.slice(0, 10), lastPaid: lastReal?.paidDate.slice(0, 10) ?? first.paidDate.slice(0, 10), planStatus: first.planStatus ?? "", nextDue: first.planNextDue ?? "", periodCount: 0, notes: kind === "unlinked" ? [{ text: "Recurring line with no subscription", title: "The CRM did not link this line to a subscription. The suggestion is only a hint. Check it in the CRM. Nothing is linked here." }] : [], lookSignature: "", checked: false, needsLook: kind === "unlinked", suggestions: sug?.suggestions ?? [], catchUps: [] });
     }
   }
   return rows.sort((a, b) => Number(b.needsLook) - Number(a.needsLook) || b.lastPaid.localeCompare(a.lastPaid) || a.key.localeCompare(b.key));

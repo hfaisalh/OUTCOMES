@@ -39,6 +39,7 @@ export interface WorkOrder {
   itemId: string;
   itemName: string;
   amount: number; // the price of one unit, for reference only (DECISIONS 81)
+  looked?: string; // set by a person: the notes of the gift's Needs a look list they checked (DECISIONS 86). Resolved while the notes are still the same
   covers?: number; // how many instalments this payment covers, set by a person (DECISIONS 84). Absent: not checked, 1 is assumed. 1: checked, a normal payment
   lineTotal?: number; // what the whole line cost, when the CRM sent it (DECISIONS 82)
   currency?: string; // the currency code of the amount, absent when the feed gave none
