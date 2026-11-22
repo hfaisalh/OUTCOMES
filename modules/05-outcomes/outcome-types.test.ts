@@ -15,9 +15,9 @@ const ok = (r: { types: OutcomeType[] } | { error: string } | null): OutcomeType
 };
 
 describe("outcome types", () => {
-  it("starts with Child (picks an existing outcome, automatic) and Water pump (creates a draft outcome, suggested)", () => {
+  it("starts with Orphan (picks an existing outcome, automatic) and Water pump (creates a draft outcome, suggested)", () => {
     const [child, pump] = starterOutcomeTypes();
-    expect(child).toMatchObject({ id: "child", source: "pick_existing", assign: "auto" });
+    expect(child).toMatchObject({ id: "orphan", source: "pick_existing", assign: "auto" });
     expect(pump).toMatchObject({ id: "water-pump", source: "create_new", assign: "suggest" });
     expect(pump?.fields.map((f) => f.kind)).toEqual(expect.arrayContaining(["gps", "photo", "video", "number"]));
     expect(pump?.fields.filter((f) => f.required).map((f) => f.label)).toEqual(["Location"]); // a small minimum before a partner takes it
@@ -31,16 +31,16 @@ describe("outcome types", () => {
   });
   it("cannot remove a type that outcomes use", () => {
     const t = starterOutcomeTypes();
-    expect(removeOutcomeType(t, "child", ["child"])).toHaveProperty("error");
-    expect(ok(removeOutcomeType(t, "child", [])).map((x) => x.id)).toEqual(["water-pump"]);
+    expect(removeOutcomeType(t, "orphan", ["orphan"])).toHaveProperty("error");
+    expect(ok(removeOutcomeType(t, "orphan", [])).map((x) => x.id)).toEqual(["water-pump"]);
   });
   it("lets a framework belong to one type only: ticking it for another type takes it from the first", () => {
-    let t = ok(setTypeFramework(starterOutcomeTypes(), "child", "sponsorship", true, ["sponsorship", "once"]));
-    expect(typeForFramework(t, "sponsorship")?.id).toBe("child");
+    let t = ok(setTypeFramework(starterOutcomeTypes(), "orphan", "sponsorship", true, ["sponsorship", "once"]));
+    expect(typeForFramework(t, "sponsorship")?.id).toBe("orphan");
     t = ok(setTypeFramework(t, "water-pump", "sponsorship", true, ["sponsorship", "once"]));
     expect(typeForFramework(t, "sponsorship")?.id).toBe("water-pump");
-    expect(t.find((x) => x.id === "child")?.frameworkIds).toEqual([]);
-    expect(setTypeFramework(t, "child", "nope", true, ["sponsorship"])).toHaveProperty("error");
+    expect(t.find((x) => x.id === "orphan")?.frameworkIds).toEqual([]);
+    expect(setTypeFramework(t, "orphan", "nope", true, ["sponsorship"])).toHaveProperty("error");
   });
   it("adds, changes, moves and removes profile fields", () => {
     let t = ok(addOutcomeType([], "Animals"));
@@ -69,7 +69,7 @@ describe("outcome types", () => {
     expect(added.map((t) => t.id)).toContain("furniture");
     expect(ok(applyOutcomeTypeAction(added, [], [], { action: "ot-source", typeId: "furniture", source: "pick_existing" })).find((t) => t.id === "furniture")?.source).toBe("pick_existing");
     expect(applyOutcomeTypeAction(added, [], [], { action: "ot-source", typeId: "furniture", source: "weird" })).toHaveProperty("error");
-    expect(applyOutcomeTypeAction(added, [], ["child"], { action: "ot-remove", typeId: "child" })).toHaveProperty("error");
+    expect(applyOutcomeTypeAction(added, [], ["orphan"], { action: "ot-remove", typeId: "orphan" })).toHaveProperty("error");
     const withField = ok(applyOutcomeTypeAction(added, [], [], { action: "ot-field-add", typeId: "furniture", label: "Items", kind: "number" }));
     expect(ok(applyOutcomeTypeAction(withField, [], [], { action: "ot-field-set", typeId: "furniture", fieldId: "items", required: true })).find((t) => t.id === "furniture")?.fields[0]?.required).toBe(true);
   });

@@ -1,13 +1,13 @@
 /**
  * refs.ts
  *
- * What it does: IDs for outcomes and allocations (DECISIONS 105). Every outcome (a child, a pump, a house, an activity, a cart, a rickshaw, a livelihood)
- * and every allocation has an ID made of a prefix and a number, such as CHD-0007 or AL-0012, so a list says what each one is at a glance. The prefix of an
+ * What it does: IDs for outcomes and allocations (DECISIONS 105). Every outcome (an orphan, a pump, a house, an activity, a cart, a rickshaw, a livelihood)
+ * and every allocation has an ID made of a prefix and a number, such as ORP-0007 or AL-0012, so a list says what each one is at a glance. The prefix of an
  * outcome comes from its outcome type and can be changed. The number counts up for each prefix and is never used twice.
  * Who calls it: the Outcomes endpoint (modules/00-platform/handlers.ts) and the demo (app/main.ts). Depends on: the outcome types. Pure functions.
  *
  * Rules:
- * - An ID is the prefix, a dash and the number with at least four digits (CHD-0007). The number goes past four digits when it needs to.
+ * - An ID is the prefix, a dash and the number with at least four digits (ORP-0007). The number goes past four digits when it needs to.
  * - A counter for a prefix only goes up. An ID already in use, from a typed or bulk assigned ID, is skipped, so nothing is ever given twice.
  * - Changing a type's prefix changes new IDs only. Existing IDs stay as they are.
  * - An outcome with no ID is given one when the setup is next read or changed, so older outcomes get theirs too.
@@ -32,7 +32,7 @@ export function defaultPrefix(name: string, taken: string[]): string {
 }
 
 // The starter prefixes, then a suggestion for any type that has none (a type saved before IDs existed).
-const STARTER: Record<string, string> = { child: "CHD", "water-pump": "PMP" };
+const STARTER: Record<string, string> = { orphan: "ORP", child: "CHD", "water-pump": "PMP" };
 export function withPrefixes(types: OutcomeType[]): OutcomeType[] {
   const taken = types.map((t) => t.prefix ?? "").filter((x) => x !== "");
   return types.map((t) => {
@@ -65,13 +65,13 @@ export interface RefState {
 
 /**
  * Rule: gives an ID to every outcome and allocation that has none, and the outcome type to every outcome that has none. An outcome with no type takes the
- * type that has its framework, else the child type (older outcomes were all children), else the first type. Counters are first raised to the highest number already used
+ * type that has its framework, else the orphan type (older outcomes were all orphans, and a type saved as "child" still counts), else the first type. Counters are first raised to the highest number already used
  * for each prefix, so they never go backwards. Running it again changes nothing.
  */
 export function ensureRefs(s: RefState, types: OutcomeType[], allocationPrefix = DEFAULT_ALLOCATION_PREFIX): RefState & { changed: boolean } {
   const withP = withPrefixes(types);
   const prefixOf = (typeId: string): string => withP.find((t) => t.id === typeId)?.prefix ?? "OUT";
-  const fallbackType = withP.find((t) => t.id === "child")?.id ?? withP[0]?.id ?? "";
+  const fallbackType = withP.find((t) => t.id === "orphan")?.id ?? withP.find((t) => t.id === "child")?.id ?? withP[0]?.id ?? "";
   const used = new Set<string>([...s.outcomes.map((o) => o.ref ?? ""), ...s.allocations.map((a) => a.ref ?? "")].filter((x) => x !== ""));
   let counters: RefCounters = { ...s.counters };
   const prefixes = [...withP.map((t) => t.prefix as string), allocationPrefix];
@@ -81,7 +81,7 @@ export function ensureRefs(s: RefState, types: OutcomeType[], allocationPrefix =
   }
   let changed = false;
   const outcomes = s.outcomes.map((o) => {
-    // The type is the one that has the outcome's framework, else the child type (older outcomes were all children).
+    // The type is the one that has the outcome's framework, else the orphan type (older outcomes were all orphans).
     const typeId = o.outcomeTypeId ?? withP.find((t) => t.frameworkIds.includes(o.frameworkId))?.id ?? fallbackType;
     if (o.ref && o.outcomeTypeId) return o;
     changed = true;

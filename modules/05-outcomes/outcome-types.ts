@@ -1,7 +1,7 @@
 /**
  * outcome-types.ts
  *
- * What it does: outcome types as configuration (DECISIONS 101, 103). An outcome is the specific thing a gift becomes: a child, a water pump, a house, a set of
+ * What it does: outcome types as configuration (DECISIONS 101, 103). An outcome is the specific thing a gift becomes: an orphan, a water pump, a house, a set of
  * animals, furniture, an activity. Each type has its own profile fields and says how a gift gets its outcome: it picks an existing one (sponsorships) or
  * it creates a new draft one (pumps and the rest). A type is linked to the frameworks that use it.
  * Who calls it: the Outcomes endpoint (modules/00-platform/handlers.ts), the demo (app/main.ts) and the Categories and frameworks page.
@@ -32,15 +32,15 @@ export interface ProfileField {
   options?: string[]; // for a choice
 }
 
-// pick_existing: the gift is matched to an outcome that already exists (a child). create_new: the gift creates its own draft outcome (a pump).
+// pick_existing: the gift is matched to an outcome that already exists (an orphan). create_new: the gift creates its own draft outcome (a pump).
 export type OutcomeSource = "pick_existing" | "create_new";
 // auto: outcomes of this type are assigned to a partner by themselves when it has capacity. suggest: they are only suggested to a person (DECISIONS 101).
 export type AssignMode = "auto" | "suggest";
 
 export interface OutcomeType {
   id: string;
-  name: string; // singular, in the organisation's words: Child, Water pump
-  prefix?: string; // the start of the IDs of its outcomes (CHD for CHD-0007). Changing it changes new IDs only (DECISIONS 105)
+  name: string; // singular, in the organisation's words: Orphan, Water pump
+  prefix?: string; // the start of the IDs of its outcomes (ORP for ORP-0007). Changing it changes new IDs only (DECISIONS 105)
   source: OutcomeSource;
   assign: AssignMode;
   frameworkIds: string[];
@@ -59,11 +59,11 @@ const field = (label: string, kind: FieldKind, required = false, inReport = fals
 // The two types to start with (DECISIONS 103). Staff add the rest.
 export function starterOutcomeTypes(): OutcomeType[] {
   const make = (id: string, name: string, source: OutcomeSource, assign: AssignMode, fields: Omit<ProfileField, "id">[]): OutcomeType => ({
-    id, name, prefix: id === "child" ? "CHD" : "PMP", source, assign, frameworkIds: [],
+    id, name, prefix: id === "orphan" ? "ORP" : "PMP", source, assign, frameworkIds: [],
     fields: fields.reduce<ProfileField[]>((all, f) => [...all, { ...f, id: uniqueId(f.label, all.map((x) => x.id)) }], []),
   });
   return [
-    make("child", "Child", "pick_existing", "auto", [field("Full name", "text", true, true), field("Date of birth", "date", true, true), field("Gender", "choice", false, false, ["Girl", "Boy"]), field("School or institute", "text", false, true), field("Photo", "photo", false, true), field("Notes", "longtext", false, false)]),
+    make("orphan", "Orphan", "pick_existing", "auto", [field("Full name", "text", true, true), field("Date of birth", "date", true, true), field("Gender", "choice", false, false, ["Girl", "Boy"]), field("School, institute or work", "text", false, true), field("Photo", "photo", false, true), field("Notes", "longtext", false, false)]),
     make("water-pump", "Water pump", "create_new", "suggest", [field("Location", "text", true, true), field("GPS location", "gps", false, true), field("Beneficiary name", "text", false, true), field("People served", "number", false, true), field("Depth in metres", "number", false, false), field("Photos", "photo", false, true), field("Video", "video", false, true), field("Notes", "longtext", false, false)]),
   ];
 }
@@ -100,7 +100,7 @@ export const renameOutcomeType = (types: OutcomeType[], id: string, name: string
 // Rule (DECISIONS 105): a prefix is 2 to 5 capital letters or digits, and no two types share one. It changes new IDs only.
 export function setPrefix(types: OutcomeType[], id: string, prefix: string): Result {
   const p = cleanPrefix(prefix);
-  if (!validPrefix(p)) return { error: "A prefix is 2 to 5 letters or digits, for example CHD." };
+  if (!validPrefix(p)) return { error: "A prefix is 2 to 5 letters or digits, for example ORP." };
   if (types.some((t) => t.id !== id && t.prefix === p)) return { error: `Another outcome type already uses ${p}.` };
   return edit(types, id, (t) => ({ ...t, prefix: p }));
 }

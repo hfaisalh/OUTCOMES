@@ -453,10 +453,10 @@ describe("outcomes (DECISIONS 61)", () => {
     const cookie = await signIn(d);
     await handleConfig(as(cookie, { method: "PUT", body: fwSetup }), d);
     const first = (await handleOutcomes(as(cookie), d)).body as { outcomeTypes: { id: string; source: string }[] };
-    expect(first.outcomeTypes.map((t) => t.id)).toEqual(["child", "water-pump"]);
+    expect(first.outcomeTypes.map((t) => t.id)).toEqual(["orphan", "water-pump"]);
     expect(first.outcomeTypes[1]?.source).toBe("create_new");
     const added = (await post(cookie, { action: "ot-add", name: "House build" })).body as { outcomeTypes: { id: string; fields: unknown[]; frameworkIds: string[] }[] };
-    expect(added.outcomeTypes.map((t) => t.id)).toEqual(["child", "water-pump", "house-build"]);
+    expect(added.outcomeTypes.map((t) => t.id)).toEqual(["orphan", "water-pump", "house-build"]);
     const withField = (await post(cookie, { action: "ot-field-add", typeId: "house-build", label: "Plot size", kind: "number" })).body as typeof added;
     expect(withField.outcomeTypes[2]?.fields).toHaveLength(1);
     const linked = (await post(cookie, { action: "ot-framework", typeId: "house-build", frameworkId: "shared", on: true })).body as typeof added;
@@ -472,17 +472,17 @@ describe("outcomes (DECISIONS 61)", () => {
     await handleImport(as(cookie, { method: "POST", body: up([line("1", "501", "1"), line("2", "502", "1")]) }), d);
     await handleConfig(as(cookie, { method: "PUT", body: fwSetup }), d);
     const added = (await post(cookie, { action: "add", name: "Orphan", count: 2, type: "child", cohort: "", frameworkId: "shared" })).body as { outcomes: { ref?: string; outcomeTypeId?: string }[] };
-    expect(added.outcomes.map((o) => o.ref)).toEqual(["CHD-0001", "CHD-0002"]);
-    expect(added.outcomes[0]?.outcomeTypeId).toBe("child");
+    expect(added.outcomes.map((o) => o.ref)).toEqual(["ORP-0001", "ORP-0002"]);
+    expect(added.outcomes[0]?.outcomeTypeId).toBe("orphan");
     const placed = (await post(cookie, { action: "auto" })).body as { allocations: { ref?: string }[] };
     expect(placed.allocations.map((a) => a.ref)).toEqual(["AL-0001", "AL-0002"]);
     // a new outcome continues the count, and a changed prefix is for new IDs only
-    await post(cookie, { action: "ot-prefix", typeId: "child", prefix: "kid" });
+    await post(cookie, { action: "ot-prefix", typeId: "orphan", prefix: "kid" });
     const more = (await post(cookie, { action: "add", name: "Orphan B", count: 1, type: "child", cohort: "", frameworkId: "shared" })).body as { outcomes: { ref?: string }[] };
-    expect(more.outcomes.map((o) => o.ref)).toEqual(["CHD-0001", "CHD-0002", "KID-0001"]);
-    expect((await post(cookie, { action: "ot-prefix", typeId: "child", prefix: "PMP" })).status).toBe(400); // another type uses it
+    expect(more.outcomes.map((o) => o.ref)).toEqual(["ORP-0001", "ORP-0002", "KID-0001"]);
+    expect((await post(cookie, { action: "ot-prefix", typeId: "orphan", prefix: "PMP" })).status).toBe(400); // another type uses it
     // a read is steady: the same IDs, nothing given twice
-    expect(((await handleOutcomes(as(cookie), d)).body as typeof more).outcomes.map((o) => o.ref)).toEqual(["CHD-0001", "CHD-0002", "KID-0001"]);
+    expect(((await handleOutcomes(as(cookie), d)).body as typeof more).outcomes.map((o) => o.ref)).toEqual(["ORP-0001", "ORP-0002", "KID-0001"]);
   });
 
   it("refuses a missing framework, a bad action, a viewer and a signed-out caller, and keeps organisations apart", async () => {

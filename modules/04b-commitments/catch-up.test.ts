@@ -132,11 +132,11 @@ describe("catch-up payments", () => {
   it("shows the IDs of the outcome and the allocation in the gift window (DECISIONS 105)", () => {
     const done = [inst(1, "2026-08-11"), inst(2, "2026-09-11")];
     const v = { workOrders: done, review: [], categories: [], today: "2026-11-22",
-      frameworks: [{ id: "f", name: "F", unit: "child", cycle: "monthly", reports: [], instalment: "per_period", unitsPerBeneficiary: 1 }],
-      outcomes: [{ id: "o1", name: "Ali", type: "child", cohort: "", frameworkId: "f", active: true, ref: "CHD-0007", outcomeTypeId: "child" }],
+      frameworks: [{ id: "f", name: "F", unit: "orphan", cycle: "monthly", reports: [], instalment: "per_period", unitsPerBeneficiary: 1 }],
+      outcomes: [{ id: "o1", name: "Ali", type: "orphan", cohort: "", frameworkId: "f", active: true, ref: "ORP-0007", outcomeTypeId: "orphan" }],
       allocations: [{ commitmentKey: "S1", outcomeId: "o1", parts: 1, how: "auto", at: "t", ref: "AL-0012" }] } as unknown as View;
     const html = giftDetailHtml({ ...v, workOrders: done.map((w) => ({ ...w, frameworkId: "f" })) } as View, "S1");
-    expect(html).toContain("CHD-0007");
+    expect(html).toContain("ORP-0007");
     expect(html).toContain("Allocation AL-0012");
   });
 });
