@@ -436,6 +436,18 @@ describe("outcomes (DECISIONS 61)", () => {
     expect((await post(cookie, { action: "release", commitmentKey: "501" })).body).toMatchObject({ allocations: [] });
   });
 
+  it("takes every gift off its beneficiary in one step and keeps the beneficiaries (DECISIONS 90)", async () => {
+    const cookie = await signIn(d);
+    await handleImport(as(cookie, { method: "POST", body: up([line("1", "501", "1"), line("2", "502", "1")]) }), d);
+    await handleConfig(as(cookie, { method: "PUT", body: fwSetup }), d);
+    await post(cookie, { action: "add", name: "Orphan", count: 2, type: "child", cohort: "", frameworkId: "shared" });
+    await post(cookie, { action: "auto" });
+    const r = (await post(cookie, { action: "release-all" })).body as { released: number; allocations: unknown[]; outcomes: unknown[] };
+    expect(r.released).toBe(2);
+    expect(r.allocations).toEqual([]);
+    expect(r.outcomes).toHaveLength(2);
+  });
+
   it("refuses a missing framework, a bad action, a viewer and a signed-out caller, and keeps organisations apart", async () => {
     const cookie = await signIn(d);
     expect((await post(cookie, { action: "add", name: "Orphan", count: 1, type: "", cohort: "", frameworkId: "ghost" })).status).toBe(400);

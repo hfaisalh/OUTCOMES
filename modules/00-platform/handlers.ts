@@ -412,6 +412,11 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       case "release":
         allocations = releaseAllocation(allocations, str("commitmentKey"));
         break;
+      // Rule (DECISIONS 90): take every gift off its beneficiary. The beneficiaries stay, and the gifts wait for a place again.
+      case "release-all":
+        extra = { released: allocations.length };
+        allocations = [];
+        break;
       default: {
         // Projects (DECISIONS 65): the structure each project defines, and the beneficiaries in it.
         const r = applyProjectAction({ projects, nodes, outcomes, partnerTypes, partnerFields, giftProjects }, fw, b, at.slice(0, 10));

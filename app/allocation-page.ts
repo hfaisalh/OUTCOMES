@@ -79,6 +79,7 @@ export function allocationPage(v: View): string {
   };
   const left = `<div class="card"><h2>Gifts waiting <span class="muted">(${waiting.length})</span></h2>
     <div class="actions"><button class="primary" data-action="auto-allocate"${waiting.length ? "" : " disabled"}>Place all suggestions</button><span class="muted">Releases what no longer holds, then places each waiting gift as suggested. Nothing already placed is moved.</span></div>
+    <div class="actions"><button data-action="release-all"${allocations.length ? "" : " disabled"}>Unallocate all (${allocations.length})</button><span class="muted">Takes every gift off its beneficiary. The beneficiaries stay. Nothing is placed again until you press Place all suggestions.</span></div>
     ${waiting.length ? waiting.slice(0, MAX_GIFTS).map(gift).join("") + (waiting.length > MAX_GIFTS ? `<p class="muted">Showing ${MAX_GIFTS} of ${waiting.length}, oldest first.</p>` : "") : `<div class="empty">Nothing is waiting. Every gift that holds a place has one.</div>`}</div>`;
 
   const placeRows = nodes.map((n) => ({ n, r: roll.byNode.get(n.id) })).filter((x) => (x.r?.places ?? 0) > 0).slice(0, MAX_PLACES);
