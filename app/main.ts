@@ -34,10 +34,11 @@ import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { dataFeedPage, dataFilesPage } from "./data-page";
+import { createMapping } from "./mapping-controller";
 import { checkingHtml, signinHtml } from "./signin-page";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
 import { landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
-import { outcomesPage, listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, sourcesPage, type Filter, type View } from "./pages";
+import { outcomesPage, listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, type Filter, type View } from "./pages";
 
 const state = {
   live: (): boolean => state.me !== null,
@@ -372,6 +373,9 @@ function redrawLists(): void {
   for (const el of Array.from(document.querySelectorAll("[data-list]"))) el.innerHTML = (el as HTMLElement).dataset.list === "main" ? giftListHtml(view()) : listHtml(view(), (el as HTMLElement).dataset.list as string);
 }
 
+// The Other sources page (field mapping) lives in the shell and keeps its own state (DECISIONS 93).
+const mapping = createMapping(() => draw());
+
 function draw(): void {
   // Rule (DECISIONS 91): until a session is found, or the demo is chosen, only the sign-in screen is shown.
   if (state.gate !== "app") {
@@ -397,7 +401,7 @@ function draw(): void {
     : state.page === "audit" ? auditPage(v)
     : state.page === "dashboard" ? dashboardPage(v)
     : state.page === "categories" ? categoriesPage(v)
-    : state.page === "sources" ? sourcesPage()
+    : state.page === "sources" ? mapping.html()
     : settingsPage(v);
   // Side menu (DECISIONS 66): the journey of a gift. A module is one entry and its pages are tabs above the page. Setup is behind the gear.
   const entries = menuEntries(permissions());
@@ -1160,3 +1164,11 @@ document.addEventListener("keydown", (e) => {
   const row = (e.target as HTMLElement).closest?.(".rowlink[data-pj]") as HTMLElement | null;
   if (row && e.key === "Enter") { state.projectWin = { open: true, id: row.dataset.id ?? "" }; renderProjectWindow(); }
 });
+
+// Events inside the Other sources page go to its controller (DECISIONS 93). The click listener comes first so a tap on a chip is not taken for anything else.
+document.addEventListener("click", (e) => { mapping.onClick(e); });
+document.addEventListener("change", (e) => { mapping.onChange(e); });
+document.addEventListener("dragstart", (e) => mapping.onDragStart(e as DragEvent));
+document.addEventListener("dragover", (e) => { mapping.onDragOver(e as DragEvent); });
+document.addEventListener("dragleave", (e) => mapping.onDragLeave(e as DragEvent));
+document.addEventListener("drop", (e) => { mapping.onDrop(e as DragEvent); });

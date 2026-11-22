@@ -90,3 +90,7 @@ Paste the sheet link and click **Load from Google Sheet**. Each person signs in 
 npm run check   # typecheck and tests
 npm test        # tests only
 ```
+
+
+## Where the page is
+The page for this module is inside the OUTCOMES shell under Data, Other sources (`app/mapping-page.ts` and `app/mapping-controller.ts`, DECISIONS 93). The views it draws are in `ui/views.ts`, and the Google sign-in helper in `ui/google.ts`. The old standalone page is gone.

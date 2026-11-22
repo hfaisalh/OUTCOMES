@@ -277,10 +277,6 @@ export function categoriesPage(v: View): string {
       <div>${v.categories.length ? `<div class="fwgrid">${v.categories.map(card).join("")}</div>` : `<div class="card empty">No categories yet. Add one.</div>`}</div></div>`;
 }
 
-export const sourcesPage = (): string => `
-    <h1>Other sources</h1>
-    <p class="sub">For organisations with no CRM, and for testing. Upload a file or read a Google Sheet, then map its columns to OUTCOMES' own fields. The mapping tool opens right here, so nothing leaves this page (DECISIONS 93).</p>
-    <div class="card embedcard"><iframe class="embed" title="File and field mapping" src="/modules/01-data-mapping/ui/index.html?embedded=1"></iframe></div>`;
 
 export const settingsPage = (v: View): string => `
     <h1>Settings</h1><p class="sub">Connector settings for this organisation. Roles and who may sign in are not set here: they come from the CRM (DECISIONS 32).</p>

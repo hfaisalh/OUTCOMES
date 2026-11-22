@@ -146,10 +146,23 @@ describe("the Data area and the icon menus (DECISIONS 92)", () => {
     click({ menu: "user" }, "data-menu"); // a second click closes it
     expect(shell.innerHTML).not.toContain('role="menu"');
   });
-  it("shows the field mapping tool inside Other sources, not as a link to a new page (DECISIONS 93)", () => {
+  it("has the field mapping tool inside Other sources as a four step flow, not a link to a new page (DECISIONS 93)", () => {
+    const tap = (attrs: Record<string, string>) => fire("click", { target: el(attrs, [".mp", "data-mp"]) });
     click({ page: "sources" }, "data-page");
-    expect(shell.innerHTML).toContain('<iframe class="embed"');
-    expect(shell.innerHTML).toContain("/modules/01-data-mapping/ui/index.html?embedded=1");
-    expect(shell.innerHTML).not.toContain("Open the file and field mapping page");
+    expect(shell.innerHTML).toContain("<h1>Other sources</h1>");
+    expect(shell.innerHTML).toContain('class="mp-steps"');
+    expect(shell.innerHTML).toContain('id="mp-file"'); // step 1: choose the file
+    expect(shell.innerHTML).not.toContain("<iframe");
+    expect(shell.innerHTML).toMatch(/data-n="2"[^>]*disabled/); // later steps wait for a file
+    tap({ mp: "demo", kind: "salesforce" });
+    expect(shell.innerHTML).toContain("Match the columns"); // a file is loaded, so it moves on
+    expect(shell.innerHTML).toContain("Demo with invented sample data");
+    tap({ mp: "step", n: "3" });
+    expect(shell.innerHTML).toContain("Match the values");
+    tap({ mp: "step", n: "4" });
+    expect(shell.innerHTML).toContain("Check the result");
+    expect(shell.innerHTML).toContain('data-mp="save"');
+    tap({ mp: "step", n: "1" });
+    expect(shell.innerHTML).toContain('id="mp-file"');
   });
 });
