@@ -12,7 +12,7 @@
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, clearLegacy, placeInNode, placeInPartner, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
-import { setCovers, setLooked } from "../modules/04b-commitments/catch-up";
+import { setCovers, setLooked, setParts } from "../modules/04b-commitments/catch-up";
 import { giftDetailHtml, giftListHtml, giftsPage, shownGiftKeys } from "./gifts-page";
 import { partnersPage } from "./partners-page";
 import { projectsPage } from "./projects-page";
@@ -29,7 +29,7 @@ import { acceptSuggestions, addCategory, addFramework, assignItem, duplicateFram
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
 import { buildAttention, type AttentionItem } from "../modules/04-triage/triage";
-import { changeOutcomes, loadOutcomes, decideAttention, setExcluded, setCovers as setCoversApi, setLooked as setLookedApi, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
+import { changeOutcomes, loadOutcomes, decideAttention, setExcluded, setCovers as setCoversApi, setLooked as setLookedApi, setParts as setPartsApi, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
 import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
@@ -298,6 +298,30 @@ async function applyCovers(key: string, covers: number): Promise<void> {
   }
   draw();
 }
+// Sets the parts of a payment when its quantity looked wrong, or confirms the CRM's (DECISIONS 87).
+async function applyParts(key: string, parts: number): Promise<void> {
+  try {
+    if (state.live()) {
+      const r = await setPartsApi(key, parts);
+      const back = new Map(r.workOrders.map((w) => [w.key, w]));
+      state.workOrders = state.workOrders.map((w) => back.get(w.key) ?? w);
+    } else {
+      state.workOrders = state.workOrders.map((w) => {
+        if (w.key !== key) return w;
+        const r = setParts(w, parts);
+        return "order" in r ? r.order : w;
+      });
+    }
+    state.message = `Set to ${parts} part${parts === 1 ? "" : "s"}.`;
+  } catch (e) {
+    state.message = e instanceof Error ? e.message : "That did not work.";
+  }
+  draw();
+}
+document.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest("[data-parts-set]") as HTMLElement | null;
+  if (b) void applyParts(b.dataset.partsSet as string, Number(b.dataset.n));
+});
 // A person says they checked what the notes of a gift say (DECISIONS 86), or reopens it.
 async function applyLooked(key: string, looked: string): Promise<void> {
   try {

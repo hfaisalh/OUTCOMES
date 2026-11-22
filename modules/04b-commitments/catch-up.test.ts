@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorkOrder } from "../01c-crm-connector/work-orders";
 import { buildCommitments } from "./commitments";
-import { coverage, fillMonths, setCovers, setLooked, suggestCatchUps } from "./catch-up";
+import { coverage, fillMonths, setCovers, setLooked, setParts, suggestCatchUps, suggestPartFixes } from "./catch-up";
 import { giftRows } from "./gifts";
 
 const inst = (n: number, date: string, amount = 35, over: Partial<WorkOrder> = {}): WorkOrder => ({
@@ -65,7 +65,7 @@ describe("catch-up payments", () => {
     expect(setCovers(inst(1, "2026-08-11", 35, { status: "excluded" }), 2)).toHaveProperty("error");
   });
   it("shows parts that differ as resolved, not hidden, once a catch-up is applied, and the gift stops needing a look", () => {
-    const raw = [inst(1, "2026-08-11", 70, { quantity: 2 }), inst(2, "2026-09-11"), inst(3, "2026-10-11")];
+    const raw = [inst(1, "2026-08-11", 35, { quantity: 2 }), inst(2, "2026-09-11"), inst(3, "2026-10-11")];
     expect(giftRows(raw, raw)[0]?.notes.some((n) => n.text === "Parts differ between instalments" && !n.resolved)).toBe(true);
     const fixed = [{ ...raw[0]!, covers: 2 }, ...raw.slice(1)];
     const row = giftRows(fixed, fixed)[0]!;
@@ -87,5 +87,25 @@ describe("catch-up payments", () => {
     expect(giftRows(more, more)[0]?.needsLook).toBe(true);
     // and the check can be taken back
     expect((setLooked(checked[0]!, "") as { order: WorkOrder }).order.looked).toBeUndefined();
+  });
+  it("walks subscription 83: a catch-up and two quantities that look wrong are each suggested, and applying them resolves the note without a manual check", () => {
+    const sub83 = [inst(1, "2026-08-11", 35, { quantity: 2 }), inst(2, "2026-09-11", 35), inst(3, "2026-10-11", 17.5, { quantity: 2 }), inst(4, "2026-11-11", 17.5, { quantity: 2 })];
+    // the line totals are 70, 35, 35 and 35
+    const row = giftRows(sub83, sub83)[0]!;
+    expect(row.catchUps.map((x) => x.key)).toEqual(["L1"]);
+    expect(row.partFixes.map((x) => [x.key, x.parts])).toEqual([["L3", 1], ["L4", 1]]);
+    expect(row.needsLook).toBe(true);
+    // apply them
+    const done = sub83.map((w) => (w.key === "L1" ? { ...w, covers: 2 } : w.key === "L3" || w.key === "L4" ? (setParts(w, 1) as { order: WorkOrder }).order : w));
+    const after = giftRows(done, done)[0]!;
+    expect(after.catchUps).toEqual([]);
+    expect(after.partFixes).toEqual([]);
+    expect(after.notes.every((n) => n.resolved)).toBe(true);
+    expect(after.needsLook).toBe(false);
+    expect(after.paid).toBe(5);
+    expect(after.adjustments).toEqual(["Payment T1 marked as covering 2 instalments", "Payment T3 set to 1 part (the CRM says 2)", "Payment T4 set to 1 part (the CRM says 2)"]);
+    expect(giftRows(sub83, sub83)[0]?.adjustments).toEqual([]); // untouched data shows none
+    // saying the CRM is right keeps the quantity and stops the suggestion
+    expect(suggestPartFixes([sub83[0]!, sub83[1]!, (setParts(sub83[2]!, 2) as { order: WorkOrder }).order, sub83[3]!]).map((x) => x.key)).toEqual(["L4"]);
   });
 });

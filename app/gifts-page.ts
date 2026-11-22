@@ -144,6 +144,8 @@ function statusIcons(g: GiftRow): string {
   if (g.needsLook) out.push(icon("warn", SYMBOL.look, g.notes.filter((n) => !n.resolved).map((n) => n.text).join(". ") || "Needs a look"));
   const p = PLAN_ICON[g.planStatus];
   if (p) out.push(icon("muted", p[0], p[1]));
+  // An orange tick means a person changed something by hand, so the gift may no longer match the CRM exactly (DECISIONS 88).
+  if (out.length === 0 && g.adjustments.length > 0) return icon("manual", SYMBOL.ok, `Ready, with manual changes that the CRM does not know about: ${g.adjustments.join("; ")}`);
   return out.length > 0 ? out.join("") : icon("good", SYMBOL.ok, g.notes.some((n) => n.resolved) ? "Ready. What needed a look is resolved." : "Ready");
 }
 
@@ -211,17 +213,17 @@ export function giftDetailHtml(v: View, giftKey: string): string {
     g.inReview ? `<span class="pill review">Review</span>` : "",
     ...g.notes.map((n) => n.resolved ? `<span class="pill done" title="${esc(n.title ?? (g.checked ? "Checked by a person" : "Resolved"))}"><s>${esc(n.text)}</s> resolved</span>` : `<span class="pill review"${n.title ? ` title="${esc(n.title)}"` : ""}>${esc(n.text)}</span>`),
   ].filter((x) => x !== "").join(" ");
-  const first0 = g.payments.find((w) => w.legacyUpload !== true) ?? g.payments[0];
-  // A person can say they have checked what the notes say. It holds until the notes change.
-  const checkBtn = !first0 || g.kind !== "recurring" ? "" : g.checked ? `<button data-looked="${esc(first0.key)}" data-text="">Reopen</button>` : g.lookSignature !== "" && g.needsLook ? `<button data-looked="${esc(first0.key)}" data-text="${esc(g.lookSignature)}" title="Use this when you have looked at it and it is fine as it is, for example when the CRM data is wrong and is being fixed there.">Mark as checked</button>` : "";
+  const manual = g.adjustments.length ? `<div class="manual-note"><span class="gi manual">${SYMBOL.ok}</span> Changed by hand here, not in the CRM: ${g.adjustments.map(esc).join("; ")}.</div>` : "";
   const link = g.kind !== "unlinked" ? "" : g.suggestions.length === 0 ? `<div class="muted">No commitment for the same supporter and item</div>` : g.suggestions.map((s) => `<div class="muted">Possibly subscription <b>${esc(s.subscriptionId)}</b> (${s.daysApart === null ? "legacy upload, date not comparable" : s.daysApart === 0 ? "same day" : `${Math.abs(s.daysApart)} day${Math.abs(s.daysApart) === 1 ? "" : "s"} ${s.daysApart < 0 ? "before its first instalment" : "after its first instalment"}`})</div>`).join("");
   // The suggestion for a payment that looks like a catch-up: what it would cover, with one click to agree or to say it is normal.
   const monthName = (m: string) => m;
   const catchUp = g.catchUps.map((x) => `<div class="suggest-box"><b>Possible catch-up payment.</b> ${esc(x.reason)}. If it covers ${x.covers} instalments, it also fills ${x.fills.map(monthName).map(esc).join(", ")}.
       <div class="actions"><button class="primary" data-covers-set="${esc(x.key)}" data-n="${x.covers}">Yes, it covers ${x.covers}</button><button data-covers-set="${esc(x.key)}" data-n="1">No, it is a normal payment</button></div></div>`).join("");
+  const partFix = g.partFixes.map((x) => `<div class="suggest-box"><b>The quantity looks wrong.</b> ${esc(x.reason)} part${x.parts === 1 ? "" : "s"}.
+      <div class="actions"><button class="primary" data-parts-set="${esc(x.key)}" data-n="${x.parts}">Yes, count it as ${x.parts} part${x.parts === 1 ? "" : "s"}</button><button data-parts-set="${esc(x.key)}" data-n="${x.sent}">No, ${x.sent} is right</button></div></div>`).join("");
   return `<div class="pf-overlay" data-gift-close="overlay"><div class="pf-box" role="dialog" aria-label="Gift details">
     <header><h2>${esc(g.supporterName)} <span class="muted">${esc(g.itemName)}</span></h2><button data-gift-close="x" aria-label="Close">Close</button></header>
-    <div class="pf-body compact">${catchUp}<div class="fgrid">
+    <div class="pf-body compact">${catchUp}${partFix}<div class="fgrid">
         ${row("Donor", `${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span>${first && first.group ? ` <span class="muted">· ${esc(first.group)}</span>` : ""}`)}
         ${row("Item", `${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${picker(v.categories, first.itemId, "")}` : `<div class="muted">${esc(categoryName(v.categories, g.categoryId))}${first && first.bundleQty && first.bundleQty > 1 && g.kind !== "recurring" ? ` \u00B7 bundle of ${first.bundleQty}${first.quantity > 1 ? ` x ${first.quantity}` : ""}` : ""}</div>`}`)}
         ${row("Type", esc(kindName))}
@@ -233,7 +235,7 @@ export function giftDetailHtml(v: View, giftKey: string): string {
         ${row("Project chosen", esc(g.projectName))}
         ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
         ${row("Allocated to", allocation)}
-        ${row("Status", `${status}${checkBtn ? `<div class="actions">${checkBtn}</div>` : ""}`)}
+        ${row("Status", `${status}${manual}`)}
         ${first ? row("Credit", creditLine(first), true) : ""}
         ${row("Could belong to", link, true)}
       </div>

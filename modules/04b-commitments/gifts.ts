@@ -14,8 +14,8 @@
  */
 
 import type { WorkOrder } from "../01c-crm-connector/work-orders.js";
-import { partsOf } from "../01c-crm-connector/work-orders.js";
-import { suggestCatchUps, type CatchUp } from "./catch-up.js";
+import { partsOf, sentPartsOf } from "../01c-crm-connector/work-orders.js";
+import { suggestCatchUps, suggestPartFixes, type CatchUp, type PartFix } from "./catch-up.js";
 import { buildCommitments, needsLook, ONCE_PREFIX, type Commitment, type Suggestion } from "./commitments.js";
 
 export type GiftKind = "recurring" | "one_off" | "unlinked" | "excluded";
@@ -42,11 +42,13 @@ export interface GiftRow {
   payments: WorkOrder[]; // every live payment of the gift, oldest first
   notes: { text: string; title?: string; resolved?: boolean }[]; // what needs a look, in words. A resolved note was fixed (by a catch-up) or checked by a person (DECISIONS 86)
   lookSignature: string; // the open notes joined, which a person's check is kept against. "" when there is nothing to check
+  adjustments: string[]; // what a person changed by hand on this gift, which the CRM does not know about (DECISIONS 88)
   checked: boolean; // a person has checked the notes as they are now
   needsLook: boolean;
   inReview: boolean; // a payment is held for review
   unrouted: boolean; // a payment is waiting for a category
   suggestions: Suggestion[]; // for an unlinked recurring line
+  partFixes: PartFix[]; // payments whose quantity looks wrong, not yet checked by a person (DECISIONS 87)
   catchUps: CatchUp[]; // payments that look like they cover more than one instalment, not yet checked by a person (DECISIONS 84)
   commitment?: Commitment;
 }
@@ -101,20 +103,27 @@ export function giftRows(shown: WorkOrder[], all: WorkOrder[], reviewKeys: Set<s
     };
     if (kind === "recurring" && c) {
       const catchUps = suggestCatchUps(own);
+      const partFixes = suggestPartFixes(own).filter((f) => !catchUps.some((c) => c.key === f.key)); // a likely catch-up is asked about first
       // Rule (DECISIONS 86): parts that differ only until a catch-up is applied are shown as resolved, not hidden.
       const realOwn = own.filter((w) => w.legacyUpload !== true);
-      const rawVary = realOwn.some((w) => partsOf(w) !== partsOf(realOwn[0] as WorkOrder));
-      const notes = [...notesOf(c, !c.partsVary && rawVary && realOwn.some((w) => (w.covers ?? 1) > 1)), ...(catchUps.length ? [{ text: "Possible catch-up payment", title: catchUps.map((x) => x.reason).join(". ") }] : [])];
+      const rawVary = realOwn.some((w) => sentPartsOf(w) !== sentPartsOf(realOwn[0] as WorkOrder));
+      const notes = [...notesOf(c, !c.partsVary && rawVary && realOwn.some((w) => (w.covers ?? 1) > 1 || w.partsFixed !== undefined)), ...(catchUps.length ? [{ text: "Possible catch-up payment", title: catchUps.map((x) => x.reason).join(". ") }] : []), ...(partFixes.length ? [{ text: "Quantity looks wrong", title: partFixes.map((x) => x.reason).join(". ") }] : [])];
       // Rule: a person's check holds while the open notes are exactly what they checked. A new problem makes the text differ and reopens it.
       const open = notes.filter((n) => !n.resolved);
       const lookSignature = open.map((n) => n.text).join("|");
       const checked = lookSignature !== "" && realOwn.some((w) => w.looked === lookSignature);
-      const looking = needsLook(c) || catchUps.length > 0;
-      rows.push({ ...base, allocationKey: key, parts: c.partsPerInstalment, paid: c.paid, planned: c.planned, firstPaid: c.firstPaid, lastPaid: c.lastPaid, planStatus: c.planStatus, nextDue: c.nextDue, periodCount: 0, notes: checked ? notes.map((n) => ({ ...n, resolved: true })) : notes, lookSignature, checked, needsLook: looking && !checked, suggestions: [], catchUps: checked ? [] : catchUps, commitment: c });
+      const looking = needsLook(c) || catchUps.length > 0 || partFixes.length > 0;
+      // Rule (DECISIONS 88): every change a person made by hand is listed, so it can be seen that the gift no longer matches the CRM exactly.
+      const adjustments = [
+        ...realOwn.filter((w) => (w.covers ?? 1) > 1).map((w) => `Payment ${w.transactionRef || w.key} marked as covering ${w.covers} instalments`),
+        ...realOwn.filter((w) => w.partsFixed !== undefined && w.partsFixed !== sentPartsOf(w)).map((w) => `Payment ${w.transactionRef || w.key} set to ${w.partsFixed} part${w.partsFixed === 1 ? "" : "s"} (the CRM says ${sentPartsOf(w)})`),
+        ...(realOwn.some((w) => w.looked !== undefined) ? ["Notes marked as checked"] : []),
+      ];
+      rows.push({ ...base, allocationKey: key, parts: c.partsPerInstalment, paid: c.paid, planned: c.planned, firstPaid: c.firstPaid, lastPaid: c.lastPaid, planStatus: c.planStatus, nextDue: c.nextDue, periodCount: 0, notes: checked ? notes.map((n) => ({ ...n, resolved: true })) : notes, lookSignature, adjustments, checked, needsLook: looking && !checked, suggestions: [], partFixes: checked ? [] : partFixes, catchUps: checked ? [] : catchUps, commitment: c });
     } else if (kind === "one_off") {
-      rows.push({ ...base, allocationKey: key, parts: partsOf(first), paid: 1, planned: 1, firstPaid: first.paidDate.slice(0, 10), lastPaid: first.paidDate.slice(0, 10), planStatus: "", nextDue: "", periodCount: first.periodCount ?? 0, notes: [], lookSignature: "", checked: false, needsLook: false, suggestions: [], catchUps: [] });
+      rows.push({ ...base, allocationKey: key, parts: partsOf(first), paid: 1, planned: 1, firstPaid: first.paidDate.slice(0, 10), lastPaid: first.paidDate.slice(0, 10), planStatus: "", nextDue: "", periodCount: first.periodCount ?? 0, notes: [], lookSignature: "", adjustments: [], checked: false, needsLook: false, suggestions: [], partFixes: [], catchUps: [] });
     } else {
-      rows.push({ ...base, allocationKey: "", parts: partsOf(first), paid: real.length, planned: Number.isInteger(Number(first.instalmentCount)) && Number(first.instalmentCount) > 0 ? Number(first.instalmentCount) : null, firstPaid: real[0]?.paidDate.slice(0, 10) ?? first.paidDate.slice(0, 10), lastPaid: lastReal?.paidDate.slice(0, 10) ?? first.paidDate.slice(0, 10), planStatus: first.planStatus ?? "", nextDue: first.planNextDue ?? "", periodCount: 0, notes: kind === "unlinked" ? [{ text: "Recurring line with no subscription", title: "The CRM did not link this line to a subscription. The suggestion is only a hint. Check it in the CRM. Nothing is linked here." }] : [], lookSignature: "", checked: false, needsLook: kind === "unlinked", suggestions: sug?.suggestions ?? [], catchUps: [] });
+      rows.push({ ...base, allocationKey: "", parts: partsOf(first), paid: real.length, planned: Number.isInteger(Number(first.instalmentCount)) && Number(first.instalmentCount) > 0 ? Number(first.instalmentCount) : null, firstPaid: real[0]?.paidDate.slice(0, 10) ?? first.paidDate.slice(0, 10), lastPaid: lastReal?.paidDate.slice(0, 10) ?? first.paidDate.slice(0, 10), planStatus: first.planStatus ?? "", nextDue: first.planNextDue ?? "", periodCount: 0, notes: kind === "unlinked" ? [{ text: "Recurring line with no subscription", title: "The CRM did not link this line to a subscription. The suggestion is only a hint. Check it in the CRM. Nothing is linked here." }] : [], lookSignature: "", adjustments: [], checked: false, needsLook: kind === "unlinked", suggestions: sug?.suggestions ?? [], partFixes: [], catchUps: [] });
     }
   }
   return rows.sort((a, b) => Number(b.needsLook) - Number(a.needsLook) || b.lastPaid.localeCompare(a.lastPaid) || a.key.localeCompare(b.key));

@@ -111,3 +111,45 @@ export function setLooked(w: WorkOrder, looked: string): { order: WorkOrder } | 
   const { looked: _old, ...rest } = w;
   return { order: looked === "" ? rest : { ...rest, looked } };
 }
+
+export interface PartFix {
+  key: string; // the payment
+  parts: number; // the parts the line total fits
+  sent: number; // the parts the CRM's quantity gives
+  unit: number; // the unit price on this line
+  usualUnit: number; // the unit price most payments share
+  reason: string;
+}
+
+/**
+ * Rule (DECISIONS 87): a payment whose quantity looks wrong. Most payments of a gift share one unit price. A line at a different unit price whose total
+ * fits a whole number of the usual unit gets that many parts suggested instead (35 for 2 units at 17.50 each fits 1 part at 35). The usual unit price
+ * needs at least two payments, and on a tie the higher price is the usual one, since a part-price line is the odd one. Only a suggestion.
+ * A payment a person has already set (partsFixed) is not suggested again.
+ */
+export function suggestPartFixes(payments: WorkOrder[]): PartFix[] {
+  const list = real(payments);
+  const counts = new Map<number, number>();
+  for (const w of list) counts.set(w.amount, (counts.get(w.amount) ?? 0) + 1);
+  let usual = 0;
+  let best = 1;
+  for (const [u, n] of counts) if (n > best || (n === best && n > 1 && u > usual)) { usual = u; best = n; }
+  if (usual <= 0) return [];
+  const out: PartFix[] = [];
+  for (const w of list) {
+    if (w.partsFixed !== undefined || (w.covers ?? 1) > 1 || w.amount === usual) continue; // a catch-up is its own question (see suggestCatchUps)
+    const value = lineValue(w);
+    const k = Math.round(value / usual);
+    const sent = (w.bundleQty ?? 1) * w.quantity;
+    if (k < 1 || Math.abs(value - k * usual) > 0.02 * usual * k || k === sent) continue;
+    out.push({ key: w.key, parts: k, sent, unit: w.amount, usualUnit: usual, reason: `${value.toFixed(2)} for ${sent} at ${w.amount.toFixed(2)} each, but the usual price is ${usual.toFixed(2)} each, so it fits ${k}` });
+  }
+  return out;
+}
+
+// Rule: a person sets the parts of a payment, 1 to 20. Setting what the CRM sent confirms it is right, so it is not suggested again.
+export function setParts(w: WorkOrder, parts: number): { order: WorkOrder } | { error: string } {
+  if (!Number.isInteger(parts) || parts < 1 || parts > 20) return { error: "Parts are a whole number from 1 to 20." };
+  if (w.status !== "unrouted" && w.status !== "ready") return { error: "Work has already started on this one, or it is excluded, so it cannot be changed." };
+  return { order: { ...w, partsFixed: parts } };
+}

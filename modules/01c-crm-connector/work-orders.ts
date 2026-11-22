@@ -39,6 +39,7 @@ export interface WorkOrder {
   itemId: string;
   itemName: string;
   amount: number; // the price of one unit, for reference only (DECISIONS 81)
+  partsFixed?: number; // parts of this payment as a person set them, when the CRM's quantity looked wrong (DECISIONS 87). Absent: parts come from the quantity
   looked?: string; // set by a person: the notes of the gift's Needs a look list they checked (DECISIONS 86). Resolved while the notes are still the same
   covers?: number; // how many instalments this payment covers, set by a person (DECISIONS 84). Absent: not checked, 1 is assumed. 1: checked, a normal payment
   lineTotal?: number; // what the whole line cost, when the CRM sent it (DECISIONS 82)
@@ -62,7 +63,9 @@ export interface WorkOrder {
 }
 
 // Rule (DECISIONS 51): parts = the bundle quantity times the order quantity. Prices play no part, so an old price does not matter.
-export const partsOf = (w: Pick<WorkOrder, "quantity" | "bundleQty">): number => (w.bundleQty ?? 1) * w.quantity;
+export const partsOf = (w: Pick<WorkOrder, "quantity" | "bundleQty" | "partsFixed">): number => w.partsFixed ?? (w.bundleQty ?? 1) * w.quantity;
+// The parts the CRM sent, whatever a person has set (DECISIONS 87).
+export const sentPartsOf = (w: Pick<WorkOrder, "quantity" | "bundleQty">): number => (w.bundleQty ?? 1) * w.quantity;
 
 export interface PlanOptions {
   categoryByItem: Record<string, string>; // CRM item id to category id, set in OUTCOMES
