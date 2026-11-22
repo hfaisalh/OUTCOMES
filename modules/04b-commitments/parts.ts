@@ -1,94 +1,156 @@
 /**
  * parts.ts
  *
- * What it does: works out how many parts a gift is from the price of one part (DECISIONS 112, 113). A framework (soon a workflow) can carry a price for one
- * part with start dates, for example 35 from the start and 40 from 1 Jan 2027. A payment with no bundle is that many parts as it holds whole prices. A payment
- * that is not a clean multiple is a custom amount, marked for manual allocation. A person can also mark a gift as manual, or set its parts.
- * Who calls it: the pick-up and the setup save (modules/00-platform), the demo (app/main.ts) and the Gifts page. Depends on: the work order type only.
- * Pure functions: no database, no screen.
+ * What it does: checks each payment against the prices an item really sells at, and marks a payment at an unknown price for manual allocation
+ * (DECISIONS 127). Donors cannot give custom amounts at item level: an item's amounts are set in the CRM catalogue. So the price of one part for one month
+ * (the payment divided by its bundle size and by the months it covers) must be a price the catalogue has offered. OUTCOMES learns the valid prices from the
+ * gifts themselves and from the catalogue price list, so nothing is typed in and a price change in the CRM needs no change here.
+ * Who calls it: the pick-up, the Gifts list read and the price actions (modules/00-platform), the demo (app/main.ts), the Prices page and the Gifts window.
+ * Depends on: the work order type only. Pure functions: no database, no screen.
  *
  * Rules:
- * - Only a framework that has a part price takes part. Without one nothing changes, and parts stay bundle times quantity.
- * - A line with a bundle keeps its bundle (parts = bundle x quantity). Parts are never taken from the amount for those.
- * - For the others the unit price must be the price of one part in force on the gift's first real payment (times the months a single payment covers,
- *   period_count). Then the parts are the quantity. Any other unit price is a custom amount, even a multiple such as 70 for 35, and is manual (DECISIONS 114).
- * - Parts are worked out once and then kept (`partsAuto`). A later price does not change a gift that already has its parts, so an existing 35 subscriber
- *   stays 1 part when the price becomes 40. A gift that is manual is looked at again when a price is added.
- * - A person's own setting (`partsFixed`) always wins, and a person can mark any gift manual (`partsManual`).
+ * - The unit price of a payment is its amount / bundle size / months covered (months only for a single payment that covers several).
+ * - A unit price is valid for an item when it is in the catalogue price list, or has been seen on at least MIN_GIFTS gifts of that item, or a person accepted it.
+ *   A person can also reject a price, which makes it unusual however often it was seen.
+ * - An item with no valid price at all has nothing to be checked against, so its gifts are not flagged.
+ * - A payment at a valid price is normal and its parts are what the CRM sent (bundle times quantity). One at any other price is a custom amount: marked
+ *   for manual allocation, with the valid prices and, for a single payment whose months are missing, the months that would make it normal.
+ * - A person's own setting (`partsFixed`) always wins and a person can mark any gift manual (`partsManual` with `partsByPerson`).
+ * - What a person decided for a gift carries to its later payments of the same amount.
  * - Legacy uploads are left alone: their amount is a placeholder for payments made on the old website.
  */
 
-import { lineValue, periodsOf, type WorkOrder } from "../01c-crm-connector/work-orders.js";
+import { periodsOf, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 
-export interface PartPrice { from: string; price: number } // from is YYYY-MM-DD
+export const MIN_GIFTS = 3;
 
-// Rule: the price in force on a date: the latest start that is on or before it. Null when none has started yet.
-export function priceAt(prices: PartPrice[], date: string): number | null {
-  const d = date.slice(0, 10);
-  const started = prices.filter((p) => p.from <= d).sort((a, b) => b.from.localeCompare(a.from));
-  return started[0]?.price ?? null;
+export interface PriceKey { itemId: string; price: number }
+export interface PriceBook {
+  catalogue: Record<string, number[]>; // item code to the prices (one part, one month) in the catalogue price list
+  accepted: PriceKey[];
+  rejected: PriceKey[];
 }
+export const emptyBook = (): PriceBook => ({ catalogue: {}, accepted: [], rejected: [] });
 
+const cents = (n: number): number => Math.round(n * 100) / 100;
 const money = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(2));
+const groupOf = (w: WorkOrder): string => (w.subscriptionId !== "" ? w.subscriptionId : `once-${w.key}`);
+const isOneOff = (w: WorkOrder): boolean => w.subscriptionId === "" && w.instalmentCount === "";
 
-export type PartsVerdict = { parts: number } | { manual: string };
-
-// Rule (DECISIONS 114): the parts of one payment, or why it is manual. A bundle keeps its bundle. Otherwise a line is a normal catalogue line only when its
-// unit price is exactly the price of one part (times the months a single payment covers), and then its parts are its quantity. Any other unit price is a
-// custom amount the donor chose, even when it is a multiple (70 is not 35), so a person allocates it. `firstDate` is the date of the gift's first real
-// payment, which decides the price.
-export function derivePartsFor(w: WorkOrder, prices: PartPrice[], firstDate: string): PartsVerdict {
-  if ((w.bundleQty ?? 1) > 1) return { parts: (w.bundleQty ?? 1) * w.quantity };
-  const price = priceAt(prices, firstDate);
-  if (price === null || price <= 0) return { manual: `No price for a part had started by ${firstDate.slice(0, 10)}` };
-  const oneOff = w.subscriptionId === "" && w.instalmentCount === "";
-  const periods = oneOff ? periodsOf(w) : 1;
-  const expected = price * periods;
-  if (Math.abs(w.amount - expected) <= 0.005 * expected && w.quantity >= 1) return { parts: w.quantity };
-  return { manual: `A custom amount: ${money(w.amount)}${periods > 1 ? ` over ${periods} months` : ""} is not the price of a part (${money(expected)})` };
+// Rule: the price of one part for one month, from the payment's amount, its bundle size and the months it covers.
+export function unitPrice(w: WorkOrder): number {
+  const periods = isOneOff(w) ? periodsOf(w) : 1;
+  return cents(w.amount / Math.max(1, w.bundleQty ?? 1) / periods);
 }
 
-const groupOf = (w: WorkOrder): string => (w.subscriptionId !== "" ? w.subscriptionId : `once-${w.key}`);
+export interface PriceEntry {
+  itemId: string;
+  itemName: string;
+  price: number;
+  gifts: number;
+  payments: number;
+  first: string; // YYYY-MM-DD
+  last: string;
+  inCatalogue: boolean;
+  accepted: boolean;
+  rejected: boolean;
+  valid: boolean;
+}
+
+const real = (w: WorkOrder): boolean => w.status !== "excluded" && w.legacyUpload !== true && w.paidDate !== "";
+
+// Rule: every price each item was paid at, how many gifts and payments, and whether it is valid. Items in A to Z order, most used price first.
+export function priceTable(orders: WorkOrder[], book: PriceBook): PriceEntry[] {
+  const by = new Map<string, { itemName: string; prices: Map<number, { gifts: Set<string>; payments: number; first: string; last: string }> }>();
+  for (const w of orders.filter(real)) {
+    const item = by.get(w.itemId) ?? { itemName: w.itemName, prices: new Map() };
+    const p = unitPrice(w);
+    const e = item.prices.get(p) ?? { gifts: new Set<string>(), payments: 0, first: "9999-99-99", last: "" };
+    e.gifts.add(groupOf(w));
+    e.payments++;
+    const d = w.paidDate.slice(0, 10);
+    if (d < e.first) e.first = d;
+    if (d > e.last) e.last = d;
+    item.prices.set(p, e);
+    by.set(w.itemId, item);
+  }
+  // A catalogue price no gift has used yet is still listed.
+  for (const [itemId, list] of Object.entries(book.catalogue)) {
+    const item = by.get(itemId);
+    if (!item) continue;
+    for (const p of list.map(cents)) if (!item.prices.has(p)) item.prices.set(p, { gifts: new Set(), payments: 0, first: "", last: "" });
+  }
+  const out: PriceEntry[] = [];
+  for (const [itemId, item] of by) {
+    for (const [price, e] of item.prices) {
+      const inCatalogue = (book.catalogue[itemId] ?? []).map(cents).includes(price);
+      const accepted = book.accepted.some((k) => k.itemId === itemId && cents(k.price) === price);
+      const rejected = book.rejected.some((k) => k.itemId === itemId && cents(k.price) === price);
+      out.push({ itemId, itemName: item.itemName, price, gifts: e.gifts.size, payments: e.payments, first: e.first === "9999-99-99" ? "" : e.first, last: e.last, inCatalogue, accepted, rejected, valid: !rejected && (inCatalogue || accepted || e.gifts.size >= MIN_GIFTS) });
+    }
+  }
+  return out.sort((a, b) => a.itemName.localeCompare(b.itemName) || b.gifts - a.gifts || a.price - b.price);
+}
+
+export type Verdict = { ok: true } | { ok: false; reason: string; valid: number[]; months?: number };
+
+// Rule: is this payment at a valid price for its item? When it is not, why, and for a single payment with no months given, the months that would make it normal.
+export function judgePayment(w: WorkOrder, table: PriceEntry[]): Verdict {
+  const forItem = table.filter((e) => e.itemId === w.itemId);
+  const valid = forItem.filter((e) => e.valid).map((e) => e.price).sort((a, b) => a - b);
+  if (valid.length === 0) return { ok: true }; // nothing to check it against
+  const p = unitPrice(w);
+  if (valid.includes(p)) return { ok: true };
+  let months: number | undefined;
+  if (isOneOff(w) && periodsOf(w) === 1) {
+    for (const v of [...forItem].filter((e) => e.valid).sort((a, b) => b.gifts - a.gifts).map((e) => e.price)) {
+      const m = w.amount / (Math.max(1, w.bundleQty ?? 1) * v);
+      if (Number.isInteger(cents(m)) && m >= 2 && m <= 36) { months = m; break; }
+    }
+  }
+  return { ok: false, reason: `A custom amount: ${money(p)} a part a month. Prices seen for this item: ${valid.map(money).join(", ")}`, valid, ...(months !== undefined ? { months } : {}) };
+}
 
 /**
- * Rule: gives parts to every work order that has none yet, and returns only the ones that changed. `pricesOf` gives the part prices of a framework id
- * (empty when it has none, which leaves its orders alone). A work order with `partsAuto` or `partsFixed` is kept. One marked manual by a person is kept.
- * One that was manual only for lack of a price is looked at again, so adding a price resolves it.
+ * Rule: marks every work order at an unknown price for manual allocation, and takes the mark off one that is now at a valid price. Returns only what changed.
+ * A person's setting, or a manual mark a person made, is never touched. What a person decided for a gift carries to its later payments of the same amount.
  */
-export function applyPartPrices(orders: WorkOrder[], pricesOf: (frameworkId: string) => PartPrice[]): WorkOrder[] {
-  const firstReal = new Map<string, string>();
-  for (const w of orders) {
-    if (w.status === "excluded" || w.legacyUpload === true || w.paidDate === "") continue;
-    const g = groupOf(w);
-    const have = firstReal.get(g);
-    if (have === undefined || w.paidDate < have) firstReal.set(g, w.paidDate);
-  }
-  // Rule (DECISIONS 114): what a person decided for a gift carries to its later payments of the same amount, so a new instalment does not undo it. A person's
-  // parts are passed on as their parts, and a person's manual mark as the same mark.
+export function applyPrices(orders: WorkOrder[], book: PriceBook): WorkOrder[] {
+  const table = priceTable(orders, book);
   const decided = new Map<string, WorkOrder>();
-  for (const w of orders) if (w.status !== "excluded" && w.legacyUpload !== true && (w.partsFixed !== undefined || w.partsByPerson === true)) decided.set(groupOf(w), w);
+  for (const w of orders) if (real(w) && (w.partsFixed !== undefined || w.partsByPerson === true)) decided.set(groupOf(w), w);
   const changed: WorkOrder[] = [];
   for (const w of orders) {
-    if (w.status === "excluded" || w.legacyUpload === true || w.partsFixed !== undefined || w.partsAuto !== undefined || w.partsByPerson === true) continue;
-    const prices = pricesOf(w.frameworkId ?? "");
-    if (prices.length === 0) continue;
+    if (!real(w) || w.partsFixed !== undefined || w.partsByPerson === true) continue;
     const before = decided.get(groupOf(w));
-    if (before && before.amount === w.amount && (w.partsFixed === undefined)) {
+    if (before && before.amount === w.amount) {
       changed.push(before.partsFixed !== undefined ? { ...w, partsFixed: before.partsFixed } : { ...w, partsManual: before.partsManual ?? "Marked by a person", partsByPerson: true });
       continue;
     }
-    const v = derivePartsFor(w, prices, firstReal.get(groupOf(w)) ?? w.paidDate);
-    if ("parts" in v) {
-      const { partsManual: _m, ...rest } = w;
-      changed.push({ ...rest, partsAuto: v.parts });
-    } else if (w.partsManual !== v.manual) changed.push({ ...w, partsManual: v.manual });
+    const v = judgePayment(w, table);
+    if (v.ok) {
+      if (w.partsManual !== undefined || w.partsAuto !== undefined) {
+        const { partsManual: _m, partsAuto: _a, ...rest } = w;
+        changed.push(rest);
+      }
+    } else if (w.partsManual !== v.reason) {
+      const { partsAuto: _a, ...rest } = w;
+      changed.push({ ...rest, partsManual: v.reason });
+    }
   }
   return changed;
 }
 
-// Rule (DECISIONS 113): a person marks a gift's payment manual, or takes the mark back and lets the price decide again.
+// Rule (DECISIONS 113): a person marks a gift's payment manual, or takes the mark back and lets the prices decide again.
 export function setManual(w: WorkOrder, manual: boolean, reason = "Marked by a person"): { order: WorkOrder } | { error: string } {
   if (w.status !== "unrouted" && w.status !== "ready") return { error: "Work has already started on this one, or it is excluded, so it cannot be changed." };
   const { partsManual: _m, partsByPerson: _b, partsAuto: _a, ...rest } = w;
   return { order: manual ? { ...rest, partsManual: reason.slice(0, 200), partsByPerson: true } : rest };
+}
+
+// Rule: add a price a person accepted, or one they rejected. Either replaces any earlier choice for the same item and price.
+export function choosePrice(book: PriceBook, itemId: string, price: number, choice: "accept" | "reject" | "clear"): PriceBook {
+  const p = cents(price);
+  const keep = (list: PriceKey[]) => list.filter((k) => !(k.itemId === itemId && cents(k.price) === p));
+  return { ...book, accepted: choice === "accept" ? [...keep(book.accepted), { itemId, price: p }] : keep(book.accepted), rejected: choice === "reject" ? [...keep(book.rejected), { itemId, price: p }] : keep(book.rejected) };
 }

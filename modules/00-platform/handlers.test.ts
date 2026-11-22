@@ -497,27 +497,43 @@ describe("outcomes (DECISIONS 61)", () => {
     expect(t.outcomeTypes.find((x) => x.id === "water-pump")?.icon).toBe("pump-lg");
   });
 
-  it("works out parts from the price of one part when it is added, marks custom amounts, and lets a person mark one by hand (DECISIONS 113)", async () => {
+  it("learns an item's prices from its gifts and the catalogue, marks custom amounts, and lets a person accept or reject a price (DECISIONS 127)", async () => {
     const cookie = await signIn(d);
-    const rows = [{ ...line("1", "501", "1"), amount: "35" }, { ...line("2", "502", "1"), amount: "40" }, { ...line("3", "503", "1"), amount: "70" }];
+    // three gifts at 35 and one at 70 (a donor who raised their plan)
+    const rows = [1, 2, 3, 4].map((n) => ({ ...line(String(n), `50${n}`, "1"), amount: n === 4 ? "70" : "35" }));
     await handleImport(as(cookie, { method: "POST", body: up(rows) }), d);
     await handleConfig(as(cookie, { method: "PUT", body: fwSetup }), d);
-    const read = async () => ((await handleWorkOrders(as(cookie), d)).body as { workOrders: { key: string; partsAuto?: number; partsManual?: string; amount: number }[] }).workOrders;
-    expect((await read()).every((w) => w.partsAuto === undefined && w.partsManual === undefined)).toBe(true); // no price, no change
-    // add the price of one part to the framework: the setup save gives the gifts their parts
-    const priced = { ...fwSetup, frameworks: fwSetup.frameworks.map((f: Record<string, unknown>) => ({ ...f, partPrices: [{ from: "2000-01-01", price: 35 }] })) };
-    expect((await handleConfig(as(cookie, { method: "PUT", body: priced }), d)).status).toBe(200);
+    const read = async () => ((await handleWorkOrders(as(cookie), d)).body as { workOrders: { key: string; partsManual?: string; amount: number }[] }).workOrders;
     const after = await read();
-    const by = (amount: number) => after.find((w) => w.amount === amount);
-    expect(by(35)?.partsAuto).toBe(1);
-    expect(by(70)?.partsManual).toContain("A custom amount: 70"); // 70 is a custom amount, even though it is 2 x 35
-    expect(by(40)?.partsManual).toContain("A custom amount: 40"); // a custom amount
+    const by = (amount: number) => after.filter((w) => w.amount === amount);
+    expect(by(35).every((w) => w.partsManual === undefined)).toBe(true); // seen on three gifts: a normal price
+    expect(by(70)[0]?.partsManual).toContain("A custom amount: 70 a part a month. Prices seen for this item: 35"); // an unusual one
+    // accept the price: its gift is normal again, and the choice is kept
+    const accepted = (await post(cookie, { action: "price-accept", itemId: "ORP", price: 70 })).body as { acceptedPrices: unknown[]; changed: number };
+    expect(accepted.acceptedPrices).toEqual([{ itemId: "ORP", price: 70 }]);
+    expect(accepted.changed).toBe(1);
+    expect((await read()).every((w) => w.partsManual === undefined)).toBe(true);
+    // reject the usual price: its gifts are marked, and clearing takes the choice back
+    const rejected = (await post(cookie, { action: "price-reject", itemId: "ORP", price: 35 })).body as { changed: number };
+    expect(rejected.changed).toBe(3);
+    expect((await read()).filter((w) => w.partsManual !== undefined)).toHaveLength(3);
+    await post(cookie, { action: "price-clear", itemId: "ORP", price: 35 });
+    expect((await read()).every((w) => w.partsManual === undefined)).toBe(true);
+    expect((await post(cookie, { action: "price-accept", itemId: "ORP", price: -1 })).status).toBe(400);
     // a person marks a gift manual, and takes the mark back
-    const key = by(35)?.key as string;
+    const key = (await read())[0]?.key as string;
     const wo = (await handleExclude(as(cookie, { method: "POST", body: { keys: [key], action: "manual", manual: true } }), d)).body as { workOrders: { partsManual?: string }[] };
     expect(wo.workOrders[0]?.partsManual).toBe("Marked by a person");
     const back = (await handleExclude(as(cookie, { method: "POST", body: { keys: [key], action: "manual", manual: false } }), d)).body as { workOrders: { partsManual?: string }[] };
     expect(back.workOrders[0]?.partsManual).toBeUndefined();
+  });
+
+  it("keeps the catalogue prices an upload sends, and refuses nothing it can clean (DECISIONS 127)", async () => {
+    const cookie = await signIn(d);
+    const body = { ...up([line("1", "501", "1")]), catalogue: { ORP: [35, 40, "bad", -1], "": [1] } };
+    await handleImport(as(cookie, { method: "POST", body }), d);
+    const cat = ((await handleOutcomes(as(cookie), d)).body as { catalogue: Record<string, number[]> }).catalogue;
+    expect(cat["ORP"]).toEqual([35, 40]);
   });
 
   it("refuses a missing framework, a bad action, a viewer and a signed-out caller, and keeps organisations apart", async () => {

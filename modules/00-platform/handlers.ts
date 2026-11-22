@@ -16,6 +16,7 @@ import { roleById } from "./roles.js";
 import { applyOutcomeTypeAction, starterOutcomeTypes } from "../05-outcomes/outcome-types.js";
 import { ensureRefs, withPrefixes } from "../05-outcomes/refs.js";
 import { ICON_IDS } from "../../app/icons.js";
+import { choosePrice } from "../04b-commitments/parts.js";
 import { currentFeedConfig } from "../01c-crm-connector/feed.js";
 import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
 import { isCurrentCategory, isFrameworkTemplate, migrateSetup, type Category, type FrameworkTemplate } from "../02-project-rules/categories.js";
@@ -234,6 +235,13 @@ export async function handleImport(req: HttpRequest, d: Deps): Promise<HttpRespo
   const config = (await d.store.getConfig(org)) ?? defaultConfig();
   if (config.crm.kind === "none") await d.store.putConfig(org, { ...config, crm: { kind: "upload" } });
   else if (config.crm.kind !== "upload") return json(409, { error: "This organisation reads its CRM directly, so uploads are not accepted." });
+  // Rule (DECISIONS 127): the prices of one part the catalogue price list offers, kept so every gift can be checked against them. Plain numbers only, and limited in size.
+  const rawCat = (req.body as { catalogue?: unknown }).catalogue;
+  if (rawCat && typeof rawCat === "object" && !Array.isArray(rawCat)) {
+    const clean: Record<string, number[]> = {};
+    for (const [k, v] of Object.entries(rawCat as Record<string, unknown>).slice(0, 2000)) if (k.length <= 100 && Array.isArray(v)) clean[k] = v.filter((n): n is number => typeof n === "number" && n > 0 && n < 1_000_000).slice(0, 50);
+    await d.store.putConfig(org, { ...((await d.store.getConfig(org)) ?? config), catalogue: clean });
+  }
   const source = String((req.body as { source?: unknown }).source ?? "Uploaded files").slice(0, 200);
   // Rule: notes are plain text from the page, limited in number and length, so they cannot fill the database.
   const rawNotes = (req.body as { notes?: unknown }).notes;
@@ -360,6 +368,18 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       await d.store.putConfig(org, { ...config, itemIcons: next });
       return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: next });
     }
+    // Prices (DECISIONS 127): a person accepts a price as normal for an item, rejects one, or takes the choice back. The work orders are checked again at once.
+    if (b["action"] === "price-accept" || b["action"] === "price-reject" || b["action"] === "price-clear") {
+      const itemId = str("itemId");
+      const price = Number(b["price"]);
+      if (itemId === "" || itemId.length > 200 || !(price > 0) || price >= 1_000_000) return fail("That price was not understood.");
+      const book = choosePrice({ catalogue: config.catalogue ?? {}, accepted: config.acceptedPrices ?? [], rejected: config.rejectedPrices ?? [] }, itemId, price, b["action"] === "price-accept" ? "accept" : b["action"] === "price-reject" ? "reject" : "clear");
+      const nextConfig = { ...config, acceptedPrices: book.accepted.slice(-2000), rejectedPrices: book.rejected.slice(-2000) };
+      await d.store.putConfig(org, nextConfig);
+      const changed = deriveParts(await d.store.listWorkOrders(org), nextConfig);
+      if (changed.length > 0) await d.store.saveWorkOrders(org, changed);
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: config.itemIcons ?? {}, acceptedPrices: nextConfig.acceptedPrices, rejectedPrices: nextConfig.rejectedPrices, catalogue: config.catalogue ?? {}, changed: changed.length });
+    }
     // Outcome types (DECISIONS 103): the same pure rule the demo uses. A type that outcomes already use cannot be removed.
     if (typeof b["action"] === "string" && b["action"].startsWith("ot-")) {
       const used = [...new Set(outcomes.map((o) => o.outcomeTypeId ?? "").filter((x) => x !== ""))];
@@ -471,5 +491,5 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   } else if (settle()) {
     await d.store.putConfig(org, { ...config, outcomes, allocations, outcomeTypes, idCounters });
   }
-  return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: config.itemIcons ?? {}, ...extra });
+  return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: config.itemIcons ?? {}, acceptedPrices: config.acceptedPrices ?? [], rejectedPrices: config.rejectedPrices ?? [], catalogue: config.catalogue ?? {}, ...extra });
 }

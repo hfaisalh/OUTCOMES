@@ -15,7 +15,7 @@ describe("visibleMenu", () => {
 
   it("shows only the items the role allows", () => {
     const ids = visibleMenu([P.access, P.viewWorkOrders, P.dashboards]).map((m) => m.id);
-    expect(ids).toEqual(["work-orders", "projects", "partners", "beneficiaries", "allocation", "outcomes", "dashboard", "audit", "attention"]);
+    expect(ids).toEqual(["work-orders", "projects", "partners", "beneficiaries", "allocation", "outcomes", "dashboard", "prices", "audit", "attention"]);
   });
 
   it("lands on the first allowed item", () => {
@@ -23,7 +23,7 @@ describe("visibleMenu", () => {
   });
 
   it("shows everything to a role with every permission", () => {
-    expect(visibleMenu(Object.values(P))).toHaveLength(14);
+    expect(visibleMenu(Object.values(P))).toHaveLength(15);
   });
 
   it("keeps the registers and the journey in the side menu (Gifts, Projects, Partners, Beneficiaries, Allocation) and puts setup behind one Settings entry", () => {
@@ -32,7 +32,7 @@ describe("visibleMenu", () => {
     expect(all.find((e) => e.id === "allocation")?.pages.map((p) => p.id)).toEqual(["allocation", "outcomes"]);
     // Getting data in has its own area (DECISIONS 92), and setup is behind the gear.
     expect(all.filter((e) => e.section === "Data").map((e) => e.id)).toEqual(["data"]);
-    expect(all.find((e) => e.id === "data")?.pages.map((p) => p.id)).toEqual(["data-feed", "data-files", "audit", "sources"]);
+    expect(all.find((e) => e.id === "data")?.pages.map((p) => p.id)).toEqual(["data-feed", "data-files", "prices", "audit", "sources"]);
     const setup = all.filter((e) => e.section === "Set up");
     expect(setup.map((e) => e.id)).toEqual(["setup"]);
     expect(setup[0]?.pages.map((p) => p.id)).toEqual(["attention", "categories", "settings"]);
@@ -40,7 +40,7 @@ describe("visibleMenu", () => {
 
   it("shows only the Settings tabs a role may use, and no Settings at all without any of them", () => {
     expect(menuEntries([P.access, P.viewWorkOrders]).find((e) => e.id === "setup")?.pages.map((p) => p.id)).toEqual(["attention"]);
-    expect(menuEntries([P.access, P.viewWorkOrders]).find((e) => e.id === "data")?.pages.map((p) => p.id)).toEqual(["audit"]);
+    expect(menuEntries([P.access, P.viewWorkOrders]).find((e) => e.id === "data")?.pages.map((p) => p.id)).toEqual(["prices", "audit"]);
     expect(menuEntries([P.access, P.mapFrameworks]).map((e) => e.id)).toEqual(["setup"]);
     expect(menuEntries([P.access, P.dashboards]).map((e) => e.id)).toEqual(["dashboard"]);
   });

@@ -22,7 +22,7 @@ export const PERMISSIONS = {
   approveRelease: "outcomes.approve_release", // a manager may approve releasing a sponsor's place after a missed payment (DECISIONS 74)
 } as const;
 
-export type PageId = "data-feed" | "data-files" | "work-orders" | "attention" | "outcomes" | "projects" | "partners" | "beneficiaries" | "allocation" | "audit" | "categories" | "dashboard" | "sources" | "settings";
+export type PageId = "data-feed" | "data-files" | "prices" | "work-orders" | "attention" | "outcomes" | "projects" | "partners" | "beneficiaries" | "allocation" | "audit" | "categories" | "dashboard" | "sources" | "settings";
 
 export interface MenuItem {
   id: PageId;
@@ -61,6 +61,7 @@ export const MENU: MenuItem[] = [
   // Data (DECISIONS 92): everything about getting gifts in sits in its own area, as in a CRM's data integration. Gifts only shows the result.
   { id: "data-feed", label: "CRM connection", icon: "⇅", permission: PERMISSIONS.settings, section: "Data", module: "data" },
   { id: "data-files", label: "Upload files", icon: "⇪", permission: PERMISSIONS.settings, section: "Data", module: "data" },
+  { id: "prices", label: "Prices", icon: "£", permission: PERMISSIONS.viewWorkOrders, section: "Data", module: "data" },
   { id: "audit", label: "Audit", icon: "✓", permission: PERMISSIONS.viewWorkOrders, section: "Data", module: "data" },
   { id: "sources", label: "Other sources", icon: "⇪", permission: PERMISSIONS.otherSources, section: "Data", module: "data" },
   { id: "attention", label: "Needs attention", icon: "!", permission: PERMISSIONS.viewWorkOrders, section: "Set up", module: "setup" },

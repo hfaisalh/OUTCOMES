@@ -183,4 +183,9 @@ describe("outcome types on the Categories and frameworks page (DECISIONS 103)", 
     expect(shell.innerHTML).toContain("data-icon-item=");
     expect(shell.innerHTML).toContain('data-ot="icon"'); // an outcome type has an icon too
   });
+  it("has a Prices page under Data (DECISIONS 127)", () => {
+    click({ page: "prices" }, "data-page");
+    expect(shell.innerHTML).toContain("<h1>Prices</h1>");
+    expect(shell.innerHTML).toContain("checked against the prices its item has really sold at");
+  });
 });

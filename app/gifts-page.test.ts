@@ -171,7 +171,7 @@ describe("giftsPage", () => {
     expect(shortDate("")).toBe("");
   });
   it("marks a custom amount gift for manual allocation in the list, the tab, the filter and the tile, and in the window (DECISIONS 113)", () => {
-    const fws = starterFrameworks().map((f) => (f.id === "sponsorship-shared-parts" ? { ...f, partPrices: [{ from: "2000-01-01", price: 35 }] } : f));
+    const fws = starterFrameworks();
     const clean = [1, 2].map((n) => sub(n, { key: `c${n}`, subscriptionId: "SC", frameworkId: "sponsorship-shared-parts", amount: 35, partsAuto: 1 }));
     const custom = [1, 2].map((n) => sub(n, { key: `m${n}`, subscriptionId: "SM", frameworkId: "sponsorship-shared-parts", amount: 40, partsManual: "A custom amount: 40 is not the price of a part (35)" }));
     const v = (over: Partial<View> = {}) => view({ workOrders: [...clean, ...custom], frameworks: fws, ...over });
@@ -260,19 +260,23 @@ describe("giftsPage", () => {
     const win = giftDetailHtml(view({ workOrders: [sub(1, { key: "n1", subscriptionId: "SN", partsAuto: 1 })] }), "SN");
     expect(win).toMatch(/<div class="statusact"><button[^>]*data-manual-set="n1"/);
   });
-  it("for a one-off year paid at once, offers the months to change, and a price that would make it clean (DECISIONS 126)", () => {
-    const fws = starterFrameworks().map((f) => (f.id === "sponsorship-shared-parts" ? { ...f, partPrices: [{ from: "2000-01-01", price: 35 }] } : f));
-    const year = { ...base, key: "Y1", subscriptionId: "", instalmentNumber: "", instalmentCount: "", amount: 480, quantity: 1, periodCount: 12, paidDate: "2026-11-07 10:00:00", frameworkId: "sponsorship-shared-parts", partsManual: "A custom amount: 480 over 12 months is not the price of a part (420)" } as WorkOrder;
-    const win = giftDetailHtml(view({ workOrders: [year], frameworks: fws }), "once-Y1");
-    expect(win).toContain("If one part costs <b>40</b> from 07/11/26, this is 1 part (the price now is 35)");
-    expect(win).toContain('data-add-price="sponsorship-shared-parts" data-from="2026-11-07" data-price="40"');
-    // the calendar offers months up to a year or two for a one-off, with the current 12 chosen, and saves as periods
-    expect(win).toContain('<option value="12" selected>12 months</option>');
+  it("for a one-off year paid at once, offers the months to change, and for a price never seen, to accept it (DECISIONS 126, 127)", () => {
+    const usual = Array.from({ length: 4 }, (_, i) => ({ ...base, key: `u${i}`, subscriptionId: `SU${i}`, instalmentNumber: "1", instalmentCount: "", amount: 40, quantity: 1, frameworkId: "sponsorship-shared-parts" } as WorkOrder));
+    const year = { ...base, key: "Y1", subscriptionId: "", instalmentNumber: "", instalmentCount: "", amount: 480, quantity: 1, paidDate: "2026-11-07 10:00:00", frameworkId: "sponsorship-shared-parts", partsManual: "A custom amount: 480 a part a month. Prices seen for this item: 40" } as WorkOrder;
+    const win = giftDetailHtml(view({ workOrders: [...usual, year] }), "once-Y1");
+    // the months were not given: 480 over 12 months at the usual 40 would fit
+    expect(win).toContain("Paid once with no months given: <b>12 months</b> at a normal price would fit.");
+    expect(win).toContain('data-suggest-months="Y1" data-n="12"');
+    expect(win).toContain('data-accept-price="' + year.itemId + '" data-price="480"'); // and the price can be accepted
+    // the calendar offers months up to a year or two for a one-off, and saves as periods
     expect(win).toContain('<option value="24">24 months</option>');
     expect(win).toContain('data-periods-save="Y1"');
-    expect(win).toContain("one-off \u00B7 12 months");
     expect(win).not.toContain("data-months-save"); // a subscription's catch-up control is not used here
-    // once a person has set the months, there is an undo back to the CRM's
-    expect(giftDetailHtml(view({ workOrders: [{ ...year, periodsFixed: 12 }], frameworks: fws }), "once-Y1")).toContain('data-periods-set="Y1" data-n="0"');
+    // once a person has set the months to 12 the payment is at 40 a part a month: normal, so no orange box
+    const set = giftDetailHtml(view({ workOrders: [...usual, { ...year, periodsFixed: 12, partsManual: undefined } as WorkOrder] }), "once-Y1");
+    expect(set).not.toContain("Allocate manually.</b>");
+    expect(set).toContain('<option value="12" selected>12 months</option>');
+    expect(set).toContain('data-periods-set="Y1" data-n="0"'); // and an undo
+    expect(set).toContain("one-off \u00B7 12 months");
   });
 });

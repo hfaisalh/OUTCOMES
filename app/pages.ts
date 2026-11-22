@@ -16,6 +16,7 @@ import { allocOptions, type GiftProject, type Node, type Project } from "../modu
 import type { BenFilter } from "./beneficiaries-page";
 import { outcomeTypesCard } from "./outcome-types-card";
 import { shortDate, shortDateTime } from "./dates";
+import type { PriceBook } from "../modules/04b-commitments/parts";
 import { ICONS, iconHtml, itemIcon } from "./icons";
 import type { OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { allocatable, buildCommitments, needsLook, type Commitment } from "../modules/04b-commitments/commitments";
@@ -54,6 +55,7 @@ export interface View {
   config: typeof MWF_CRM_CONFIG;
   categories: Category[];
   frameworks?: FrameworkTemplate[]; // framework templates (DECISIONS 59)
+  priceBook?: PriceBook; // the catalogue prices and the prices a person accepted or rejected (DECISIONS 127)
   itemIcons?: Record<string, string>; // the icon chosen for an item (DECISIONS 107)
   outcomeTypes?: OutcomeType[]; // the kinds of outcome and their profile fields (DECISIONS 103)
   itemFramework?: Record<string, string>; // an item's own framework, where it differs from its category
@@ -227,14 +229,6 @@ const chip = (i: ItemInfo, v: View, hint = "") =>
 const field = (label: string, control: string) => `<label class="fld"><span>${label}</span>${control}</label>`;
 
 // A framework template: defined once, used by any number of categories and items (DECISIONS 59).
-// The price of one part with the date each price starts (DECISIONS 112). A gift's parts use the price in force on its first payment, and old prices stay.
-const partPriceEditor = (f: FrameworkTemplate): string => {
-  const list = f.partPrices ?? [];
-  return `<div class="ppe">${list.length ? list.map((p) => `<div class="ppe-row"><b>${esc(String(p.price))}</b> <span class="muted">from ${esc(p.from)}</span> <button class="linkbtn" data-action="remove-part-price" data-id="${esc(f.id)}" data-from="${esc(p.from)}" aria-label="Remove this price">Remove</button></div>`).join("") : `<div class="muted">None set. Parts then come from the bundle and quantity.</div>`}
-    <div class="ppe-add"><input type="date" id="pp-from-${esc(f.id)}" aria-label="Starts on"><input type="number" min="0" step="0.01" id="pp-price-${esc(f.id)}" placeholder="Price of one part" aria-label="Price of one part"><button data-action="add-part-price" data-id="${esc(f.id)}">Add price</button></div>
-    <div class="muted">With a price, a payment of 70 is 2 parts when a part is 35. A payment that is not a whole number of parts is a custom amount, allocated manually. A new price only reaches gifts that start after its date.</div></div>`;
-};
-
 const frameworkCard = (f: FrameworkTemplate, v: View): string => {
   const missing = missingFramework(f);
   const cats = v.categories.filter((c) => c.frameworkId === f.id).map((c) => c.name);
@@ -245,7 +239,6 @@ const frameworkCard = (f: FrameworkTemplate, v: View): string => {
     <div class="fwhead"><input class="title" data-fwrename="${esc(f.id)}" value="${esc(f.name)}" /><button data-action="dup-framework" data-id="${esc(f.id)}" title="Copy this framework, then change what differs">Duplicate</button><button data-action="remove-framework" data-id="${esc(f.id)}" title="Remove this framework (only when nothing uses it)">Remove</button></div>
     ${field("What one delivery is (unit)", `<input data-tpl="unit" ${t} value="${esc(f.unit)}" placeholder="for example child, pump, animal" />`)}
     ${field("Units that make one beneficiary", `<input type="number" min="1" step="1" data-tpl="unitsPerBeneficiary" ${t} value="${f.unitsPerBeneficiary}" title="3 parts make one orphan, 1 for a whole scholarship" />`)}
-    ${field("Price of one part", partPriceEditor(f))}
     ${field("How an instalment counts toward a unit", `<select data-tpl="instalment" ${t}>${f.instalment === undefined ? `<option value="" selected>Choose...</option>` : ""}${(Object.keys(INSTALMENT_LABELS) as InstalmentRule[]).map((y) => `<option value="${y}"${y === f.instalment ? " selected" : ""}>${INSTALMENT_LABELS[y]}</option>`).join("")}</select>`)}
     ${field("How often the donor hears back", `<select data-tpl="cycle" ${t}>${(Object.keys(CYCLE_LABELS) as Cycle[]).map((y) => `<option value="${y}"${y === f.cycle ? " selected" : ""}>${CYCLE_LABELS[y]}</option>`).join("")}</select>`)}
     ${field("Report the donor receives", `<input data-tpl="reportType" ${t} value="${esc(f.reportType)}" placeholder="for example Quarterly update" />`)}

@@ -1,101 +1,114 @@
 /**
  * parts.test.ts
  *
- * What it does: tests parts from the price of one part, with a price history and custom amounts for manual allocation (DECISIONS 112, 113).
- * Invented data. These tests double as examples. Who calls it: vitest. Depends on: parts.ts.
+ * What it does: tests the check of each payment against the prices an item really sells at, learned from the gifts and the catalogue (DECISIONS 127), and the
+ * choices a person makes for a gift. Invented data. These tests double as examples. Who calls it: vitest. Depends on: parts.ts, commitments.ts and catch-up.ts.
  */
 
 import { describe, expect, it } from "vitest";
 import type { WorkOrder } from "../01c-crm-connector/work-orders";
-import { buildCommitments } from "./commitments";
 import { setParts, setPeriods } from "./catch-up";
-import { applyPartPrices, derivePartsFor, priceAt, setManual, type PartPrice } from "./parts";
+import { buildCommitments } from "./commitments";
+import { applyPrices, choosePrice, emptyBook, judgePayment, priceTable, setManual, unitPrice, type PriceBook } from "./parts";
 
-const PRICES: PartPrice[] = [{ from: "2000-01-01", price: 35 }, { from: "2027-01-01", price: 40 }];
 const wo = (key: string, over: Partial<WorkOrder> = {}): WorkOrder => ({
-  key, lineId: key, transactionRef: `T${key}`, paidDate: "2026-08-10 10:00:00", supporterId: "D1", supporterName: "Sample", group: "", itemId: "I1", itemName: "Orphan Sponsorship",
-  amount: 35, quantity: 1, intention: "", subscriptionId: "S1", instalmentNumber: "1", instalmentCount: "", categoryId: "c", frameworkId: "shared", status: "ready", ...over,
+  key, lineId: key, transactionRef: `T${key}`, paidDate: "2026-08-10 10:00:00", supporterId: "D1", supporterName: "Sample", group: "", itemId: "ORP", itemName: "Orphan Sponsorship",
+  amount: 35, quantity: 1, intention: "", subscriptionId: `S${key}`, instalmentNumber: "1", instalmentCount: "", categoryId: "c", frameworkId: "shared", status: "ready", ...over,
 });
-const pricesOf = (id: string): PartPrice[] => (id === "shared" ? PRICES : []);
+const oneOff = (key: string, over: Partial<WorkOrder> = {}) => wo(key, { subscriptionId: "", instalmentNumber: "", instalmentCount: "", ...over });
+// Five gifts at 35, five at 40 (a newer price), and some at other prices.
+const many = (price: number, n: number, from = 0, over: Partial<WorkOrder> = {}) => Array.from({ length: n }, (_, i) => wo(`p${price}-${from + i}`, { amount: price, ...over }));
+const base = (): WorkOrder[] => [...many(35, 5), ...many(40, 4, 0, { paidDate: "2026-11-01 10:00:00" })];
 
-describe("the price of one part", () => {
-  it("is the latest price that has started by the date", () => {
-    expect(priceAt(PRICES, "2026-12-31")).toBe(35);
-    expect(priceAt(PRICES, "2027-01-01")).toBe(40);
-    expect(priceAt(PRICES, "1999-01-01")).toBeNull();
-    expect(priceAt([], "2026-01-01")).toBeNull();
-  });
-});
-
-describe("parts of a payment", () => {
-  it("is the quantity when the unit price is the price of one part: 35 is 1 part, 3 of them are 3", () => {
-    expect(derivePartsFor(wo("a", { amount: 35 }), PRICES, "2026-08-10")).toEqual({ parts: 1 });
-    expect(derivePartsFor(wo("a", { amount: 35, quantity: 3 }), PRICES, "2026-08-10")).toEqual({ parts: 3 });
-  });
-  it("keeps a bundle as it is, and never takes parts from the amount for it", () => {
-    expect(derivePartsFor(wo("a", { amount: 480, bundleQty: 3 }), PRICES, "2026-08-10")).toEqual({ parts: 3 });
-  });
-  it("counts a single payment that covers several months at the part price times those months", () => {
-    const year = wo("a", { subscriptionId: "", instalmentNumber: "", instalmentCount: "", amount: 420, periodCount: 12 });
-    expect(derivePartsFor(year, PRICES, "2026-08-10")).toEqual({ parts: 1 }); // 35 x 12 months is one part for a year
-    expect(derivePartsFor({ ...year, quantity: 2 }, PRICES, "2026-08-10")).toEqual({ parts: 2 });
-  });
-  it("treats any other unit price as a custom amount for manual allocation, even a multiple, and never guesses (DECISIONS 114)", () => {
-    expect(derivePartsFor(wo("a", { amount: 70 }), PRICES, "2026-08-10")).toEqual({ manual: "A custom amount: 70 is not the price of a part (35)" }); // 70 is 2 x 35, still custom
-    expect(derivePartsFor(wo("a", { amount: 40 }), PRICES, "2026-08-10")).toHaveProperty("manual");
-    expect(derivePartsFor(wo("a", { amount: 10 }), PRICES, "2026-08-10")).toHaveProperty("manual");
-    expect(derivePartsFor(wo("a"), PRICES, "1999-01-01")).toEqual({ manual: "No price for a part had started by 1999-01-01" });
-    const year = wo("a", { subscriptionId: "", instalmentNumber: "", instalmentCount: "", amount: 480, periodCount: 12 });
-    expect(derivePartsFor(year, PRICES, "2026-08-10")).toEqual({ manual: "A custom amount: 480 over 12 months is not the price of a part (420)" });
-  });
-  it("uses the price in force on the gift's first payment, so a price change affects new gifts only", () => {
-    // an existing subscriber who started in 2026 keeps paying 35 after the price becomes 40: still 1 part
-    const old = [wo("p1", { paidDate: "2026-12-10 10:00:00" }), wo("p2", { paidDate: "2027-02-10 10:00:00", instalmentNumber: "2" })];
-    expect(applyPartPrices(old, pricesOf).map((w) => w.partsAuto)).toEqual([1, 1]);
-    // a new subscriber from 2027 at 35 is not the price of a part (40): custom
-    const fresh = [wo("n1", { subscriptionId: "S2", paidDate: "2027-02-10 10:00:00" })];
-    expect(applyPartPrices(fresh, pricesOf)[0]?.partsManual).toBe("A custom amount: 35 is not the price of a part (40)");
-    // and at 40 it is 1 part
-    expect(applyPartPrices([wo("n2", { subscriptionId: "S3", paidDate: "2027-02-10 10:00:00", amount: 40 })], pricesOf)[0]?.partsAuto).toBe(1);
+describe("the unit price of a payment", () => {
+  it("is the payment divided by its bundle size and by the months a single payment covers", () => {
+    expect(unitPrice(wo("a", { amount: 35 }))).toBe(35);
+    expect(unitPrice(wo("a", { amount: 105, bundleQty: 3 }))).toBe(35); // a bundle of 3 at 105
+    expect(unitPrice(oneOff("a", { amount: 480, periodCount: 12 }))).toBe(40); // a year at once
+    expect(unitPrice(oneOff("a", { amount: 1440, bundleQty: 3, periodCount: 12 }))).toBe(40);
+    expect(unitPrice(oneOff("a", { amount: 420 }))).toBe(420); // months not given: one month
+    expect(unitPrice(oneOff("a", { amount: 420, periodsFixed: 12 }))).toBe(35); // a person's months win
   });
 });
 
-describe("applying part prices to work orders", () => {
-  it("leaves alone a framework with no price, a legacy upload, an excluded one, and one a person has set", () => {
-    const orders = [wo("a", { frameworkId: "other" }), wo("b", { legacyUpload: true }), wo("c", { status: "excluded" }), wo("d", { partsFixed: 2 }), wo("e", { partsByPerson: true, partsManual: "Marked by a person" })];
-    expect(applyPartPrices(orders, pricesOf)).toEqual([]);
+describe("the prices an item has sold at", () => {
+  it("counts gifts and payments at each price, with the first and last dates", () => {
+    const t = priceTable([...base(), wo("x", { subscriptionId: "SX", amount: 35, paidDate: "2026-09-10 10:00:00" }), wo("y", { subscriptionId: "SX", amount: 35, paidDate: "2026-10-10 10:00:00", instalmentNumber: "2" })], emptyBook());
+    const p35 = t.find((e) => e.price === 35)!;
+    expect(p35).toMatchObject({ gifts: 6, payments: 7, first: "2026-08-10", last: "2026-10-10", valid: true });
+    expect(t.find((e) => e.price === 40)).toMatchObject({ gifts: 4, valid: true }); // seen on 3 or more gifts: valid, so a price change is found by itself
   });
-  it("keeps parts once worked out, even when the price list changes after", () => {
-    const first = applyPartPrices([wo("a", { amount: 35 })], pricesOf);
-    expect(first[0]?.partsAuto).toBe(1);
-    const again = applyPartPrices(first, () => [{ from: "2000-01-01", price: 10 }]);
-    expect(again).toEqual([]); // already has its parts
-  });
-  it("looks at a manual one again when a price is added, and clears the mark", () => {
-    const noPrice = applyPartPrices([wo("a", { amount: 35 })], (id) => (id === "shared" ? [{ from: "2030-01-01", price: 35 }] : []));
-    expect(noPrice[0]?.partsManual).toContain("No price");
-    const later = applyPartPrices(noPrice, pricesOf);
-    expect(later[0]).toMatchObject({ partsAuto: 1 });
-    expect(later[0]?.partsManual).toBeUndefined();
-  });
-});
-
-describe("marking a gift manual manually", () => {
-  it("marks a payment manual and takes the mark back", () => {
-    const marked = (setManual(wo("a", { partsAuto: 1 }), true) as { order: WorkOrder }).order;
-    expect(marked).toMatchObject({ partsManual: "Marked by a person", partsByPerson: true });
-    expect(marked.partsAuto).toBeUndefined();
-    const back = (setManual(marked, false) as { order: WorkOrder }).order;
-    expect(back.partsManual).toBeUndefined();
-    expect(applyPartPrices([back], pricesOf)[0]?.partsAuto).toBe(1); // the price decides again
-    expect(setManual(wo("a", { status: "excluded" }), true)).toHaveProperty("error");
+  it("makes a price valid when it is in the catalogue, accepted, or seen often, and unusual otherwise or when rejected", () => {
+    const orders = [...base(), wo("odd1", { amount: 70 }), wo("odd2", { amount: 70 })];
+    expect(priceTable(orders, emptyBook()).find((e) => e.price === 70)).toMatchObject({ gifts: 2, valid: false }); // two gifts is not enough
+    const cat: PriceBook = { ...emptyBook(), catalogue: { ORP: [35, 40, 70] } };
+    expect(priceTable(orders, cat).find((e) => e.price === 70)).toMatchObject({ valid: true, inCatalogue: true });
+    expect(priceTable(orders, choosePrice(emptyBook(), "ORP", 70, "accept")).find((e) => e.price === 70)).toMatchObject({ valid: true, accepted: true });
+    expect(priceTable(orders, choosePrice(emptyBook(), "ORP", 35, "reject")).find((e) => e.price === 35)).toMatchObject({ valid: false, rejected: true });
+    // a catalogue price that no gift has used yet is still listed
+    expect(priceTable(orders, { ...emptyBook(), catalogue: { ORP: [45] } }).find((e) => e.price === 45)).toMatchObject({ gifts: 0, inCatalogue: true, valid: true });
+    // legacy and excluded payments are not counted
+    expect(priceTable([wo("l", { legacyUpload: true }), wo("e", { status: "excluded" })], emptyBook())).toEqual([]);
   });
 });
 
-describe("what a person decides for a gift (DECISIONS 114)", () => {
-  const sub = (key: string, n: number, over: Partial<WorkOrder> = {}) => wo(key, { subscriptionId: "S1", instalmentNumber: String(n), amount: 70, paidDate: `2026-0${n}-10 10:00:00`, ...over });
+describe("judging a payment", () => {
+  const t = priceTable(base(), emptyBook());
+  it("is normal at a valid price, whichever price list it came from", () => {
+    expect(judgePayment(wo("a", { amount: 35 }), t)).toEqual({ ok: true });
+    expect(judgePayment(wo("a", { amount: 40 }), t)).toEqual({ ok: true });
+    expect(judgePayment(wo("a", { amount: 120, bundleQty: 3 }), t)).toEqual({ ok: true }); // 3 parts at 40
+    expect(judgePayment(oneOff("a", { amount: 480, periodCount: 12 }), t)).toEqual({ ok: true }); // a year at 40
+    expect(judgePayment(oneOff("a", { amount: 420, periodCount: 12 }), t)).toEqual({ ok: true }); // a year at 35, an older price still valid
+  });
+  it("is custom at any other price, and names the prices seen, even a multiple like 70", () => {
+    const v = judgePayment(wo("a", { amount: 70 }), t);
+    expect(v).toMatchObject({ ok: false, valid: [35, 40] });
+    expect(!v.ok && v.reason).toBe("A custom amount: 70 a part a month. Prices seen for this item: 35, 40");
+    expect(judgePayment(wo("a", { amount: 17.5 }), t).ok).toBe(false);
+  });
+  it("has nothing to check an item with no valid price against, so it flags nothing", () => {
+    expect(judgePayment(wo("a", { itemId: "NEW", amount: 999 }), t)).toEqual({ ok: true });
+  });
+  it("suggests the months for a single payment that has none, from a valid price", () => {
+    const v = judgePayment(oneOff("a", { amount: 480 }), t); // paid once, no months: 480 / 40 = 12
+    expect(v).toMatchObject({ ok: false, months: 12 });
+    expect(judgePayment(oneOff("a", { amount: 4 }), t)).not.toHaveProperty("months");
+  });
+});
+
+describe("marking payments", () => {
+  it("marks a payment at an unusual price, and takes the mark off when the price becomes valid", () => {
+    const orders = [...base(), wo("odd", { amount: 70, subscriptionId: "SODD" })];
+    const marked = applyPrices(orders, emptyBook());
+    expect(marked).toHaveLength(1);
+    expect(marked[0]).toMatchObject({ key: "odd", partsManual: "A custom amount: 70 a part a month. Prices seen for this item: 35, 40" });
+    // accept the price: the mark goes
+    const after = orders.map((w) => marked.find((m) => m.key === w.key) ?? w);
+    const cleared = applyPrices(after, choosePrice(emptyBook(), "ORP", 70, "accept"));
+    expect(cleared).toHaveLength(1);
+    expect(cleared[0]?.partsManual).toBeUndefined();
+    // rejecting a price that was normal marks its gifts
+    const rejected = applyPrices(base(), choosePrice(emptyBook(), "ORP", 35, "reject"));
+    expect(rejected).toHaveLength(5);
+    expect(rejected.every((w) => w.partsManual !== undefined)).toBe(true);
+  });
+  it("finds a price change by itself: a new price seen on several gifts stops being unusual", () => {
+    const early = [...many(35, 5), wo("n1", { amount: 40 }), wo("n2", { amount: 40 })];
+    expect(applyPrices(early, emptyBook()).filter((w) => w.amount === 40)).toHaveLength(2); // two gifts: still unusual
+    const later = [...early, wo("n3", { amount: 40 })];
+    expect(applyPrices(later, emptyBook())).toEqual([]); // three gifts: a valid price
+  });
+  it("leaves alone a legacy upload, an excluded payment, a person's parts and a person's mark", () => {
+    const orders = [...base(), wo("l", { amount: 70, legacyUpload: true }), wo("e", { amount: 70, status: "excluded" }), wo("f", { amount: 70, partsFixed: 2 }), wo("m", { amount: 70, partsByPerson: true, partsManual: "Marked by a person" })];
+    expect(applyPrices(orders, emptyBook())).toEqual([]);
+  });
+});
+
+describe("what a person decides for a gift", () => {
+  const sub = (key: string, n: number, over: Partial<WorkOrder> = {}) => wo(key, { subscriptionId: "SD", instalmentNumber: String(n), amount: 70, paidDate: `2026-0${n}-10 10:00:00`, ...over });
   it("a gift stays manual until every payment has its parts, then it is no longer manual and its parts count", () => {
-    const marked = applyPartPrices([sub("a", 1), sub("b", 2), sub("c", 3)], pricesOf);
+    const marked = applyPrices([...base(), sub("a", 1), sub("b", 2), sub("c", 3)], emptyBook()).filter((w) => w.subscriptionId === "SD");
     expect(marked.every((w) => w.partsManual !== undefined)).toBe(true);
     expect(buildCommitments(marked).commitments[0]?.manual).toContain("A custom amount");
     const one = marked.map((w, i) => (i === 0 ? { ...w, partsFixed: 2 } : w));
@@ -106,52 +119,40 @@ describe("what a person decides for a gift (DECISIONS 114)", () => {
     expect(c.partsPerInstalment).toBe(2);
   });
   it("a payment that arrives later takes what the person decided, instead of being marked custom again", () => {
-    const decided = applyPartPrices([sub("a", 1), sub("b", 2)], pricesOf).map((w) => ({ ...w, partsFixed: 2 }));
-    const later = [...decided, sub("c", 3)];
-    const next = applyPartPrices(later, pricesOf);
+    const decided = [sub("a", 1), sub("b", 2)].map((w) => ({ ...w, partsFixed: 2 }));
+    const next = applyPrices([...base(), ...decided, sub("c", 3)], emptyBook());
     expect(next).toHaveLength(1);
     expect(next[0]).toMatchObject({ key: "c", partsFixed: 2 });
-    // a different amount is its own question
-    const other = applyPartPrices([...decided, sub("d", 4, { amount: 90 })], pricesOf);
-    expect(other[0]?.partsManual).toContain("A custom amount: 90");
+    const other = applyPrices([...base(), ...decided, sub("d", 4, { amount: 90 })], emptyBook());
+    expect(other[0]?.partsManual).toContain("A custom amount: 90"); // a different amount is its own question
   });
   it("a payment that arrives later takes a manual mark a person made", () => {
-    const marked = [sub("a", 1, { amount: 35, partsAuto: 1 })].map((w) => (setManual(w, true) as { order: WorkOrder }).order);
-    const next = applyPartPrices([...marked, sub("b", 2, { amount: 35 })], pricesOf);
-    expect(next[0]).toMatchObject({ key: "b", partsManual: "Marked by a person", partsByPerson: true });
+    const marked = (setManual(wo("a", { subscriptionId: "SM", amount: 35 }), true) as { order: WorkOrder }).order;
+    const next = applyPrices([...base(), marked, wo("b", { subscriptionId: "SM", amount: 35, instalmentNumber: "2" })], emptyBook());
+    expect(next.find((w) => w.key === "b")).toMatchObject({ partsManual: "Marked by a person", partsByPerson: true });
   });
-  it("a person can choose parts and then take the choice back, and the price decides again (DECISIONS 116)", () => {
-    const marked = applyPartPrices([sub("a", 1)], pricesOf);
-    expect(marked[0]?.partsManual).toBeDefined(); // a custom amount
-    const chosen = (setParts(marked[0] as WorkOrder, 2) as { order: WorkOrder }).order;
+  it("a person can mark a payment manual and take the mark back, and choose parts, reset them, and set the months", () => {
+    const m = (setManual(wo("a"), true) as { order: WorkOrder }).order;
+    expect(m).toMatchObject({ partsManual: "Marked by a person", partsByPerson: true });
+    expect((setManual(m, false) as { order: WorkOrder }).order.partsManual).toBeUndefined();
+    expect(setManual(wo("a", { status: "excluded" }), true)).toHaveProperty("error");
+    const chosen = (setParts(wo("a", { amount: 70, partsManual: "x" }), 2) as { order: WorkOrder }).order;
     expect(chosen.partsFixed).toBe(2);
-    expect(buildCommitments([chosen]).commitments[0]?.manual).toBe(""); // no longer manual
-    const changed = (setParts(chosen, 3) as { order: WorkOrder }).order; // a mistake can be changed
-    expect(changed.partsFixed).toBe(3);
-    const reset = (setParts(changed, 0) as { order: WorkOrder }).order;
-    expect(reset.partsFixed).toBeUndefined();
-    expect(buildCommitments([reset]).commitments[0]?.manual).toContain("A custom amount"); // back to manual, as the system had it
+    expect((setParts(chosen, 0) as { order: WorkOrder }).order.partsFixed).toBeUndefined();
     expect(setParts(chosen, 21)).toHaveProperty("error");
-    expect(setParts(chosen, -1)).toHaveProperty("error");
+    const year = (setPeriods(oneOff("y", { amount: 480 }), 12) as { order: WorkOrder }).order;
+    expect(year.periodsFixed).toBe(12);
+    expect(judgePayment(year, priceTable(base(), emptyBook()))).toEqual({ ok: true }); // 480 over 12 months is 40 a part
+    expect(setPeriods(year, 40)).toHaveProperty("error");
   });
-  it("a year paid at once at 40 a month is 1 part once the price of 40 has started, and a person can set the months (DECISIONS 126)", () => {
-    const yearly = (over: Partial<WorkOrder> = {}) => wo("y", { subscriptionId: "", instalmentNumber: "", instalmentCount: "", amount: 480, paidDate: "2026-11-07 10:00:00", ...over });
-    const prices: PartPrice[] = [{ from: "2000-01-01", price: 35 }];
-    // with only 35 on file, 480 over 12 months is a custom amount
-    expect(applyPartPrices([yearly({ periodCount: 12 })], () => prices)[0]?.partsManual).toContain("A custom amount: 480 over 12 months is not the price of a part (420)");
-    // once 40 has started, it is clean
-    const later: PartPrice[] = [...prices, { from: "2026-11-01", price: 40 }];
-    expect(applyPartPrices([yearly({ periodCount: 12 })], () => later)[0]?.partsAuto).toBe(1);
-    // the CRM gave no months: the payment cannot be judged until a person sets them
-    const noMonths = applyPartPrices([yearly()], () => later)[0];
-    expect(noMonths?.partsManual).toContain("is not the price of a part (40)");
-    const set = (setPeriods(yearly(), 12) as { order: WorkOrder }).order;
-    expect(set.periodsFixed).toBe(12);
-    expect(applyPartPrices([set], () => later)[0]?.partsAuto).toBe(1);
-    // a person's months win over the CRM's, and 0 takes them back
-    expect((setPeriods(yearly({ periodCount: 6 }), 12) as { order: WorkOrder }).order.periodsFixed).toBe(12);
-    expect((setPeriods(set, 0) as { order: WorkOrder }).order.periodsFixed).toBeUndefined();
-    expect(setPeriods(set, 40)).toHaveProperty("error");
-    expect(setPeriods(set, -1)).toHaveProperty("error");
+});
+
+describe("choosing a price", () => {
+  it("accepts, rejects and clears a price for an item, replacing an earlier choice", () => {
+    let b = choosePrice(emptyBook(), "ORP", 70, "accept");
+    expect(b.accepted).toEqual([{ itemId: "ORP", price: 70 }]);
+    b = choosePrice(b, "ORP", 70, "reject");
+    expect(b).toMatchObject({ accepted: [], rejected: [{ itemId: "ORP", price: 70 }] });
+    expect(choosePrice(b, "ORP", 70, "clear")).toMatchObject({ accepted: [], rejected: [] });
   });
 });

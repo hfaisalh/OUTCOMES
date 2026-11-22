@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseCsv, toRecords } from "../01-data-mapping/csv";
 import { MWF_CRM_CONFIG, readFeed } from "../01c-crm-connector/feed";
-import { adaptExports, adaptFiles, classifyExport, toFeedDate } from "./export-adapter";
+import { adaptExports, adaptFiles, catalogueUnitPrices, classifyExport, toFeedDate } from "./export-adapter";
 
 const load = (name: string) => toRecords(parseCsv(readFileSync(new URL(`../../samples/${name}`, import.meta.url), "utf8"))).records;
 const adapt = () => adaptExports(load("export-donation-lines-sample.csv"), load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), load("export-catalogue-prices-sample.csv"));
@@ -253,5 +253,26 @@ describe("months a one-off payment covers (DECISIONS 64)", () => {
   it("leaves it blank when the bundle has no instalment plan, and for a recurring line", () => {
     expect(oneOff({ "Item Bundle": "" })["period_count"]).toBe("");
     expect(byLine("9002")["period_count"]).toBe("");
+  });
+});
+
+describe("the prices the catalogue offers (DECISIONS 127)", () => {
+  const row = (over: Record<string, string>) => ({ "Item SKU": "ORP", Item: "Orphan Sponsorship", Bundle: "", Quantity: "1", Currency: "GBP", "Way of giving": "Instalments", "Each payment": "40", Payments: "12", ...over });
+  const lines = [{ Currency: "GBP" }, { Currency: "GBP" }, { Currency: "USD" }];
+  it("gives the price of one part for one month: instalments by their bundle, a single payment by the months of its plan", () => {
+    const u = catalogueUnitPrices([
+      row({}), row({ "Way of giving": "Single payment", "Each payment": "480", Payments: "1" }),
+      row({ Bundle: "Sponsor an Orphan", Quantity: "3", "Each payment": "120" }), row({ Bundle: "Sponsor an Orphan", Quantity: "3", "Way of giving": "Single payment", "Each payment": "1440", Payments: "1" }),
+      row({ "Each payment": "35" }), // an older option still listed
+    ], lines);
+    expect(u["ORP"]).toEqual([35, 40]); // 40 from the instalments, the single payment and both bundles, and 35
+  });
+  it("uses only the currency most lines were paid in, and skips a single payment with no plan length", () => {
+    expect(catalogueUnitPrices([row({ Currency: "USD", "Each payment": "50" }), row({})], lines)["ORP"]).toEqual([40]);
+    expect(catalogueUnitPrices([row({ "Way of giving": "Single payment", "Each payment": "480", Payments: "1" })], lines)).toEqual({});
+  });
+  it("comes with the adapted lines when a price list is given", () => {
+    const r = adaptExports([], [], [], []);
+    expect(r.unitPrices).toBeUndefined();
   });
 });

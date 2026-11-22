@@ -12,6 +12,7 @@
 import { filterWorkOrders, isFiltering } from "../modules/01c-crm-connector/filter";
 import { lineValue, partsOf, periodsOf, sentPartsOf, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { shortDate, shortDateTime } from "./dates";
+import { emptyBook, judgePayment, priceTable, unitPrice } from "../modules/04b-commitments/parts";
 import { iconHtml, itemIcon } from "./icons";
 import { plusMonths } from "../modules/04b-commitments/catch-up";
 import { allocatable, type Commitment } from "../modules/04b-commitments/commitments";
@@ -300,12 +301,12 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   // The choice applies to every real payment of the gift, since each one carries the mark (DECISIONS 114).
   const firstReal = g.payments.find((w) => w.legacyUpload !== true);
   const realKeys = g.payments.filter((w) => w.legacyUpload !== true).map((w) => w.key).join(" ");
-  // When a custom amount would be clean at another price (a year paid at 480 is 12 x 40), offer to add that price from this payment's date (DECISIONS 126).
-  const fwOfGift = (v.frameworks ?? []).find((f) => f.id === g.frameworkId);
-  const unit = firstReal ? Math.round((firstReal.amount / (firstReal.subscriptionId === "" && firstReal.instalmentCount === "" ? periodsOf(firstReal) : 1)) * 100) / 100 : 0;
-  const nowPrice = firstReal && fwOfGift?.partPrices ? [...fwOfGift.partPrices].filter((p) => p.from <= firstReal.paidDate.slice(0, 10)).sort((a, b) => b.from.localeCompare(a.from))[0]?.price : undefined;
-  const priceTip = g.manual !== "" && firstReal && fwOfGift && fwOfGift.partPrices && unit > 0 && unit !== nowPrice
-    ? `<div class="priceTip">If one part costs <b>${money(unit)}</b> from ${esc(shortDate(firstReal.paidDate))}, this is ${firstReal.quantity} part${firstReal.quantity === 1 ? "" : "s"}${nowPrice !== undefined ? ` (the price now is ${money(nowPrice)})` : ""}. <button class="primary" data-add-price="${esc(fwOfGift.id)}" data-from="${esc(firstReal.paidDate.slice(0, 10))}" data-price="${unit}">Add ${money(unit)} from ${esc(shortDate(firstReal.paidDate))}</button></div>`
+  // A custom amount (DECISIONS 127): the payment is at a price the item has not been sold at. Offer to accept the price (the donor may have a plan from an older
+  // price list), and, for a single payment with no months, the months that would make it normal.
+  const verdict = firstReal && g.manual !== "" && !firstReal.partsByPerson ? judgePayment(firstReal, priceTable(v.workOrders, v.priceBook ?? emptyBook())) : undefined;
+  const thisPrice = firstReal ? unitPrice(firstReal) : 0;
+  const priceTip = verdict && !verdict.ok && firstReal
+    ? `<div class="priceTip">${verdict.months !== undefined ? `Paid once with no months given: <b>${verdict.months} months</b> at a normal price would fit. <button class="primary" data-suggest-months="${esc(firstReal.key)}" data-n="${verdict.months}">Set ${verdict.months} months</button> ` : ""}<button data-accept-price="${esc(firstReal.itemId)}" data-price="${thisPrice}" title="Treat ${money(thisPrice)} a part a month as a normal price for ${esc(g.itemName)}. Every gift at that price is checked again.">Accept ${money(thisPrice)} as a normal price</button></div>`
     : "";
   const manualBox = g.manual !== "" && firstReal
     ? `<div class="suggest-box"><b>Allocate manually.</b> ${esc(g.manual)}. Choose how many parts each payment is under <b>Parts</b> below and press Save, then allocate it in Allocation.${priceTip}${firstReal.partsByPerson ? `<div class="actions"><button data-manual-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-on="0">Back to automatic</button></div>` : ""}</div>`

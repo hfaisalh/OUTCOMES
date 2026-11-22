@@ -240,3 +240,4 @@ select:not([multiple]):focus-visible{outline:2px solid var(--accent);outline-off
 
 /* Both buttons sit in a box of the same height with the content centred, so they share one line in the middle of the row (DECISIONS 125) */
 .actbox{display:flex;align-items:center;justify-content:center;height:30px}.actbox details.mo,.actbox .iconact{margin:0;vertical-align:middle;flex:0 0 auto}.actbox details.mo>summary{margin:0}
+.priceitem{display:flex;align-items:center;gap:8px;margin:0 0 8px}.oddprice td{background:rgba(196,122,0,.06)}.priceTip{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}

@@ -24,5 +24,5 @@ The saved work orders (excluded ones are left out).
 `catch-up.ts` spots a payment that looks like it covers more than one instalment (worth 2 to 6 times the usual value), suggests the months it fills (a gap first, else the months before), and counts covered months. A person applies or dismisses each suggestion. Tests: `catch-up.test.ts`.
 
 
-## Parts from the price of one part (DECISIONS 112, 113)
-`parts.ts` works out a payment's parts from the price of one part, with start dates. A whole number of parts is automatic. Anything else is a custom amount, marked for manual allocation, and kept out of automatic allocation. Tests: `parts.test.ts`.
+## Prices learned from the CRM (DECISIONS 127)
+`parts.ts` checks each payment against the prices its item has really sold at: the catalogue price list, prices seen on 3 or more gifts, and prices a person accepted. A payment at any other price is a custom amount, marked for manual allocation. Nothing is typed in, so a price change in the CRM needs no change here. Tests: `parts.test.ts`.
