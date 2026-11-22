@@ -55,6 +55,7 @@ export interface FrameworkTemplate extends Framework {
   id: string; // stable, made from the name when added
   name: string;
   unitsPerBeneficiary: number; // units that make one whole beneficiary: 3 parts for an orphan, 1 for a scholarship (a whole number, 1 or more)
+  partPrices?: { from: string; price: number }[]; // the price of one part, with start dates (DECISIONS 112). With one, a payment's parts are worked out from it
 }
 
 export interface Category {
@@ -156,6 +157,23 @@ export const updateTemplate = (frameworks: FrameworkTemplate[], id: string, patc
     if (!Number.isInteger(next.unitsPerBeneficiary) || next.unitsPerBeneficiary < 1) next.unitsPerBeneficiary = f.unitsPerBeneficiary;
     return next;
   });
+
+// Rule (DECISIONS 112): the price of one part, with the date it starts. Old prices stay, so a price change only reaches gifts that start after it.
+// A start date that already has a price replaces that price. The list is kept in date order.
+export function addPartPrice(frameworks: FrameworkTemplate[], id: string, from: string, price: number): Changed<FrameworkTemplate[]> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) return { value: frameworks, error: "Give the date the price starts." };
+  if (!(price > 0) || price >= 1_000_000) return { value: frameworks, error: "Give the price of one part, more than zero." };
+  if (!frameworks.some((f) => f.id === id)) return { value: frameworks, error: "That framework was not found." };
+  return { value: frameworks.map((f) => (f.id === id ? { ...f, partPrices: [...(f.partPrices ?? []).filter((p) => p.from !== from), { from, price: Math.round(price * 100) / 100 }].sort((a, b) => a.from.localeCompare(b.from)) } : f)) };
+}
+export function removePartPrice(frameworks: FrameworkTemplate[], id: string, from: string): FrameworkTemplate[] {
+  return frameworks.map((f) => {
+    if (f.id !== id) return f;
+    const { partPrices, ...rest } = f;
+    const left = (partPrices ?? []).filter((p) => p.from !== from);
+    return left.length > 0 ? { ...rest, partPrices: left } : rest;
+  });
+}
 
 // Rule: a framework that a category or an item uses cannot be removed. Say where it is used instead.
 export function removeFramework(s: Setup, id: string): Changed<Setup> {
@@ -328,5 +346,6 @@ export const isCurrentCategory = (x: unknown): x is Category => {
 export const isFrameworkTemplate = (x: unknown): x is FrameworkTemplate => {
   const f = x as FrameworkTemplate | null;
   return !!f && typeof f.id === "string" && f.id !== "" && typeof f.name === "string" && typeof f.unit === "string" && typeof f.reportType === "string" && typeof f.cycle === "string" && f.cycle in CYCLE_LABELS
-    && Number.isInteger(f.unitsPerBeneficiary) && f.unitsPerBeneficiary >= 1 && (f.instalment === undefined || f.instalment === "per_period" || f.instalment === "share_of_whole");
+    && Number.isInteger(f.unitsPerBeneficiary) && f.unitsPerBeneficiary >= 1 && (f.instalment === undefined || f.instalment === "per_period" || f.instalment === "share_of_whole")
+    && (f.partPrices === undefined || (Array.isArray(f.partPrices) && f.partPrices.length <= 50 && f.partPrices.every((p) => !!p && /^\d{4}-\d{2}-\d{2}$/.test(p.from) && typeof p.price === "number" && p.price > 0 && p.price < 1_000_000)));
 };

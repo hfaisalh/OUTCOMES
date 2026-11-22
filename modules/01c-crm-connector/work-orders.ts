@@ -39,6 +39,9 @@ export interface WorkOrder {
   itemId: string;
   itemName: string;
   amount: number; // the price of one unit, for reference only (DECISIONS 81)
+  partsAuto?: number; // the parts worked out from the price of one part, kept once worked out (DECISIONS 113)
+  partsManual?: string; // why this payment is for manual allocation (a custom amount, or marked by a person), absent when it is not
+  partsByPerson?: true; // the manual mark was made by a person, so a price never takes it back
   partsFixed?: number; // parts of this payment as a person set them, when the CRM's quantity looked wrong (DECISIONS 87). Absent: parts come from the quantity
   looked?: string; // set by a person: the notes of the gift's Needs a look list they checked (DECISIONS 86). Resolved while the notes are still the same
   covers?: number; // how many instalments this payment covers, set by a person (DECISIONS 84). Absent: not checked, 1 is assumed. 1: checked, a normal payment
@@ -64,7 +67,7 @@ export interface WorkOrder {
 }
 
 // Rule (DECISIONS 51): parts = the bundle quantity times the order quantity. Prices play no part, so an old price does not matter.
-export const partsOf = (w: Pick<WorkOrder, "quantity" | "bundleQty" | "partsFixed">): number => w.partsFixed ?? (w.bundleQty ?? 1) * w.quantity;
+export const partsOf = (w: Pick<WorkOrder, "quantity" | "bundleQty" | "partsFixed" | "partsAuto">): number => w.partsFixed ?? w.partsAuto ?? (w.bundleQty ?? 1) * w.quantity;
 // The parts the CRM sent, whatever a person has set (DECISIONS 87).
 export const sentPartsOf = (w: Pick<WorkOrder, "quantity" | "bundleQty">): number => (w.bundleQty ?? 1) * w.quantity;
 

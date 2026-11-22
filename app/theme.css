@@ -206,3 +206,4 @@ td.bad{color:#d23b3b;font-weight:600}
 .ico{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;border-radius:8px;background:var(--accent-bg);color:var(--accent);flex:0 0 auto}.ico svg{display:block}
 .ico-sm{width:24px;height:24px}.ico-sm svg{width:16px;height:16px}.ico-lg{width:40px;height:40px;border-radius:10px}.ico-lg svg{width:26px;height:26px}
 .icontable td{padding:4px 8px}.icontable select{font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit}
+.ppe-row{display:flex;gap:8px;align-items:center;margin:2px 0}.ppe-add{display:flex;gap:6px;margin:6px 0;flex-wrap:wrap}.ppe-add input{font:inherit;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;width:150px}.gi.manual{color:#c47a00}

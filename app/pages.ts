@@ -25,7 +25,7 @@ import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-or
 import type { RunInfo } from "../modules/00-platform/store";
 import { allocationShape, CYCLE_LABELS, groupItems, INSTALMENT_LABELS, missingFramework, unitsForCommitment, type Category, type Cycle, type FrameworkTemplate, type InstalmentRule, type ItemInfo } from "../modules/02-project-rules/categories";
 
-export type Filter = "all" | "ready" | "unrouted" | "review" | "look" | "excluded";
+export type Filter = "all" | "ready" | "unrouted" | "review" | "look" | "manual" | "excluded";
 
 export interface View {
   workOrders: WorkOrder[];
@@ -129,7 +129,7 @@ export const creditLine = (w: WorkOrder): string => {
 export function listBase(v: View, id: string): WorkOrder[] {
   if (id === "main") {
     const reviewKeys = new Set(v.review.map((r) => r.key));
-    return v.workOrders.filter((w) => (v.filter === "all" || v.filter === "look" ? w.status !== "excluded" : v.filter === "review" ? reviewKeys.has(w.key) && w.status !== "excluded" : w.status === v.filter));
+    return v.workOrders.filter((w) => (v.filter === "all" || v.filter === "look" || v.filter === "manual" ? w.status !== "excluded" : v.filter === "review" ? reviewKeys.has(w.key) && w.status !== "excluded" : w.status === v.filter));
   }
   const i = (v.attention ?? []).find((x) => `a:${x.id}` === id);
   return i ? attentionBase(v, i) : [];
@@ -164,7 +164,7 @@ export function filterBar(v: View, id: string, base: WorkOrder[]): string {
     <select data-f="categoryId" ${d}><option value="">All categories</option>${v.categories.map((x) => opt(x.id, x.name, c.categoryId)).join("")}</select>
     ${id === "main" ? "" : `<select data-f="status" ${d}>${opt("", "Any status", c.status)}${opt("unrouted", "Unrouted", c.status)}${opt("ready", "Ready", c.status)}${opt("excluded", "Excluded", c.status)}</select>`}
     <select data-f="legacy" ${d}>${opt("", "Legacy: included", c.legacy)}${opt("only", "Legacy only", c.legacy)}${opt("hide", "No legacy", c.legacy)}</select>
-    <select data-f="kind" ${d}>${opt("any", "All types", c.kind)}${opt("recurring", "Recurring", c.kind)}${opt("oneoff", "One-off", c.kind)}</select>
+    <select data-f="kind" ${d}>${opt("any", "All types", c.kind)}${opt("recurring", "Recurring", c.kind)}${opt("oneoff", "One-off", c.kind)}${opt("custom", "Custom amount", c.kind)}</select>
     <input type="date" data-f="from" ${d} value="${esc(c.from)}" title="Paid from">
     <input type="date" data-f="to" ${d} value="${esc(c.to)}" title="Paid to">
     <button data-action="clear-filters" data-scope="${esc(id)}" title="Clear the filters">Clear</button></div>`;
@@ -226,6 +226,14 @@ const chip = (i: ItemInfo, v: View, hint = "") =>
 const field = (label: string, control: string) => `<label class="fld"><span>${label}</span>${control}</label>`;
 
 // A framework template: defined once, used by any number of categories and items (DECISIONS 59).
+// The price of one part with the date each price starts (DECISIONS 112). A gift's parts use the price in force on its first payment, and old prices stay.
+const partPriceEditor = (f: FrameworkTemplate): string => {
+  const list = f.partPrices ?? [];
+  return `<div class="ppe">${list.length ? list.map((p) => `<div class="ppe-row"><b>${esc(String(p.price))}</b> <span class="muted">from ${esc(p.from)}</span> <button class="linkbtn" data-action="remove-part-price" data-id="${esc(f.id)}" data-from="${esc(p.from)}" aria-label="Remove this price">Remove</button></div>`).join("") : `<div class="muted">None set. Parts then come from the bundle and quantity.</div>`}
+    <div class="ppe-add"><input type="date" id="pp-from-${esc(f.id)}" aria-label="Starts on"><input type="number" min="0" step="0.01" id="pp-price-${esc(f.id)}" placeholder="Price of one part" aria-label="Price of one part"><button data-action="add-part-price" data-id="${esc(f.id)}">Add price</button></div>
+    <div class="muted">With a price, a payment of 70 is 2 parts when a part is 35. A payment that is not a whole number of parts is a custom amount, allocated by hand. A new price only reaches gifts that start after its date.</div></div>`;
+};
+
 const frameworkCard = (f: FrameworkTemplate, v: View): string => {
   const missing = missingFramework(f);
   const cats = v.categories.filter((c) => c.frameworkId === f.id).map((c) => c.name);
@@ -236,6 +244,7 @@ const frameworkCard = (f: FrameworkTemplate, v: View): string => {
     <div class="fwhead"><input class="title" data-fwrename="${esc(f.id)}" value="${esc(f.name)}" /><button data-action="dup-framework" data-id="${esc(f.id)}" title="Copy this framework, then change what differs">Duplicate</button><button data-action="remove-framework" data-id="${esc(f.id)}" title="Remove this framework (only when nothing uses it)">Remove</button></div>
     ${field("What one delivery is (unit)", `<input data-tpl="unit" ${t} value="${esc(f.unit)}" placeholder="for example child, pump, animal" />`)}
     ${field("Units that make one beneficiary", `<input type="number" min="1" step="1" data-tpl="unitsPerBeneficiary" ${t} value="${f.unitsPerBeneficiary}" title="3 parts make one orphan, 1 for a whole scholarship" />`)}
+    ${field("Price of one part", partPriceEditor(f))}
     ${field("How an instalment counts toward a unit", `<select data-tpl="instalment" ${t}>${f.instalment === undefined ? `<option value="" selected>Choose...</option>` : ""}${(Object.keys(INSTALMENT_LABELS) as InstalmentRule[]).map((y) => `<option value="${y}"${y === f.instalment ? " selected" : ""}>${INSTALMENT_LABELS[y]}</option>`).join("")}</select>`)}
     ${field("How often the donor hears back", `<select data-tpl="cycle" ${t}>${(Object.keys(CYCLE_LABELS) as Cycle[]).map((y) => `<option value="${y}"${y === f.cycle ? " selected" : ""}>${CYCLE_LABELS[y]}</option>`).join("")}</select>`)}
     ${field("Report the donor receives", `<input data-tpl="reportType" ${t} value="${esc(f.reportType)}" placeholder="for example Quarterly update" />`)}

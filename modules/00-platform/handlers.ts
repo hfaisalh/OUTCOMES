@@ -22,13 +22,14 @@ import { isCurrentCategory, isFrameworkTemplate, migrateSetup, type Category, ty
 import { createHash, timingSafeEqual } from "node:crypto";
 import { EXPLAIN, readCookie, sessionCookie, sessionFrom, SESSION_COOKIE, SESSION_SECONDS, verifyToken, signToken, clearSessionCookie, type Claims } from "./launch-token.js";
 import { setCovers, setLooked, setParts } from "../04b-commitments/catch-up.js";
+import { setManual } from "../04b-commitments/parts.js";
 import { excludeWorkOrder, restoreWorkOrder, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import { allocatable } from "../04b-commitments/commitments.js";
 import { adoptLegacy, allocOptions, migrateGiftProjects, applyProjectAction, clearLegacy, placeInNode, placeInPartner } from "../06-projects/projects.js";
 import { addOutcomes, autoAllocate, DEFAULT_GRACE_DAYS, releaseApprovals, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive } from "../05-outcomes/outcomes.js";
 import { applyDecision, buildAttention } from "../04-triage/triage.js";
 import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
-import { backfillFrameworks, reapplyFrameworks, rerouteUnrouted, runPickup } from "./pickup.js";
+import { backfillFrameworks, deriveParts, reapplyFrameworks, rerouteUnrouted, runPickup } from "./pickup.js";
 import { defaultConfig, setupOf, type OrgConfig, type Store } from "./store.js";
 
 export interface HttpRequest {
@@ -141,6 +142,9 @@ export async function handleConfig(req: HttpRequest, d: Deps): Promise<HttpRespo
     // Only when asked (DECISIONS 64): move every work order to the framework that now applies to its item.
     const again = b.reapply === true ? reapplyFrameworks(after.map((w) => changed.get(w.key) ?? w), next) : [];
     for (const w of again) changed.set(w.key, w);
+    // Parts from the price of one part: a price just added gives parts to the gifts that were waiting for it (DECISIONS 113).
+    const current2 = after.map((w) => changed.get(w.key) ?? w);
+    for (const w of deriveParts(current2, next)) changed.set(w.key, w);
     await d.store.saveWorkOrders(a.claims.org, [...changed.values()]);
     return json(200, { ok: true, routed: rerouted.length, reapplied: again.length });
   }
@@ -268,9 +272,9 @@ export async function handleExclude(req: HttpRequest, d: Deps): Promise<HttpResp
   const a = need(req, d, P.mapFrameworks);
   if ("response" in a) return a.response;
   const org = a.claims.org;
-  const b = req.body as { key?: unknown; keys?: unknown; action?: unknown; reason?: unknown; covers?: unknown; looked?: unknown; parts?: unknown } | undefined;
+  const b = req.body as { key?: unknown; keys?: unknown; action?: unknown; reason?: unknown; covers?: unknown; looked?: unknown; parts?: unknown; manual?: unknown } | undefined;
   const keys = Array.isArray(b?.keys) ? b.keys : typeof b?.key === "string" ? [b.key] : [];
-  if (keys.length === 0 || keys.length > MAX_BULK || !keys.every((k): k is string => typeof k === "string" && k !== "" && k.length <= 200) || (b?.action !== "exclude" && b?.action !== "restore" && b?.action !== "covers" && b?.action !== "looked" && b?.action !== "parts")) return json(400, { error: "That request is not understood." });
+  if (keys.length === 0 || keys.length > MAX_BULK || !keys.every((k): k is string => typeof k === "string" && k !== "" && k.length <= 200) || (b?.action !== "exclude" && b?.action !== "restore" && b?.action !== "covers" && b?.action !== "looked" && b?.action !== "parts" && b?.action !== "manual")) return json(400, { error: "That request is not understood." });
   const byKey = new Map((await d.store.listWorkOrders(org)).map((w) => [w.key, w]));
   const config = (await d.store.getConfig(org)) ?? defaultConfig();
   const at = new Date(d.nowMs()).toISOString();
@@ -279,7 +283,7 @@ export async function handleExclude(req: HttpRequest, d: Deps): Promise<HttpResp
   let firstError = "";
   for (const key of new Set(keys)) {
     const w = byKey.get(key);
-    const r = !w ? { error: "That work order was not found." } : b.action === "parts" ? setParts(w, Number(b.parts)) : b.action === "looked" ? setLooked(w, typeof b.looked === "string" ? b.looked : "") : b.action === "covers" ? setCovers(w, Number(b.covers)) : b.action === "exclude" ? excludeWorkOrder(w, typeof b.reason === "string" ? b.reason : "", a.claims.name, at) : restoreWorkOrder(w);
+    const r = !w ? { error: "That work order was not found." } : b.action === "manual" ? setManual(w, b.manual === true) : b.action === "parts" ? setParts(w, Number(b.parts)) : b.action === "looked" ? setLooked(w, typeof b.looked === "string" ? b.looked : "") : b.action === "covers" ? setCovers(w, Number(b.covers)) : b.action === "exclude" ? excludeWorkOrder(w, typeof b.reason === "string" ? b.reason : "", a.claims.name, at) : restoreWorkOrder(w);
     if ("error" in r) {
       skipped++;
       firstError ||= r.error;

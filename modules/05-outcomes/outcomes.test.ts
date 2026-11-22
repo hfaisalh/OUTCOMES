@@ -16,7 +16,7 @@ const FW: FrameworkTemplate[] = [
   { id: "once", name: "Delivered once", unit: "pump", cycle: "on_delivery", reportType: "", instalment: "share_of_whole", unitsPerBeneficiary: 1 },
 ];
 const com = (sub: string, parts: number, over: Partial<Commitment> = {}): Commitment => ({
-  planStatus: "", nextDue: "", planPaid: null, catchUpMonths: [], paidMonths: [], projectName: "",
+  planStatus: "", nextDue: "", planPaid: null, catchUpMonths: [], manual: "", paidMonths: [], projectName: "",
   subscriptionId: sub, supporterId: "D1", supporterName: "Sample", itemId: "I1", itemName: "Item", categoryId: "c", frameworkId: "shared", partsPerInstalment: parts, partsVary: false, planned: 12, paid: 2,
   state: "in_progress", firstPaid: `2026-0${Math.min(Number(sub) % 9 + 1, 9)}-01`, lastPaid: "2026-10-01", numbers: [], gaps: [], legacyOpening: false, startsLate: false, conflict: false, lines: [], ...over,
 });
@@ -62,6 +62,15 @@ describe("capacity and fill", () => {
 });
 
 describe("automatic allocation", () => {
+  it("never places a manual gift by itself, and keeps one that is already placed (DECISIONS 113)", () => {
+    const outs = orphans(2);
+    const cs = [com("1", 1), com("2", 1, { manual: "40 is not a whole number of 35 parts" }), com("3", 1)];
+    const r = autoAllocate(cs, outs, FW, [], AT);
+    expect(r.allocations.map((a) => a.commitmentKey)).toEqual(["1", "3"]);
+    // a person placed the manual one by hand: it is kept by the next automatic run
+    const kept = autoAllocate(cs, outs, FW, [{ commitmentKey: "2", outcomeId: "orphan-1", parts: 1, how: "manual", at: AT }], AT);
+    expect(kept.allocations.map((a) => a.commitmentKey).sort()).toEqual(["1", "2", "3"]);
+  });
   it("fills the first outcome with room, oldest commitment first, and a bundle of 3 takes a whole orphan", () => {
     const outs = orphans(2);
     const cs = [com("1", 1), com("2", 1), com("3", 3), com("4", 1)];

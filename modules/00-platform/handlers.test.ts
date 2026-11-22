@@ -497,6 +497,29 @@ describe("outcomes (DECISIONS 61)", () => {
     expect(t.outcomeTypes.find((x) => x.id === "water-pump")?.icon).toBe("pump-lg");
   });
 
+  it("works out parts from the price of one part when it is added, marks custom amounts, and lets a person mark one by hand (DECISIONS 113)", async () => {
+    const cookie = await signIn(d);
+    const rows = [{ ...line("1", "501", "1"), amount: "35" }, { ...line("2", "502", "1"), amount: "40" }, { ...line("3", "503", "1"), amount: "70" }];
+    await handleImport(as(cookie, { method: "POST", body: up(rows) }), d);
+    await handleConfig(as(cookie, { method: "PUT", body: fwSetup }), d);
+    const read = async () => ((await handleWorkOrders(as(cookie), d)).body as { workOrders: { key: string; partsAuto?: number; partsManual?: string; amount: number }[] }).workOrders;
+    expect((await read()).every((w) => w.partsAuto === undefined && w.partsManual === undefined)).toBe(true); // no price, no change
+    // add the price of one part to the framework: the setup save gives the gifts their parts
+    const priced = { ...fwSetup, frameworks: fwSetup.frameworks.map((f: Record<string, unknown>) => ({ ...f, partPrices: [{ from: "2000-01-01", price: 35 }] })) };
+    expect((await handleConfig(as(cookie, { method: "PUT", body: priced }), d)).status).toBe(200);
+    const after = await read();
+    const by = (amount: number) => after.find((w) => w.amount === amount);
+    expect(by(35)?.partsAuto).toBe(1);
+    expect(by(70)?.partsAuto).toBe(2);
+    expect(by(40)?.partsManual).toBe("40 is not a whole number of 35 parts"); // a custom amount
+    // a person marks a gift manual, and takes the mark back
+    const key = by(35)?.key as string;
+    const wo = (await handleExclude(as(cookie, { method: "POST", body: { keys: [key], action: "manual", manual: true } }), d)).body as { workOrders: { partsManual?: string }[] };
+    expect(wo.workOrders[0]?.partsManual).toBe("Marked by a person");
+    const back = (await handleExclude(as(cookie, { method: "POST", body: { keys: [key], action: "manual", manual: false } }), d)).body as { workOrders: { partsManual?: string }[] };
+    expect(back.workOrders[0]?.partsManual).toBeUndefined();
+  });
+
   it("refuses a missing framework, a bad action, a viewer and a signed-out caller, and keeps organisations apart", async () => {
     const cookie = await signIn(d);
     expect((await post(cookie, { action: "add", name: "Orphan", count: 1, type: "", cohort: "", frameworkId: "ghost" })).status).toBe(400);

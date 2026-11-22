@@ -25,7 +25,7 @@ const SYMBOLS: Record<string, string> = { GBP: "\u00A3", USD: "$", EUR: "\u20AC"
 // Rule (DECISIONS 95, 96): whole amounts have no decimals (70), others keep two (17.50). A value is shown with its currency symbol (GBP gives a pound sign), or the code when there is no symbol on file. Blank when the feed gave no currency.
 const money = (n: number, currency = ""): string => (Number.isFinite(n) ? `${SYMBOLS[currency] ?? (currency ? currency + " " : "")}${n.toLocaleString("en-GB", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}` : "");
 const currencyOf = (g: GiftRow): string => g.payments.find((w) => w.currency)?.currency ?? "";
-const TABS: [Filter, string][] = [["all", "All"], ["unrouted", "Unrouted"], ["review", "To review"], ["look", "Needs a look"]];
+const TABS: [Filter, string][] = [["all", "All"], ["unrouted", "Unrouted"], ["review", "To review"], ["look", "Needs a look"], ["manual", "Manual"]];
 
 // Units, from the framework's rule for how an instalment counts (DECISIONS 52, 58). No rule set, no guess.
 function unitsCell(g: GiftRow, v: View): string {
@@ -101,6 +101,7 @@ function listData(v: View) {
   const payments = filterWorkOrders(base, c);
   let rows = giftRows(payments, v.workOrders, new Set(v.review.map((r) => r.key)));
   if (v.filter === "look") rows = rows.filter((r) => r.needsLook);
+  if (v.filter === "manual") rows = rows.filter((r) => r.manual !== "");
   return { base, c, rows };
 }
 
@@ -137,23 +138,25 @@ function allocationContext(v: View) {
   const allocationOf = new Map((v.allocations ?? []).map((a) => [a.commitmentKey, a]));
   const partnerName = (id: string | undefined) => (v.projects ?? []).find((p) => p.id === id)?.name ?? "";
   // Where a gift is allocated: the beneficiary and its partner, or why it is not.
-  return (g: GiftRow): { state: "placed" | "waiting" | "none" | "n/a"; who: string; partner: string; parts: number | null; why: string; ref?: string; allocRef?: string } => {
+  // Rule (DECISIONS 113): a gift marked manual (a custom amount, or marked by a person) is not waiting for the system. A person allocates it.
+  const waits = (g: GiftRow, why: string) => (g.manual !== "" ? { state: "manual" as const, who: "", partner: "", parts: null, why: g.manual } : { state: "waiting" as const, who: "", partner: "", parts: null, why });
+  return (g: GiftRow): { state: "placed" | "waiting" | "manual" | "none" | "n/a"; who: string; partner: string; parts: number | null; why: string; ref?: string; allocRef?: string } => {
     if (g.allocationKey === "") return { state: "n/a", who: "", partner: "", parts: null, why: "" };
     if (keys.has(g.allocationKey)) {
       const a = allocationOf.get(g.allocationKey);
       const o = a ? outcomeById.get(a.outcomeId) : undefined;
-      return o ? { state: "placed", who: o.name, partner: partnerName(o.projectId) || "No partner", parts: a && a.parts !== g.parts ? a.parts : null, why: "", ref: o.ref ?? "", allocRef: a?.ref ?? "" } : { state: "waiting", who: "", partner: "", parts: null, why: g.planStatus === "paused" ? "Plan paused, parked until payments resume" : "" };
+      return o ? { state: "placed", who: o.name, partner: partnerName(o.projectId) || "No partner", parts: a && a.parts !== g.parts ? a.parts : null, why: "", ref: o.ref ?? "", allocRef: a?.ref ?? "" } : waits(g, g.planStatus === "paused" ? "Plan paused, parked until payments resume" : "");
     }
     // Rule (DECISIONS 98): every gift needs an allocation. One that cannot be allocated yet is waiting, with the reason, except a cancelled plan, which needs none.
     // Rule (DECISIONS 102): a paused plan stays parked and says so. A cancelled one is parked as cancelled, and can be excluded by hand until the donor pays again.
-    if (g.planStatus === "paused") return { state: "waiting", who: "", partner: "", parts: null, why: "Plan paused, parked until payments resume" };
+    if (g.planStatus === "paused") return waits(g, "Plan paused, parked until payments resume");
     if (g.planStatus === "cancelled") return { state: "none", who: "", partner: "", parts: null, why: "Plan cancelled, parked. Exclude it by hand if it is not coming back" };
-    return { state: "waiting", who: "", partner: "", parts: null, why: g.frameworkId === "" ? "It needs a framework first" : "Not allocated yet. Allocation for this kind of gift is built later" };
+    return waits(g, g.frameworkId === "" ? "It needs a framework first" : "Not allocated yet. Allocation for this kind of gift is built later");
   };
 }
 
 // Symbols (DECISIONS 78). Each has a plain-words tooltip, and the window says it all in words.
-const SYMBOL = { recurring: "\u21BB", one: "\u2460", unlinked: "\u21BB?", excluded: "\u26D4", ok: "\u2714", unrouted: "\u2298", look: "\u26A0", review: "\u2691", waiting: "\u23F3", info: "\u24D8" };
+const SYMBOL = { manual: "\u270B", recurring: "\u21BB", one: "\u2460", unlinked: "\u21BB?", excluded: "\u26D4", ok: "\u2714", unrouted: "\u2298", look: "\u26A0", review: "\u2691", waiting: "\u23F3", info: "\u24D8" };
 const icon = (cls: string, glyph: string, tip: string) => `<span class="gi ${cls}" title="${esc(tip)}" aria-label="${esc(tip)}">${glyph}</span>`;
 const PLAN_ICON: Record<string, [string, string]> = { paused: ["\u23F8", "Plan paused"], cancelled: ["\u2715", "Plan cancelled"], past_due: ["\u23F0", "Plan past due"], pending: ["\u2026", "Plan pending"], completed: ["\u25A0", "Plan completed"] };
 
@@ -189,7 +192,7 @@ export function giftListHtml(v: View): string {
     <button data-bulk="exclude"${picked.size ? "" : " disabled"}>Exclude selected</button><button data-bulk="restore"${picked.size ? "" : " disabled"}>Restore selected</button><button data-bulk="clear"${picked.size ? "" : " disabled"}>Clear selection</button></div>`;
   const note = `${isFiltering(c) ? `<p class="muted">Showing ${rows.length} gift${rows.length === 1 ? "" : "s"} from ${filterWorkOrders(base, c).length} of ${base.length} payments.</p>` : ""}${rows.length > MAX_ROWS ? `<p class="muted">Only the first ${MAX_ROWS} are drawn. Narrow the list with the filter boxes.</p>` : ""}`;
   if (base.length === 0) return `<div class="empty">No gifts in this list.</div>`;
-  const key = `<p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; ${SYMBOL.waiting} waiting for allocation &nbsp; ${SYMBOL.ok} ready &nbsp; ${SYMBOL.look} needs a look &nbsp; ${SYMBOL.review} held for review &nbsp; ${SYMBOL.unrouted} unrouted &nbsp; ${SYMBOL.excluded} excluded &nbsp; Click a row for its details.</p>`;
+  const key = `<p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; ${SYMBOL.manual} allocate by hand &nbsp; ${SYMBOL.waiting} waiting for allocation &nbsp; ${SYMBOL.ok} ready &nbsp; ${SYMBOL.look} needs a look &nbsp; ${SYMBOL.review} held for review &nbsp; ${SYMBOL.unrouted} unrouted &nbsp; ${SYMBOL.excluded} excluded &nbsp; Click a row for its details.</p>`;
 
   // Rule: the plan column is the short form: paid/planned for a subscription, the months covered for a single payment.
   const planCell = (g: GiftRow): string => {
@@ -201,6 +204,7 @@ export function giftListHtml(v: View): string {
   const allocCell = (g: GiftRow): string => {
     const a = where(g);
     if (a.state === "placed") return `<span title="${esc(a.who)} ${esc(a.ref ?? "")} at ${esc(a.partner)}">${esc(a.who)} <span class="muted">${esc(a.ref ?? "")} ${esc(a.partner)}</span></span>`;
+    if (a.state === "manual") return icon("manual", SYMBOL.manual, `Allocate by hand. ${a.why}`);
     if (a.state === "waiting") return a.why.startsWith("Plan paused") ? icon("muted", PLAN_ICON["paused"]![0], a.why) : icon("warn", SYMBOL.waiting, a.why ? `Waiting for allocation. ${a.why}` : "Waiting for allocation");
     return a.state === "none" ? `<span class="muted" title="${esc(a.why)}">\u2013</span>` : "";
   };
@@ -236,7 +240,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   const kindName = g.kind === "recurring" ? "Recurring gift" : g.kind === "unlinked" ? "Recurring payment the CRM did not link to a subscription" : g.kind === "excluded" ? "Excluded payment" : "One payment";
   const row = (label: string, value: string, wide = false) => value === "" ? "" : `<div class="f${wide ? " w" : ""}"><span>${label}</span><div>${value}</div></div>`;
   const progress = g.kind === "recurring" || g.kind === "unlinked" ? `${g.paid} of ${g.planned ?? "ongoing"}${g.planned ? `<div class="bar"><span style="width:${Math.min(100, Math.round((g.paid / g.planned) * 100))}%"></span></div>` : ""}` : g.periodCount > 0 ? `covers ${g.periodCount} month${g.periodCount === 1 ? "" : "s"}` : "";
-  const allocation = a.state === "placed" ? `${esc(a.who)}${a.ref ? ` <b>${esc(a.ref)}</b>` : ""}<div class="muted">${a.allocRef ? `Allocation ${esc(a.allocRef)} \u00B7 ` : ""}${esc(a.partner)}${a.parts !== null ? ` · ${a.parts} part${a.parts === 1 ? "" : "s"}` : ""}</div>` : a.state === "waiting" ? `<span class="pill review">Waiting for allocation</span>${a.why ? `<div class="muted">${esc(a.why)}</div>` : ""}` : a.why ? `<span class="muted">${esc(a.why)}</span>` : "";
+  const allocation = a.state === "placed" ? `${esc(a.who)}${a.ref ? ` <b>${esc(a.ref)}</b>` : ""}<div class="muted">${a.allocRef ? `Allocation ${esc(a.allocRef)} \u00B7 ` : ""}${esc(a.partner)}${a.parts !== null ? ` · ${a.parts} part${a.parts === 1 ? "" : "s"}` : ""}</div>` : a.state === "manual" ? `<span class="pill review">Allocate by hand</span><div class="muted">${esc(a.why)}</div>` : a.state === "waiting" ? `<span class="pill review">Waiting for allocation</span>${a.why ? `<div class="muted">${esc(a.why)}</div>` : ""}` : a.why ? `<span class="muted">${esc(a.why)}</span>` : "";
   const status = [
     g.kind === "excluded" ? "" : g.unrouted ? `<span class="pill unrouted">Unrouted</span>` : `<span class="pill ready">Ready</span>`,
     g.inReview ? `<span class="pill review">Review</span>` : "",
@@ -251,11 +255,18 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   const monthName = (m: string) => m;
   const catchUp = g.catchUps.map((x) => `<div class="suggest-box"><b>Possible catch-up payment.</b> ${esc(x.reason)}. If it covers ${x.covers} instalments, it also fills ${x.fills.map(monthName).map(esc).join(", ")}.
       <div class="actions"><button class="primary" data-covers-set="${esc(x.key)}" data-n="${x.covers}">Yes, it covers ${x.covers}</button><button data-covers-set="${esc(x.key)}" data-n="1">No, it is a normal payment</button></div></div>`).join("");
+  // A gift for manual allocation (DECISIONS 113): the reason, and a way to set its parts. A person's own mark can be taken back.
+  const firstReal = g.payments.find((w) => w.legacyUpload !== true);
+  const manualBox = g.manual !== "" && firstReal
+    ? `<div class="suggest-box"><b>Allocate by hand.</b> ${esc(g.manual)}. Choose how many parts each payment is, then allocate it in Allocation.
+        <div class="actions">${[1, 2, 3, 4, 6].map((n) => `<button data-parts-set="${esc(firstReal.key)}" data-n="${n}">${n} part${n === 1 ? "" : "s"}</button>`).join("")}${firstReal.partsByPerson ? `<button data-manual-set="${esc(firstReal.key)}" data-on="0">Back to automatic</button>` : ""}</div></div>`
+    : "";
+  const markManual = g.manual === "" && firstReal && g.kind !== "excluded" ? `<button data-manual-set="${esc(firstReal.key)}" data-on="1" title="Take this gift out of automatic allocation, so a person allocates it">Mark as manual</button>` : "";
   const partFix = g.partFixes.map((x) => `<div class="suggest-box"><b>The quantity looks wrong.</b> ${esc(x.reason)} part${x.parts === 1 ? "" : "s"}.
       <div class="actions"><button class="primary" data-parts-set="${esc(x.key)}" data-n="${x.parts}">Yes, count it as ${x.parts} part${x.parts === 1 ? "" : "s"}</button><button data-parts-set="${esc(x.key)}" data-n="${x.sent}">No, ${x.sent} is right</button></div></div>`).join("");
   return `<div class="pf-overlay" data-gift-close="overlay"><div class="pf-box" role="dialog" aria-label="Gift details">
     <header><h2>${esc(g.supporterName)} <span class="muted">${esc(g.itemName)}</span></h2><button data-gift-close="x" aria-label="Close">Close</button></header>
-    <div class="pf-body compact">${catchUp}${partFix}<div class="fgrid">
+    <div class="pf-body compact">${manualBox}${catchUp}${partFix}<div class="fgrid">
         ${row("Donor", `${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span>${first && first.group ? ` <span class="muted">· ${esc(first.group)}</span>` : ""}`)}
         ${row("Item", `${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${picker(v.categories, first.itemId, "")}` : `<div class="muted">${esc(categoryName(v.categories, g.categoryId))}${first && first.bundleQty && first.bundleQty > 1 && g.kind !== "recurring" ? ` \u00B7 bundle of ${first.bundleQty}${first.quantity > 1 ? ` x ${first.quantity}` : ""}` : ""}</div>`}`)}
         ${row("Type", esc(kindName))}
@@ -268,7 +279,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Cause", esc(first?.cause ?? ""))}
         ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
         ${row("Allocated to", allocation)}
-        ${row("Status", `${status} ${logBtn}`)}
+        ${row("Status", `${status} ${logBtn} ${markManual}`)}
         ${first ? row("Credit", creditLine(first), true) : ""}
         ${row("Could belong to", link, true)}
       </div>
@@ -296,7 +307,7 @@ export function giftMetricsHtml(v: View): string {
     <div class="metric"><b>${recurring}</b><span>Recurring</span><div class="smrow">${small(count((g) => g.kind === "one_off"), "one payments")}</div></div>
     <div class="metric"><b>${value}</b><span>Value</span></div>
     <div class="metric"><span>Plan status</span><div class="smrow">${small(status("cancelled"), "cancelled")}${small(status("paused"), "paused")}${small(status("completed"), "completed")}</div></div>
-    <div class="metric${waiting ? " warn" : ""}"><b>${waiting}</b><span>Unallocated</span><div class="smrow">${small(count((g) => where(g).state === "placed"), "allocated")}${small(count((g) => where(g).state === "none"), "need none")}</div></div>
+    <div class="metric${waiting ? " warn" : ""}"><b>${waiting}</b><span>Unallocated</span><div class="smrow">${small(count((g) => where(g).state === "placed"), "allocated")}${small(count((g) => where(g).state === "manual"), "manual")}${small(count((g) => where(g).state === "none"), "need none")}</div></div>
     <div class="metric${review ? " warn" : ""}"><b>${review}</b><span>Review</span></div>`;
 }
 

@@ -170,4 +170,31 @@ describe("giftsPage", () => {
     expect(shortDate("2026-01-05")).toBe("05/01/26");
     expect(shortDate("")).toBe("");
   });
+  it("marks a custom amount gift for manual allocation in the list, the tab, the filter and the tile, and in the window (DECISIONS 113)", () => {
+    const fws = starterFrameworks().map((f) => (f.id === "sponsorship-shared-parts" ? { ...f, partPrices: [{ from: "2000-01-01", price: 35 }] } : f));
+    const clean = [1, 2].map((n) => sub(n, { key: `c${n}`, subscriptionId: "SC", frameworkId: "sponsorship-shared-parts", amount: 35, partsAuto: 1 }));
+    const custom = [1, 2].map((n) => sub(n, { key: `m${n}`, subscriptionId: "SM", frameworkId: "sponsorship-shared-parts", amount: 40, partsManual: "40 is not a whole number of 35 parts" }));
+    const v = (over: Partial<View> = {}) => view({ workOrders: [...clean, ...custom], frameworks: fws, ...over });
+    const html = giftListHtml(v());
+    expect(html).toContain("\u270B"); // the hand symbol, not the hourglass, on the custom gift
+    expect(html).toContain("Allocate by hand. 40 is not a whole number of 35 parts");
+    expect(html).toContain("allocate by hand"); // in the key
+    // the Manual tab shows only that gift, and the filter finds its payments
+    const tab = giftListHtml(v({ filter: "manual" }));
+    expect((tab.match(/data-sel-gift=/g) ?? []).length).toBe(1);
+    expect(tab).toContain('data-sel-gift="SM"');
+    expect(giftsPage(v())).toContain('data-filter="manual"');
+    expect(giftListHtml(v({ criteria: { text: "", itemId: "", categoryId: "", status: "", kind: "custom", legacy: "", from: "", to: "" } }))).toContain('data-sel-gift="SM"');
+    expect(giftsPage(v())).toContain("Custom amount");
+    // the tile splits unallocated from manual
+    expect(giftMetricsHtml(v())).toMatch(/<b>1<\/b> manual/);
+    // the window explains and offers the parts, and marking by hand is offered on a normal gift
+    const win = giftDetailHtml(v(), "SM");
+    expect(win).toContain("<b>Allocate by hand.</b>");
+    expect(win).toContain('data-parts-set="m1" data-n="2"');
+    expect(giftDetailHtml(v(), "SC")).toContain('data-manual-set="c1" data-on="1"');
+    expect(win).not.toContain('data-manual-set="m1" data-on="0"'); // a custom amount is not marked by a person, so there is nothing to take back
+    const byPerson = giftDetailHtml(v({ workOrders: [{ ...(custom[0] as WorkOrder), partsByPerson: true }, custom[1] as WorkOrder] }), "SM");
+    expect(byPerson).toContain('data-manual-set="m1" data-on="0"');
+  });
 });

@@ -13,6 +13,7 @@
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, clearLegacy, placeInNode, placeInPartner, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
 import { setCovers, setLooked, setParts } from "../modules/04b-commitments/catch-up";
+import { applyPartPrices, setManual } from "../modules/04b-commitments/parts";
 import { giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts-page";
 import { partnersPage } from "./partners-page";
 import { projectsPage } from "./projects-page";
@@ -25,11 +26,11 @@ import { addOutcomes, autoAllocate, perPeriodRule, releaseApprovals, moveAllocat
 import { allocatable } from "../modules/04b-commitments/commitments";
 import { filterWorkOrders, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { excludeWorkOrder, planWorkOrders, restoreWorkOrder, type ReviewItem, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
-import { acceptSuggestions, addCategory, addFramework, assignItem, duplicateFramework, frameworkByItem, removeCategory, removeFramework, renameCategory, renameFramework, setCategoryFramework, setItemFramework, setKeywords, suggestAll, updateTemplate, type Cycle, type FrameworkTemplate, type InstalmentRule, type Setup } from "../modules/02-project-rules/categories";
+import { acceptSuggestions, addCategory, addFramework, addPartPrice, removePartPrice, assignItem, duplicateFramework, frameworkByItem, removeCategory, removeFramework, renameCategory, renameFramework, setCategoryFramework, setItemFramework, setKeywords, suggestAll, updateTemplate, type Cycle, type FrameworkTemplate, type InstalmentRule, type Setup } from "../modules/02-project-rules/categories";
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
 import { buildAttention, type AttentionItem } from "../modules/04-triage/triage";
-import { changeOutcomes, loadOutcomes, decideAttention, signOut, setExcluded, setCovers as setCoversApi, setLooked as setLookedApi, setParts as setPartsApi, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
+import { changeOutcomes, loadOutcomes, decideAttention, signOut, setExcluded, setCovers as setCoversApi, setLooked as setLookedApi, setParts as setPartsApi, setManualApi, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
 import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
@@ -94,11 +95,19 @@ const state = {
 const permissions = () => (state.me ? state.me.perms : DEMO_ROLES.find((r) => r.id === state.roleId)?.permissions ?? []);
 
 // Run the CRM feed through the connector and bring the work orders up to date.
+// Parts from the price of one part, in the demo (DECISIONS 113). The server does the same on a pick-up and when the setup is saved.
+function deriveDemoParts(): void {
+  const prices = new Map(state.frameworks.map((f) => [f.id, f.partPrices ?? []]));
+  const changed = new Map(applyPartPrices(state.workOrders, (id) => prices.get(id) ?? []).map((w) => [w.key, w]));
+  if (changed.size > 0) state.workOrders = state.workOrders.map((w) => changed.get(w.key) ?? w);
+}
+
 function refresh(): void {
   const lines = readFeed(state.feedRows, MWF_CRM_CONFIG).lines;
   const plan = planWorkOrders(lines, state.workOrders, { categoryByItem: state.itemCategories, frameworkByItem: frameworkByItem(setupNow()), usesFrameworks: true, feedIsComplete: true });
   const rerouted = new Map(plan.rerouted.map((w) => [w.key, w]));
   state.workOrders = [...state.workOrders.map((w) => rerouted.get(w.key) ?? w), ...plan.created];
+  deriveDemoParts();
   state.review = plan.review;
   state.message = `Refreshed from the CRM: ${plan.created.length} new, ${plan.rerouted.length} routed, ${plan.review.length} to review.`;
 }
@@ -318,6 +327,30 @@ async function applyCovers(key: string, covers: number): Promise<void> {
   }
   draw();
 }
+// Marks a gift for manual allocation, or takes the mark back (DECISIONS 113).
+async function applyManual(key: string, on: boolean): Promise<void> {
+  try {
+    if (state.live()) {
+      const r = await setManualApi(key, on);
+      const back = new Map(r.workOrders.map((w) => [w.key, w]));
+      state.workOrders = state.workOrders.map((w) => back.get(w.key) ?? w);
+    } else {
+      state.workOrders = state.workOrders.map((w) => {
+        if (w.key !== key) return w;
+        const r = setManual(w, on);
+        return "order" in r ? r.order : w;
+      });
+    }
+    state.message = on ? "Marked for manual allocation." : "Back to automatic.";
+  } catch (e) {
+    state.message = e instanceof Error ? e.message : "That did not work.";
+  }
+  draw();
+}
+document.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest?.("[data-manual-set]") as HTMLElement | null;
+  if (b) void applyManual(b.dataset.manualSet as string, b.dataset.on === "1");
+});
 // Sets the parts of a payment when its quantity looked wrong, or confirms the CRM's (DECISIONS 87).
 async function applyParts(key: string, parts: number): Promise<void> {
   try {
@@ -659,6 +692,18 @@ document.addEventListener("click", (e) => {
     return;
   }
   // Framework templates (DECISIONS 59).
+  // The price of one part, with the date it starts (DECISIONS 112). Old prices stay, so a change only reaches gifts that start after it.
+  if (action === "add-part-price") {
+    const id = el.dataset.id ?? "";
+    const from = (document.getElementById(`pp-from-${id}`) as HTMLInputElement | null)?.value ?? "";
+    const price = Number((document.getElementById(`pp-price-${id}`) as HTMLInputElement | null)?.value ?? "");
+    const r = addPartPrice(state.frameworks, id, from, price);
+    state.frameworks = r.value;
+    state.message = r.error ?? "Price added.";
+    if (!r.error) { deriveDemoParts(); afterConfig(false); } else draw();
+    return;
+  }
+  if (action === "remove-part-price") { state.frameworks = removePartPrice(state.frameworks, el.dataset.id ?? "", el.dataset.from ?? ""); afterConfig(false); return; }
   if (action === "add-framework") {
     const r = addFramework(state.frameworks, (document.getElementById("newfw") as HTMLInputElement).value);
     state.frameworks = r.value;

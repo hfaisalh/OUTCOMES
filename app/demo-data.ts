@@ -22,7 +22,7 @@ export const demoFeedRows = (): FeedRow[] => toRecords(parseCsv(feedCsv)).record
 // Orphan sponsorship is sold in parts: three parts make one orphan. A scholarship is one whole sponsorship a month.
 export function starterFrameworks(): FrameworkTemplate[] {
   return [
-    { id: "sponsorship-shared-parts", name: "Sponsorship: shared parts", unit: "child", cycle: "quarterly", reportType: "Quarterly child update", instalment: "per_period", unitsPerBeneficiary: 3 },
+    { id: "sponsorship-shared-parts", name: "Sponsorship: shared parts", unit: "child", cycle: "quarterly", reportType: "Quarterly child update", instalment: "per_period", unitsPerBeneficiary: 3, partPrices: [{ from: "2000-01-01", price: 35 }] },
     { id: "sponsorship-whole", name: "Sponsorship: whole", unit: "student", cycle: "quarterly", reportType: "Quarterly student update", instalment: "per_period", unitsPerBeneficiary: 1 },
     { id: "delivered-once", name: "Delivered once", unit: "", cycle: "on_delivery", reportType: "", instalment: "share_of_whole", unitsPerBeneficiary: 1 },
     { id: "livelihood", name: "Livelihood and loans", unit: "", cycle: "half_yearly", reportType: "", instalment: "share_of_whole", unitsPerBeneficiary: 1 },

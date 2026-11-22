@@ -17,7 +17,7 @@ export interface Criteria {
   itemId: string; // "" for any item
   categoryId: string; // "" for any category
   status: string; // "" for any status, or a work order status such as "ready", "unrouted", "excluded"
-  kind: "any" | "recurring" | "oneoff";
+  kind: "any" | "recurring" | "oneoff" | "custom"; // custom: a payment marked for manual allocation (DECISIONS 113)
   legacy: "" | "only" | "hide"; // legacy uploads: all, only them, or without them (DECISIONS 55)
   from: string; // paid on or after, "YYYY-MM-DD" or ""
   to: string; // paid on or before, "YYYY-MM-DD" or ""
@@ -38,6 +38,7 @@ export function filterWorkOrders(orders: WorkOrder[], c: Criteria): WorkOrder[] 
     // Rule: recurring means the line belongs to a subscription.
     if (c.kind === "recurring" && w.subscriptionId === "") return false;
     if (c.kind === "oneoff" && w.subscriptionId !== "") return false;
+    if (c.kind === "custom" && (w.partsManual === undefined || w.partsFixed !== undefined)) return false;
     const day = w.paidDate.slice(0, 10);
     if (c.from !== "" && (day === "" || day < c.from)) return false;
     if (c.to !== "" && (day === "" || day > c.to)) return false;

@@ -264,7 +264,8 @@ export function autoAllocate(commitments: Commitment[], outcomes: Outcome[], fw:
   const used = new Map<string, number>();
   for (const a of next) used.set(a.outcomeId, (used.get(a.outcomeId) ?? 0) + a.parts);
 
-  const todo = [...asking.values()].filter((c) => !placedKeys.has(c.subscriptionId)).sort((a, b) => (a.firstPaid || "9999").localeCompare(b.firstPaid || "9999") || a.subscriptionId.localeCompare(b.subscriptionId));
+  // Rule (DECISIONS 113): a gift marked manual (a custom amount) is never placed by itself. A person allocates it.
+  const todo = [...asking.values()].filter((c) => !placedKeys.has(c.subscriptionId) && !c.manual).sort((a, b) => (a.firstPaid || "9999").localeCompare(b.firstPaid || "9999") || a.subscriptionId.localeCompare(b.subscriptionId));
   const unplaced: AutoResult["unplaced"] = [];
   let placed = 0;
   for (const c of todo) {
