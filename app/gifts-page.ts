@@ -18,7 +18,8 @@ import { categoryName, creditLine, criteriaFor, esc, filterBar, listBase, liveBa
 
 const num = (n: number) => String(Math.round(n * 100) / 100);
 // Rule: a value is for reference only (OUTCOMES does not manage money). The CRM feed gives no currency, so none is shown.
-const money = (n: number) => (Number.isFinite(n) ? n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "");
+const money = (n: number, currency = "") => (Number.isFinite(n) ? `${currency ? currency + " " : ""}${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "");
+const currencyOf = (g: GiftRow): string => g.payments.find((w) => w.currency)?.currency ?? "";
 const TABS: [Filter, string][] = [["all", "All"], ["unrouted", "Unrouted"], ["review", "To review"], ["look", "Needs a look"]];
 
 // Units, from the framework's rule for how an instalment counts (DECISIONS 52, 58). No rule set, no guess.
@@ -37,17 +38,28 @@ function unitsCell(g: GiftRow, v: View): string {
   return `${num(u.units)}${u.target === null ? "" : ` of ${num(u.target)}`} <span class="muted">${c.partsPerInstalment === 1 ? "month" : "part-months"}</span>${who}`;
 }
 
-// Units as a picture (DECISIONS 79): a bar of units delivered out of the whole, and one dot for each part of a beneficiary (filled = parts this gift holds).
-function unitsVisual(g: GiftRow, v: View): string {
+// Units as pies (DECISIONS 80): one pie for each beneficiary, with a slice for each part of it. Slices this gift pays for are coloured, whatever the
+// others are: green when the gift is allocated to a beneficiary, orange when it is not yet. Slices of other donors stay grey.
+function unitsVisual(g: GiftRow, v: View, allocated: boolean): string {
   const c = g.commitment;
   const fw = c ? (v.frameworks ?? []).find((x) => x.id === c.frameworkId) : undefined;
   if (!c || !fw || fw.instalment === undefined) return unitsCell(g, v);
   const u = unitsForCommitment(fw.instalment, { parts: c.partsPerInstalment, paid: c.paid, planned: c.planned });
-  const pct = u.target ? Math.min(100, Math.round((u.units / u.target) * 100)) : 0;
-  const bar = u.target ? `<div class="ubar" title="${num(u.units)} of ${num(u.target)}"><span style="width:${pct}%"></span><b>${num(u.units)} / ${num(u.target)}</b></div>` : "";
-  const slots = fw.instalment === "per_period" && fw.unitsPerBeneficiary > 1 ? fw.unitsPerBeneficiary : 0;
-  const dots = slots > 0 ? `<div class="dots" title="${c.partsPerInstalment} of ${slots} parts of a ${esc(fw.unit || "beneficiary")}">${Array.from({ length: slots }, (_, i) => `<i class="${i < c.partsPerInstalment ? "on" : ""}"></i>`).join("")}<span class="muted">${c.partsPerInstalment} of ${slots}</span></div>` : "";
-  return `${bar}${dots}<div class="muted small">${unitsCell(g, v)}</div>`;
+  if (fw.instalment === "share_of_whole") {
+    const pct = u.target ? Math.min(100, Math.round((u.units / u.target) * 100)) : 0;
+    return `${u.target ? `<div class="ubar"><span style="width:${pct}%"></span><b>${num(u.units)} / ${num(u.target)}</b></div>` : ""}<div class="muted small">${unitsCell(g, v)}</div>`;
+  }
+  const slots = Math.max(1, fw.unitsPerBeneficiary);
+  const total = Math.max(1, c.partsPerInstalment);
+  const colour = allocated ? "p" : "e";
+  const pie = (held: number): string => {
+    const R = 14, C = 2 * Math.PI * R, len = C / slots;
+    const arcs = Array.from({ length: slots }, (_, i) => `<circle class="seg ${i < held ? colour : "f"}" cx="18" cy="18" r="${R}" fill="none" stroke-width="8" stroke-dasharray="${slots === 1 ? C : Math.max(len - 1.6, 0.5)} ${C}" stroke-dashoffset="${-i * len}" transform="rotate(-90 18 18)"/>`).join("");
+    return `<svg class="upie" viewBox="0 0 36 36" width="40" height="40">${arcs}</svg>`;
+  };
+  const full = Math.min(8, Math.floor(total / slots)), rest = total % slots;
+  const pies = `${Array.from({ length: full }, () => pie(slots)).join("")}${rest > 0 ? pie(rest) : ""}`;
+  return `<div class="upies" title="${total} part${total === 1 ? "" : "s"} of ${slots} per ${esc(fw.unit || "beneficiary")}: ${allocated ? "allocated" : "not allocated yet"}">${pies}</div><div class="muted small">${unitsCell(g, v)}</div>`;
 }
 
 // The payments of a gift, as a small table: the lines the CRM sent, each of which can be excluded or restored, or sorted into a category.
@@ -56,7 +68,7 @@ function paymentsTable(g: GiftRow, v: View): string {
   return `<table class="subtable"><thead><tr><th>Reference</th><th>Paid</th><th>Instalment</th><th>Value</th><th>Category</th><th>Status</th><th></th></tr></thead><tbody>${g.payments.map((w) => `<tr><td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)}</div></td>
     <td>${w.legacyUpload ? `${esc(w.paidDate.slice(0, 10))} <span class="pill review" title="Uploaded from the old system. This date is the day it was loaded, not the day it was paid.">Legacy upload</span>` : esc(w.paidDate.slice(0, 10))}</td>
     <td>${w.instalmentNumber === "" ? `<span class="muted">One-off</span>` : `${esc(w.instalmentNumber)} of ${esc(w.instalmentCount)}`}</td>
-    <td class="num">${money(w.amount)}</td>
+    <td class="num">${money(w.amount, w.currency)}</td>
     <td>${w.status === "unrouted" ? picker(v.categories, w.itemId, "") : esc(categoryName(v.categories, w.categoryId))}</td>
     <td>${w.status === "excluded" ? `<span class="pill unrouted">Excluded</span>${w.exclusion ? `<div class="muted">${esc(w.exclusion.reason)}</div>` : ""}` : `<span class="pill ${w.status === "unrouted" ? "unrouted" : "ready"}">${w.status === "unrouted" ? "Unrouted" : "Ready"}</span>`}${reviewKeys.has(w.key) ? ` <span class="pill review">Review</span>` : ""}</td>
     <td>${w.status === "excluded" ? `<button data-excl="${esc(w.key)}" data-excl-action="restore">Restore</button>` : w.status === "unrouted" || w.status === "ready" ? `<button data-excl="${esc(w.key)}" data-excl-action="exclude">Exclude</button>` : ""}</td></tr>`).join("")}</tbody></table>`;
@@ -156,17 +168,18 @@ export function giftListHtml(v: View): string {
     const reason = g.kind === "excluded" ? g.payments[0]?.exclusion?.reason ?? "" : "";
     return `<tr class="grow${g.kind === "excluded" ? " off" : ""}" data-gift-open="${esc(g.key)}"><td><input type="checkbox" data-sel-gift="${esc(g.key)}" data-keys="${esc(g.payments.map((w) => w.key).join(" "))}" title="Tick every payment of this gift"${ticked ? " checked" : ""}></td>
       <td class="c">${kindIcon(g)}</td>
+      <td class="num muted">${g.kind === "recurring" ? esc(g.key) : ""}</td>
       <td class="clip" title="${esc(g.supporterName)} ${esc(g.supporterId)}">${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span></td>
       <td class="clip" title="${esc(g.itemName)}">${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${picker(v.categories, first.itemId, "")}` : ""}</td>
       <td class="num">${planCell(g)}</td>
-      <td class="num muted" title="Total of its payments, for reference">${money(g.payments.reduce((t, w) => t + (Number.isFinite(w.amount) ? w.amount : 0), 0))}</td>
+      <td class="num muted" title="Total of its payments, for reference">${money(g.payments.reduce((t, w) => t + (Number.isFinite(w.amount) ? w.amount : 0), 0), currencyOf(g))}</td>
       <td class="num">${esc(paid)}</td>
       <td class="num muted">${esc(g.nextDue)}</td>
       <td class="clip">${allocCell(g)}</td>
       <td class="c st">${statusIcons(g)}${g.kind === "excluded" && first ? `<button data-excl="${esc(first.key)}" data-excl-action="restore" title="${esc(reason || "Excluded")}">Restore</button>` : ""}</td>
       <td class="c"><button class="gi-open" data-gift-open="${esc(g.key)}" title="Open the details" aria-label="Open the details">${SYMBOL.info}</button></td></tr>`;
   };
-  return `${bulk}${note}${rows.length === 0 ? `<div class="empty">No gifts match the filters.</div>` : `${key}<div class="tablewrap"><table class="giftlist"><thead><tr><th><input type="checkbox" data-selall="main" title="Tick all shown"${allTicked ? " checked" : ""}></th><th></th><th>Donor</th><th>Item</th><th>Plan</th><th>Value</th><th>Paid</th><th>Next</th><th>Allocated to</th><th>Status</th><th></th></tr></thead><tbody>${shown.map(row).join("")}</tbody></table></div>`}`;
+  return `${bulk}${note}${rows.length === 0 ? `<div class="empty">No gifts match the filters.</div>` : `${key}<div class="tablewrap"><table class="giftlist"><thead><tr><th><input type="checkbox" data-selall="main" title="Tick all shown"${allTicked ? " checked" : ""}></th><th></th><th>Rec. ID</th><th>Donor</th><th>Item</th><th>Plan</th><th>Value</th><th>Paid</th><th>Next</th><th>Allocated to</th><th>Status</th><th></th></tr></thead><tbody>${shown.map(row).join("")}</tbody></table></div>`}`;
 }
 
 // The window for one gift: everything the list leaves out (DECISIONS 78). Returns "" when the gift is not in the data, so the caller closes the window.
@@ -190,13 +203,14 @@ export function giftDetailHtml(v: View, giftKey: string): string {
     <div class="pf-body compact"><div class="fgrid">
         ${row("Donor", `${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span>${first && first.group ? ` <span class="muted">· ${esc(first.group)}</span>` : ""}`)}
         ${row("Item", `${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${picker(v.categories, first.itemId, "")}` : `<div class="muted">${esc(categoryName(v.categories, g.categoryId))}${first && first.bundleQty && first.bundleQty > 1 && g.kind !== "recurring" ? ` \u00B7 bundle of ${first.bundleQty}${first.quantity > 1 ? ` x ${first.quantity}` : ""}` : ""}</div>`}`)}
-        ${row("Type", `${esc(kindName)}${g.kind === "recurring" ? `<div class="muted">Subscription ${esc(g.key)}</div>` : ""}`)}
-        ${row("Value (reference)", money(g.payments.reduce((t, w) => t + (Number.isFinite(w.amount) ? w.amount : 0), 0)))}
+        ${row("Type", esc(kindName))}
+        ${row("Recurring ID", g.kind === "recurring" ? `<b>${esc(g.key)}</b>` : "")}
+        ${row("Value (reference)", money(g.payments.reduce((t, w) => t + (Number.isFinite(w.amount) ? w.amount : 0), 0), currencyOf(g)))}
         ${row("Paid", progress)}
         ${row("Dates", `${esc(g.firstPaid)}${g.lastPaid && g.lastPaid !== g.firstPaid ? ` \u2192 ${esc(g.lastPaid)}` : ""}${g.nextDue ? `<div class="muted">next due ${esc(g.nextDue)}</div>` : ""}`)}
         ${row("Plan status", g.planStatus ? `<span class="pill ${g.planStatus === "active" ? "ready" : "review"}">${esc(g.planStatus)}</span>` : "")}
         ${row("Project chosen", esc(g.projectName))}
-        ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
+        ${row("Units", g.kind === "recurring" ? unitsVisual(g, v, a.state === "placed") : "", true)}
         ${row("Allocated to", allocation)}
         ${row("Status", status)}
         ${first ? row("Credit", creditLine(first), true) : ""}

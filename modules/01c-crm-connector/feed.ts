@@ -59,6 +59,7 @@ export interface FeedLine {
   itemId: string;
   itemName: string;
   amount: number; // for reference only
+  currency: string; // the currency code of the amount (for example GBP), "" when the feed has none
   quantity: number;
   bundleQty: number; // parts of the item in the bundle the line was bought as, 1 when none (DECISIONS 51)
   projectName: string; // the project the donor chose on the line, as the CRM names it. Blank or "Where Needed Most" means a general gift (DECISIONS 66)
@@ -195,6 +196,7 @@ export function readFeed(rows: FeedRow[], config: FeedConfig = MWF_CRM_CONFIG): 
       itemId: (r["item_id"] ?? "").trim(),
       itemName: (r["item_name"] ?? "").trim(),
       amount: amount ?? 0,
+      currency: (r["currency"] ?? "").trim().toUpperCase(),
       quantity: num(r["quantity"]) ?? 1,
       bundleQty: bundleOf(r["bundle_qty"]),
       periodCount: periodsOf(r["period_count"]),
