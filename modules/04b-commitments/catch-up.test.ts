@@ -120,4 +120,13 @@ describe("catch-up payments", () => {
     expect(open).toContain("Changed by hand here. The CRM does not know");
     expect(open).toContain("marked as covering 2 instalments");
   });
+  it("shows values with the currency symbol (DECISIONS 95)", () => {
+    const done = [inst(1, "2026-08-11", 35, { currency: "GBP" }), inst(2, "2026-09-11", 35, { currency: "GBP" })];
+    const v = { workOrders: done, review: [], categories: [], frameworks: [], today: "2026-11-22" } as unknown as View;
+    const html = giftDetailHtml(v, "S1", false);
+    expect(html).toContain("\u00A370.00"); // the gift total
+    expect(html).toContain("\u00A335.00"); // a payment
+    expect(giftDetailHtml({ ...v, workOrders: done.map((w) => ({ ...w, currency: "XYZ" })) } as View, "S1")).toContain("XYZ 70.00");
+    expect(giftDetailHtml({ ...v, workOrders: done.map((w) => ({ ...w, currency: undefined })) } as View, "S1")).toContain(">70.00<"); // none given, none shown
+  });
 });
