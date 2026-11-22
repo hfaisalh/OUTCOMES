@@ -18,6 +18,9 @@
 
 import { lineValue, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 
+// Rule (DECISIONS 96): an amount in words has no decimals when it is whole (70), and two when it is not (17.50).
+const plain = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(2));
+
 export const monthOf = (paidDate: string): string => paidDate.slice(0, 7);
 
 // Month arithmetic on "YYYY-MM".
@@ -92,7 +95,7 @@ export function suggestCatchUps(payments: WorkOrder[]): CatchUp[] {
     // The months are worked out as if the person applied it: every other payment, and every earlier decision, counts.
     const others = list.filter((x) => x.key !== w.key);
     const taken = new Set(coverage(others).months);
-    out.push({ key: w.key, covers: k, fills: fillMonths(monthOf(w.paidDate), k - 1, taken), value, usual, reason: `${value.toFixed(2)} is ${k} times the usual ${usual.toFixed(2)}` });
+    out.push({ key: w.key, covers: k, fills: fillMonths(monthOf(w.paidDate), k - 1, taken), value, usual, reason: `${plain(value)} is ${k} times the usual ${plain(usual)}` });
   }
   return out;
 }
@@ -142,7 +145,7 @@ export function suggestPartFixes(payments: WorkOrder[]): PartFix[] {
     const k = Math.round(value / usual);
     const sent = (w.bundleQty ?? 1) * w.quantity;
     if (k < 1 || Math.abs(value - k * usual) > 0.02 * usual * k || k === sent) continue;
-    out.push({ key: w.key, parts: k, sent, unit: w.amount, usualUnit: usual, reason: `${value.toFixed(2)} for ${sent} at ${w.amount.toFixed(2)} each, but the usual price is ${usual.toFixed(2)} each, so it fits ${k}` });
+    out.push({ key: w.key, parts: k, sent, unit: w.amount, usualUnit: usual, reason: `${plain(value)} for ${sent} at ${plain(w.amount)} each, but the usual price is ${plain(usual)} each, so it fits ${k}` });
   }
   return out;
 }

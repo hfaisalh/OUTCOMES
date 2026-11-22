@@ -21,8 +21,8 @@ import { categoryName, creditLine, criteriaFor, esc, filterBar, listBase, MAX_RO
 const num = (n: number) => String(Math.round(n * 100) / 100);
 // Rule: a value is for reference only (OUTCOMES does not manage money). The CRM feed gives no currency, so none is shown.
 const SYMBOLS: Record<string, string> = { GBP: "\u00A3", USD: "$", EUR: "\u20AC", CAD: "CA$", AUD: "A$", INR: "\u20B9", PKR: "Rs ", BDT: "\u09F3", AED: "AED ", SAR: "SAR ", ZAR: "R" };
-// Rule (DECISIONS 95): a value is shown with its currency symbol (GBP gives a pound sign), or the code when there is no symbol on file. Blank when the feed gave no currency.
-const money = (n: number, currency = ""): string => (Number.isFinite(n) ? `${SYMBOLS[currency] ?? (currency ? currency + " " : "")}${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "");
+// Rule (DECISIONS 95, 96): whole amounts have no decimals (70), others keep two (17.50). A value is shown with its currency symbol (GBP gives a pound sign), or the code when there is no symbol on file. Blank when the feed gave no currency.
+const money = (n: number, currency = ""): string => (Number.isFinite(n) ? `${SYMBOLS[currency] ?? (currency ? currency + " " : "")}${n.toLocaleString("en-GB", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}` : "");
 const currencyOf = (g: GiftRow): string => g.payments.find((w) => w.currency)?.currency ?? "";
 const TABS: [Filter, string][] = [["all", "All"], ["unrouted", "Unrouted"], ["review", "To review"], ["look", "Needs a look"]];
 
