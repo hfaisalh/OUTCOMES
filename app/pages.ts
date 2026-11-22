@@ -279,9 +279,8 @@ export function categoriesPage(v: View): string {
 
 export const sourcesPage = (): string => `
     <h1>Other sources</h1>
-    <p class="sub">For organisations with no CRM, and for testing. Upload a file or read a Google Sheet, then map its columns to OUTCOMES' own fields.</p>
-    <div class="card"><a class="btn primary" href="../modules/01-data-mapping/ui/index.html" style="text-decoration:none;display:inline-block">Open the file and field mapping page</a>
-    <p class="muted">This is Module 1. It will move inside this shell once the connected screens are agreed.</p></div>`;
+    <p class="sub">For organisations with no CRM, and for testing. Upload a file or read a Google Sheet, then map its columns to OUTCOMES' own fields. The mapping tool opens right here, so nothing leaves this page (DECISIONS 93).</p>
+    <div class="card embedcard"><iframe class="embed" title="File and field mapping" src="/modules/01-data-mapping/ui/index.html?embedded=1"></iframe></div>`;
 
 export const settingsPage = (v: View): string => `
     <h1>Settings</h1><p class="sub">Connector settings for this organisation. Roles and who may sign in are not set here: they come from the CRM (DECISIONS 32).</p>

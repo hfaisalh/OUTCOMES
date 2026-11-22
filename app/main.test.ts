@@ -146,4 +146,10 @@ describe("the Data area and the icon menus (DECISIONS 92)", () => {
     click({ menu: "user" }, "data-menu"); // a second click closes it
     expect(shell.innerHTML).not.toContain('role="menu"');
   });
+  it("shows the field mapping tool inside Other sources, not as a link to a new page (DECISIONS 93)", () => {
+    click({ page: "sources" }, "data-page");
+    expect(shell.innerHTML).toContain('<iframe class="embed"');
+    expect(shell.innerHTML).toContain("/modules/01-data-mapping/ui/index.html?embedded=1");
+    expect(shell.innerHTML).not.toContain("Open the file and field mapping page");
+  });
 });

@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>OUTCOMES: data sources and field mapping</title>
     <link rel="stylesheet" href="./styles.css" />
+    <!-- When the OUTCOMES shell shows this page inside itself (?embedded=1), its own title and note are hidden, since the shell already has them. -->
+    <style>.embedded header>h1,.embedded header>p.note:first-of-type{display:none}.embedded header,.embedded main{max-width:none;padding:8px 12px}</style>
+    <script>if (location.search.indexOf("embedded=1") >= 0) document.documentElement.classList.add("embedded");</script>
   </head>
   <body>
     <!-- Page shell. The file pickers stay here so choosing a file is never lost when the page redraws. -->
