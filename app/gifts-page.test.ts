@@ -11,7 +11,7 @@ import { MWF_CRM_CONFIG, readFeed } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { suggestAll } from "../modules/02-project-rules/categories";
 import { demoCategories, demoFeedRows, starterFrameworks } from "./demo-data";
-import { giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts-page";
+import { giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shortDate, shownGiftKeys } from "./gifts-page";
 import type { View } from "./pages";
 
 const lines = readFeed(demoFeedRows(), MWF_CRM_CONFIG).lines;
@@ -144,11 +144,27 @@ describe("giftsPage", () => {
     expect(chosen).toContain("<rect x=\"2\" y=\"9\" width=\"12\""); // the tanker's shape, not the pump's
     expect(giftListHtml(view({ workOrders: [sub(1, { itemName: "Something unusual", itemId: "I8" })] }))).not.toContain('class="ico ico-sm"');
   });
-  it("shows the project the donor chose, quietly when it is general (DECISIONS 108)", () => {
-    const html = giftListHtml(view({ workOrders: [sub(1, { key: "a1", subscriptionId: "SA", projectName: "Aghosh" }), sub(1, { key: "b1", subscriptionId: "SB", projectName: "Where Needed Most" }), sub(1, { key: "c1", subscriptionId: "SC" })] }));
+  it("shows the project the donor chose, and the cause instead when it is general or blank (DECISIONS 108, 109)", () => {
+    const html = giftListHtml(view({ workOrders: [
+      sub(1, { key: "a1", subscriptionId: "SA", projectName: "Aghosh", cause: "Orphan Care" }),
+      sub(1, { key: "b1", subscriptionId: "SB", projectName: "Where Needed Most", cause: "Water for All" }),
+      sub(1, { key: "c1", subscriptionId: "SC", cause: "Educare" }),
+      sub(1, { key: "d1", subscriptionId: "SD" }),
+    ] }));
     expect(html).toContain("<th>Project</th>");
-    expect(html).toContain('title="Aghosh">Aghosh');
-    expect(html).toContain('<span class="muted">Where Needed Most</span>');
-    expect(html).toContain('title=""><span class="muted">\u2013</span>'); // none given
+    expect(html).toContain('title="Aghosh. Cause: Orphan Care">Aghosh'); // a named project is shown, its cause is in the tooltip
+    expect(html).toContain('<span class="muted">Water for All</span>'); // general: the cause instead
+    expect(html).toContain('<span class="muted">Educare</span>'); // blank: the cause instead
+    expect(html).not.toContain('<span class="muted">Where Needed Most</span>');
+    expect(html).toContain('<span class="muted">\u2013</span>'); // no project and no cause: a dash
+  });
+  it("has no info button at the end of a row, since the row opens the details, and short dates (DECISIONS 109)", () => {
+    const html = giftListHtml(view({ workOrders: [sub(1, { paidDate: "2026-11-20 10:00:00", planNextDue: "2026-12-20" })] }));
+    expect(html).not.toContain("gi-open");
+    expect(html).toContain('<tr class="grow" data-gift-open="S9" tabindex="0"');
+    expect(html).toContain('title="2026-11-20">20 Nov 26');
+    expect(html).toContain('title="2026-12-20">20 Dec 26');
+    expect(shortDate("2026-01-05")).toBe("5 Jan 26");
+    expect(shortDate("")).toBe("");
   });
 });

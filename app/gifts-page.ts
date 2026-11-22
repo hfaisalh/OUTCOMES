@@ -84,7 +84,7 @@ function unitsVisual(g: GiftRow, v: View): string {
 // The payments of a gift, as a small table: the lines the CRM sent, each of which can be excluded or restored, or sorted into a category.
 function paymentsTable(g: GiftRow, v: View): string {
   const reviewKeys = new Set(v.review.map((r) => r.key));
-  return `<table class="subtable"><thead><tr><th>Reference</th><th>Paid</th><th>Instalment</th><th>Covers</th><th>Value</th><th>Category</th><th>Status</th><th></th></tr></thead><tbody>${g.payments.map((w) => `<tr><td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)}</div></td>
+  return `<table class="subtable"><thead><tr><th>Reference</th><th>Paid</th><th>Instalment</th><th>Covers</th><th>Value</th><th>Category</th><th>Status</th></tr></thead><tbody>${g.payments.map((w) => `<tr><td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)}</div></td>
     <td>${w.legacyUpload ? `${esc(w.paidDate.slice(0, 10))} <span class="pill review" title="Uploaded from the old system. This date is the day it was loaded, not the day it was paid.">Legacy upload</span>` : esc(w.paidDate.slice(0, 10))}</td>
     <td>${w.instalmentNumber === "" ? `<span class="muted">One-off</span>` : `${esc(w.instalmentNumber)} of ${esc(w.instalmentCount)}`}</td>
     <td>${w.status === "unrouted" || w.status === "ready" ? `<select data-covers-key="${esc(w.key)}" title="How many instalments this payment covers">${[1, 2, 3, 4].map((n) => `<option value="${n}"${(w.covers ?? 1) === n ? " selected" : ""}>${n}</option>`).join("")}</select>${w.covers && w.covers > 1 ? ` <span class="pill review" title="A person marked this as a catch-up payment">catch-up</span>` : ""}` : `<span class="muted">${w.covers ?? 1}</span>`}</td>
@@ -110,7 +110,18 @@ export function shownGiftKeys(v: View): string[] {
 }
 
 // Rule (DECISIONS 108): the project the donor chose in the CRM. A general gift (Where Needed Most, or none) is shown quietly, since it can go anywhere.
-const projectCell = (name: string): string => (name === "" ? `<span class="muted">\u2013</span>` : /^where needed most$/i.test(name.trim()) ? `<span class="muted">${esc(name)}</span>` : esc(name));
+// Rule (DECISIONS 109): dates in the list are short, 20 Nov 26. The full date is in the tooltip and the window.
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export const shortDate = (iso: string): string => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1] ?? ""} ${(m[1] as string).slice(2)}` : iso;
+};
+const projectCell = (name: string, cause = ""): string => {
+  const general = name === "" || /^where needed most$/i.test(name.trim());
+  if (!general) return esc(name);
+  // A general gift shows its cause instead (Water for All, Orphan Care), quietly. With no cause either, a dash.
+  return cause ? `<span class="muted">${esc(cause)}</span>` : `<span class="muted">\u2013</span>`;
+};
 
 // The icon of a gift's item (DECISIONS 107): the one chosen, else a suggestion from its name, else its outcome type's icon.
 const giftIcon = (v: View, g: GiftRow, size: "sm" | "lg" = "sm"): string => iconHtml(itemIcon(g.itemId, g.itemName, v.itemIcons, (v.outcomeTypes ?? []).find((t) => g.frameworkId !== "" && t.frameworkIds.includes(g.frameworkId))?.icon ?? ""), g.itemName, size);
@@ -177,7 +188,7 @@ export function giftListHtml(v: View): string {
     <button data-bulk="exclude"${picked.size ? "" : " disabled"}>Exclude selected</button><button data-bulk="restore"${picked.size ? "" : " disabled"}>Restore selected</button><button data-bulk="clear"${picked.size ? "" : " disabled"}>Clear selection</button></div>`;
   const note = `${isFiltering(c) ? `<p class="muted">Showing ${rows.length} gift${rows.length === 1 ? "" : "s"} from ${filterWorkOrders(base, c).length} of ${base.length} payments.</p>` : ""}${rows.length > MAX_ROWS ? `<p class="muted">Only the first ${MAX_ROWS} are drawn. Narrow the list with the filter boxes.</p>` : ""}`;
   if (base.length === 0) return `<div class="empty">No gifts in this list.</div>`;
-  const key = `<p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; ${SYMBOL.waiting} waiting for allocation &nbsp; ${SYMBOL.ok} ready &nbsp; ${SYMBOL.look} needs a look &nbsp; ${SYMBOL.review} held for review &nbsp; ${SYMBOL.unrouted} unrouted &nbsp; ${SYMBOL.excluded} excluded &nbsp; Click a row for the details.</p>`;
+  const key = `<p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; ${SYMBOL.waiting} waiting for allocation &nbsp; ${SYMBOL.ok} ready &nbsp; ${SYMBOL.look} needs a look &nbsp; ${SYMBOL.review} held for review &nbsp; ${SYMBOL.unrouted} unrouted &nbsp; ${SYMBOL.excluded} excluded &nbsp; Click a row for its details.</p>`;
 
   // Rule: the plan column is the short form: paid/planned for a subscription, the months covered for a single payment.
   const planCell = (g: GiftRow): string => {
@@ -198,19 +209,19 @@ export function giftListHtml(v: View): string {
     const ticked = g.payments.length > 0 && g.payments.every((w) => picked.has(w.key));
     const paid = g.kind === "excluded" ? (g.payments[0]?.paidDate ?? "").slice(0, 10) : g.lastPaid || g.firstPaid;
     const reason = g.kind === "excluded" ? g.payments[0]?.exclusion?.reason ?? "" : "";
-    return `<tr class="grow${g.kind === "excluded" ? " off" : ""}" data-gift-open="${esc(g.key)}"><td><input type="checkbox" data-sel-gift="${esc(g.key)}" data-keys="${esc(g.payments.map((w) => w.key).join(" "))}" title="Tick every payment of this gift"${ticked ? " checked" : ""}></td>
+    return `<tr class="grow${g.kind === "excluded" ? " off" : ""}" data-gift-open="${esc(g.key)}" tabindex="0" title="Open the details"><td><input type="checkbox" data-sel-gift="${esc(g.key)}" data-keys="${esc(g.payments.map((w) => w.key).join(" "))}" title="Tick every payment of this gift"${ticked ? " checked" : ""}></td>
       <td class="c">${kindIcon(g)}</td>
       <td class="num muted">${g.kind === "recurring" ? esc(g.key) : ""}</td>
       <td class="clip" title="${esc(g.supporterName)} ${esc(g.supporterId)}">${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span></td>
       <td class="clip" title="${esc(g.itemName)}">${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${picker(v.categories, first.itemId, "")}` : ""}</td>
-      <td class="clip" title="${esc(g.projectName)}">${projectCell(g.projectName)}</td>
+      <td class="clip" title="${esc([g.projectName, first?.cause ? `Cause: ${first.cause}` : ""].filter((x) => x !== "").join(". "))}">${projectCell(g.projectName, first?.cause ?? "")}</td>
       <td class="num">${planCell(g)}</td>
       <td class="num muted" title="Total of its payments, for reference">${money(g.payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0), currencyOf(g))}</td>
-      <td class="num">${esc(paid)}</td>
-      <td class="num muted">${esc(g.nextDue)}</td>
+      <td class="num" title="${esc(paid)}">${esc(shortDate(paid))}</td>
+      <td class="num muted" title="${esc(g.nextDue)}">${esc(shortDate(g.nextDue))}</td>
       <td class="clip">${allocCell(g)}</td>
       <td class="c st">${statusIcons(g)}${g.kind === "excluded" && first ? `<button data-excl="${esc(first.key)}" data-excl-action="restore" title="${esc(reason || "Excluded")}">Restore</button>` : ""}</td>
-      <td class="c"><button class="gi-open" data-gift-open="${esc(g.key)}" title="Open the details" aria-label="Open the details">${SYMBOL.info}</button></td></tr>`;
+      </tr>`;
   };
   return `${bulk}${note}${rows.length === 0 ? `<div class="empty">No gifts match the filters.</div>` : `${key}<div class="tablewrap"><table class="giftlist"><thead><tr><th><input type="checkbox" data-selall="main" title="Tick all shown"${allTicked ? " checked" : ""}></th><th></th><th>Rec. ID</th><th>Donor</th><th>Item</th><th>Project</th><th>Plan</th><th>Value</th><th>Paid</th><th>Next</th><th>Allocated to</th><th>Status</th><th></th></tr></thead><tbody>${shown.map(row).join("")}</tbody></table></div>`}`;
 }
@@ -253,6 +264,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Dates", `${esc(g.firstPaid)}${g.lastPaid && g.lastPaid !== g.firstPaid ? ` \u2192 ${esc(g.lastPaid)}` : ""}${g.nextDue ? `<div class="muted">next due ${esc(g.nextDue)}</div>` : ""}`)}
         ${row("Plan status", g.planStatus ? `<span class="pill ${g.planStatus === "active" ? "ready" : "review"}">${esc(g.planStatus)}</span>` : "")}
         ${row("Project chosen", esc(g.projectName))}
+        ${row("Cause", esc(first?.cause ?? ""))}
         ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
         ${row("Allocated to", allocation)}
         ${row("Status", `${status} ${logBtn}`)}

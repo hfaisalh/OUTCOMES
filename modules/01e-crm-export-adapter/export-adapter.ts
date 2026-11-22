@@ -271,6 +271,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
       quantity: pick(r, "Order Quantity"),
       bundle_qty: bundleQuantity,
       project_name: pick(r, "Project"), // the project the donor chose (DECISIONS 66)
+      cause: pick(r, "Cause"), // the cause the gift was given to, shown when there is no named project (DECISIONS 109)
       period_count: !recurring ? (planLength.get(`${code}|${bundleName}`) ?? "") : "", // months a one-off covers
       intention: pick(r, "Intention"),
     });

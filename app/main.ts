@@ -475,6 +475,9 @@ document.addEventListener("click", (e) => {
   if (open && !t.closest("input,select,button:not(.gi-open),a,details")) { state.giftWin.key = open.dataset.giftOpen ?? ""; state.giftWin.log = false; renderGiftWindow(); }
 });
 document.addEventListener("keydown", (e) => {
+  // A row opens with Enter too, since the info button at its end is gone (DECISIONS 109).
+  const row = (e.target as HTMLElement | null)?.closest?.("tr[data-gift-open]") as HTMLElement | null;
+  if (row && e.key === "Enter" && !(e.target as HTMLElement).closest("input,select,button,a")) { state.giftWin.key = row.dataset.giftOpen ?? ""; state.giftWin.log = false; renderGiftWindow(); return; }
   if (e.key !== "Escape" || state.giftWin.key === "") return;
   if (state.giftWin.log) state.giftWin.log = false; else state.giftWin.key = "";
   renderGiftWindow();
