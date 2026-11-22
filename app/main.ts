@@ -207,7 +207,6 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.partnerFields = r.partnerFields ?? state.partnerFields;
       if (body["action"] === "remove-many") state.message = `Removed ${r.removed ?? 0}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`;
       else if (body["action"] === "adopt-legacy") state.message = `Moved ${(r as unknown as { moved?: number }).moved ?? 0} into the partner.`;
-      else if (body["action"] === "release-all") state.message = `Released ${(r as unknown as { released?: number }).released ?? 0} gifts from their beneficiaries.`;
       else if (body["action"] === "clear-legacy") state.message = `Removed ${(r as unknown as { removed?: number }).removed ?? 0} and released ${(r as unknown as { released?: number }).released ?? 0} gifts.`;
       else if (body["action"] === "auto") state.message = `Placed ${r.placed ?? 0}, released ${r.released ?? 0}, ${r.unplaced?.length ?? 0} waiting.`;
       else state.message = r.warning ?? "";
@@ -230,7 +229,6 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "set-require-ref": state.requireRef = body["on"] === true; break;
         case "set-grace": { const n = Number(body["days"]); if (!Number.isInteger(n) || n < 0 || n > 90) error = "The grace period is a whole number of days, from 0 to 90."; else state.graceDays = n; break; }
         case "approve-release": { const due = releaseApprovals(state.allocations, commitments, state.frameworks, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy).find((x) => x.commitmentKey === str("commitmentKey")); if (!due) error = "That place is not due for release."; else state.allocations = releaseAllocation(state.allocations, due.commitmentKey); break; }
-        case "release-all": state.message = `Released ${state.allocations.length} gift${state.allocations.length === 1 ? "" : "s"} from their beneficiaries.`; state.allocations = []; break;
         case "release": state.allocations = releaseAllocation(state.allocations, str("commitmentKey")); break;
         default: {
           // Projects (DECISIONS 65): the same pure rule the server uses.
@@ -584,10 +582,6 @@ document.addEventListener("click", (e) => {
   }
   // Beneficiaries made before partners existed (DECISIONS 73).
   if (action === "adopt-legacy") return void outcomeChange({ action: "adopt-legacy", projectId: (document.getElementById("al-adopt") as HTMLSelectElement | null)?.value ?? "" });
-  if (action === "release-all") {
-    if (window.confirm(`Take all ${state.allocations.length} gifts off their beneficiaries? The beneficiaries stay and the gifts wait for a place again. Nothing is placed again until you ask.`)) void outcomeChange({ action: "release-all" });
-    return;
-  }
   if (action === "clear-legacy") {
     if (window.confirm("Remove the beneficiaries that are not in a partner and release their gifts? The gifts can then be placed again. This cannot be undone.")) void outcomeChange({ action: "clear-legacy" });
     return;

@@ -177,7 +177,7 @@ export function giftListHtml(v: View): string {
     const a = where(g);
     if (a.state === "placed") return `<span title="${esc(a.who)} at ${esc(a.partner)}">${esc(a.who)} <span class="muted">${esc(a.partner)}</span></span>`;
     if (a.state === "waiting") return icon("warn", SYMBOL.waiting, "Waiting for a place");
-    return a.state === "none" ? `<span class="muted" title="${esc(a.why)}">\u2013</span>` : "";
+    return a.state === "none" ? `<span class="muted" title="${esc(a.why)}">${a.why === "No framework yet" ? "No framework" : "No place needed"}</span>` : "";
   };
 
   const row = (g: GiftRow): string => {
