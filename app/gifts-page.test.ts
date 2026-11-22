@@ -144,4 +144,11 @@ describe("giftsPage", () => {
     expect(chosen).toContain("<rect x=\"2\" y=\"9\" width=\"12\""); // the tanker's shape, not the pump's
     expect(giftListHtml(view({ workOrders: [sub(1, { itemName: "Something unusual", itemId: "I8" })] }))).not.toContain('class="ico ico-sm"');
   });
+  it("shows the project the donor chose, quietly when it is general (DECISIONS 108)", () => {
+    const html = giftListHtml(view({ workOrders: [sub(1, { key: "a1", subscriptionId: "SA", projectName: "Aghosh" }), sub(1, { key: "b1", subscriptionId: "SB", projectName: "Where Needed Most" }), sub(1, { key: "c1", subscriptionId: "SC" })] }));
+    expect(html).toContain("<th>Project</th>");
+    expect(html).toContain('title="Aghosh">Aghosh');
+    expect(html).toContain('<span class="muted">Where Needed Most</span>');
+    expect(html).toContain('title=""><span class="muted">\u2013</span>'); // none given
+  });
 });

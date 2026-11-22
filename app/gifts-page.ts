@@ -109,6 +109,9 @@ export function shownGiftKeys(v: View): string[] {
   return listData(v).rows.slice(0, MAX_ROWS).flatMap((r) => r.payments.map((w) => w.key));
 }
 
+// Rule (DECISIONS 108): the project the donor chose in the CRM. A general gift (Where Needed Most, or none) is shown quietly, since it can go anywhere.
+const projectCell = (name: string): string => (name === "" ? `<span class="muted">\u2013</span>` : /^where needed most$/i.test(name.trim()) ? `<span class="muted">${esc(name)}</span>` : esc(name));
+
 // The icon of a gift's item (DECISIONS 107): the one chosen, else a suggestion from its name, else its outcome type's icon.
 const giftIcon = (v: View, g: GiftRow, size: "sm" | "lg" = "sm"): string => iconHtml(itemIcon(g.itemId, g.itemName, v.itemIcons, (v.outcomeTypes ?? []).find((t) => g.frameworkId !== "" && t.frameworkIds.includes(g.frameworkId))?.icon ?? ""), g.itemName, size);
 
@@ -200,6 +203,7 @@ export function giftListHtml(v: View): string {
       <td class="num muted">${g.kind === "recurring" ? esc(g.key) : ""}</td>
       <td class="clip" title="${esc(g.supporterName)} ${esc(g.supporterId)}">${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span></td>
       <td class="clip" title="${esc(g.itemName)}">${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${picker(v.categories, first.itemId, "")}` : ""}</td>
+      <td class="clip" title="${esc(g.projectName)}">${projectCell(g.projectName)}</td>
       <td class="num">${planCell(g)}</td>
       <td class="num muted" title="Total of its payments, for reference">${money(g.payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0), currencyOf(g))}</td>
       <td class="num">${esc(paid)}</td>
@@ -208,7 +212,7 @@ export function giftListHtml(v: View): string {
       <td class="c st">${statusIcons(g)}${g.kind === "excluded" && first ? `<button data-excl="${esc(first.key)}" data-excl-action="restore" title="${esc(reason || "Excluded")}">Restore</button>` : ""}</td>
       <td class="c"><button class="gi-open" data-gift-open="${esc(g.key)}" title="Open the details" aria-label="Open the details">${SYMBOL.info}</button></td></tr>`;
   };
-  return `${bulk}${note}${rows.length === 0 ? `<div class="empty">No gifts match the filters.</div>` : `${key}<div class="tablewrap"><table class="giftlist"><thead><tr><th><input type="checkbox" data-selall="main" title="Tick all shown"${allTicked ? " checked" : ""}></th><th></th><th>Rec. ID</th><th>Donor</th><th>Item</th><th>Plan</th><th>Value</th><th>Paid</th><th>Next</th><th>Allocated to</th><th>Status</th><th></th></tr></thead><tbody>${shown.map(row).join("")}</tbody></table></div>`}`;
+  return `${bulk}${note}${rows.length === 0 ? `<div class="empty">No gifts match the filters.</div>` : `${key}<div class="tablewrap"><table class="giftlist"><thead><tr><th><input type="checkbox" data-selall="main" title="Tick all shown"${allTicked ? " checked" : ""}></th><th></th><th>Rec. ID</th><th>Donor</th><th>Item</th><th>Project</th><th>Plan</th><th>Value</th><th>Paid</th><th>Next</th><th>Allocated to</th><th>Status</th><th></th></tr></thead><tbody>${shown.map(row).join("")}</tbody></table></div>`}`;
 }
 
 // The window for one gift: everything the list leaves out (DECISIONS 78). Returns "" when the gift is not in the data, so the caller closes the window.
