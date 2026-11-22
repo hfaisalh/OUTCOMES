@@ -110,11 +110,10 @@ export function shownGiftKeys(v: View): string[] {
 }
 
 // Rule (DECISIONS 108): the project the donor chose in the CRM. A general gift (Where Needed Most, or none) is shown quietly, since it can go anywhere.
-// Rule (DECISIONS 109): dates in the list are short, 20 Nov 26. The full date is in the tooltip and the window.
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// Rule (DECISIONS 110): dates in the list are day, month, year in two digits each, 20/11/26. The full date is in the tooltip and the window.
 export const shortDate = (iso: string): string => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1] ?? ""} ${(m[1] as string).slice(2)}` : iso;
+  return m ? `${m[3]}/${m[2]}/${(m[1] as string).slice(2)}` : iso;
 };
 const projectCell = (name: string, cause = ""): string => {
   const general = name === "" || /^where needed most$/i.test(name.trim());

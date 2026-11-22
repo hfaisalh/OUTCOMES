@@ -162,9 +162,9 @@ describe("giftsPage", () => {
     const html = giftListHtml(view({ workOrders: [sub(1, { paidDate: "2026-11-20 10:00:00", planNextDue: "2026-12-20" })] }));
     expect(html).not.toContain("gi-open");
     expect(html).toContain('<tr class="grow" data-gift-open="S9" tabindex="0"');
-    expect(html).toContain('title="2026-11-20">20 Nov 26');
-    expect(html).toContain('title="2026-12-20">20 Dec 26');
-    expect(shortDate("2026-01-05")).toBe("5 Jan 26");
+    expect(html).toContain('title="2026-11-20">20/11/26');
+    expect(html).toContain('title="2026-12-20">20/12/26');
+    expect(shortDate("2026-01-05")).toBe("05/01/26");
     expect(shortDate("")).toBe("");
   });
 });

@@ -251,3 +251,5 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 
 109. **Gifts list: no info button, short dates, and the cause where there is no project (22 Nov 2026, from Faisal).** The info button at the end of each row is removed, because clicking the row opens its details (Enter does too, for the keyboard). Dates in the list are short, **20 Nov 26**, with the full date in the tooltip. A gift with no named project, or with Where Needed Most, shows its **cause** in the Project column instead (Water for All, Orphan Care, Educare, Help Feed), in grey, or a dash when it has neither. The cause comes from the CRM export's Cause column, carried in the feed as the optional `cause` column and kept on the work order. The tooltip of a named project also says its cause, and the gift window has a Cause field. **To show causes the donation lines must be uploaded again.**
 
+110. **Dates in the Gifts list are DD/MM/YY (22 Nov 2026, from Faisal).** 20/11/26 replaces 20 Nov 26 (decision 109). The full date is still in the tooltip and the window.
+
