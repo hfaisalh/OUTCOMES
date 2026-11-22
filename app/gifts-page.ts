@@ -10,7 +10,7 @@
  */
 
 import { filterWorkOrders, isFiltering } from "../modules/01c-crm-connector/filter";
-import { lineValue, sentPartsOf, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
+import { lineValue, partsOf, sentPartsOf, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { iconHtml, itemIcon } from "./icons";
 import { plusMonths } from "../modules/04b-commitments/catch-up";
 import { allocatable, type Commitment } from "../modules/04b-commitments/commitments";
@@ -84,10 +84,11 @@ function unitsVisual(g: GiftRow, v: View): string {
 // The payments of a gift, as a small table: the lines the CRM sent, each of which can be excluded or restored, or sorted into a category.
 function paymentsTable(g: GiftRow, v: View): string {
   const reviewKeys = new Set(v.review.map((r) => r.key));
-  return `<table class="subtable"><thead><tr><th>Reference</th><th>Paid</th><th>Instalment</th><th>Covers</th><th>Value</th><th>Category</th><th>Status</th></tr></thead><tbody>${g.payments.map((w) => `<tr><td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)}</div></td>
+  return `<table class="subtable"><thead><tr><th>Reference</th><th>Paid</th><th>Instalment</th><th>Covers</th><th>Parts</th><th>Value</th><th>Category</th><th>Status</th></tr></thead><tbody>${g.payments.map((w) => `<tr><td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)}</div></td>
     <td>${w.legacyUpload ? `${esc(w.paidDate.slice(0, 10))} <span class="pill review" title="Uploaded from the old system. This date is the day it was loaded, not the day it was paid.">Legacy upload</span>` : esc(w.paidDate.slice(0, 10))}</td>
     <td>${w.instalmentNumber === "" ? `<span class="muted">One-off</span>` : `${esc(w.instalmentNumber)} of ${esc(w.instalmentCount)}`}</td>
     <td>${w.status === "unrouted" || w.status === "ready" ? `<select data-covers-key="${esc(w.key)}" title="How many instalments this payment covers">${[1, 2, 3, 4].map((n) => `<option value="${n}"${(w.covers ?? 1) === n ? " selected" : ""}>${n}</option>`).join("")}</select>${w.covers && w.covers > 1 ? ` <span class="pill review" title="A person marked this as a catch-up payment">catch-up</span>` : ""}` : `<span class="muted">${w.covers ?? 1}</span>`}</td>
+    <td class="num">${w.legacyUpload ? `<span class="muted">\u2013</span>` : `${partsOf(w)}${w.partsFixed !== undefined ? ` <span class="pill review" title="Set by hand. The CRM says ${sentPartsOf(w)}.">by hand</span>` : w.partsManual !== undefined ? ` <span class="pill review" title="${esc(w.partsManual)}">custom</span>` : ""}`}</td>
     <td class="num">${money(lineValue(w), w.currency)}</td>
     <td>${w.status === "unrouted" ? picker(v.categories, w.itemId, "") : esc(categoryName(v.categories, w.categoryId))}</td>
     <td>${w.status === "excluded" ? `<span class="pill unrouted">Excluded</span>${w.exclusion ? `<div class="muted">${esc(w.exclusion.reason)}</div>` : ""}` : `<span class="pill ${w.status === "unrouted" ? "unrouted" : "ready"}">${w.status === "unrouted" ? "Unrouted" : "Ready"}</span>`}${reviewKeys.has(w.key) ? ` <span class="pill review">Review</span>` : ""}</td>
@@ -267,7 +268,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   const partOptions = [...new Set([1, 2, 3, 4, 5, 6, g.parts])].sort((x, y) => x - y);
   const partsControl = firstReal && g.kind !== "excluded"
     ? `<select id="gp-select" aria-label="Parts of each payment">${partOptions.map((n) => `<option value="${n}"${n === g.parts ? " selected" : ""}>${n} part${n === 1 ? "" : "s"}</option>`).join("")}</select>
-        <button data-parts-save="1" data-keys="${esc(realKeys)}">Save</button>${fixed ? `<button data-parts-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-n="0" title="Go back to what the price or the CRM says">Reset</button>` : ""}`
+        <button class="iconact ok" data-parts-save="1" data-keys="${esc(realKeys)}" title="Save the parts" aria-label="Save the parts"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>${fixed ? `<button class="iconact" data-parts-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-n="0" title="Reset: go back to what the price or the CRM says" aria-label="Reset the parts"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v4.5h4.5"/></svg></button>` : ""}`
     : "";
   const markManual = g.manual === "" && firstReal && g.kind !== "excluded" ? `<button data-manual-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-on="1" title="Take this gift out of automatic allocation, so a person allocates it">Mark as manual</button>` : "";
   const partFix = g.partFixes.map((x) => `<div class="suggest-box"><b>The quantity looks wrong.</b> ${esc(x.reason)} part${x.parts === 1 ? "" : "s"}.

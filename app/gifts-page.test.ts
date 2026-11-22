@@ -193,6 +193,8 @@ describe("giftsPage", () => {
     expect(win).toContain("<b>Allocate by hand.</b>");
     expect(win).toContain('id="gp-select"'); // choose in a drop-down...
     expect(win).toContain('data-parts-save="1" data-keys="m1 m2"'); // ...then Save, which goes to every payment of the gift
+    expect(win).toContain('class="iconact ok"'); // an icon button, not words
+    expect(win).toContain('aria-label="Save the parts"');
     expect(win).not.toContain("Reset"); // nothing set by hand yet, so nothing to take back
     expect(giftDetailHtml(v(), "SC")).toContain('data-manual-set="c1" data-keys="c1 c2" data-on="1"');
     expect(win).not.toContain('data-on="0"'); // a custom amount is not marked by a person, so there is nothing to take back
@@ -212,6 +214,9 @@ describe("giftsPage", () => {
     expect(win).toContain('data-parts-save="1" data-keys="f1 f2"');
     expect(win).toContain('data-parts-set="f1" data-keys="f1 f2" data-n="0"'); // Reset
     expect(win).toContain("Set by hand. The CRM says 2.");
+    expect(win).toContain('class="iconact" data-parts-set="f1"'); // Reset is an icon too
+    expect(win).toContain("<th>Parts</th>"); // each payment shows its parts
+    expect(win).toContain('title="Set by hand. The CRM says 2.">by hand</span>');
     // a gift with parts the system worked out has the control but no Reset
     const auto = giftDetailHtml(view({ workOrders: [sub(1, { key: "g1", subscriptionId: "SG", partsAuto: 1 })] }), "SG");
     expect(auto).toContain('id="gp-select"');
