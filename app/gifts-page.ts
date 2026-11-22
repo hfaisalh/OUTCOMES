@@ -16,7 +16,7 @@ import { allocatable, type Commitment } from "../modules/04b-commitments/commitm
 import { giftRows, type GiftRow } from "../modules/04b-commitments/gifts";
 import { allocationShape, unitsForCommitment } from "../modules/02-project-rules/categories";
 import { perPeriodRule, takesCapacity } from "../modules/05-outcomes/outcomes";
-import { categoryName, creditLine, criteriaFor, esc, filterBar, listBase, liveBar, loadCard, MAX_ROWS, metric, ownerCard, picker, type Filter, type View } from "./pages";
+import { categoryName, creditLine, criteriaFor, esc, filterBar, listBase, MAX_ROWS, metric, picker, type Filter, type View } from "./pages";
 
 const num = (n: number) => String(Math.round(n * 100) / 100);
 // Rule: a value is for reference only (OUTCOMES does not manage money). The CRM feed gives no currency, so none is shown.
@@ -260,14 +260,7 @@ export function giftsPage(v: View): string {
     <p class="sub">Every gift in one list. A subscription is one row with its payments inside it, and a single payment is one row. Gifts arrive from the CRM feed. Only items the CRM marks as needing feedback appear here, so nothing is imported by hand.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics">${metric(all.length, "Gifts")}${metric(live.length, "Payments")}${metric(count("unrouted"), "Unrouted", count("unrouted") ? "warn" : "")}${metric(all.filter((g) => g.needsLook).length, "Need a look", all.some((g) => g.needsLook) ? "warn" : "")}${metric(v.review.length, "To review", v.review.length ? "warn" : "")}</div>
-    ${v.live ? liveBar(v) : ""}
-    <div class="actions">
-      <button class="primary" data-action="refresh">${v.live ? "Reload" : "Refresh from CRM"}</button>
-      ${v.live ? (v.canPickup ? `<button data-action="pickup-now">Run pickup now</button>` : "") : `<button data-action="demo-new">Demo: a new paid line arrives in the CRM</button>
-      <button data-action="demo-change">Demo: the CRM changes an amount</button>`}
-    </div>
-    ${v.live ? "" : ownerCard(v)}
-    ${v.live && !v.upload ? "" : loadCard(v)}
+    <p class="muted">${v.live && v.run?.ok ? `Last pick-up ${esc(v.run.at.replace("T", " ").slice(0, 16))} UTC. ` : ""}Gifts are brought in under <a data-page="data-feed">Data</a>${v.live ? "" : ", where the demo can be refreshed and your own files loaded"}.</p>
     <div class="tabs">${TABS.map(([id, label]) => tab(id, label)).join("")}${tab("excluded", `Excluded (${count("excluded")})`)}</div>
     ${filterBar(v, "main", base)}<div class="card" data-list="main">${giftListHtml(v)}</div>
     ${v.review.length ? `<div class="card"><h2>Held for review</h2><p class="muted">These changed in the CRM after the work order was made. Nothing was changed automatically.</p><table><tbody>${v.review.map((r) => `<tr><td>${esc(r.key)}</td><td>${esc(r.message)}</td></tr>`).join("")}</tbody></table></div>` : ""}`;

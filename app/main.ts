@@ -33,6 +33,7 @@ import { changeOutcomes, loadOutcomes, decideAttention, signOut, setExcluded, se
 import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
+import { dataFeedPage, dataFilesPage } from "./data-page";
 import { checkingHtml, signinHtml } from "./signin-page";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
 import { landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
@@ -76,6 +77,7 @@ const state = {
   loadNote: "", // what the last load did, shown in the load card
   audits: [] as AuditRecord[], // batch audit history (live only)
   attention: [] as AttentionItem[], // Needs attention, from the server when live (Module 4)
+  topMenu: "" as "" | "settings" | "user", // which icon menu in the top bar is open
   gate: "app" as "app" | "checking" | "signin", // before anything starts (DECISIONS 91): checking the session, the sign-in screen, or the app
   ownerNote: "", // what the last owner sign-in attempt said
   loading: "", // what the load is doing right now, "" when idle (shows a spinner)
@@ -384,6 +386,8 @@ function draw(): void {
   const body = menu.length === 0
     ? `<h1>No access</h1><p class="sub">Your CRM role has no OUTCOMES permission. In the live product you would not have been shown the OUTCOMES button.</p>`
     : state.page === "work-orders" ? giftsPage(v)
+    : state.page === "data-feed" ? dataFeedPage(v)
+    : state.page === "data-files" ? dataFilesPage(v)
     : state.page === "attention" ? attentionPage(v)
     : state.page === "allocation" ? allocationPage(v)
     : state.page === "outcomes" ? outcomesPage(v)
@@ -398,20 +402,27 @@ function draw(): void {
   // Side menu (DECISIONS 66): the journey of a gift. A module is one entry and its pages are tabs above the page. Setup is behind the gear.
   const entries = menuEntries(permissions());
   const work = entries.filter((e) => e.section === "Work");
-  const sections = work.length ? `<h4>Work</h4>${work.map((e) => `<a data-page="${(e.pages[0] as { id: string }).id}" class="${e.pages.some((p) => p.id === state.page) ? "on" : ""}"><span class="ico">${e.icon}</span>${e.label}</a>`).join("")}` : "";
+  const link = (e: (typeof entries)[number]) => `<a data-page="${(e.pages[0] as { id: string }).id}" class="${e.pages.some((p) => p.id === state.page) ? "on" : ""}"><span class="ico">${e.icon}</span>${e.label}</a>`;
+  const dataEntries = entries.filter((e) => e.section === "Data");
+  const sections = `${work.length ? `<h4>Work</h4>${work.map(link).join("")}` : ""}${dataEntries.length ? `<h4>Data</h4>${dataEntries.map(link).join("")}` : ""}`;
   const setupEntry = entries.find((e) => e.section === "Set up");
   const current = entries.find((e) => e.pages.some((p) => p.id === state.page));
   const openCount = (state.live() ? state.attention : view().attention ?? []).filter((i) => i.status === "open").length;
-  const gear = setupEntry ? `<button class="gear${setupEntry.pages.some((p) => p.id === state.page) ? " on" : ""}" data-page="${(setupEntry.pages[0] as { id: string }).id}" title="Settings: needs attention, audit, categories and sources" aria-label="Settings">⚙${openCount > 0 ? ` <span class="pill review">${openCount}</span>` : ""}</button>` : "";
+  // Icon menus in the top bar (DECISIONS 92): settings (a gear) and the person (name, role and sign out). One opens at a time, and a click elsewhere closes it.
+  const ICON_GEAR = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>`;
+  const ICON_USER = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>`;
+  const gear = setupEntry ? `<span class="popwrap"><button class="iconbtn${setupEntry.pages.some((p) => p.id === state.page) || state.topMenu === "settings" ? " on" : ""}" data-menu="settings" title="Settings" aria-label="Settings" aria-expanded="${state.topMenu === "settings"}">${ICON_GEAR}${openCount > 0 ? `<span class="dot">${openCount}</span>` : ""}</button>${state.topMenu === "settings" ? `<div class="pop" role="menu"><div class="pophead">Settings</div>${setupEntry.pages.map((p) => `<a data-page="${p.id}" role="menuitem" class="${p.id === state.page ? "on" : ""}"><span class="ico">${p.icon}</span>${esc(p.label)}${p.id === "attention" && openCount > 0 ? ` <span class="pill review">${openCount}</span>` : ""}</a>`).join("")}</div>` : ""}</span>` : "";
+  const person = `<span class="popwrap"><button class="iconbtn${state.topMenu === "user" ? " on" : ""}" data-menu="user" title="${state.me ? esc(state.me.name) : "Sign in"}" aria-label="Your account" aria-expanded="${state.topMenu === "user"}">${ICON_USER}</button>${state.topMenu === "user" ? `<div class="pop" role="menu">${state.me
+    ? `<div class="pophead">${esc(state.me.name)}<div class="muted">${esc(state.me.org)}${state.me.storage === "memory" ? " · temporary storage" : ""}</div></div><div class="popnote muted">${state.me.perms.length} OUTCOMES permission${state.me.perms.length === 1 ? "" : "s"} from your CRM role.</div><button class="item" data-action="sign-out">Sign out</button>`
+    : `<div class="pophead">Demo<div class="muted">Invented data, nothing is saved.</div></div><label class="popnote muted">Pretend to hold this CRM role<select id="role">${DEMO_ROLES.map((r) => `<option value="${r.id}"${r.id === state.roleId ? " selected" : ""}>${esc(r.name)}</option>`).join("")}</select></label><button class="item" data-action="show-signin">Sign in</button>`}</div>` : ""}</span>`;
   const moduleTabs = current?.module && current.pages.length > 1
     ? `<div class="modhead"><b>${esc(current.module.label)}</b><span class="muted">${esc(current.module.blurb)}</span></div><div class="modtabs">${current.pages.map((p) => `<button data-page="${p.id}" class="${p.id === state.page ? "on" : ""}">${esc(p.label)}${p.id === "attention" && openCount > 0 ? ` <span class="pill review">${openCount}</span>` : ""}</button>`).join("")}</div>`
     : "";
   const shell = document.getElementById("shell") as HTMLElement;
   shell.innerHTML = `<div class="app">
     <aside class="side"><div class="brand">OUTCOMES<small>Minhaj Welfare Foundation</small></div><nav class="nav">${sections}</nav><div class="foot">${state.me ? "Live data from your CRM." : "Demo with invented data. Nothing is saved."}</div></aside>
-    <header class="top">${state.me ? `<span class="badge-demo">Signed in from the CRM${state.me.storage === "memory" ? " · TEMPORARY STORAGE, nothing is kept" : ""}</span>
-      <div class="who"><span>${esc(state.me.name)} · ${esc(state.me.org)}</span>${gear}<button data-action="sign-out" title="Sign out">Sign out</button></div>` : `<span class="badge-demo">Opened from the CRM (imitated)</span>
-      <div class="who"><span>Signed in as Sample User</span><select id="role" title="Pretend to hold this CRM role">${DEMO_ROLES.map((r) => `<option value="${r.id}"${r.id === state.roleId ? " selected" : ""}>${esc(r.name)}</option>`).join("")}</select>${gear}</div>`}</header>
+    <header class="top">${state.me ? `<span class="badge-demo">Signed in from the CRM${state.me.storage === "memory" ? " · TEMPORARY STORAGE, nothing is kept" : ""}</span>` : `<span class="badge-demo">Demo with invented data</span>`}
+      <div class="who">${gear}${person}</div></header>
     <main class="content">${moduleTabs}${body}</main></div>`;
   void role;
   // The partner window sits outside the page, so it is drawn again from the new state, except on the profile tab, which keeps what is being typed.
@@ -523,9 +534,13 @@ document.addEventListener("click", (e) => {
     state.page = "work-orders";
     return draw();
   }
+  // The top bar icon menus: one click opens, another closes, and a click anywhere else closes it.
+  const menuBtn = target.closest("[data-menu]") as HTMLElement | null;
+  if (menuBtn) { state.topMenu = state.topMenu === menuBtn.dataset.menu ? "" : (menuBtn.dataset.menu as "settings" | "user"); return draw(); }
+  if (state.topMenu !== "" && !target.closest(".pop")) { state.topMenu = ""; draw(); }
   const el = target.closest("[data-page],[data-filter],[data-action]") as HTMLElement | null;
   if (!el) return;
-  if (el.dataset.page) state.page = el.dataset.page as PageId;
+  if (el.dataset.page) { state.page = el.dataset.page as PageId; state.topMenu = ""; }
   if (el.dataset.filter) state.filter = el.dataset.filter as Filter;
   const action = el.dataset.action;
   if (action === "clear-filters") {
@@ -533,6 +548,7 @@ document.addEventListener("click", (e) => {
     if (scope === "main") state.criteria = { ...NO_CRITERIA };
     else state.scopeCriteria = { ...state.scopeCriteria, [scope]: { ...NO_CRITERIA } };
   }
+  if (action === "show-signin") { state.topMenu = ""; state.gate = "signin"; return draw(); }
   if (action === "sign-out") {
     void signOut().finally(() => (globalThis as { location?: { assign(u: string): void } }).location?.assign("/app/"));
     return;

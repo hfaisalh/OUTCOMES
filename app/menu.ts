@@ -22,14 +22,14 @@ export const PERMISSIONS = {
   approveRelease: "outcomes.approve_release", // a manager may approve releasing a sponsor's place after a missed payment (DECISIONS 74)
 } as const;
 
-export type PageId = "work-orders" | "attention" | "outcomes" | "projects" | "partners" | "beneficiaries" | "allocation" | "audit" | "categories" | "dashboard" | "sources" | "settings";
+export type PageId = "data-feed" | "data-files" | "work-orders" | "attention" | "outcomes" | "projects" | "partners" | "beneficiaries" | "allocation" | "audit" | "categories" | "dashboard" | "sources" | "settings";
 
 export interface MenuItem {
   id: PageId;
   label: string;
   icon: string; // a plain symbol, no icon library needed yet
   permission: string;
-  section: "Work" | "Set up";
+  section: "Work" | "Data" | "Set up";
   module?: string; // the module (one menu entry with tabs) this page belongs to, if any
 }
 
@@ -38,13 +38,14 @@ export interface ModuleInfo {
   id: string;
   label: string;
   icon: string;
-  section: "Work" | "Set up";
+  section: "Work" | "Data" | "Set up";
   blurb: string; // one line shown above the tabs
 }
 
 export const MODULES: ModuleInfo[] = [
   { id: "allocation", label: "Allocation", icon: "⇄", section: "Work", blurb: "Match waiting gifts to places, and see every place month by month." },
-  { id: "setup", label: "Settings", icon: "⚙", section: "Set up", blurb: "What needs a person, the audit, categories and sponsorship types, and other sources." },
+  { id: "data", label: "Data", icon: "⇅", section: "Data", blurb: "Gifts come in from the CRM, are checked here, and then appear in Gifts." },
+  { id: "setup", label: "Settings", icon: "⚙", section: "Set up", blurb: "What needs a person, categories and sponsorship types, and the organisation." },
 ];
 
 // Rule (DECISIONS 66, 76): the side menu has the gifts, then the three registers (Projects, Partners, Beneficiaries), then Allocation, which matches gifts to beneficiaries. Everything about setting up and checking
@@ -57,10 +58,13 @@ export const MENU: MenuItem[] = [
   { id: "allocation", label: "Place gifts", icon: "⇄", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "outcomes", label: "Month by month", icon: "◎", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "dashboard", label: "Dashboard", icon: "◔", permission: PERMISSIONS.dashboards, section: "Work" },
+  // Data (DECISIONS 92): everything about getting gifts in sits in its own area, as in a CRM's data integration. Gifts only shows the result.
+  { id: "data-feed", label: "CRM connection", icon: "⇅", permission: PERMISSIONS.settings, section: "Data", module: "data" },
+  { id: "data-files", label: "Upload files", icon: "⇪", permission: PERMISSIONS.settings, section: "Data", module: "data" },
+  { id: "audit", label: "Audit", icon: "✓", permission: PERMISSIONS.viewWorkOrders, section: "Data", module: "data" },
+  { id: "sources", label: "Other sources", icon: "⇪", permission: PERMISSIONS.otherSources, section: "Data", module: "data" },
   { id: "attention", label: "Needs attention", icon: "!", permission: PERMISSIONS.viewWorkOrders, section: "Set up", module: "setup" },
-  { id: "audit", label: "Audit", icon: "✓", permission: PERMISSIONS.viewWorkOrders, section: "Set up", module: "setup" },
   { id: "categories", label: "Categories and sponsorship", icon: "▦", permission: PERMISSIONS.mapFrameworks, section: "Set up", module: "setup" },
-  { id: "sources", label: "Other sources", icon: "⇪", permission: PERMISSIONS.otherSources, section: "Set up", module: "setup" },
   { id: "settings", label: "Organisation", icon: "⚙", permission: PERMISSIONS.settings, section: "Set up", module: "setup" },
 ];
 
@@ -78,7 +82,7 @@ export interface MenuEntry {
   id: string; // the module id, or the page id for a plain page
   label: string;
   icon: string;
-  section: "Work" | "Set up";
+  section: "Work" | "Data" | "Set up";
   pages: MenuItem[]; // the pages this person may see in it, first is where the entry opens
   module?: ModuleInfo;
 }

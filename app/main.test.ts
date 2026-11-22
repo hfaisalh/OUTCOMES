@@ -87,7 +87,7 @@ describe("loading the CRM export files", () => {
   const sample = (n: string) => ({ name: n, text: async () => (await import("node:fs")).readFileSync(new URL(`../samples/${n}`, import.meta.url), "utf8") });
 
   it("chooses the files, then loads them when the button is pressed", async () => {
-    click({ page: "work-orders" }, "data-page");
+    click({ page: "data-files" }, "data-page"); // the upload lives in the Data area (DECISIONS 92)
     const files = [sample("export-donation-lines-sample.csv"), sample("export-catalogue-sample.csv"), sample("export-recurring-plans-sample.csv")];
     fire("change", { target: { id: "feedfile", dataset: {}, files } });
     expect(shell.innerHTML).toContain("Chosen: export-donation-lines-sample.csv");
@@ -96,10 +96,12 @@ describe("loading the CRM export files", () => {
     expect(shell.innerHTML).toContain("Reading file 1 of 3");
     await new Promise((r) => setTimeout(r, 300));
     expect(shell.innerHTML).toContain("Loaded 7 lines from your files");
+    click({ page: "work-orders" }, "data-page");
     expect(shell.innerHTML).toContain("MWF-ORP-001".slice(0, 0) + "Orphan Sponsorship Monthly");
   });
 
   it("says what to do when Load is pressed with no files chosen", () => {
+    click({ page: "data-files" }, "data-page");
     fire("change", { target: { id: "feedfile", dataset: {}, files: [] } });
     click({ action: "load-files" }, "data-action");
     expect(shell.innerHTML).toContain("Choose the files first");
@@ -108,7 +110,7 @@ describe("loading the CRM export files", () => {
 
 describe("owner sign-in form", () => {
   it("is a real form that posts to the server, so it works without any script", () => {
-    click({ page: "work-orders" }, "data-page");
+    click({ page: "data-feed" }, "data-page");
     expect(shell.innerHTML).toContain('<form method="post" action="/api/owner-login">');
     expect(shell.innerHTML).toContain('name="passphrase"');
     expect(shell.innerHTML).toContain('type="submit"');
@@ -120,5 +122,28 @@ describe("typing in a field the page does not manage", () => {
     shell.innerHTML = "UNTOUCHED";
     fire("change", { target: { id: "", dataset: {}, value: "typed passphrase" } });
     expect(shell.innerHTML).toBe("UNTOUCHED");
+  });
+});
+
+describe("the Data area and the icon menus (DECISIONS 92)", () => {
+  it("keeps the upload and the refresh out of Gifts, and shows them under Data", () => {
+    click({ page: "work-orders" }, "data-page");
+    expect(shell.innerHTML).toContain("<h1>Gifts</h1>");
+    expect(shell.innerHTML).not.toContain('id="feedfile"');
+    expect(shell.innerHTML).toContain('data-page="data-feed"'); // the way to the Data area
+    click({ page: "data-feed" }, "data-page");
+    expect(shell.innerHTML).toContain("<h1>CRM connection</h1>");
+    expect(shell.innerHTML).toContain('data-action="refresh"');
+    expect(shell.innerHTML).toContain("How data gets into Gifts");
+  });
+  it("opens the settings icon menu with its pages, and the person menu with sign out or sign in, one at a time", () => {
+    click({ menu: "settings" }, "data-menu");
+    expect(shell.innerHTML).toContain('role="menu"');
+    expect(shell.innerHTML).toContain('data-page="categories"');
+    click({ menu: "user" }, "data-menu");
+    expect(shell.innerHTML).toContain('data-action="show-signin"'); // the demo is not signed in
+    expect((shell.innerHTML.match(/role="menu"/g) ?? []).length).toBe(1);
+    click({ menu: "user" }, "data-menu"); // a second click closes it
+    expect(shell.innerHTML).not.toContain('role="menu"');
   });
 });
