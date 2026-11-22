@@ -153,7 +153,7 @@ describe("catch-up payments", () => {
     expect(win).toContain('data-months-save="L3"');
     // once it is a catch-up the payment says so, and the icon offers an undo
     const done = giftDetailHtml({ ...v, workOrders: orders.map((w) => (w.key === "L3" ? { ...w, covers: 2 } : w)) } as View, "S1");
-    expect(done).toContain("Catch-up: 2 months");
+    expect(done).toContain("\u00D72 months"); // the catch-up tag, short
     expect(done).toContain('data-covers-set="L3" data-n="1"');
     expect(done).not.toContain("What is it?"); // answered
   });

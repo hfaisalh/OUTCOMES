@@ -15,6 +15,7 @@ import { autoAllocate, fillOf, holdingReport, monthsAround, perPeriodRule, timel
 import { allocOptions, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
 import type { BenFilter } from "./beneficiaries-page";
 import { outcomeTypesCard } from "./outcome-types-card";
+import { shortDate, shortDateTime } from "./dates";
 import { ICONS, iconHtml, itemIcon } from "./icons";
 import type { OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { allocatable, buildCommitments, needsLook, type Commitment } from "../modules/04b-commitments/commitments";
@@ -89,7 +90,7 @@ const instalment = (w: WorkOrder) => (w.instalmentNumber === "" ? `<span class="
 export function liveBar(v: View): string {
   const r = v.run;
   if (!r) return `<div class="note">No pick-up has run yet. Work orders appear after the first pick-up from the CRM.</div>`;
-  const when = esc(r.at.replace("T", " ").slice(0, 16));
+  const when = esc(shortDateTime(r.at));
   return r.ok
     ? `<p class="muted">Last pick-up ${when} UTC: read ${r.rows} lines, ${r.created} new work orders, ${r.rerouted} routed, ${r.skipped} left out${r.issues.length ? `, ${r.issues.length} notice${r.issues.length === 1 ? "" : "s"}: ${esc(r.issues.slice(0, 3).join(" "))}${r.issues.length > 3 ? ` and ${r.issues.length - 3} more (see Needs attention)` : ""}` : ""}.</p>`
     : `<div class="note" style="background:var(--bad-bg)">The last pick-up (${when} UTC) did not finish: ${esc(r.error)} Earlier work orders are kept.</div>`;
@@ -197,7 +198,7 @@ export function listHtml(v: View, id: string): string {
       : `<table><thead><tr><th><input type="checkbox" data-selall="${esc(id)}" title="Tick all shown"${allTicked ? " checked" : ""}></th><th>Reference</th><th>Supporter</th><th>Item</th><th>Instalment</th><th>Category</th><th>Status</th><th></th></tr></thead><tbody>${shown
           .map(
             (w) => `<tr><td><input type="checkbox" data-sel="${esc(w.key)}"${picked.has(w.key) ? " checked" : ""}></td>
-            <td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)} · ${w.legacyUpload ? `${esc(w.paidDate.slice(0, 10))} <span class="pill review" title="Uploaded from the old system. This date is the day it was loaded, not the real payment date.">Legacy upload</span>` : esc(w.paidDate)}</div></td>
+            <td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)} · ${w.legacyUpload ? `${esc(shortDate(w.paidDate))} <span class="pill review" title="Uploaded from the old system. This date is the day it was loaded, not the real payment date.">Legacy upload</span>` : esc(shortDate(w.paidDate))}</div></td>
             <td>${esc(w.supporterName)}<div class="muted">${esc(w.supporterId)}${w.group ? " · " + esc(w.group) : ""}</div>${creditLine(w)}</td>
             <td>${esc(w.itemName)}${partsOf(w) > 1 ? `<div class="muted">${partsOf(w)} parts${w.bundleQty && w.bundleQty > 1 ? ` (bundle of ${w.bundleQty}${w.quantity > 1 ? ` x ${w.quantity}` : ""})` : ""}</div>` : ""}</td><td>${instalment(w)}</td>
             <td>${w.status === "unrouted" ? picker(v.categories, w.itemId, "") : esc(categoryName(v.categories, w.categoryId))}</td>
@@ -325,8 +326,8 @@ const kindWord: Record<string, string> = { added: "New", changed: "Changed", mov
 export function auditPage(v: View): string {
   const audits = v.audits ?? [];
   const latest = audits[0];
-  const row = (a: AuditRecord) => `<tr><td>${esc(a.at.slice(0, 16).replace("T", " "))}</td><td>${esc(a.source)}</td><td>${a.lines}</td>
-    <td>${a.coverage.from ? esc(a.coverage.from) + " to " + esc(a.coverage.to) : ""}</td>
+  const row = (a: AuditRecord) => `<tr><td>${esc(shortDateTime(a.at))}</td><td>${esc(a.source)}</td><td>${a.lines}</td>
+    <td>${a.coverage.from ? esc(shortDate(a.coverage.from)) + " to " + esc(shortDate(a.coverage.to)) : ""}</td>
     <td>${a.counts.added}</td><td>${a.counts.changed}</td><td>${a.counts.moved}</td><td>${a.counts.no_longer_needs_feedback}</td><td>${a.complete ? a.counts.removed : "not judged"}</td></tr>`;
   return `
     <h1>Audit</h1>
@@ -442,7 +443,7 @@ export function outcomesPage(v: View): string {
         <dl class="dl"><dt>Donor</dt><dd>${esc(open.supporterName)} <span class="muted">${esc(open.supporterId)}</span></dd>
         <dt>Item</dt><dd>${esc(open.itemName)}</dd>
         <dt>Plan</dt><dd>${open.once ? `${open.partsPerInstalment} part${open.partsPerInstalment === 1 ? "" : "s"}, paid at once for ${open.planned} month${open.planned === 1 ? "" : "s"} (${esc(open.paidMonths[0] ?? "")} to ${esc(open.endMonth ?? "")})` : `${open.partsPerInstalment} part${open.partsPerInstalment === 1 ? "" : "s"} each instalment, ${open.paid} of ${open.planned ?? "ongoing"} paid${open.legacyOpening ? " (plus earlier instalments paid on the old website)" : ""}`}</dd>
-        <dt>Paid</dt><dd>${open.firstPaid ? `${esc(open.firstPaid)} to ${esc(open.lastPaid)}` : "none since the load"}</dd>
+        <dt>Paid</dt><dd>${open.firstPaid ? `${esc(shortDate(open.firstPaid))} to ${esc(shortDate(open.lastPaid))}` : "none since the load"}</dd>
         <dt>Framework</dt><dd>${esc(fwName(open.frameworkId))}</dd>
         <dt>Allocated to</dt><dd>${alloc ? `${esc(outcomes.find((o) => o.id === alloc.outcomeId)?.name ?? alloc.outcomeId)} <span class="muted">(${alloc.how === "auto" ? "automatically" : "moved by a person"})</span>` : `<span class="muted">Not allocated</span>`}</dd></dl>
         ${alloc ? `<div class="actions"><select data-oc-move="${esc(open.subscriptionId)}"><option value="">Move to another outcome...</option>${moveTargets.map((o) => `<option value="${esc(o.id)}">${esc(o.name)} (${fills.get(o.id)?.free ?? 0} free)</option>`).join("")}</select><button data-oc-release="${esc(open.subscriptionId)}">Release</button><button data-oc-close>Close</button></div>` : `<div class="actions"><button data-oc-close>Close</button></div>`}</div>`

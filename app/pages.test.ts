@@ -140,7 +140,7 @@ describe("auditPage", () => {
   it("shows the history and what to look at, and never trusts text as HTML", () => {
     const html = auditPage(view({ live: true, audits: [record] }));
     expect(html).toContain("donation-lines.csv");
-    expect(html).toContain("2026-01-02 to 2026-10-31");
+    expect(html).toContain("02/01/26 to 31/10/26");
     expect(html).toContain("Changed");
     expect(html).not.toContain("<b>changed</b>");
   });

@@ -8,6 +8,7 @@
  * Who calls it: app/main.ts. Depends on: Modules 4b, 5 and 6, and esc and View from pages.ts.
  */
 
+import { shortDate } from "./dates";
 import { allocatable } from "../modules/04b-commitments/commitments";
 import { asksForPlace, autoAllocate, holdingReport, perPeriodRule, releaseApprovals } from "../modules/05-outcomes/outcomes";
 import { allocationSummary, allocOptions, isActivePartner, isLegacy, pathOf, rollupOf, suggestions, type Project } from "../modules/06-projects/projects";
@@ -73,7 +74,7 @@ export function allocationPage(v: View): string {
     const directed = (opts.projectIdsFor?.(c.projectName) ?? []).length > 0;
     return `<div class="gift" draggable="true" data-drag-key="${esc(c.subscriptionId)}">
       <div class="row"><b>${esc(c.itemName)}</b><span class="tag ${directed ? "dir" : ""}">${directed ? `Directed: ${esc(c.projectName)}` : "General"}</span></div>
-      <span class="note">${c.partsPerInstalment} part${c.partsPerInstalment === 1 ? "" : "s"}, ${c.once ? `one payment for ${c.planned} months` : c.planned === null ? "monthly, no end date" : `monthly, ${c.paid} of ${c.planned} paid`}. Given ${esc(c.firstPaid)}.</span>
+      <span class="note">${c.partsPerInstalment} part${c.partsPerInstalment === 1 ? "" : "s"}, ${c.once ? `one payment for ${c.planned} months` : c.planned === null ? "monthly, no end date" : `monthly, ${c.paid} of ${c.planned} paid`}. Given ${esc(shortDate(c.firstPaid))}.</span>
       ${o ? `<span class="suggest">Suggested: ${esc(o.nodeId ? nodeLabel(o.nodeId) : "")}${o.nodeId ? " &gt; " : ""}${esc(o.name)}</span>` : `<span class="tag hold">Waiting</span> <span class="note">${esc(why.get(c.subscriptionId) ?? "")}</span>`}
       <select data-place-select="${esc(c.subscriptionId)}" aria-label="Place in"><option value="">Place in...</option>${placeOptions}</select></div>`;
   };

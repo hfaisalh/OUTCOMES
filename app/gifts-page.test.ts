@@ -216,7 +216,7 @@ describe("giftsPage", () => {
     expect(win).toContain("Set manually. The CRM says 2.");
     expect(win).toContain('class="iconact" data-parts-set="f1"'); // Reset is an icon too
     expect(win).toContain("<th>Parts</th>"); // each payment shows its parts
-    expect(win).toContain('title="Set manually. The CRM says 2.">manually</span>');
+    expect(win).toContain('title="Parts set manually. The CRM says 2."'); // a hand icon on the payment
     // a gift with parts the system worked out has the control but no Reset
     const auto = giftDetailHtml(view({ workOrders: [sub(1, { key: "g1", subscriptionId: "SG", partsAuto: 1 })] }), "SG");
     expect(auto).toContain('id="gp-select"');
@@ -230,8 +230,23 @@ describe("giftsPage", () => {
     expect(win).toContain('1 of <span class="inf" title="Continues until cancelled"');
     expect(win).toContain("2 of ");
     expect(win).toContain("Set manually. The CRM says");
-    expect(win).toContain(">manually</span>");
+    expect(win).toContain("\u270B"); // the hand icon, not the word
     expect(win).not.toMatch(/by hand/i);
     expect(giftListHtml(view({ workOrders: open }))).not.toMatch(/by hand/i);
+  });
+  it("shows each payment on one line, with icons, short dates and no line number (DECISIONS 120)", () => {
+    const orders = [sub(1, { key: "L6782", subscriptionId: "SP", paidDate: "2026-09-07 10:00:00", transactionRef: "MWFUK-205764" }), sub(2, { key: "L7952", subscriptionId: "SP", paidDate: "2026-11-05 10:00:00", transactionRef: "MWFUK-206800", status: "unrouted" }), sub(0, { key: "A1", subscriptionId: "SP", legacyUpload: true, instalmentNumber: "", paidDate: "2026-08-26 10:00:00", transactionRef: "ARCHIVE-SUB-1" })];
+    const win = giftDetailHtml(view({ workOrders: orders }), "SP");
+    expect(win).toContain('<tr class="pay">');
+    expect(win).toContain('class="dotok"'); // ready is a green circle
+    expect(win).toContain('title="Unrouted: choose its category"');
+    expect(win).toContain('title="Line L6782">MWFUK-205764'); // the line number is a tooltip, not a second line of text
+    expect(win).not.toContain("<div class=\"muted\">Line ");
+    expect(win).toContain('title="2026-09-07">07/09/26'); // short date, full date in the tooltip
+    expect(win).toContain('class="legacyico"'); // a legacy record is an icon
+    expect(win).not.toContain("Legacy upload");
+    expect(win).toContain('aria-label="Exclude this payment"'); // an icon button, not the word Exclude
+    expect(win).not.toContain(">Exclude<");
+    expect(win).not.toContain("<th>Category</th><th>Status</th>");
   });
 });

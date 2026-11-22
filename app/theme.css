@@ -214,3 +214,6 @@ td.bad{color:#d23b3b;font-weight:600}
 details.mo{display:inline-block;position:relative;margin-left:6px;vertical-align:middle}details.mo>summary{list-style:none}details.mo>summary::-webkit-details-marker{display:none}
 .mo-pop{position:absolute;right:0;top:calc(100% + 6px);display:flex;gap:6px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:70}.mo-pop select{font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text)}
 .inf{font-size:1.15em;line-height:1;cursor:help}
+.subtable.pay td,.subtable td,.subtable th{white-space:nowrap}.dotok{display:inline-block;width:12px;height:12px;border-radius:50%;background:#1f8a4c;vertical-align:middle}
+.iconact.sm{width:28px;height:28px}.iconact.sm svg{width:16px;height:16px}.legacyico{display:inline-flex;vertical-align:middle;color:var(--warn,#b26a00)}.legacyico svg{width:16px;height:16px}
+.subtable td.c,.subtable th{text-align:left}.subtable td.c{text-align:center}

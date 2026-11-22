@@ -11,6 +11,7 @@
 
 import { filterWorkOrders, isFiltering } from "../modules/01c-crm-connector/filter";
 import { lineValue, partsOf, sentPartsOf, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
+import { shortDate, shortDateTime } from "./dates";
 import { iconHtml, itemIcon } from "./icons";
 import { plusMonths } from "../modules/04b-commitments/catch-up";
 import { allocatable, type Commitment } from "../modules/04b-commitments/commitments";
@@ -94,17 +95,31 @@ function monthsControl(w: WorkOrder): string {
       <button class="iconact ok" data-months-save="${esc(w.key)}" title="Save" aria-label="Save the months">${ICON_TICK}</button>${cur > 1 ? `<button class="iconact" data-covers-set="${esc(w.key)}" data-n="1" title="Back to one month" aria-label="Back to one month">${ICON_UNDO}</button>` : ""}</div></details>`;
 }
 
-// The payments of a gift, as a small table: the lines the CRM sent, each of which can be excluded or restored, or sorted into a category.
+// The payments of a gift (DECISIONS 120): one line each, with icons and only what matters. A green circle is ready, a hand is a manual or custom amount,
+// the archive box is a legacy record, and small icon buttons change the months or exclude. The line number is in the tooltip of the reference.
+const ICON_X = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M9 9l6 6M15 9l-6 6"/></svg>`;
+const ICON_ARCHIVE = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="4.5" rx="1.5"/><path d="M5 9v9.5a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"/></svg>`;
 function paymentsTable(g: GiftRow, v: View): string {
   const reviewKeys = new Set(v.review.map((r) => r.key));
-  return `<table class="subtable"><thead><tr><th>Reference</th><th>Paid</th><th>Instalment</th><th>Parts</th><th>Value</th><th>Category</th><th>Status</th></tr></thead><tbody>${g.payments.map((w) => `<tr><td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)}</div></td>
-    <td>${w.legacyUpload ? `${esc(w.paidDate.slice(0, 10))} <span class="pill review" title="Uploaded from the old system. This date is the day it was loaded, not the day it was paid.">Legacy upload</span>` : esc(w.paidDate.slice(0, 10))}</td>
-    <td>${w.instalmentNumber === "" ? `<span class="muted">One-off</span>` : `${esc(w.instalmentNumber)} of ${countText(w.instalmentCount)}`}${w.covers && w.covers > 1 ? `<div><span class="pill blue" title="One payment that pays for ${w.covers} months. The months it fills are blue in the circles.">Catch-up: ${w.covers} months</span></div>` : ""}</td>
-    <td class="num">${w.legacyUpload ? `<span class="muted">\u2013</span>` : `${partsOf(w)}${w.partsFixed !== undefined ? ` <span class="pill review" title="Set manually. The CRM says ${sentPartsOf(w)}.">manually</span>` : w.partsManual !== undefined ? ` <span class="pill review" title="${esc(w.partsManual)}">custom</span>` : ""}`}</td>
-    <td class="num">${money(lineValue(w), w.currency)}</td>
-    <td>${w.status === "unrouted" ? picker(v.categories, w.itemId, "") : esc(categoryName(v.categories, w.categoryId))}</td>
-    <td>${w.status === "excluded" ? `<span class="pill unrouted">Excluded</span>${w.exclusion ? `<div class="muted">${esc(w.exclusion.reason)}</div>` : ""}` : `<span class="pill ${w.status === "unrouted" ? "unrouted" : "ready"}">${w.status === "unrouted" ? "Unrouted" : "Ready"}</span>`}${reviewKeys.has(w.key) ? ` <span class="pill review">Review</span>` : ""}</td>
-    <td>${w.status === "excluded" ? `<button data-excl="${esc(w.key)}" data-excl-action="restore">Restore</button>` : w.status === "unrouted" || w.status === "ready" ? `<button data-excl="${esc(w.key)}" data-excl-action="exclude">Exclude</button>` : ""}${monthsControl(w)}</td></tr>`).join("")}</tbody></table>`;
+  const row = (w: WorkOrder): string => {
+    const state = w.status === "excluded" ? `<span class="gi off" title="Excluded${w.exclusion ? `: ${esc(w.exclusion.reason)}` : ""}">${SYMBOL.excluded}</span>`
+      : w.status === "unrouted" ? `<span class="gi warn" title="Unrouted: choose its category">${SYMBOL.unrouted}</span>`
+      : `<span class="dotok" title="Ready" aria-label="Ready"></span>`;
+    const hand = w.legacyUpload ? "" : w.partsFixed !== undefined ? `<span class="gi manual" title="Parts set manually. The CRM says ${sentPartsOf(w)}.">${SYMBOL.manual}</span>` : w.partsManual !== undefined ? `<span class="gi manual" title="${esc(w.partsManual)}">${SYMBOL.manual}</span>` : "";
+    const legacy = w.legacyUpload ? `<span class="legacyico" title="Uploaded from the old system. This date is the day it was loaded, not the day it was paid.">${ICON_ARCHIVE}</span>` : "";
+    const inst = w.instalmentNumber === "" ? `<span class="muted">one-off</span>` : `${esc(w.instalmentNumber)} of ${countText(w.instalmentCount)}`;
+    const catchUp = w.covers && w.covers > 1 ? ` <span class="pill blue" title="One payment that pays for ${w.covers} months. The months it fills are blue in the circles.">\u00D7${w.covers} months</span>` : "";
+    const acts = w.status === "excluded" ? `<button class="iconact sm" data-excl="${esc(w.key)}" data-excl-action="restore" title="Restore" aria-label="Restore">${ICON_UNDO}</button>`
+      : w.status === "unrouted" || w.status === "ready" ? `${monthsControl(w)}<button class="iconact sm" data-excl="${esc(w.key)}" data-excl-action="exclude" title="Exclude this payment" aria-label="Exclude this payment">${ICON_X}</button>` : "";
+    return `<tr class="pay"><td class="c">${state}${reviewKeys.has(w.key) ? ` <span class="gi warn" title="Held for review">${SYMBOL.review}</span>` : ""}</td>
+      <td title="Line ${esc(w.key)}">${esc(w.transactionRef) || `<span class="muted">no reference</span>`}</td>
+      <td class="num" title="${esc(w.paidDate.slice(0, 10))}">${esc(shortDate(w.paidDate))} ${legacy}</td>
+      <td>${inst}${catchUp}</td>
+      <td class="num">${w.legacyUpload ? `<span class="muted">\u2013</span>` : partsOf(w)} ${hand}</td>
+      <td class="num">${money(lineValue(w), w.currency)}</td>
+      <td class="ot-actions">${w.status === "unrouted" ? `${picker(v.categories, w.itemId, "")} ` : ""}${acts}</td></tr>`;
+  };
+  return `<div class="tablewrap"><table class="subtable"><thead><tr><th></th><th>Reference</th><th>Paid</th><th>Instalment</th><th>Parts</th><th>Value</th><th></th></tr></thead><tbody>${g.payments.map(row).join("")}</tbody></table></div>`;
 }
 
 // Everything the list needs, worked out once: the gifts after the filters, and where each is allocated.
@@ -124,11 +139,8 @@ export function shownGiftKeys(v: View): string[] {
 }
 
 // Rule (DECISIONS 108): the project the donor chose in the CRM. A general gift (Where Needed Most, or none) is shown quietly, since it can go anywhere.
-// Rule (DECISIONS 110): dates in the list are day, month, year in two digits each, 20/11/26. The full date is in the tooltip and the window.
-export const shortDate = (iso: string): string => {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  return m ? `${m[3]}/${m[2]}/${(m[1] as string).slice(2)}` : iso;
-};
+export { shortDate };
+
 // Rule (DECISIONS 119): a plan with no end is shown as the infinity sign, with the words in a tooltip.
 const INFINITY = `<span class="inf" title="Continues until cancelled" aria-label="Continues until cancelled">\u221E</span>`;
 const countText = (count: string): string => (/indefinite/i.test(count) || count === "" ? INFINITY : esc(count));
@@ -300,7 +312,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Recurring ID", g.kind === "recurring" ? `<b>${esc(g.key)}</b>` : "")}
         ${row("Value (reference)", money(g.payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0), currencyOf(g)))}
         ${row("Paid", progress)}
-        ${row("Dates", `${esc(g.firstPaid)}${g.lastPaid && g.lastPaid !== g.firstPaid ? ` \u2192 ${esc(g.lastPaid)}` : ""}${g.nextDue ? `<div class="muted">next due ${esc(g.nextDue)}</div>` : ""}`)}
+        ${row("Dates", `${esc(shortDate(g.firstPaid))}${g.lastPaid && g.lastPaid !== g.firstPaid ? ` \u2192 ${esc(shortDate(g.lastPaid))}` : ""}${g.nextDue ? `<div class="muted">next due ${esc(shortDate(g.nextDue))}</div>` : ""}`)}
         ${row("Plan status", g.planStatus ? `<span class="pill ${g.planStatus === "active" ? "ready" : "review"}">${esc(g.planStatus)}</span>` : "")}
         ${row("Parts", partsControl ? `<span class="partsrow">${partsControl}</span>${fixed ? `<div class="muted">Set manually. The CRM says ${esc(String(g.payments.find((w) => w.legacyUpload !== true) ? sentPartsOf(g.payments.find((w) => w.legacyUpload !== true) as WorkOrder) : g.parts))}.</div>` : ""}` : "")}
         ${row("Project chosen", esc(g.projectName))}
@@ -350,7 +362,7 @@ export function giftsPage(v: View): string {
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics" data-list="main-metrics">${giftMetricsHtml(v)}</div>
     <div class="tabrow"><div class="tabs">${TABS.map(([id, label]) => tab(id, label)).join("")}${tab("excluded", `Excluded (${count("excluded")})`)}</div>
-    <span class="muted pickup">${v.live && v.run?.ok ? `Last pick-up ${esc(v.run.at.replace("T", " ").slice(0, 16))} UTC. ` : ""}Gifts are brought in under <a data-page="data-feed">Data</a>${v.live ? "" : ", where the demo can be refreshed and your own files loaded"}.</span></div>
+    <span class="muted pickup">${v.live && v.run?.ok ? `Last pick-up ${esc(shortDateTime(v.run.at))} UTC. ` : ""}Gifts are brought in under <a data-page="data-feed">Data</a>${v.live ? "" : ", where the demo can be refreshed and your own files loaded"}.</span></div>
     ${filterBar(v, "main", base)}<div class="card" data-list="main">${giftListHtml(v)}</div>
     ${v.review.length ? `<div class="card"><h2>Held for review</h2><p class="muted">These changed in the CRM after the work order was made. Nothing was changed automatically.</p><table><tbody>${v.review.map((r) => `<tr><td>${esc(r.key)}</td><td>${esc(r.message)}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
 }
