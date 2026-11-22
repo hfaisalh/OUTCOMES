@@ -233,7 +233,7 @@ details.mo{display:inline-block;position:relative;margin-left:6px;vertical-align
 .partsrow{gap:6px}.statusact{margin-top:10px}
 
 /* The payment buttons each have a column of their own (DECISIONS 123), and the drop-downs follow the common pattern: a flat field with a caret on the right */
-.paywrap{overflow:visible}.subtable td.ico,.subtable th.ico{width:40px;min-width:40px;text-align:center;padding-left:4px;padding-right:4px}
-.subtable td.ico details.mo{display:inline-flex;margin:0;height:26px;align-items:center;justify-content:center}
+.paywrap{overflow:visible}.subtable td.actcol,.subtable th.actcol{width:38px;min-width:38px;text-align:center;padding-left:3px;padding-right:3px;background:none}
+.subtable td.actcol details.mo{display:inline-flex;margin:0;height:26px;align-items:center;justify-content:center}
 select:not([multiple]){-webkit-appearance:none;appearance:none;background-color:var(--card);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%237a829e' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:12px;padding-right:30px;min-height:32px;border-radius:8px;cursor:pointer}
 select:not([multiple]):focus-visible{outline:2px solid var(--accent);outline-offset:1px}

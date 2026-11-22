@@ -249,12 +249,12 @@ describe("giftsPage", () => {
     expect(win).not.toContain(">Exclude<");
     expect(win).not.toContain("<th>Category</th><th>Status</th>");
     // aligned (DECISIONS 121): the header sits over its column, and both icon buttons are the small size
-    expect(win).toContain('<th class="num">Parts</th><th class="num">Value</th><th class="ico"></th><th class="ico"></th>'); // each button has its own column
+    expect(win).toContain('<th class="num">Parts</th><th class="num">Value</th><th class="actcol"></th><th class="actcol"></th>'); // each button has its own column
     expect(win).toContain('<td class="date" title="2026-09-07">'); // the date is left aligned, under its header
     expect(win).toContain('<summary class="iconact sm"');
     expect(win).toContain('class="iconact" data-excl=');
     expect(win).not.toContain("payacts-in");
-    expect((win.match(/<td class="ico">/g) ?? []).length).toBe(6); // two button cells on each of the three payments
+    expect((win.match(/<td class="actcol">/g) ?? []).length).toBe(6); // two button cells on each of the three payments
   });
   it("puts the Allocate manually button in its own spaced block under the status (DECISIONS 122)", () => {
     const win = giftDetailHtml(view({ workOrders: [sub(1, { key: "n1", subscriptionId: "SN", partsAuto: 1 })] }), "SN");

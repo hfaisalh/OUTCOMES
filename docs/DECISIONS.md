@@ -279,3 +279,5 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 
 123. **The payment buttons have their own columns, and drop-downs follow the common pattern (22 Nov 2026, from Faisal).** The calendar and the exclude button are no longer placed side by side after the value. Each has its own narrow table column with an empty header, so they line up under each other on every row, and a payment with no calendar (a legacy record) leaves that cell empty. The payments table no longer scrolls inside its own box, so the months choice opens in full. Every drop-down in OUTCOMES now has the same look: a flat field, an even height, and a caret on the right with room for the text.
 
+124. **Fix to decision 123: the button columns are part of the payments table (22 Nov 2026).** The two button columns were given the class `ico`, which is also the class of the rounded icon tiles, so they were drawn as separate blue boxes. They now use their own class, `actcol`, with no background, so the buttons sit in plain table cells under empty headers, in the same rows and the same line as the other columns.
+
