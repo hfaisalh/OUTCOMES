@@ -10,8 +10,8 @@
  * Rules:
  * - Only a framework that has a part price takes part. Without one nothing changes, and parts stay bundle times quantity.
  * - A line with a bundle keeps its bundle (parts = bundle x quantity). Parts are never taken from the amount for those.
- * - For the others the payment is divided by the price in force on the gift's first real payment, and a single payment that covers several months
- *   (period_count) is divided by those months too. A whole number from 1 up (within half a percent) is the parts. Anything else is custom: manual.
+ * - For the others the unit price must be the price of one part in force on the gift's first real payment (times the months a single payment covers,
+ *   period_count). Then the parts are the quantity. Any other unit price is a custom amount, even a multiple such as 70 for 35, and is manual (DECISIONS 114).
  * - Parts are worked out once and then kept (`partsAuto`). A later price does not change a gift that already has its parts, so an existing 35 subscriber
  *   stays 1 part when the price becomes 40. A gift that is manual is looked at again when a price is added.
  * - A person's own setting (`partsFixed`) always wins, and a person can mark any gift manual (`partsManual`).
@@ -33,17 +33,19 @@ const money = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixe
 
 export type PartsVerdict = { parts: number } | { manual: string };
 
-// Rule: the parts of one payment, or why it is manual. `firstDate` is the date of the gift's first real payment, which decides the price.
+// Rule (DECISIONS 114): the parts of one payment, or why it is manual. A bundle keeps its bundle. Otherwise a line is a normal catalogue line only when its
+// unit price is exactly the price of one part (times the months a single payment covers), and then its parts are its quantity. Any other unit price is a
+// custom amount the donor chose, even when it is a multiple (70 is not 35), so a person allocates it. `firstDate` is the date of the gift's first real
+// payment, which decides the price.
 export function derivePartsFor(w: WorkOrder, prices: PartPrice[], firstDate: string): PartsVerdict {
   if ((w.bundleQty ?? 1) > 1) return { parts: (w.bundleQty ?? 1) * w.quantity };
   const price = priceAt(prices, firstDate);
   if (price === null || price <= 0) return { manual: `No price for a part had started by ${firstDate.slice(0, 10)}` };
   const oneOff = w.subscriptionId === "" && w.instalmentCount === "";
   const periods = oneOff ? Math.max(1, w.periodCount ?? 1) : 1;
-  const ratio = lineValue(w) / (price * periods);
-  const k = Math.round(ratio);
-  if (k >= 1 && Math.abs(ratio - k) <= 0.005 * k) return { parts: k };
-  return { manual: `${money(lineValue(w))}${periods > 1 ? ` over ${periods} months` : ""} is not a whole number of ${money(price)} parts` };
+  const expected = price * periods;
+  if (Math.abs(w.amount - expected) <= 0.005 * expected && w.quantity >= 1) return { parts: w.quantity };
+  return { manual: `A custom amount: ${money(w.amount)}${periods > 1 ? ` over ${periods} months` : ""} is not the price of a part (${money(expected)})` };
 }
 
 const groupOf = (w: WorkOrder): string => (w.subscriptionId !== "" ? w.subscriptionId : `once-${w.key}`);

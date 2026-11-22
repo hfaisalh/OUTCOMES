@@ -510,8 +510,8 @@ describe("outcomes (DECISIONS 61)", () => {
     const after = await read();
     const by = (amount: number) => after.find((w) => w.amount === amount);
     expect(by(35)?.partsAuto).toBe(1);
-    expect(by(70)?.partsAuto).toBe(2);
-    expect(by(40)?.partsManual).toBe("40 is not a whole number of 35 parts"); // a custom amount
+    expect(by(70)?.partsManual).toContain("A custom amount: 70"); // 70 is a custom amount, even though it is 2 x 35
+    expect(by(40)?.partsManual).toContain("A custom amount: 40"); // a custom amount
     // a person marks a gift manual, and takes the mark back
     const key = by(35)?.key as string;
     const wo = (await handleExclude(as(cookie, { method: "POST", body: { keys: [key], action: "manual", manual: true } }), d)).body as { workOrders: { partsManual?: string }[] };

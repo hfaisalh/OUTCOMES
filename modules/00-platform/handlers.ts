@@ -163,7 +163,13 @@ export async function handleWorkOrders(req: HttpRequest, d: Deps): Promise<HttpR
   const a = need(req, d, P.viewWorkOrders);
   if ("response" in a) return a.response;
   const org = a.claims.org;
-  const [workOrders, review, run] = await Promise.all([d.store.listWorkOrders(org), d.store.getReview(org), d.store.getRun(org)]);
+  const [listed, review, run] = await Promise.all([d.store.listWorkOrders(org), d.store.getReview(org), d.store.getRun(org)]);
+  // Rule (DECISIONS 113, 114): parts from the price of one part are given to any work order that has none yet, so a price set earlier reaches gifts without a new upload.
+  const config = await d.store.getConfig(org);
+  const parted = config ? deriveParts(listed, config) : [];
+  if (parted.length > 0) await d.store.saveWorkOrders(org, parted);
+  const byKey = new Map(parted.map((w) => [w.key, w]));
+  const workOrders = parted.length > 0 ? listed.map((w) => byKey.get(w.key) ?? w) : listed;
   return json(200, { workOrders, review, run });
 }
 

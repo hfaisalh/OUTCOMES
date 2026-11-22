@@ -173,11 +173,11 @@ describe("giftsPage", () => {
   it("marks a custom amount gift for manual allocation in the list, the tab, the filter and the tile, and in the window (DECISIONS 113)", () => {
     const fws = starterFrameworks().map((f) => (f.id === "sponsorship-shared-parts" ? { ...f, partPrices: [{ from: "2000-01-01", price: 35 }] } : f));
     const clean = [1, 2].map((n) => sub(n, { key: `c${n}`, subscriptionId: "SC", frameworkId: "sponsorship-shared-parts", amount: 35, partsAuto: 1 }));
-    const custom = [1, 2].map((n) => sub(n, { key: `m${n}`, subscriptionId: "SM", frameworkId: "sponsorship-shared-parts", amount: 40, partsManual: "40 is not a whole number of 35 parts" }));
+    const custom = [1, 2].map((n) => sub(n, { key: `m${n}`, subscriptionId: "SM", frameworkId: "sponsorship-shared-parts", amount: 40, partsManual: "A custom amount: 40 is not the price of a part (35)" }));
     const v = (over: Partial<View> = {}) => view({ workOrders: [...clean, ...custom], frameworks: fws, ...over });
     const html = giftListHtml(v());
     expect(html).toContain("\u270B"); // the hand symbol, not the hourglass, on the custom gift
-    expect(html).toContain("Allocate by hand. 40 is not a whole number of 35 parts");
+    expect(html).toContain("Allocate by hand. A custom amount: 40 is not the price of a part (35)");
     expect(html).toContain("allocate by hand"); // in the key
     // the Manual tab shows only that gift, and the filter finds its payments
     const tab = giftListHtml(v({ filter: "manual" }));
