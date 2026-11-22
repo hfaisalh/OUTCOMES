@@ -159,7 +159,7 @@ export function giftDetailHtml(v: View, giftKey: string): string {
   const first = g.payments[0];
   const a = allocationContext(v)(g);
   const kindName = g.kind === "recurring" ? "Recurring gift" : g.kind === "unlinked" ? "Recurring payment the CRM did not link to a subscription" : g.kind === "excluded" ? "Excluded payment" : "One payment";
-  const row = (label: string, value: string) => value === "" ? "" : `<tr><th>${label}</th><td>${value}</td></tr>`;
+  const row = (label: string, value: string, wide = false) => value === "" ? "" : `<div class="f${wide ? " w" : ""}"><span>${label}</span><div>${value}</div></div>`;
   const progress = g.kind === "recurring" || g.kind === "unlinked" ? `${g.paid} of ${g.planned ?? "ongoing"}${g.planned ? `<div class="bar"><span style="width:${Math.min(100, Math.round((g.paid / g.planned) * 100))}%"></span></div>` : ""}` : g.periodCount > 0 ? `covers ${g.periodCount} month${g.periodCount === 1 ? "" : "s"}` : "";
   const allocation = a.state === "placed" ? `${esc(a.who)}<div class="muted">${esc(a.partner)}${a.parts !== null ? ` · ${a.parts} part${a.parts === 1 ? "" : "s"}` : ""}</div>` : a.state === "waiting" ? `<span class="pill review">Waiting for a place</span>` : a.why ? `<span class="muted">${esc(a.why)}</span>` : "";
   const status = [
@@ -170,25 +170,25 @@ export function giftDetailHtml(v: View, giftKey: string): string {
   const link = g.kind !== "unlinked" ? "" : g.suggestions.length === 0 ? `<div class="muted">No commitment for the same supporter and item</div>` : g.suggestions.map((s) => `<div class="muted">Possibly subscription <b>${esc(s.subscriptionId)}</b> (${s.daysApart === null ? "legacy upload, date not comparable" : s.daysApart === 0 ? "same day" : `${Math.abs(s.daysApart)} day${Math.abs(s.daysApart) === 1 ? "" : "s"} ${s.daysApart < 0 ? "before its first instalment" : "after its first instalment"}`})</div>`).join("");
   return `<div class="pf-overlay" data-gift-close="overlay"><div class="pf-box" role="dialog" aria-label="Gift details">
     <header><h2>${esc(g.supporterName)} <span class="muted">${esc(g.itemName)}</span></h2><button data-gift-close="x" aria-label="Close">Close</button></header>
-    <div class="pf-body">
-      <section><h3>Gift</h3><table class="facts">
+    <div class="pf-body compact"><div class="fgrid">
         ${row("Type", esc(kindName))}
-        ${row("Donor", `${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span>${first && first.group ? ` <span class="muted">· ${esc(first.group)}</span>` : ""}${first ? creditLine(first) : ""}`)}
+        ${row("Donor", `${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span>${first && first.group ? ` <span class="muted">· ${esc(first.group)}</span>` : ""}`)}
         ${row("Item", `${esc(g.itemName)}${g.unrouted && first ? ` ${picker(v.categories, first.itemId, "")}` : ""}`)}
         ${row("Category", g.unrouted ? "" : esc(categoryName(v.categories, g.categoryId)))}
         ${row("Parts", `${g.parts}${first && first.bundleQty && first.bundleQty > 1 && g.kind !== "recurring" ? ` (bundle of ${first.bundleQty}${first.quantity > 1 ? ` x ${first.quantity}` : ""})` : ""}`)}
-        ${row("Project the donor chose", esc(g.projectName))}
+        ${row("Project chosen", esc(g.projectName))}
         ${row("Subscription", g.kind === "recurring" ? esc(g.key) : "")}
-      </table></section>
-      <section><h3>Plan and dates</h3><table class="facts">
         ${row("Paid", progress)}
-        ${row("Units", g.kind === "recurring" ? unitsCell(g, v) : "")}
         ${row("First paid", esc(g.firstPaid))}
         ${row("Last paid", g.lastPaid && g.lastPaid !== g.firstPaid ? esc(g.lastPaid) : "")}
         ${row("Next due", esc(g.nextDue))}
         ${row("Plan status", g.planStatus ? `<span class="pill ${g.planStatus === "active" ? "ready" : "review"}">${esc(g.planStatus)}</span>` : "")}
-      </table></section>
-      <section><h3>Allocation and status</h3><table class="facts">${row("Allocated to", allocation)}${row("Status", status)}</table>${link}</section>
+        ${row("Units", g.kind === "recurring" ? unitsCell(g, v) : "", true)}
+        ${row("Allocated to", allocation, true)}
+        ${row("Status", status, true)}
+        ${first ? row("Credit", creditLine(first), true) : ""}
+        ${row("Could belong to", link, true)}
+      </div>
       <section><h3>Payments (${g.payments.length})</h3>${paymentsTable(g, v)}</section>
     </div></div></div>`;
 }
