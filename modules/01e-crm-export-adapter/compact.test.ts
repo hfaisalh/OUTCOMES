@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { parseCsv, toRecords } from "../01-data-mapping/csv";
 import { readFeed, MWF_CRM_CONFIG } from "../01c-crm-connector/feed";
 import { adaptExports } from "./export-adapter";
-import { packFeed, unpackFeed } from "./compact";
+import { packFeed, SEND_COLUMNS, unpackFeed } from "./compact";
 
 const load = (n: string) => toRecords(parseCsv(readFileSync(new URL(`../../samples/${n}`, import.meta.url), "utf8"))).records;
 const rows = adaptExports(load("export-donation-lines-sample.csv"), load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv")).rows;
@@ -54,5 +54,15 @@ describe("packFeed and unpackFeed", () => {
     expect("error" in unpackFeed({ columns: ["email"], rows: [["a@b"]] })).toBe(true);
     expect("error" in unpackFeed({ columns: ["line_id"], rows: [["1", "2"]] })).toBe(true);
     expect("error" in unpackFeed({ columns: ["line_id"], rows: [[1]] })).toBe(true);
+  });
+});
+
+describe("what leaves the browser (DECISIONS 81, 83)", () => {
+  it("keeps the currency and the line total, so work orders carry them", () => {
+    expect(SEND_COLUMNS).toContain("currency");
+    expect(SEND_COLUMNS).toContain("line_total");
+    const packed = packFeed([{ line_id: "1", currency: "GBP", line_total: "70", amount: "35", quantity: "2" }]);
+    const row = Object.fromEntries(packed.columns.map((c, i) => [c, packed.rows[0]?.[i]]));
+    expect(row).toMatchObject({ currency: "GBP", line_total: "70", amount: "35" });
   });
 });
