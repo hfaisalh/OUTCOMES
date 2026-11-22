@@ -277,3 +277,5 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 
 122. **Icon buttons are one size and line up (22 Nov 2026, from Faisal).** Every round icon button (Save and Reset in Parts, and the calendar and exclude buttons on each payment) is the same smaller size, 26px, and is drawn the same way whether it is a button or the calendar summary, so the calendar and the cross sit on one line. The Allocate manually button has space above it, away from the status pills.
 
+123. **The payment buttons have their own columns, and drop-downs follow the common pattern (22 Nov 2026, from Faisal).** The calendar and the exclude button are no longer placed side by side after the value. Each has its own narrow table column with an empty header, so they line up under each other on every row, and a payment with no calendar (a legacy record) leaves that cell empty. The payments table no longer scrolls inside its own box, so the months choice opens in full. Every drop-down in OUTCOMES now has the same look: a flat field, an even height, and a caret on the right with room for the text.
+

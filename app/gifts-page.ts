@@ -90,7 +90,7 @@ const ICON_UNDO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" strok
 function monthsControl(w: WorkOrder): string {
   if (w.legacyUpload || (w.status !== "unrouted" && w.status !== "ready")) return "";
   const cur = w.covers ?? 1;
-  return ` <details class="mo"><summary class="iconact sm" title="Months this payment pays for" aria-label="Months this payment pays for">${ICON_CAL}</summary>
+  return `<details class="mo"><summary class="iconact sm" title="Months this payment pays for" aria-label="Months this payment pays for">${ICON_CAL}</summary>
     <div class="mo-pop"><select id="pm-select-${esc(w.key)}" aria-label="Months this payment pays for">${[1, 2, 3, 4].map((n) => `<option value="${n}"${cur === n ? " selected" : ""}>${n} month${n === 1 ? "" : "s"}</option>`).join("")}</select>
       <button class="iconact ok" data-months-save="${esc(w.key)}" title="Save" aria-label="Save the months">${ICON_TICK}</button>${cur > 1 ? `<button class="iconact" data-covers-set="${esc(w.key)}" data-n="1" title="Back to one month" aria-label="Back to one month">${ICON_UNDO}</button>` : ""}</div></details>`;
 }
@@ -109,17 +109,22 @@ function paymentsTable(g: GiftRow, v: View): string {
     const legacy = w.legacyUpload ? `<span class="legacyico" title="Uploaded from the old system. This date is the day it was loaded, not the day it was paid.">${ICON_ARCHIVE}</span>` : "";
     const inst = w.instalmentNumber === "" ? `<span class="muted">one-off</span>` : `${esc(w.instalmentNumber)} of ${countText(w.instalmentCount)}`;
     const catchUp = w.covers && w.covers > 1 ? ` <span class="pill blue" title="One payment that pays for ${w.covers} months. The months it fills are blue in the circles.">\u00D7${w.covers} months</span>` : "";
-    const acts = w.status === "excluded" ? `<button class="iconact sm" data-excl="${esc(w.key)}" data-excl-action="restore" title="Restore" aria-label="Restore">${ICON_UNDO}</button>`
-      : w.status === "unrouted" || w.status === "ready" ? `${monthsControl(w)}<button class="iconact sm" data-excl="${esc(w.key)}" data-excl-action="exclude" title="Exclude this payment" aria-label="Exclude this payment">${ICON_X}</button>` : "";
+    // Each button has its own narrow column, so they line up row after row (DECISIONS 123).
+    const restorable = w.status === "excluded";
+    const editable = w.status === "unrouted" || w.status === "ready";
+    const monthsCell = editable ? monthsControl(w) : "";
+    const lastCell = restorable ? `<button class="iconact" data-excl="${esc(w.key)}" data-excl-action="restore" title="Restore" aria-label="Restore">${ICON_UNDO}</button>`
+      : editable ? `<button class="iconact" data-excl="${esc(w.key)}" data-excl-action="exclude" title="Exclude this payment" aria-label="Exclude this payment">${ICON_X}</button>` : "";
     return `<tr class="pay"><td class="c">${state}${reviewKeys.has(w.key) ? ` <span class="gi warn" title="Held for review">${SYMBOL.review}</span>` : ""}</td>
-      <td title="Line ${esc(w.key)}">${esc(w.transactionRef) || `<span class="muted">no reference</span>`}</td>
+      <td title="Line ${esc(w.key)}">${esc(w.transactionRef) || `<span class="muted">no reference</span>`}${w.status === "unrouted" ? ` ${picker(v.categories, w.itemId, "")}` : ""}</td>
       <td class="date" title="${esc(w.paidDate.slice(0, 10))}"><span class="cellstart">${esc(shortDate(w.paidDate))}${legacy}</span></td>
       <td>${inst}${catchUp}</td>
       <td class="num"><span class="cellend">${w.legacyUpload ? `<span class="muted">\u2013</span>` : partsOf(w)}${hand}</span></td>
       <td class="num">${money(lineValue(w), w.currency)}</td>
-      <td class="payacts"><div class="payacts-in">${w.status === "unrouted" ? picker(v.categories, w.itemId, "") : ""}${acts}</div></td></tr>`;
+      <td class="ico">${monthsCell}</td>
+      <td class="ico">${lastCell}</td></tr>`;
   };
-  return `<div class="tablewrap"><table class="subtable"><thead><tr><th class="c"></th><th>Reference</th><th>Paid</th><th>Instalment</th><th class="num">Parts</th><th class="num">Value</th><th class="payacts"></th></tr></thead><tbody>${g.payments.map(row).join("")}</tbody></table></div>`;
+  return `<div class="paywrap"><table class="subtable"><thead><tr><th class="c"></th><th>Reference</th><th>Paid</th><th>Instalment</th><th class="num">Parts</th><th class="num">Value</th><th class="ico"></th><th class="ico"></th></tr></thead><tbody>${g.payments.map(row).join("")}</tbody></table></div>`;
 }
 
 // Everything the list needs, worked out once: the gifts after the filters, and where each is allocated.
