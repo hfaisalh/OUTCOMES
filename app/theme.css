@@ -217,3 +217,10 @@ details.mo{display:inline-block;position:relative;margin-left:6px;vertical-align
 .subtable.pay td,.subtable td,.subtable th{white-space:nowrap}.dotok{display:inline-block;width:12px;height:12px;border-radius:50%;background:#1f8a4c;vertical-align:middle}
 .iconact.sm{width:28px;height:28px}.iconact.sm svg{width:16px;height:16px}.legacyico{display:inline-flex;vertical-align:middle;color:var(--warn,#b26a00)}.legacyico svg{width:16px;height:16px}
 .subtable td.c,.subtable th{text-align:left}.subtable td.c{text-align:center}
+
+/* Payments table alignment (DECISIONS 121): every header sits over its column, numbers on the right, and the icon buttons are one size in one row */
+.subtable{table-layout:auto}.subtable th,.subtable td{vertical-align:middle;text-align:left}
+.subtable th.num,.subtable td.num{text-align:right}.subtable th.c,.subtable td.c{text-align:center;width:1%}
+.subtable td.payacts,.subtable th.payacts{width:1%;text-align:right}.payacts-in{display:flex;justify-content:flex-end;align-items:center;gap:6px}
+.payacts-in details.mo{margin:0;display:inline-flex}.payacts-in .iconact.sm{width:28px;height:28px}.payacts-in select{font-size:12px;padding:2px 4px;max-width:130px}
+.cellend{display:inline-flex;align-items:center;justify-content:flex-end;gap:6px}

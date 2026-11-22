@@ -248,5 +248,10 @@ describe("giftsPage", () => {
     expect(win).toContain('aria-label="Exclude this payment"'); // an icon button, not the word Exclude
     expect(win).not.toContain(">Exclude<");
     expect(win).not.toContain("<th>Category</th><th>Status</th>");
+    // aligned (DECISIONS 121): the header sits over its column, and both icon buttons are the small size
+    expect(win).toContain('<th class="num">Parts</th><th class="num">Value</th>');
+    expect(win).toContain('<summary class="iconact sm"');
+    expect(win).toContain('class="iconact sm" data-excl=');
+    expect(win).toContain('<div class="payacts-in">');
   });
 });

@@ -90,7 +90,7 @@ const ICON_UNDO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" strok
 function monthsControl(w: WorkOrder): string {
   if (w.legacyUpload || (w.status !== "unrouted" && w.status !== "ready")) return "";
   const cur = w.covers ?? 1;
-  return ` <details class="mo"><summary class="iconact" title="Months this payment pays for" aria-label="Months this payment pays for">${ICON_CAL}</summary>
+  return ` <details class="mo"><summary class="iconact sm" title="Months this payment pays for" aria-label="Months this payment pays for">${ICON_CAL}</summary>
     <div class="mo-pop"><select id="pm-select-${esc(w.key)}" aria-label="Months this payment pays for">${[1, 2, 3, 4].map((n) => `<option value="${n}"${cur === n ? " selected" : ""}>${n} month${n === 1 ? "" : "s"}</option>`).join("")}</select>
       <button class="iconact ok" data-months-save="${esc(w.key)}" title="Save" aria-label="Save the months">${ICON_TICK}</button>${cur > 1 ? `<button class="iconact" data-covers-set="${esc(w.key)}" data-n="1" title="Back to one month" aria-label="Back to one month">${ICON_UNDO}</button>` : ""}</div></details>`;
 }
@@ -115,11 +115,11 @@ function paymentsTable(g: GiftRow, v: View): string {
       <td title="Line ${esc(w.key)}">${esc(w.transactionRef) || `<span class="muted">no reference</span>`}</td>
       <td class="num" title="${esc(w.paidDate.slice(0, 10))}">${esc(shortDate(w.paidDate))} ${legacy}</td>
       <td>${inst}${catchUp}</td>
-      <td class="num">${w.legacyUpload ? `<span class="muted">\u2013</span>` : partsOf(w)} ${hand}</td>
+      <td class="num"><span class="cellend">${w.legacyUpload ? `<span class="muted">\u2013</span>` : partsOf(w)}${hand}</span></td>
       <td class="num">${money(lineValue(w), w.currency)}</td>
-      <td class="ot-actions">${w.status === "unrouted" ? `${picker(v.categories, w.itemId, "")} ` : ""}${acts}</td></tr>`;
+      <td class="payacts"><div class="payacts-in">${w.status === "unrouted" ? picker(v.categories, w.itemId, "") : ""}${acts}</div></td></tr>`;
   };
-  return `<div class="tablewrap"><table class="subtable"><thead><tr><th></th><th>Reference</th><th>Paid</th><th>Instalment</th><th>Parts</th><th>Value</th><th></th></tr></thead><tbody>${g.payments.map(row).join("")}</tbody></table></div>`;
+  return `<div class="tablewrap"><table class="subtable"><thead><tr><th class="c"></th><th>Reference</th><th>Paid</th><th>Instalment</th><th class="num">Parts</th><th class="num">Value</th><th class="payacts"></th></tr></thead><tbody>${g.payments.map(row).join("")}</tbody></table></div>`;
 }
 
 // Everything the list needs, worked out once: the gifts after the filters, and where each is allocated.
