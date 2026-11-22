@@ -42,8 +42,8 @@ export interface GiftRow {
   payments: WorkOrder[]; // every live payment of the gift, oldest first
   notes: { text: string; title?: string; resolved?: boolean }[]; // what needs a look, in words. A resolved note was fixed (by a catch-up) or checked by a person (DECISIONS 86)
   lookSignature: string; // the open notes joined, which a person's check is kept against. "" when there is nothing to check
-  adjustments: string[]; // what a person changed by hand on this gift, which the CRM does not know about (DECISIONS 88)
-  manual: string; // why the gift is allocated by hand, "" when it is not (DECISIONS 113)
+  adjustments: string[]; // what a person changed manually on this gift, which the CRM does not know about (DECISIONS 88)
+  manual: string; // why the gift is allocated manually, "" when it is not (DECISIONS 113)
   checked: boolean; // a person has checked the notes as they are now
   needsLook: boolean;
   inReview: boolean; // a payment is held for review
@@ -114,7 +114,7 @@ export function giftRows(shown: WorkOrder[], all: WorkOrder[], reviewKeys: Set<s
       const lookSignature = open.map((n) => n.text).join("|");
       const checked = lookSignature !== "" && realOwn.some((w) => w.looked === lookSignature);
       const looking = needsLook(c) || catchUps.length > 0 || partFixes.length > 0;
-      // Rule (DECISIONS 88): every change a person made by hand is listed, so it can be seen that the gift no longer matches the CRM exactly.
+      // Rule (DECISIONS 88): every change a person made manually is listed, so it can be seen that the gift no longer matches the CRM exactly.
       const adjustments = [
         ...realOwn.filter((w) => (w.covers ?? 1) > 1).map((w) => `Payment ${w.transactionRef || w.key} marked as covering ${w.covers} instalments`),
         ...realOwn.filter((w) => w.partsFixed !== undefined && w.partsFixed !== sentPartsOf(w)).map((w) => `Payment ${w.transactionRef || w.key} set to ${w.partsFixed} part${w.partsFixed === 1 ? "" : "s"} (the CRM says ${sentPartsOf(w)})`),

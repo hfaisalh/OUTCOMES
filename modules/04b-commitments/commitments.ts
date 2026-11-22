@@ -51,7 +51,7 @@ export interface Commitment {
   planStatus: string; // the CRM plan's own status (active, paused, cancelled, completed, pending, past_due), "" when unknown (DECISIONS 62)
   nextDue: string; // the plan's next due date, YYYY-MM-DD, "" when unknown
   planPaid: number | null; // instalments the CRM says are paid
-  manual: string; // why this gift is allocated by hand (a custom amount, or marked by a person), "" when it is not (DECISIONS 113)
+  manual: string; // why this gift is allocated manually (a custom amount, or marked by a person), "" when it is not (DECISIONS 113)
   catchUpMonths: string[]; // the months a catch-up payment filled, a subset of paidMonths (DECISIONS 84)
   paidMonths: string[]; // the months (YYYY-MM) in which a real instalment was paid, legacy uploads left out
   projectName: string; // the project the donor chose, "" when none. Where Needed Most and blank are general (DECISIONS 66)

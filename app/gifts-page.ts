@@ -99,8 +99,8 @@ function paymentsTable(g: GiftRow, v: View): string {
   const reviewKeys = new Set(v.review.map((r) => r.key));
   return `<table class="subtable"><thead><tr><th>Reference</th><th>Paid</th><th>Instalment</th><th>Parts</th><th>Value</th><th>Category</th><th>Status</th></tr></thead><tbody>${g.payments.map((w) => `<tr><td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)}</div></td>
     <td>${w.legacyUpload ? `${esc(w.paidDate.slice(0, 10))} <span class="pill review" title="Uploaded from the old system. This date is the day it was loaded, not the day it was paid.">Legacy upload</span>` : esc(w.paidDate.slice(0, 10))}</td>
-    <td>${w.instalmentNumber === "" ? `<span class="muted">One-off</span>` : `${esc(w.instalmentNumber)} of ${esc(w.instalmentCount)}`}${w.covers && w.covers > 1 ? `<div><span class="pill blue" title="One payment that pays for ${w.covers} months. The months it fills are blue in the circles.">Catch-up: ${w.covers} months</span></div>` : ""}</td>
-    <td class="num">${w.legacyUpload ? `<span class="muted">\u2013</span>` : `${partsOf(w)}${w.partsFixed !== undefined ? ` <span class="pill review" title="Set by hand. The CRM says ${sentPartsOf(w)}.">by hand</span>` : w.partsManual !== undefined ? ` <span class="pill review" title="${esc(w.partsManual)}">custom</span>` : ""}`}</td>
+    <td>${w.instalmentNumber === "" ? `<span class="muted">One-off</span>` : `${esc(w.instalmentNumber)} of ${countText(w.instalmentCount)}`}${w.covers && w.covers > 1 ? `<div><span class="pill blue" title="One payment that pays for ${w.covers} months. The months it fills are blue in the circles.">Catch-up: ${w.covers} months</span></div>` : ""}</td>
+    <td class="num">${w.legacyUpload ? `<span class="muted">\u2013</span>` : `${partsOf(w)}${w.partsFixed !== undefined ? ` <span class="pill review" title="Set manually. The CRM says ${sentPartsOf(w)}.">manually</span>` : w.partsManual !== undefined ? ` <span class="pill review" title="${esc(w.partsManual)}">custom</span>` : ""}`}</td>
     <td class="num">${money(lineValue(w), w.currency)}</td>
     <td>${w.status === "unrouted" ? picker(v.categories, w.itemId, "") : esc(categoryName(v.categories, w.categoryId))}</td>
     <td>${w.status === "excluded" ? `<span class="pill unrouted">Excluded</span>${w.exclusion ? `<div class="muted">${esc(w.exclusion.reason)}</div>` : ""}` : `<span class="pill ${w.status === "unrouted" ? "unrouted" : "ready"}">${w.status === "unrouted" ? "Unrouted" : "Ready"}</span>`}${reviewKeys.has(w.key) ? ` <span class="pill review">Review</span>` : ""}</td>
@@ -129,6 +129,9 @@ export const shortDate = (iso: string): string => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   return m ? `${m[3]}/${m[2]}/${(m[1] as string).slice(2)}` : iso;
 };
+// Rule (DECISIONS 119): a plan with no end is shown as the infinity sign, with the words in a tooltip.
+const INFINITY = `<span class="inf" title="Continues until cancelled" aria-label="Continues until cancelled">\u221E</span>`;
+const countText = (count: string): string => (/indefinite/i.test(count) || count === "" ? INFINITY : esc(count));
 const projectCell = (name: string, cause = ""): string => {
   const general = name === "" || /^where needed most$/i.test(name.trim());
   if (!general) return esc(name);
@@ -161,9 +164,9 @@ function allocationContext(v: View) {
       return o ? { state: "placed", who: o.name, partner: partnerName(o.projectId) || "No partner", parts: a && a.parts !== g.parts ? a.parts : null, why: "", ref: o.ref ?? "", allocRef: a?.ref ?? "" } : waits(g, g.planStatus === "paused" ? "Plan paused, parked until payments resume" : "");
     }
     // Rule (DECISIONS 98): every gift needs an allocation. One that cannot be allocated yet is waiting, with the reason, except a cancelled plan, which needs none.
-    // Rule (DECISIONS 102): a paused plan stays parked and says so. A cancelled one is parked as cancelled, and can be excluded by hand until the donor pays again.
+    // Rule (DECISIONS 102): a paused plan stays parked and says so. A cancelled one is parked as cancelled, and can be excluded manually until the donor pays again.
     if (g.planStatus === "paused") return waits(g, "Plan paused, parked until payments resume");
-    if (g.planStatus === "cancelled") return { state: "none", who: "", partner: "", parts: null, why: "Plan cancelled, parked. Exclude it by hand if it is not coming back" };
+    if (g.planStatus === "cancelled") return { state: "none", who: "", partner: "", parts: null, why: "Plan cancelled, parked. Exclude it manually if it is not coming back" };
     return waits(g, g.frameworkId === "" ? "It needs a framework first" : "Not allocated yet. Allocation for this kind of gift is built later");
   };
 }
@@ -188,7 +191,7 @@ function statusIcons(g: GiftRow): string {
   if (g.needsLook) out.push(icon("warn", SYMBOL.look, g.notes.filter((n) => !n.resolved).map((n) => n.text).join(". ") || "Needs a look"));
   const p = PLAN_ICON[g.planStatus];
   if (p) out.push(icon("muted", p[0], p[1]));
-  // An orange tick means a person changed something by hand, so the gift may no longer match the CRM exactly (DECISIONS 88).
+  // An orange tick means a person changed something manually, so the gift may no longer match the CRM exactly (DECISIONS 88).
   if (out.length === 0 && g.adjustments.length > 0) return icon("manual", SYMBOL.ok, `Ready, with manual changes that the CRM does not know about: ${g.adjustments.join("; ")}`);
   return out.length > 0 ? out.join("") : icon("good", SYMBOL.ok, g.notes.some((n) => n.resolved) ? "Ready. What needed a look is resolved." : "Ready");
 }
@@ -205,7 +208,7 @@ export function giftListHtml(v: View): string {
     <button data-bulk="exclude"${picked.size ? "" : " disabled"}>Exclude selected</button><button data-bulk="restore"${picked.size ? "" : " disabled"}>Restore selected</button><button data-bulk="clear"${picked.size ? "" : " disabled"}>Clear selection</button></div>`;
   const note = `${isFiltering(c) ? `<p class="muted">Showing ${rows.length} gift${rows.length === 1 ? "" : "s"} from ${filterWorkOrders(base, c).length} of ${base.length} payments.</p>` : ""}${rows.length > MAX_ROWS ? `<p class="muted">Only the first ${MAX_ROWS} are drawn. Narrow the list with the filter boxes.</p>` : ""}`;
   if (base.length === 0) return `<div class="empty">No gifts in this list.</div>`;
-  const key = `<p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; ${SYMBOL.manual} allocate by hand &nbsp; ${SYMBOL.waiting} waiting for allocation &nbsp; ${SYMBOL.ok} ready &nbsp; ${SYMBOL.look} needs a look &nbsp; ${SYMBOL.review} held for review &nbsp; ${SYMBOL.unrouted} unrouted &nbsp; ${SYMBOL.excluded} excluded &nbsp; Click a row for its details.</p>`;
+  const key = `<p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; ${SYMBOL.manual} allocate manually &nbsp; ${SYMBOL.waiting} waiting for allocation &nbsp; ${SYMBOL.ok} ready &nbsp; ${SYMBOL.look} needs a look &nbsp; ${SYMBOL.review} held for review &nbsp; ${SYMBOL.unrouted} unrouted &nbsp; ${SYMBOL.excluded} excluded &nbsp; Click a row for its details.</p>`;
 
   // Rule: the plan column is the short form: paid/planned for a subscription, the months covered for a single payment.
   const planCell = (g: GiftRow): string => {
@@ -217,7 +220,7 @@ export function giftListHtml(v: View): string {
   const allocCell = (g: GiftRow): string => {
     const a = where(g);
     if (a.state === "placed") return `<span title="${esc(a.who)} ${esc(a.ref ?? "")} at ${esc(a.partner)}">${esc(a.who)} <span class="muted">${esc(a.ref ?? "")} ${esc(a.partner)}</span></span>`;
-    if (a.state === "manual") return icon("manual", SYMBOL.manual, `Allocate by hand. ${a.why}`);
+    if (a.state === "manual") return icon("manual", SYMBOL.manual, `Allocate manually. ${a.why}`);
     if (a.state === "waiting") return a.why.startsWith("Plan paused") ? icon("muted", PLAN_ICON["paused"]![0], a.why) : icon("warn", SYMBOL.waiting, a.why ? `Waiting for allocation. ${a.why}` : "Waiting for allocation");
     return a.state === "none" ? `<span class="muted" title="${esc(a.why)}">\u2013</span>` : "";
   };
@@ -252,17 +255,17 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   const a = allocationContext(v)(g);
   const kindName = g.kind === "recurring" ? "Recurring gift" : g.kind === "unlinked" ? "Recurring payment the CRM did not link to a subscription" : g.kind === "excluded" ? "Excluded payment" : "One payment";
   const row = (label: string, value: string, wide = false) => value === "" ? "" : `<div class="f${wide ? " w" : ""}"><span>${label}</span><div>${value}</div></div>`;
-  const progress = g.kind === "recurring" || g.kind === "unlinked" ? `${g.paid} of ${g.planned ?? "ongoing"}${g.planned ? `<div class="bar"><span style="width:${Math.min(100, Math.round((g.paid / g.planned) * 100))}%"></span></div>` : ""}` : g.periodCount > 0 ? `covers ${g.periodCount} month${g.periodCount === 1 ? "" : "s"}` : "";
-  const allocation = a.state === "placed" ? `${esc(a.who)}${a.ref ? ` <b>${esc(a.ref)}</b>` : ""}<div class="muted">${a.allocRef ? `Allocation ${esc(a.allocRef)} \u00B7 ` : ""}${esc(a.partner)}${a.parts !== null ? ` · ${a.parts} part${a.parts === 1 ? "" : "s"}` : ""}</div>` : a.state === "manual" ? `<span class="pill review">Allocate by hand</span><div class="muted">${esc(a.why)}</div>` : a.state === "waiting" ? `<span class="pill review">Waiting for allocation</span>${a.why ? `<div class="muted">${esc(a.why)}</div>` : ""}` : a.why ? `<span class="muted">${esc(a.why)}</span>` : "";
+  const progress = g.kind === "recurring" || g.kind === "unlinked" ? `${g.paid} of ${g.planned ?? INFINITY}${g.planned ? `<div class="bar"><span style="width:${Math.min(100, Math.round((g.paid / g.planned) * 100))}%"></span></div>` : ""}` : g.periodCount > 0 ? `covers ${g.periodCount} month${g.periodCount === 1 ? "" : "s"}` : "";
+  const allocation = a.state === "placed" ? `${esc(a.who)}${a.ref ? ` <b>${esc(a.ref)}</b>` : ""}<div class="muted">${a.allocRef ? `Allocation ${esc(a.allocRef)} \u00B7 ` : ""}${esc(a.partner)}${a.parts !== null ? ` · ${a.parts} part${a.parts === 1 ? "" : "s"}` : ""}</div>` : a.state === "manual" ? `<span class="pill review">Allocate manually</span><div class="muted">${esc(a.why)}</div>` : a.state === "waiting" ? `<span class="pill review">Waiting for allocation</span>${a.why ? `<div class="muted">${esc(a.why)}</div>` : ""}` : a.why ? `<span class="muted">${esc(a.why)}</span>` : "";
   const status = [
     g.kind === "excluded" ? "" : g.unrouted ? `<span class="pill unrouted">Unrouted</span>` : `<span class="pill ready">Ready</span>`,
     g.inReview ? `<span class="pill review">Review</span>` : "",
     ...g.notes.map((n) => n.resolved ? `<span class="pill done" title="${esc(`Resolved. ${n.title ?? (g.checked ? "Checked by a person." : "")}`)}">\u2713 <s>${esc(n.text)}</s></span>` : `<span class="pill review"${n.title ? ` title="${esc(n.title)}"` : ""}>${esc(n.text)}</span>`),
   ].filter((x) => x !== "").join(" ");
-  // The log of what was resolved and what a person changed by hand opens in its own small window, so it does not take room here (DECISIONS 89).
+  // The log of what was resolved and what a person changed manually opens in its own small window, so it does not take room here (DECISIONS 89).
   const logItems = [...g.adjustments.map((t) => `<li><span class="gi manual">${SYMBOL.ok}</span> ${esc(t)}</li>`), ...g.notes.filter((n) => n.resolved).map((n) => `<li><span class="gi good">${SYMBOL.ok}</span> <s>${esc(n.text)}</s> resolved${n.title ? `<div class="muted">${esc(n.title)}</div>` : ""}</li>`)];
-  const logBtn = logItems.length ? `<button class="gi-open${g.adjustments.length ? " manual" : ""}" data-gift-log="open" title="${g.adjustments.length ? "Changed by hand here, not in the CRM. See the log." : "See what was resolved."}" aria-label="Open the log">${SYMBOL.info}</button>` : "";
-  const logWin = logOpen && logItems.length ? `<div class="pf-overlay log" data-gift-log="overlay"><div class="pf-box small" role="dialog" aria-label="Change log"><header><h2>Log</h2><button data-gift-log="close">Close</button></header><div class="pf-body compact">${g.adjustments.length ? `<p class="muted">Changed by hand here. The CRM does not know about these.</p>` : ""}<ul class="loglist">${logItems.join("")}</ul></div></div></div>` : "";
+  const logBtn = logItems.length ? `<button class="gi-open${g.adjustments.length ? " manual" : ""}" data-gift-log="open" title="${g.adjustments.length ? "Changed manually here, not in the CRM. See the log." : "See what was resolved."}" aria-label="Open the log">${SYMBOL.info}</button>` : "";
+  const logWin = logOpen && logItems.length ? `<div class="pf-overlay log" data-gift-log="overlay"><div class="pf-box small" role="dialog" aria-label="Change log"><header><h2>Log</h2><button data-gift-log="close">Close</button></header><div class="pf-body compact">${g.adjustments.length ? `<p class="muted">Changed manually here. The CRM does not know about these.</p>` : ""}<ul class="loglist">${logItems.join("")}</ul></div></div></div>` : "";
   const link = g.kind !== "unlinked" ? "" : g.suggestions.length === 0 ? `<div class="muted">No commitment for the same supporter and item</div>` : g.suggestions.map((s) => `<div class="muted">Possibly subscription <b>${esc(s.subscriptionId)}</b> (${s.daysApart === null ? "legacy upload, date not comparable" : s.daysApart === 0 ? "same day" : `${Math.abs(s.daysApart)} day${Math.abs(s.daysApart) === 1 ? "" : "s"} ${s.daysApart < 0 ? "before its first instalment" : "after its first instalment"}`})</div>`).join("");
   // The suggestion for a payment that differs from the usual (DECISIONS 118): one plain question with the two things it can be.
   const catchUp = g.catchUps.map((x) => {
@@ -276,7 +279,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   const firstReal = g.payments.find((w) => w.legacyUpload !== true);
   const realKeys = g.payments.filter((w) => w.legacyUpload !== true).map((w) => w.key).join(" ");
   const manualBox = g.manual !== "" && firstReal
-    ? `<div class="suggest-box"><b>Allocate by hand.</b> ${esc(g.manual)}. Choose how many parts each payment is under <b>Parts</b> below and press Save, then allocate it in Allocation.${firstReal.partsByPerson ? `<div class="actions"><button data-manual-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-on="0">Back to automatic</button></div>` : ""}</div>`
+    ? `<div class="suggest-box"><b>Allocate manually.</b> ${esc(g.manual)}. Choose how many parts each payment is under <b>Parts</b> below and press Save, then allocate it in Allocation.${firstReal.partsByPerson ? `<div class="actions"><button data-manual-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-on="0">Back to automatic</button></div>` : ""}</div>`
     : "";
   // Parts (DECISIONS 116): a standing control, always there. Choose, then Save. Reset takes a person's choice back.
   const fixed = g.payments.some((w) => w.legacyUpload !== true && w.partsFixed !== undefined);
@@ -285,7 +288,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
     ? `<select id="gp-select" aria-label="Parts of each payment">${partOptions.map((n) => `<option value="${n}"${n === g.parts ? " selected" : ""}>${n} part${n === 1 ? "" : "s"}</option>`).join("")}</select>
         <button class="iconact ok" data-parts-save="1" data-keys="${esc(realKeys)}" title="Save the parts" aria-label="Save the parts"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>${fixed ? `<button class="iconact" data-parts-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-n="0" title="Reset: go back to what the price or the CRM says" aria-label="Reset the parts"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v4.5h4.5"/></svg></button>` : ""}`
     : "";
-  const markManual = g.manual === "" && firstReal && g.kind !== "excluded" ? `<button data-manual-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-on="1" title="Take this gift out of automatic allocation, so a person allocates it">Mark as manual</button>` : "";
+  const markManual = g.manual === "" && firstReal && g.kind !== "excluded" ? `<button data-manual-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-on="1" title="Take this gift out of automatic allocation. It shows the hand symbol and goes to the Manual tab, and a person allocates it. Press Back to automatic to undo.">Allocate manually</button>` : "";
   const partFix = g.partFixes.map((x) => `<div class="suggest-box"><b>The quantity looks wrong.</b> ${esc(x.reason)} part${x.parts === 1 ? "" : "s"}.
       <div class="actions"><button class="primary" data-parts-set="${esc(x.key)}" data-n="${x.parts}">Yes, count it as ${x.parts} part${x.parts === 1 ? "" : "s"}</button><button data-parts-set="${esc(x.key)}" data-n="${x.sent}">No, ${x.sent} is right</button></div></div>`).join("");
   return `<div class="pf-overlay" data-gift-close="overlay"><div class="pf-box" role="dialog" aria-label="Gift details">
@@ -299,7 +302,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Paid", progress)}
         ${row("Dates", `${esc(g.firstPaid)}${g.lastPaid && g.lastPaid !== g.firstPaid ? ` \u2192 ${esc(g.lastPaid)}` : ""}${g.nextDue ? `<div class="muted">next due ${esc(g.nextDue)}</div>` : ""}`)}
         ${row("Plan status", g.planStatus ? `<span class="pill ${g.planStatus === "active" ? "ready" : "review"}">${esc(g.planStatus)}</span>` : "")}
-        ${row("Parts", partsControl ? `<span class="partsrow">${partsControl}</span>${fixed ? `<div class="muted">Set by hand. The CRM says ${esc(String(g.payments.find((w) => w.legacyUpload !== true) ? sentPartsOf(g.payments.find((w) => w.legacyUpload !== true) as WorkOrder) : g.parts))}.</div>` : ""}` : "")}
+        ${row("Parts", partsControl ? `<span class="partsrow">${partsControl}</span>${fixed ? `<div class="muted">Set manually. The CRM says ${esc(String(g.payments.find((w) => w.legacyUpload !== true) ? sentPartsOf(g.payments.find((w) => w.legacyUpload !== true) as WorkOrder) : g.parts))}.</div>` : ""}` : "")}
         ${row("Project chosen", esc(g.projectName))}
         ${row("Cause", esc(first?.cause ?? ""))}
         ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
@@ -343,7 +346,7 @@ export function giftsPage(v: View): string {
   const base = listBase(v, "main");
   return `
     <h1>Gifts</h1>
-    <p class="sub">Every gift in one list. A subscription is one row with its payments inside it, and a single payment is one row. Gifts arrive from the CRM feed. Only items the CRM marks as needing feedback appear here, so nothing is imported by hand.</p>
+    <p class="sub">Every gift in one list. A subscription is one row with its payments inside it, and a single payment is one row. Gifts arrive from the CRM feed. Only items the CRM marks as needing feedback appear here, so nothing is imported manually.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics" data-list="main-metrics">${giftMetricsHtml(v)}</div>
     <div class="tabrow"><div class="tabs">${TABS.map(([id, label]) => tab(id, label)).join("")}${tab("excluded", `Excluded (${count("excluded")})`)}</div>

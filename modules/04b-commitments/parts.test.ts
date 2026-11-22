@@ -80,7 +80,7 @@ describe("applying part prices to work orders", () => {
   });
 });
 
-describe("marking a gift manual by hand", () => {
+describe("marking a gift manual manually", () => {
   it("marks a payment manual and takes the mark back", () => {
     const marked = (setManual(wo("a", { partsAuto: 1 }), true) as { order: WorkOrder }).order;
     expect(marked).toMatchObject({ partsManual: "Marked by a person", partsByPerson: true });

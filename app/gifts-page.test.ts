@@ -177,8 +177,8 @@ describe("giftsPage", () => {
     const v = (over: Partial<View> = {}) => view({ workOrders: [...clean, ...custom], frameworks: fws, ...over });
     const html = giftListHtml(v());
     expect(html).toContain("\u270B"); // the hand symbol, not the hourglass, on the custom gift
-    expect(html).toContain("Allocate by hand. A custom amount: 40 is not the price of a part (35)");
-    expect(html).toContain("allocate by hand"); // in the key
+    expect(html).toContain("Allocate manually. A custom amount: 40 is not the price of a part (35)");
+    expect(html).toContain("allocate manually"); // in the key
     // the Manual tab shows only that gift, and the filter finds its payments
     const tab = giftListHtml(v({ filter: "manual" }));
     expect((tab.match(/data-sel-gift=/g) ?? []).length).toBe(1);
@@ -188,23 +188,23 @@ describe("giftsPage", () => {
     expect(giftsPage(v())).toContain("Custom amount");
     // the tile splits unallocated from manual
     expect(giftMetricsHtml(v())).toMatch(/<b>1<\/b> manual/);
-    // the window explains and offers the parts, and marking by hand is offered on a normal gift
+    // the window explains and offers the parts, and marking manually is offered on a normal gift
     const win = giftDetailHtml(v(), "SM");
-    expect(win).toContain("<b>Allocate by hand.</b>");
+    expect(win).toContain("<b>Allocate manually.</b>");
     expect(win).toContain('id="gp-select"'); // choose in a drop-down...
     expect(win).toContain('data-parts-save="1" data-keys="m1 m2"'); // ...then Save, which goes to every payment of the gift
     expect(win).toContain('class="iconact ok"'); // an icon button, not words
     expect(win).toContain('aria-label="Save the parts"');
-    expect(win).not.toContain("Reset"); // nothing set by hand yet, so nothing to take back
+    expect(win).not.toContain("Reset"); // nothing set manually yet, so nothing to take back
     expect(giftDetailHtml(v(), "SC")).toContain('data-manual-set="c1" data-keys="c1 c2" data-on="1"');
     expect(win).not.toContain('data-on="0"'); // a custom amount is not marked by a person, so there is nothing to take back
     const byPerson = giftDetailHtml(v({ workOrders: [{ ...(custom[0] as WorkOrder), partsByPerson: true }, custom[1] as WorkOrder] }), "SM");
     expect(byPerson).toContain('data-manual-set="m1" data-keys="m1 m2" data-on="0"');
     // once every payment has its parts, the gift is no longer manual: no hand, no orange box, and it waits for allocation
     const decided = giftListHtml(v({ workOrders: [...clean, ...custom.map((w) => ({ ...w, partsFixed: 2 }))] }));
-    expect(decided).not.toContain('title="Allocate by hand.'); // no hand on a row (the key still names it)
+    expect(decided).not.toContain('title="Allocate manually.'); // no hand on a row (the key still names it)
     expect(decided).toContain("manual changes that the CRM does not know about"); // the orange tick says a person set the parts
-    expect(giftDetailHtml(v({ workOrders: [...clean, ...custom.map((w) => ({ ...w, partsFixed: 2 }))] }), "SM")).not.toContain("Allocate by hand.");
+    expect(giftDetailHtml(v({ workOrders: [...clean, ...custom.map((w) => ({ ...w, partsFixed: 2 }))] }), "SM")).not.toContain("Allocate manually.");
   });
   it("always offers Parts to choose and Save, and Reset once a person has set them, even after the gift is no longer manual (DECISIONS 116)", () => {
     const set = [1, 2].map((n) => sub(n, { key: `f${n}`, subscriptionId: "SF", amount: 40, quantity: 2, partsFixed: 2 }));
@@ -213,13 +213,25 @@ describe("giftsPage", () => {
     expect(win).toContain('<option value="2" selected>2 parts</option>');
     expect(win).toContain('data-parts-save="1" data-keys="f1 f2"');
     expect(win).toContain('data-parts-set="f1" data-keys="f1 f2" data-n="0"'); // Reset
-    expect(win).toContain("Set by hand. The CRM says 2.");
+    expect(win).toContain("Set manually. The CRM says 2.");
     expect(win).toContain('class="iconact" data-parts-set="f1"'); // Reset is an icon too
     expect(win).toContain("<th>Parts</th>"); // each payment shows its parts
-    expect(win).toContain('title="Set by hand. The CRM says 2.">by hand</span>');
+    expect(win).toContain('title="Set manually. The CRM says 2.">manually</span>');
     // a gift with parts the system worked out has the control but no Reset
     const auto = giftDetailHtml(view({ workOrders: [sub(1, { key: "g1", subscriptionId: "SG", partsAuto: 1 })] }), "SG");
     expect(auto).toContain('id="gp-select"');
     expect(auto).not.toContain('data-n="0"');
+  });
+  it("shows a plan with no end as the infinity sign, and says manually, not by hand (DECISIONS 119)", () => {
+    const open = [1, 2].map((n) => sub(n, { key: `i${n}`, subscriptionId: "SI", instalmentCount: "Indefinitely", partsFixed: 2 }));
+    const win = giftDetailHtml(view({ workOrders: open }), "SI");
+    expect(win).not.toContain("Indefinitely");
+    expect(win).not.toContain("ongoing");
+    expect(win).toContain('1 of <span class="inf" title="Continues until cancelled"');
+    expect(win).toContain("2 of ");
+    expect(win).toContain("Set manually. The CRM says");
+    expect(win).toContain(">manually</span>");
+    expect(win).not.toMatch(/by hand/i);
+    expect(giftListHtml(view({ workOrders: open }))).not.toMatch(/by hand/i);
   });
 });

@@ -115,9 +115,9 @@ describe("catch-up payments", () => {
     const v = { workOrders: done, review: [], categories: [], frameworks: [], today: "2026-11-22" } as unknown as View;
     const closed = giftDetailHtml(v, "S1", false);
     expect(closed).toContain('data-gift-log="open"');
-    expect(closed).not.toContain("Changed by hand here. The CRM does not know");
+    expect(closed).not.toContain("Changed manually here. The CRM does not know");
     const open = giftDetailHtml(v, "S1", true);
-    expect(open).toContain("Changed by hand here. The CRM does not know");
+    expect(open).toContain("Changed manually here. The CRM does not know");
     expect(open).toContain("marked as covering 2 instalments");
   });
   it("shows values with the currency symbol (DECISIONS 95)", () => {

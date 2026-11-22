@@ -231,7 +231,7 @@ const partPriceEditor = (f: FrameworkTemplate): string => {
   const list = f.partPrices ?? [];
   return `<div class="ppe">${list.length ? list.map((p) => `<div class="ppe-row"><b>${esc(String(p.price))}</b> <span class="muted">from ${esc(p.from)}</span> <button class="linkbtn" data-action="remove-part-price" data-id="${esc(f.id)}" data-from="${esc(p.from)}" aria-label="Remove this price">Remove</button></div>`).join("") : `<div class="muted">None set. Parts then come from the bundle and quantity.</div>`}
     <div class="ppe-add"><input type="date" id="pp-from-${esc(f.id)}" aria-label="Starts on"><input type="number" min="0" step="0.01" id="pp-price-${esc(f.id)}" placeholder="Price of one part" aria-label="Price of one part"><button data-action="add-part-price" data-id="${esc(f.id)}">Add price</button></div>
-    <div class="muted">With a price, a payment of 70 is 2 parts when a part is 35. A payment that is not a whole number of parts is a custom amount, allocated by hand. A new price only reaches gifts that start after its date.</div></div>`;
+    <div class="muted">With a price, a payment of 70 is 2 parts when a part is 35. A payment that is not a whole number of parts is a custom amount, allocated manually. A new price only reaches gifts that start after its date.</div></div>`;
 };
 
 const frameworkCard = (f: FrameworkTemplate, v: View): string => {
