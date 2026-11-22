@@ -75,7 +75,7 @@ export const categoryName = (categories: Category[], id: string) => categories.f
 export const picker = (categories: Category[], item: string, current: string) =>
   `<select data-assign="${esc(item)}"><option value="">Choose category...</option>${categories.map((c) => `<option value="${c.id}"${c.id === current ? " selected" : ""}>${esc(c.name)}</option>`).join("")}</select>`;
 
-export const metric = (value: number, label: string, cls = "") => `<div class="metric ${cls}"><b>${value}</b><span>${label}</span></div>`;
+export const metric = (value: number | string, label: string, cls = "") => `<div class="metric ${cls}"><b>${value}</b><span>${label}</span></div>`;
 
 // Rule shown to staff: the instalment as "2 of 12" or "2 of Indefinitely". Blank for a one-off.
 const instalment = (w: WorkOrder) => (w.instalmentNumber === "" ? `<span class="muted">One-off</span>` : `${esc(w.instalmentNumber)} of ${esc(w.instalmentCount)}`);
@@ -154,15 +154,15 @@ export function filterBar(v: View, id: string, base: WorkOrder[]): string {
   const opt = (value: string, label: string, cur: string) => `<option value="${esc(value)}"${value === cur ? " selected" : ""}>${esc(label)}</option>`;
   const d = `data-scope="${esc(id)}"`;
   return `<div class="card filters">
-    <input type="search" data-f="text" ${d} placeholder="Search line id, order reference, supporter, item, subscription..." value="${esc(c.text)}">
+    <input type="search" data-f="text" ${d} placeholder="Search donor, item, reference, subscription" title="Search line id, order reference, supporter, item or subscription" value="${esc(c.text)}">
     <select data-f="itemId" ${d}><option value="">All items</option>${[...items].sort((a, b) => a[1].localeCompare(b[1])).map(([k, name]) => opt(k, name, c.itemId)).join("")}</select>
     <select data-f="categoryId" ${d}><option value="">All categories</option>${v.categories.map((x) => opt(x.id, x.name, c.categoryId)).join("")}</select>
     ${id === "main" ? "" : `<select data-f="status" ${d}>${opt("", "Any status", c.status)}${opt("unrouted", "Unrouted", c.status)}${opt("ready", "Ready", c.status)}${opt("excluded", "Excluded", c.status)}</select>`}
-    <select data-f="legacy" ${d}>${opt("", "Including legacy uploads", c.legacy)}${opt("only", "Legacy uploads only", c.legacy)}${opt("hide", "Without legacy uploads", c.legacy)}</select>
-    <select data-f="kind" ${d}>${opt("any", "One-off and recurring", c.kind)}${opt("recurring", "Recurring only", c.kind)}${opt("oneoff", "One-off only", c.kind)}</select>
-    <label class="muted">Paid from <input type="date" data-f="from" ${d} value="${esc(c.from)}"></label>
-    <label class="muted">to <input type="date" data-f="to" ${d} value="${esc(c.to)}"></label>
-    <button data-action="clear-filters" data-scope="${esc(id)}">Clear filters</button></div>`;
+    <select data-f="legacy" ${d}>${opt("", "Legacy: included", c.legacy)}${opt("only", "Legacy only", c.legacy)}${opt("hide", "No legacy", c.legacy)}</select>
+    <select data-f="kind" ${d}>${opt("any", "All types", c.kind)}${opt("recurring", "Recurring", c.kind)}${opt("oneoff", "One-off", c.kind)}</select>
+    <input type="date" data-f="from" ${d} value="${esc(c.from)}" title="Paid from">
+    <input type="date" data-f="to" ${d} value="${esc(c.to)}" title="Paid to">
+    <button data-action="clear-filters" data-scope="${esc(id)}" title="Clear the filters">Clear</button></div>`;
 }
 
 export const MAX_ROWS = 500; // the most rows drawn at once. The filter boxes narrow the rest.

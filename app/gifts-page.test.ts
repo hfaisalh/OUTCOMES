@@ -11,7 +11,7 @@ import { MWF_CRM_CONFIG, readFeed } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { suggestAll } from "../modules/02-project-rules/categories";
 import { demoCategories, demoFeedRows, starterFrameworks } from "./demo-data";
-import { giftDetailHtml, giftListHtml, giftsPage, shownGiftKeys } from "./gifts-page";
+import { giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts-page";
 import type { View } from "./pages";
 
 const lines = readFeed(demoFeedRows(), MWF_CRM_CONFIG).lines;
@@ -115,5 +115,21 @@ describe("giftsPage", () => {
     const html = giftsPage(view({ workOrders: evil }));
     expect(html).not.toContain("<img");
     expect(html).not.toContain("<b>x</b>");
+  });
+  it("has tiles that count what the list shows, so they change with the tab and the filters (DECISIONS 97)", () => {
+    const orders = [sub(1), sub(2), { ...base, key: "o1", subscriptionId: "", instalmentNumber: "", instalmentCount: "", currency: "GBP" }];
+    const all = giftMetricsHtml(view({ workOrders: orders }));
+    expect(all).toContain("<span>Gifts shown</span>");
+    expect(all).toMatch(/<b>2<\/b><span>Gifts shown/); // one subscription and one single payment
+    expect(all).toMatch(/<b>1<\/b><span>Recurring/);
+    expect(all).toMatch(/<b>1<\/b><span>One payment/);
+    expect(all).toContain("<span>Value</span>");
+    // a narrower filter changes the tiles
+    const narrowed = giftMetricsHtml(view({ workOrders: orders, criteria: { text: "no-such-donor", itemId: "", categoryId: "", status: "", kind: "any", legacy: "", from: "", to: "" } }));
+    expect(narrowed).toMatch(/<b>0<\/b><span>Gifts shown/);
+    // the page holds the tiles in a place that is redrawn with the list, and the pick-up note sits beside the tabs
+    const page = giftsPage(view({ workOrders: orders }));
+    expect(page).toContain('data-list="main-metrics"');
+    expect(page).toMatch(/class="tabrow"[\s\S]*Gifts are brought in under/);
   });
 });

@@ -187,3 +187,8 @@ td.bad{color:#d23b3b;font-weight:600}
 .mp .chip .n{color:var(--muted);font-family:inherit}.mp .chip .x{cursor:pointer;color:var(--muted)}.mp .empty{color:var(--muted);font-size:12px;padding:0}
 .mp .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}.mp .tag{display:inline-block;padding:0 8px;border-radius:8px;font-size:12px;background:var(--warn-bg);color:var(--warn)}
 .mp table{font-size:13px}.mp details.card summary{cursor:pointer}.mp code{font:12px ui-monospace,monospace}.mp .row button.on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+
+/* Gifts: one line of filters, and the tabs with the pick-up note beside them (DECISIONS 97) */
+.filters{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;overflow-x:auto;padding:8px 10px}.filters input,.filters select,.filters button{font-size:13px;padding:5px 7px;min-width:0;flex:0 1 auto}
+.filters input[type=search]{flex:1 1 150px;min-width:120px}.filters select{max-width:140px}.filters input[type=date]{width:128px}.filters button{white-space:nowrap}
+.tabrow{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.tabrow .pickup{font-size:12px}

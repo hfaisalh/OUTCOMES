@@ -13,7 +13,7 @@
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, clearLegacy, placeInNode, placeInPartner, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
 import { setCovers, setLooked, setParts } from "../modules/04b-commitments/catch-up";
-import { giftDetailHtml, giftListHtml, giftsPage, shownGiftKeys } from "./gifts-page";
+import { giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts-page";
 import { partnersPage } from "./partners-page";
 import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
@@ -370,7 +370,7 @@ function listShownKeys(scope: string): string[] {
 
 // Redraws every list (the ticked count is shown in each), leaving the filter boxes alone.
 function redrawLists(): void {
-  for (const el of Array.from(document.querySelectorAll("[data-list]"))) el.innerHTML = (el as HTMLElement).dataset.list === "main" ? giftListHtml(view()) : listHtml(view(), (el as HTMLElement).dataset.list as string);
+  for (const el of Array.from(document.querySelectorAll("[data-list]"))) el.innerHTML = (el as HTMLElement).dataset.list === "main-metrics" ? giftMetricsHtml(view()) : (el as HTMLElement).dataset.list === "main" ? giftListHtml(view()) : listHtml(view(), (el as HTMLElement).dataset.list as string);
 }
 
 // The Other sources page (field mapping) lives in the shell and keeps its own state (DECISIONS 93).
@@ -775,6 +775,8 @@ function onFilterInput(e: Event): void {
   else state.scopeCriteria = { ...state.scopeCriteria, [scope]: { ...(state.scopeCriteria[scope] ?? NO_CRITERIA), [field]: t.value } as Criteria };
   const list = document.querySelector(`[data-list="${scope}"]`);
   if (list) list.innerHTML = scope === "main" ? giftListHtml(view()) : listHtml(view(), scope);
+  const tiles = scope === "main" ? document.querySelector('[data-list="main-metrics"]') : null;
+  if (tiles) tiles.innerHTML = giftMetricsHtml(view());
 }
 // Opening an entry's lines in Needs attention draws them then (they are not drawn while closed).
 document.addEventListener("toggle", (e) => {

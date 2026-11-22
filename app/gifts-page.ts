@@ -251,19 +251,33 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
     </div></div>${logWin}</div>`;
 }
 
+// The tiles above the list (DECISIONS 97): they count what the list below shows, so they change with the tab and the filters.
+export function giftMetricsHtml(v: View): string {
+  const { rows } = listData(v);
+  const where = allocationContext(v);
+  const payments = rows.flatMap((g) => g.payments);
+  const currencies = [...new Set(payments.map((w) => w.currency ?? ""))];
+  const total = payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0);
+  const value = currencies.length <= 1 ? money(total, currencies[0] ?? "") : "mixed currencies";
+  const count = (f: (g: GiftRow) => boolean) => rows.filter(f).length;
+  const waiting = count((g) => where(g).state === "waiting");
+  const look = count((g) => g.needsLook);
+  const unrouted = count((g) => g.unrouted);
+  return `${metric(rows.length, "Gifts shown")}${metric(count((g) => g.kind === "recurring" || g.kind === "unlinked"), "Recurring")}${metric(count((g) => g.kind === "one_off"), "One payment")}${metric(value, "Value")}${metric(waiting, "Waiting for a place", waiting ? "warn" : "")}${metric(look, "Need a look", look ? "warn" : "")}${unrouted ? metric(unrouted, "Unrouted", "warn") : ""}`;
+}
+
 export function giftsPage(v: View): string {
   const live = v.workOrders.filter((w) => w.status !== "excluded");
   const count = (s: string) => v.workOrders.filter((w) => w.status === s).length;
-  const all = giftRows(live, v.workOrders, new Set(v.review.map((r) => r.key)));
   const tab = (id: Filter, label: string) => `<button data-filter="${id}" class="${v.filter === id ? "on" : ""}">${label}</button>`;
   const base = listBase(v, "main");
   return `
     <h1>Gifts</h1>
     <p class="sub">Every gift in one list. A subscription is one row with its payments inside it, and a single payment is one row. Gifts arrive from the CRM feed. Only items the CRM marks as needing feedback appear here, so nothing is imported by hand.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
-    <div class="metrics">${metric(all.length, "Gifts")}${metric(live.length, "Payments")}${metric(count("unrouted"), "Unrouted", count("unrouted") ? "warn" : "")}${metric(all.filter((g) => g.needsLook).length, "Need a look", all.some((g) => g.needsLook) ? "warn" : "")}${metric(v.review.length, "To review", v.review.length ? "warn" : "")}</div>
-    <p class="muted">${v.live && v.run?.ok ? `Last pick-up ${esc(v.run.at.replace("T", " ").slice(0, 16))} UTC. ` : ""}Gifts are brought in under <a data-page="data-feed">Data</a>${v.live ? "" : ", where the demo can be refreshed and your own files loaded"}.</p>
-    <div class="tabs">${TABS.map(([id, label]) => tab(id, label)).join("")}${tab("excluded", `Excluded (${count("excluded")})`)}</div>
+    <div class="metrics" data-list="main-metrics">${giftMetricsHtml(v)}</div>
+    <div class="tabrow"><div class="tabs">${TABS.map(([id, label]) => tab(id, label)).join("")}${tab("excluded", `Excluded (${count("excluded")})`)}</div>
+    <span class="muted pickup">${v.live && v.run?.ok ? `Last pick-up ${esc(v.run.at.replace("T", " ").slice(0, 16))} UTC. ` : ""}Gifts are brought in under <a data-page="data-feed">Data</a>${v.live ? "" : ", where the demo can be refreshed and your own files loaded"}.</span></div>
     ${filterBar(v, "main", base)}<div class="card" data-list="main">${giftListHtml(v)}</div>
     ${v.review.length ? `<div class="card"><h2>Held for review</h2><p class="muted">These changed in the CRM after the work order was made. Nothing was changed automatically.</p><table><tbody>${v.review.map((r) => `<tr><td>${esc(r.key)}</td><td>${esc(r.message)}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
 }
