@@ -139,4 +139,22 @@ describe("catch-up payments", () => {
     expect(html).toContain("ORP-0007");
     expect(html).toContain("Allocation AL-0012");
   });
+  it("asks one plain question about a payment that differs, and has no Covers column (DECISIONS 118)", () => {
+    const orders = [inst(1, "2026-08-11"), inst(2, "2026-09-11"), inst(3, "2026-10-11", 70)];
+    const v = { workOrders: orders, review: [], categories: [], frameworks: [], today: "2026-11-22" } as unknown as View;
+    const win = giftDetailHtml(v, "S1");
+    expect(win).toContain("70 on 11/10/26, when the usual is 35. What is it?");
+    expect(win).toContain('data-covers-set="L3" data-n="2">2 months paid together');
+    expect(win).toContain('data-increase="L3" data-n="2">2 parts a month');
+    expect(win).not.toContain("<th>Covers</th>");
+    expect(win).not.toContain("data-covers-key");
+    // a small calendar icon on each payment opens the months choice, with a tick to save
+    expect(win).toContain('id="pm-select-L3"');
+    expect(win).toContain('data-months-save="L3"');
+    // once it is a catch-up the payment says so, and the icon offers an undo
+    const done = giftDetailHtml({ ...v, workOrders: orders.map((w) => (w.key === "L3" ? { ...w, covers: 2 } : w)) } as View, "S1");
+    expect(done).toContain("Catch-up: 2 months");
+    expect(done).toContain('data-covers-set="L3" data-n="1"');
+    expect(done).not.toContain("What is it?"); // answered
+  });
 });

@@ -81,18 +81,30 @@ function unitsVisual(g: GiftRow, v: View): string {
   return `<div class="upies">${pies}</div>${key}`;
 }
 
+// A small calendar icon on a payment opens a choice of how many months it pays for, with a tick to save and an undo to go back (DECISIONS 118). It is out of the way
+// until needed, since most payments pay for one month.
+const ICON_CAL = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5.5" width="16" height="14" rx="2.5"/><path d="M8 3.5v4M16 3.5v4M4 10h16"/></svg>`;
+const ICON_TICK = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
+const ICON_UNDO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v4.5h4.5"/></svg>`;
+function monthsControl(w: WorkOrder): string {
+  if (w.legacyUpload || (w.status !== "unrouted" && w.status !== "ready")) return "";
+  const cur = w.covers ?? 1;
+  return ` <details class="mo"><summary class="iconact" title="Months this payment pays for" aria-label="Months this payment pays for">${ICON_CAL}</summary>
+    <div class="mo-pop"><select id="pm-select-${esc(w.key)}" aria-label="Months this payment pays for">${[1, 2, 3, 4].map((n) => `<option value="${n}"${cur === n ? " selected" : ""}>${n} month${n === 1 ? "" : "s"}</option>`).join("")}</select>
+      <button class="iconact ok" data-months-save="${esc(w.key)}" title="Save" aria-label="Save the months">${ICON_TICK}</button>${cur > 1 ? `<button class="iconact" data-covers-set="${esc(w.key)}" data-n="1" title="Back to one month" aria-label="Back to one month">${ICON_UNDO}</button>` : ""}</div></details>`;
+}
+
 // The payments of a gift, as a small table: the lines the CRM sent, each of which can be excluded or restored, or sorted into a category.
 function paymentsTable(g: GiftRow, v: View): string {
   const reviewKeys = new Set(v.review.map((r) => r.key));
-  return `<table class="subtable"><thead><tr><th>Reference</th><th>Paid</th><th>Instalment</th><th>Covers</th><th>Parts</th><th>Value</th><th>Category</th><th>Status</th></tr></thead><tbody>${g.payments.map((w) => `<tr><td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)}</div></td>
+  return `<table class="subtable"><thead><tr><th>Reference</th><th>Paid</th><th>Instalment</th><th>Parts</th><th>Value</th><th>Category</th><th>Status</th></tr></thead><tbody>${g.payments.map((w) => `<tr><td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)}</div></td>
     <td>${w.legacyUpload ? `${esc(w.paidDate.slice(0, 10))} <span class="pill review" title="Uploaded from the old system. This date is the day it was loaded, not the day it was paid.">Legacy upload</span>` : esc(w.paidDate.slice(0, 10))}</td>
-    <td>${w.instalmentNumber === "" ? `<span class="muted">One-off</span>` : `${esc(w.instalmentNumber)} of ${esc(w.instalmentCount)}`}</td>
-    <td>${w.status === "unrouted" || w.status === "ready" ? `<select data-covers-key="${esc(w.key)}" title="How many instalments this payment covers">${[1, 2, 3, 4].map((n) => `<option value="${n}"${(w.covers ?? 1) === n ? " selected" : ""}>${n}</option>`).join("")}</select>${w.covers && w.covers > 1 ? ` <span class="pill review" title="A person marked this as a catch-up payment">catch-up</span>` : ""}` : `<span class="muted">${w.covers ?? 1}</span>`}</td>
+    <td>${w.instalmentNumber === "" ? `<span class="muted">One-off</span>` : `${esc(w.instalmentNumber)} of ${esc(w.instalmentCount)}`}${w.covers && w.covers > 1 ? `<div><span class="pill blue" title="One payment that pays for ${w.covers} months. The months it fills are blue in the circles.">Catch-up: ${w.covers} months</span></div>` : ""}</td>
     <td class="num">${w.legacyUpload ? `<span class="muted">\u2013</span>` : `${partsOf(w)}${w.partsFixed !== undefined ? ` <span class="pill review" title="Set by hand. The CRM says ${sentPartsOf(w)}.">by hand</span>` : w.partsManual !== undefined ? ` <span class="pill review" title="${esc(w.partsManual)}">custom</span>` : ""}`}</td>
     <td class="num">${money(lineValue(w), w.currency)}</td>
     <td>${w.status === "unrouted" ? picker(v.categories, w.itemId, "") : esc(categoryName(v.categories, w.categoryId))}</td>
     <td>${w.status === "excluded" ? `<span class="pill unrouted">Excluded</span>${w.exclusion ? `<div class="muted">${esc(w.exclusion.reason)}</div>` : ""}` : `<span class="pill ${w.status === "unrouted" ? "unrouted" : "ready"}">${w.status === "unrouted" ? "Unrouted" : "Ready"}</span>`}${reviewKeys.has(w.key) ? ` <span class="pill review">Review</span>` : ""}</td>
-    <td>${w.status === "excluded" ? `<button data-excl="${esc(w.key)}" data-excl-action="restore">Restore</button>` : w.status === "unrouted" || w.status === "ready" ? `<button data-excl="${esc(w.key)}" data-excl-action="exclude">Exclude</button>` : ""}</td></tr>`).join("")}</tbody></table>`;
+    <td>${w.status === "excluded" ? `<button data-excl="${esc(w.key)}" data-excl-action="restore">Restore</button>` : w.status === "unrouted" || w.status === "ready" ? `<button data-excl="${esc(w.key)}" data-excl-action="exclude">Exclude</button>` : ""}${monthsControl(w)}</td></tr>`).join("")}</tbody></table>`;
 }
 
 // Everything the list needs, worked out once: the gifts after the filters, and where each is allocated.
@@ -252,10 +264,13 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   const logBtn = logItems.length ? `<button class="gi-open${g.adjustments.length ? " manual" : ""}" data-gift-log="open" title="${g.adjustments.length ? "Changed by hand here, not in the CRM. See the log." : "See what was resolved."}" aria-label="Open the log">${SYMBOL.info}</button>` : "";
   const logWin = logOpen && logItems.length ? `<div class="pf-overlay log" data-gift-log="overlay"><div class="pf-box small" role="dialog" aria-label="Change log"><header><h2>Log</h2><button data-gift-log="close">Close</button></header><div class="pf-body compact">${g.adjustments.length ? `<p class="muted">Changed by hand here. The CRM does not know about these.</p>` : ""}<ul class="loglist">${logItems.join("")}</ul></div></div></div>` : "";
   const link = g.kind !== "unlinked" ? "" : g.suggestions.length === 0 ? `<div class="muted">No commitment for the same supporter and item</div>` : g.suggestions.map((s) => `<div class="muted">Possibly subscription <b>${esc(s.subscriptionId)}</b> (${s.daysApart === null ? "legacy upload, date not comparable" : s.daysApart === 0 ? "same day" : `${Math.abs(s.daysApart)} day${Math.abs(s.daysApart) === 1 ? "" : "s"} ${s.daysApart < 0 ? "before its first instalment" : "after its first instalment"}`})</div>`).join("");
-  // The suggestion for a payment that looks like a catch-up: what it would cover, with one click to agree or to say it is normal.
-  const monthName = (m: string) => m;
-  const catchUp = g.catchUps.map((x) => `<div class="suggest-box"><b>Possible catch-up payment.</b> ${esc(x.reason)}. If it covers ${x.covers} instalments, it also fills ${x.fills.map(monthName).map(esc).join(", ")}.
-      <div class="actions"><button class="primary" data-covers-set="${esc(x.key)}" data-n="${x.covers}">Yes, it covers ${x.covers}</button><button data-covers-set="${esc(x.key)}" data-n="1">No, it is a normal payment</button></div></div>`).join("");
+  // The suggestion for a payment that differs from the usual (DECISIONS 118): one plain question with the two things it can be.
+  const catchUp = g.catchUps.map((x) => {
+    const when = shortDate((g.payments.find((w) => w.key === x.key)?.paidDate ?? "").slice(0, 10));
+    return `<div class="suggest-box"><b>${money(x.value)} on ${esc(when)}, when the usual is ${money(x.usual)}. What is it?</b>
+      <div class="muted">If it is months paid together it fills ${x.fills.map(esc).join(", ")}.</div>
+      <div class="actions"><button class="primary" data-covers-set="${esc(x.key)}" data-n="${x.covers}">${x.covers} months paid together</button><button data-increase="${esc(x.key)}" data-n="${x.covers}">${x.covers} parts a month</button></div></div>`;
+  }).join("");
   // A gift for manual allocation (DECISIONS 113): the reason, and a way to set its parts. A person's own mark can be taken back.
   // The choice applies to every real payment of the gift, since each one carries the mark (DECISIONS 114).
   const firstReal = g.payments.find((w) => w.legacyUpload !== true);

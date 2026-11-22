@@ -327,6 +327,20 @@ async function applyCovers(key: string, covers: number): Promise<void> {
   }
   draw();
 }
+// The calendar icon on a payment: choose the months, then save (DECISIONS 118).
+document.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest?.("[data-months-save]") as HTMLElement | null;
+  if (!b) return;
+  const key = b.dataset.monthsSave ?? "";
+  void applyCovers(key, Number((document.getElementById(`pm-select-${key}`) as HTMLSelectElement | null)?.value ?? "1"));
+});
+// "N parts a month": the donor raised the gift, so it is not a catch-up. The payment is marked a single month and its parts are set (DECISIONS 118).
+document.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest?.("[data-increase]") as HTMLElement | null;
+  if (!b) return;
+  const key = b.dataset.increase ?? "";
+  void applyCovers(key, 1).then(() => applyParts([key], Number(b.dataset.n)));
+});
 // Marks a gift for manual allocation, or takes the mark back (DECISIONS 113).
 async function applyManual(keys: string[], on: boolean): Promise<void> {
   try {
