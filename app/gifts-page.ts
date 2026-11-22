@@ -113,7 +113,7 @@ function paymentsTable(g: GiftRow, v: View): string {
       : w.status === "unrouted" || w.status === "ready" ? `${monthsControl(w)}<button class="iconact sm" data-excl="${esc(w.key)}" data-excl-action="exclude" title="Exclude this payment" aria-label="Exclude this payment">${ICON_X}</button>` : "";
     return `<tr class="pay"><td class="c">${state}${reviewKeys.has(w.key) ? ` <span class="gi warn" title="Held for review">${SYMBOL.review}</span>` : ""}</td>
       <td title="Line ${esc(w.key)}">${esc(w.transactionRef) || `<span class="muted">no reference</span>`}</td>
-      <td class="num" title="${esc(w.paidDate.slice(0, 10))}">${esc(shortDate(w.paidDate))} ${legacy}</td>
+      <td class="date" title="${esc(w.paidDate.slice(0, 10))}"><span class="cellstart">${esc(shortDate(w.paidDate))}${legacy}</span></td>
       <td>${inst}${catchUp}</td>
       <td class="num"><span class="cellend">${w.legacyUpload ? `<span class="muted">\u2013</span>` : partsOf(w)}${hand}</span></td>
       <td class="num">${money(lineValue(w), w.currency)}</td>

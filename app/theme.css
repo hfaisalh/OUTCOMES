@@ -224,3 +224,4 @@ details.mo{display:inline-block;position:relative;margin-left:6px;vertical-align
 .subtable td.payacts,.subtable th.payacts{width:1%;text-align:right}.payacts-in{display:flex;justify-content:flex-end;align-items:center;gap:6px}
 .payacts-in details.mo{margin:0;display:inline-flex}.payacts-in .iconact.sm{width:28px;height:28px}.payacts-in select{font-size:12px;padding:2px 4px;max-width:130px}
 .cellend{display:inline-flex;align-items:center;justify-content:flex-end;gap:6px}
+.subtable td.date{font-variant-numeric:tabular-nums}.cellstart{display:inline-flex;align-items:center;gap:6px}.subtable td:nth-child(2){min-width:130px}

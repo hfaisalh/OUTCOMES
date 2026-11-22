@@ -215,7 +215,7 @@ describe("giftsPage", () => {
     expect(win).toContain('data-parts-set="f1" data-keys="f1 f2" data-n="0"'); // Reset
     expect(win).toContain("Set manually. The CRM says 2.");
     expect(win).toContain('class="iconact" data-parts-set="f1"'); // Reset is an icon too
-    expect(win).toContain("<th>Parts</th>"); // each payment shows its parts
+    expect(win).toContain('<th class="num">Parts</th>'); // each payment shows its parts
     expect(win).toContain('title="Parts set manually. The CRM says 2."'); // a hand icon on the payment
     // a gift with parts the system worked out has the control but no Reset
     const auto = giftDetailHtml(view({ workOrders: [sub(1, { key: "g1", subscriptionId: "SG", partsAuto: 1 })] }), "SG");
@@ -250,6 +250,7 @@ describe("giftsPage", () => {
     expect(win).not.toContain("<th>Category</th><th>Status</th>");
     // aligned (DECISIONS 121): the header sits over its column, and both icon buttons are the small size
     expect(win).toContain('<th class="num">Parts</th><th class="num">Value</th>');
+    expect(win).toContain('<td class="date" title="2026-09-07">'); // the date is left aligned, under its header
     expect(win).toContain('<summary class="iconact sm"');
     expect(win).toContain('class="iconact sm" data-excl=');
     expect(win).toContain('<div class="payacts-in">');
