@@ -181,6 +181,8 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 
 82. **The value of a gift is the line total, worked out as unit price x quantity until the CRM sends a total (22 Nov 2026).** After decision 81 showed that `amount` is a unit price, the Gifts list and window show the value as `line_total` when the feed has it, else `amount` x `quantity` (`lineValue`). Still reference only, never used in a rule. This keeps the display right whichever way the CRM export is mapped later, since a `line_total` column wins over the calculation.
 
+83. **The feed carries the CRM's line total as `line_total`, beside the unit price in `amount` (22 Nov 2026, from Faisal).** The export adapter fills `line_total` (decision 82) from the Donation lines export's **Total Amount** column. `amount` stays the unit price (Item Cost). Nothing is worked out: with no Total Amount column, `line_total` is blank and the screen falls back to unit price x quantity (decision 82). Checked on the 22 Nov export (7,781 lines): Total Amount equals Item Cost x Order Quantity on 7,780 lines. Subscription 83 (orphan sponsorship, plan of 12 at 35 per instalment): line totals 70, 35, 35, 35. The money matches the plan from instalment 2 on, so the quantity of 2 on instalments 3 and 4 (shown at 17.50 a unit) is the figure that is off in the CRM, and instalment 1 (70) paid double.
+
 ## Open questions
 
 - Categories: the starting list is confirmed (decision 36). What should each category change besides the default feedback cycle? (Sponsorship: beneficiaries, allocation, renewals. Transactional: deliver once, then report. Proposed, for Module 5.)

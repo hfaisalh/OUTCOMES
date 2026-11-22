@@ -42,6 +42,15 @@ describe("adaptExports", () => {
     expect(rows.every((r) => r["currency"] === "")).toBe(true); // unknown: left blank
   });
 
+  it("keeps the CRM's line total beside the unit price, never working it out (DECISIONS 83)", () => {
+    expect(byLine("9004")["amount"]).toBe("20"); // the price of one unit
+    expect(byLine("9004")["quantity"]).toBe("2");
+    expect(byLine("9004")["line_total"]).toBe("40"); // the CRM's Total Amount for the whole line
+    const noTotal = load("export-donation-lines-sample.csv").map(({ "Total Amount": _drop, ...rest }) => rest);
+    const rows = adaptExports(noTotal, load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), load("export-catalogue-prices-sample.csv")).rows;
+    expect(rows.every((r) => r["line_total"] === "")).toBe(true); // no column: left blank, not calculated
+  });
+
   it("takes the feedback trigger from the catalogue by item code", () => {
     expect(byLine("9001")["item_feedback"]).toBe("2"); // Feedback report
     expect(byLine("9004")["item_feedback"]).toBe("1"); // Acknowledgement only

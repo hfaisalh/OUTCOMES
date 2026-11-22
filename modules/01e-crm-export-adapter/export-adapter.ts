@@ -266,6 +266,8 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
       amount: pick(r, "Item Cost"),
       // Rule: the currency the line was paid in, as the CRM gives it. Never converted. Blank when the export has no Currency column (DECISIONS 81).
       currency: pick(r, "Currency"),
+      // Rule: the CRM's own total for the whole line, kept beside the unit price in `amount`. Never worked out here; blank when the export has no Total Amount column (DECISIONS 83).
+      line_total: pick(r, "Total Amount"),
       quantity: pick(r, "Order Quantity"),
       bundle_qty: bundleQuantity,
       project_name: pick(r, "Project"), // the project the donor chose (DECISIONS 66)
