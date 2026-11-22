@@ -253,3 +253,5 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 
 110. **Dates in the Gifts list are DD/MM/YY (22 Nov 2026, from Faisal).** 20/11/26 replaces 20 Nov 26 (decision 109). The full date is still in the tooltip and the window.
 
+111. **A general cause shows as General (22 Nov 2026).** The CRM cause for most gifts is itself "Where Most Needed" (3,792 of 7,783 lines), so a gift with no named project and that cause showed those words again. It now shows **General** in grey, with the cause in the tooltip. Other causes (Water for All, Orphan Care) show as they are.
+

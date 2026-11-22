@@ -119,6 +119,8 @@ const projectCell = (name: string, cause = ""): string => {
   const general = name === "" || /^where needed most$/i.test(name.trim());
   if (!general) return esc(name);
   // A general gift shows its cause instead (Water for All, Orphan Care), quietly. With no cause either, a dash.
+  // When the cause itself is Where Most Needed, the gift is simply general, so it says General.
+  if (/^where (most|needed)/i.test(cause.trim())) return `<span class="muted" title="${esc(cause)}">General</span>`;
   return cause ? `<span class="muted">${esc(cause)}</span>` : `<span class="muted">\u2013</span>`;
 };
 

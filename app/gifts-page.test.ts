@@ -150,12 +150,15 @@ describe("giftsPage", () => {
       sub(1, { key: "b1", subscriptionId: "SB", projectName: "Where Needed Most", cause: "Water for All" }),
       sub(1, { key: "c1", subscriptionId: "SC", cause: "Educare" }),
       sub(1, { key: "d1", subscriptionId: "SD" }),
+      sub(1, { key: "e1", subscriptionId: "SE", projectName: "Where Needed Most", cause: "Where Most Needed" }),
     ] }));
+    expect(html).toContain('<span class="muted" title="Where Most Needed">General</span>'); // the cause is itself general
     expect(html).toContain("<th>Project</th>");
     expect(html).toContain('title="Aghosh. Cause: Orphan Care">Aghosh'); // a named project is shown, its cause is in the tooltip
     expect(html).toContain('<span class="muted">Water for All</span>'); // general: the cause instead
     expect(html).toContain('<span class="muted">Educare</span>'); // blank: the cause instead
-    expect(html).not.toContain('<span class="muted">Where Needed Most</span>');
+    expect(html).not.toContain('>Where Needed Most<');
+    expect(html).not.toContain('>Where Most Needed<');
     expect(html).toContain('<span class="muted">\u2013</span>'); // no project and no cause: a dash
   });
   it("has no info button at the end of a row, since the row opens the details, and short dates (DECISIONS 109)", () => {
