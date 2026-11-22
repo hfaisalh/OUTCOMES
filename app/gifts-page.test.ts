@@ -191,10 +191,14 @@ describe("giftsPage", () => {
     // the window explains and offers the parts, and marking by hand is offered on a normal gift
     const win = giftDetailHtml(v(), "SM");
     expect(win).toContain("<b>Allocate by hand.</b>");
-    expect(win).toContain('data-parts-set="m1" data-n="2"');
-    expect(giftDetailHtml(v(), "SC")).toContain('data-manual-set="c1" data-on="1"');
-    expect(win).not.toContain('data-manual-set="m1" data-on="0"'); // a custom amount is not marked by a person, so there is nothing to take back
+    expect(win).toContain('data-parts-set="m1" data-keys="m1 m2" data-n="2"'); // the choice goes to every payment of the gift
+    expect(giftDetailHtml(v(), "SC")).toContain('data-manual-set="c1" data-keys="c1 c2" data-on="1"');
+    expect(win).not.toContain('data-on="0"'); // a custom amount is not marked by a person, so there is nothing to take back
     const byPerson = giftDetailHtml(v({ workOrders: [{ ...(custom[0] as WorkOrder), partsByPerson: true }, custom[1] as WorkOrder] }), "SM");
-    expect(byPerson).toContain('data-manual-set="m1" data-on="0"');
+    expect(byPerson).toContain('data-manual-set="m1" data-keys="m1 m2" data-on="0"');
+    // once every payment has its parts, the gift is no longer manual: no hand, no orange box, and it waits for allocation
+    const decided = giftListHtml(v({ workOrders: [...clean, ...custom.map((w) => ({ ...w, partsFixed: 2 }))] }));
+    expect(decided).not.toContain('class="gi manual"'); // no hand on a row (the key still names it)
+    expect(giftDetailHtml(v({ workOrders: [...clean, ...custom.map((w) => ({ ...w, partsFixed: 2 }))] }), "SM")).not.toContain("Allocate by hand.");
   });
 });

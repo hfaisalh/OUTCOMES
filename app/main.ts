@@ -328,15 +328,15 @@ async function applyCovers(key: string, covers: number): Promise<void> {
   draw();
 }
 // Marks a gift for manual allocation, or takes the mark back (DECISIONS 113).
-async function applyManual(key: string, on: boolean): Promise<void> {
+async function applyManual(keys: string[], on: boolean): Promise<void> {
   try {
     if (state.live()) {
-      const r = await setManualApi(key, on);
+      const r = await setManualApi(keys, on);
       const back = new Map(r.workOrders.map((w) => [w.key, w]));
       state.workOrders = state.workOrders.map((w) => back.get(w.key) ?? w);
     } else {
       state.workOrders = state.workOrders.map((w) => {
-        if (w.key !== key) return w;
+        if (!keys.includes(w.key)) return w;
         const r = setManual(w, on);
         return "order" in r ? r.order : w;
       });
@@ -349,18 +349,18 @@ async function applyManual(key: string, on: boolean): Promise<void> {
 }
 document.addEventListener("click", (e) => {
   const b = (e.target as HTMLElement).closest?.("[data-manual-set]") as HTMLElement | null;
-  if (b) void applyManual(b.dataset.manualSet as string, b.dataset.on === "1");
+  if (b) void applyManual((b.dataset.keys ?? b.dataset.manualSet ?? "").split(" ").filter((k) => k !== ""), b.dataset.on === "1");
 });
 // Sets the parts of a payment when its quantity looked wrong, or confirms the CRM's (DECISIONS 87).
-async function applyParts(key: string, parts: number): Promise<void> {
+async function applyParts(keys: string[], parts: number): Promise<void> {
   try {
     if (state.live()) {
-      const r = await setPartsApi(key, parts);
+      const r = await setPartsApi(keys, parts);
       const back = new Map(r.workOrders.map((w) => [w.key, w]));
       state.workOrders = state.workOrders.map((w) => back.get(w.key) ?? w);
     } else {
       state.workOrders = state.workOrders.map((w) => {
-        if (w.key !== key) return w;
+        if (!keys.includes(w.key)) return w;
         const r = setParts(w, parts);
         return "order" in r ? r.order : w;
       });
@@ -373,7 +373,7 @@ async function applyParts(key: string, parts: number): Promise<void> {
 }
 document.addEventListener("click", (e) => {
   const b = (e.target as HTMLElement).closest("[data-parts-set]") as HTMLElement | null;
-  if (b) void applyParts(b.dataset.partsSet as string, Number(b.dataset.n));
+  if (b) void applyParts((b.dataset.keys ?? b.dataset.partsSet ?? "").split(" ").filter((k) => k !== ""), Number(b.dataset.n));
 });
 // A person says they checked what the notes of a gift say (DECISIONS 86), or reopens it.
 async function applyLooked(key: string, looked: string): Promise<void> {

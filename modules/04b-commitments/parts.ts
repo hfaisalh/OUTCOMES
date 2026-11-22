@@ -63,11 +63,20 @@ export function applyPartPrices(orders: WorkOrder[], pricesOf: (frameworkId: str
     const have = firstReal.get(g);
     if (have === undefined || w.paidDate < have) firstReal.set(g, w.paidDate);
   }
+  // Rule (DECISIONS 114): what a person decided for a gift carries to its later payments of the same amount, so a new instalment does not undo it. A person's
+  // parts are passed on as their parts, and a person's manual mark as the same mark.
+  const decided = new Map<string, WorkOrder>();
+  for (const w of orders) if (w.status !== "excluded" && w.legacyUpload !== true && (w.partsFixed !== undefined || w.partsByPerson === true)) decided.set(groupOf(w), w);
   const changed: WorkOrder[] = [];
   for (const w of orders) {
     if (w.status === "excluded" || w.legacyUpload === true || w.partsFixed !== undefined || w.partsAuto !== undefined || w.partsByPerson === true) continue;
     const prices = pricesOf(w.frameworkId ?? "");
     if (prices.length === 0) continue;
+    const before = decided.get(groupOf(w));
+    if (before && before.amount === w.amount && (w.partsFixed === undefined)) {
+      changed.push(before.partsFixed !== undefined ? { ...w, partsFixed: before.partsFixed } : { ...w, partsManual: before.partsManual ?? "Marked by a person", partsByPerson: true });
+      continue;
+    }
     const v = derivePartsFor(w, prices, firstReal.get(groupOf(w)) ?? w.paidDate);
     if ("parts" in v) {
       const { partsManual: _m, ...rest } = w;

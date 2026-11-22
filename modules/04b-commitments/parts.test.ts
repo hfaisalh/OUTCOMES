@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { WorkOrder } from "../01c-crm-connector/work-orders";
+import { buildCommitments } from "./commitments";
 import { applyPartPrices, derivePartsFor, priceAt, setManual, type PartPrice } from "./parts";
 
 const PRICES: PartPrice[] = [{ from: "2000-01-01", price: 35 }, { from: "2027-01-01", price: 40 }];
@@ -87,5 +88,35 @@ describe("marking a gift manual by hand", () => {
     expect(back.partsManual).toBeUndefined();
     expect(applyPartPrices([back], pricesOf)[0]?.partsAuto).toBe(1); // the price decides again
     expect(setManual(wo("a", { status: "excluded" }), true)).toHaveProperty("error");
+  });
+});
+
+describe("what a person decides for a gift (DECISIONS 114)", () => {
+  const sub = (key: string, n: number, over: Partial<WorkOrder> = {}) => wo(key, { subscriptionId: "S1", instalmentNumber: String(n), amount: 70, paidDate: `2026-0${n}-10 10:00:00`, ...over });
+  it("a gift stays manual until every payment has its parts, then it is no longer manual and its parts count", () => {
+    const marked = applyPartPrices([sub("a", 1), sub("b", 2), sub("c", 3)], pricesOf);
+    expect(marked.every((w) => w.partsManual !== undefined)).toBe(true);
+    expect(buildCommitments(marked).commitments[0]?.manual).toContain("A custom amount");
+    const one = marked.map((w, i) => (i === 0 ? { ...w, partsFixed: 2 } : w));
+    expect(buildCommitments(one).commitments[0]?.manual).toContain("A custom amount"); // the other payments still carry the mark
+    const all = marked.map((w) => ({ ...w, partsFixed: 2 }));
+    const c = buildCommitments(all).commitments[0]!;
+    expect(c.manual).toBe("");
+    expect(c.partsPerInstalment).toBe(2);
+  });
+  it("a payment that arrives later takes what the person decided, instead of being marked custom again", () => {
+    const decided = applyPartPrices([sub("a", 1), sub("b", 2)], pricesOf).map((w) => ({ ...w, partsFixed: 2 }));
+    const later = [...decided, sub("c", 3)];
+    const next = applyPartPrices(later, pricesOf);
+    expect(next).toHaveLength(1);
+    expect(next[0]).toMatchObject({ key: "c", partsFixed: 2 });
+    // a different amount is its own question
+    const other = applyPartPrices([...decided, sub("d", 4, { amount: 90 })], pricesOf);
+    expect(other[0]?.partsManual).toContain("A custom amount: 90");
+  });
+  it("a payment that arrives later takes a manual mark a person made", () => {
+    const marked = [sub("a", 1, { amount: 35, partsAuto: 1 })].map((w) => (setManual(w, true) as { order: WorkOrder }).order);
+    const next = applyPartPrices([...marked, sub("b", 2, { amount: 35 })], pricesOf);
+    expect(next[0]).toMatchObject({ key: "b", partsManual: "Marked by a person", partsByPerson: true });
   });
 });

@@ -256,12 +256,14 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   const catchUp = g.catchUps.map((x) => `<div class="suggest-box"><b>Possible catch-up payment.</b> ${esc(x.reason)}. If it covers ${x.covers} instalments, it also fills ${x.fills.map(monthName).map(esc).join(", ")}.
       <div class="actions"><button class="primary" data-covers-set="${esc(x.key)}" data-n="${x.covers}">Yes, it covers ${x.covers}</button><button data-covers-set="${esc(x.key)}" data-n="1">No, it is a normal payment</button></div></div>`).join("");
   // A gift for manual allocation (DECISIONS 113): the reason, and a way to set its parts. A person's own mark can be taken back.
+  // The choice applies to every real payment of the gift, since each one carries the mark (DECISIONS 114).
   const firstReal = g.payments.find((w) => w.legacyUpload !== true);
+  const realKeys = g.payments.filter((w) => w.legacyUpload !== true).map((w) => w.key).join(" ");
   const manualBox = g.manual !== "" && firstReal
     ? `<div class="suggest-box"><b>Allocate by hand.</b> ${esc(g.manual)}. Choose how many parts each payment is, then allocate it in Allocation.
-        <div class="actions">${[1, 2, 3, 4, 6].map((n) => `<button data-parts-set="${esc(firstReal.key)}" data-n="${n}">${n} part${n === 1 ? "" : "s"}</button>`).join("")}${firstReal.partsByPerson ? `<button data-manual-set="${esc(firstReal.key)}" data-on="0">Back to automatic</button>` : ""}</div></div>`
+        <div class="actions">${[1, 2, 3, 4, 6].map((n) => `<button data-parts-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-n="${n}">${n} part${n === 1 ? "" : "s"}</button>`).join("")}${firstReal.partsByPerson ? `<button data-manual-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-on="0">Back to automatic</button>` : ""}</div></div>`
     : "";
-  const markManual = g.manual === "" && firstReal && g.kind !== "excluded" ? `<button data-manual-set="${esc(firstReal.key)}" data-on="1" title="Take this gift out of automatic allocation, so a person allocates it">Mark as manual</button>` : "";
+  const markManual = g.manual === "" && firstReal && g.kind !== "excluded" ? `<button data-manual-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-on="1" title="Take this gift out of automatic allocation, so a person allocates it">Mark as manual</button>` : "";
   const partFix = g.partFixes.map((x) => `<div class="suggest-box"><b>The quantity looks wrong.</b> ${esc(x.reason)} part${x.parts === 1 ? "" : "s"}.
       <div class="actions"><button class="primary" data-parts-set="${esc(x.key)}" data-n="${x.parts}">Yes, count it as ${x.parts} part${x.parts === 1 ? "" : "s"}</button><button data-parts-set="${esc(x.key)}" data-n="${x.sent}">No, ${x.sent} is right</button></div></div>`).join("");
   return `<div class="pf-overlay" data-gift-close="overlay"><div class="pf-box" role="dialog" aria-label="Gift details">

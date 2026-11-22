@@ -76,8 +76,8 @@ export const ownerLogin = (passphrase: string) => call<{ ok: boolean }>("/api/ow
 export const loadAttention = () => call<{ items: AttentionItem[] }>("/api/triage");
 export const decideAttention = (id: string, action: "review" | "reopen", note = "") => call<{ items: AttentionItem[] }>("/api/triage", { method: "POST", body: { id, action, note } });
 export const setCovers = (key: string, covers: number) => call<{ ok: boolean; workOrders: WorkOrder[]; skipped: number; firstError?: string }>("/api/work-orders", { method: "POST", body: { keys: [key], action: "covers", covers } });
-export const setParts = (key: string, parts: number) => call<{ ok: boolean; workOrders: WorkOrder[]; skipped: number; firstError?: string }>("/api/work-orders", { method: "POST", body: { keys: [key], action: "parts", parts } });
-export const setManualApi = (key: string, manual: boolean) => call<{ ok: boolean; workOrders: WorkOrder[]; skipped: number; firstError?: string }>("/api/work-orders", { method: "POST", body: { keys: [key], action: "manual", manual } });
+export const setParts = (keys: string[], parts: number) => call<{ ok: boolean; workOrders: WorkOrder[]; skipped: number; firstError?: string }>("/api/work-orders", { method: "POST", body: { keys, action: "parts", parts } });
+export const setManualApi = (keys: string[], manual: boolean) => call<{ ok: boolean; workOrders: WorkOrder[]; skipped: number; firstError?: string }>("/api/work-orders", { method: "POST", body: { keys, action: "manual", manual } });
 export const setLooked = (key: string, looked: string) => call<{ ok: boolean; workOrders: WorkOrder[]; skipped: number; firstError?: string }>("/api/work-orders", { method: "POST", body: { keys: [key], action: "looked", looked } });
 export const setExcluded = (keys: string[], action: "exclude" | "restore", reason = "") => call<{ ok: boolean; workOrders: WorkOrder[]; skipped: number; firstError?: string }>("/api/work-orders", { method: "POST", body: { keys, action, reason } });
 
