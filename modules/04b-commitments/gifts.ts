@@ -15,6 +15,7 @@
 
 import type { WorkOrder } from "../01c-crm-connector/work-orders.js";
 import { partsOf } from "../01c-crm-connector/work-orders.js";
+import { suggestCatchUps, type CatchUp } from "./catch-up.js";
 import { buildCommitments, needsLook, ONCE_PREFIX, type Commitment, type Suggestion } from "./commitments.js";
 
 export type GiftKind = "recurring" | "one_off" | "unlinked" | "excluded";
@@ -44,6 +45,7 @@ export interface GiftRow {
   inReview: boolean; // a payment is held for review
   unrouted: boolean; // a payment is waiting for a category
   suggestions: Suggestion[]; // for an unlinked recurring line
+  catchUps: CatchUp[]; // payments that look like they cover more than one instalment, not yet checked by a person (DECISIONS 83)
   commitment?: Commitment;
 }
 
@@ -96,11 +98,13 @@ export function giftRows(shown: WorkOrder[], all: WorkOrder[], reviewKeys: Set<s
       unrouted: own.some((w) => w.status === "unrouted"),
     };
     if (kind === "recurring" && c) {
-      rows.push({ ...base, allocationKey: key, parts: c.partsPerInstalment, paid: c.paid, planned: c.planned, firstPaid: c.firstPaid, lastPaid: c.lastPaid, planStatus: c.planStatus, nextDue: c.nextDue, periodCount: 0, notes: notesOf(c), needsLook: needsLook(c), suggestions: [], commitment: c });
+      const catchUps = suggestCatchUps(own);
+      const notes = [...notesOf(c), ...(catchUps.length ? [{ text: "Possible catch-up payment", title: catchUps.map((x) => x.reason).join(". ") }] : [])];
+      rows.push({ ...base, allocationKey: key, parts: c.partsPerInstalment, paid: c.paid, planned: c.planned, firstPaid: c.firstPaid, lastPaid: c.lastPaid, planStatus: c.planStatus, nextDue: c.nextDue, periodCount: 0, notes, needsLook: needsLook(c) || catchUps.length > 0, suggestions: [], catchUps, commitment: c });
     } else if (kind === "one_off") {
-      rows.push({ ...base, allocationKey: key, parts: partsOf(first), paid: 1, planned: 1, firstPaid: first.paidDate.slice(0, 10), lastPaid: first.paidDate.slice(0, 10), planStatus: "", nextDue: "", periodCount: first.periodCount ?? 0, notes: [], needsLook: false, suggestions: [] });
+      rows.push({ ...base, allocationKey: key, parts: partsOf(first), paid: 1, planned: 1, firstPaid: first.paidDate.slice(0, 10), lastPaid: first.paidDate.slice(0, 10), planStatus: "", nextDue: "", periodCount: first.periodCount ?? 0, notes: [], needsLook: false, suggestions: [], catchUps: [] });
     } else {
-      rows.push({ ...base, allocationKey: "", parts: partsOf(first), paid: real.length, planned: Number.isInteger(Number(first.instalmentCount)) && Number(first.instalmentCount) > 0 ? Number(first.instalmentCount) : null, firstPaid: real[0]?.paidDate.slice(0, 10) ?? first.paidDate.slice(0, 10), lastPaid: lastReal?.paidDate.slice(0, 10) ?? first.paidDate.slice(0, 10), planStatus: first.planStatus ?? "", nextDue: first.planNextDue ?? "", periodCount: 0, notes: kind === "unlinked" ? [{ text: "Recurring line with no subscription", title: "The CRM did not link this line to a subscription. The suggestion is only a hint. Check it in the CRM. Nothing is linked here." }] : [], needsLook: kind === "unlinked", suggestions: sug?.suggestions ?? [] });
+      rows.push({ ...base, allocationKey: "", parts: partsOf(first), paid: real.length, planned: Number.isInteger(Number(first.instalmentCount)) && Number(first.instalmentCount) > 0 ? Number(first.instalmentCount) : null, firstPaid: real[0]?.paidDate.slice(0, 10) ?? first.paidDate.slice(0, 10), lastPaid: lastReal?.paidDate.slice(0, 10) ?? first.paidDate.slice(0, 10), planStatus: first.planStatus ?? "", nextDue: first.planNextDue ?? "", periodCount: 0, notes: kind === "unlinked" ? [{ text: "Recurring line with no subscription", title: "The CRM did not link this line to a subscription. The suggestion is only a hint. Check it in the CRM. Nothing is linked here." }] : [], needsLook: kind === "unlinked", suggestions: sug?.suggestions ?? [], catchUps: [] });
     }
   }
   return rows.sort((a, b) => Number(b.needsLook) - Number(a.needsLook) || b.lastPaid.localeCompare(a.lastPaid) || a.key.localeCompare(b.key));

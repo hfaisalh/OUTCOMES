@@ -12,6 +12,7 @@
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, clearLegacy, placeInNode, placeInPartner, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
+import { setCovers } from "../modules/04b-commitments/catch-up";
 import { giftDetailHtml, giftListHtml, giftsPage, shownGiftKeys } from "./gifts-page";
 import { partnersPage } from "./partners-page";
 import { projectsPage } from "./projects-page";
@@ -28,7 +29,7 @@ import { acceptSuggestions, addCategory, addFramework, assignItem, duplicateFram
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
 import { buildAttention, type AttentionItem } from "../modules/04-triage/triage";
-import { changeOutcomes, loadOutcomes, decideAttention, setExcluded, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
+import { changeOutcomes, loadOutcomes, decideAttention, setExcluded, setCovers as setCoversApi, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
 import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
@@ -276,6 +277,35 @@ async function applyExclusion(keys: string[], restoring: boolean, reason: string
   }
   draw();
 }
+
+// Says how many instalments a payment covers (DECISIONS 83), on the server when live, in the browser in the demo.
+async function applyCovers(key: string, covers: number): Promise<void> {
+  try {
+    if (state.live()) {
+      const r = await setCoversApi(key, covers);
+      const back = new Map(r.workOrders.map((w) => [w.key, w]));
+      state.workOrders = state.workOrders.map((w) => back.get(w.key) ?? w);
+    } else {
+      state.workOrders = state.workOrders.map((w) => {
+        if (w.key !== key) return w;
+        const r = setCovers(w, covers);
+        return "order" in r ? r.order : w;
+      });
+    }
+    state.message = covers === 1 ? "Marked as a normal payment." : `Marked as covering ${covers} instalments.`;
+  } catch (e) {
+    state.message = e instanceof Error ? e.message : "That did not work.";
+  }
+  draw();
+}
+document.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest("[data-covers-set]") as HTMLElement | null;
+  if (b) void applyCovers(b.dataset.coversSet as string, Number(b.dataset.n));
+});
+document.addEventListener("change", (e) => {
+  const t = e.target as HTMLSelectElement;
+  if (t.dataset?.coversKey !== undefined) void applyCovers(t.dataset.coversKey, Number(t.value));
+});
 
 // The keys a list is showing now (after its filter boxes), for "tick all".
 function listShownKeys(scope: string): string[] {

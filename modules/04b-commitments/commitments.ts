@@ -23,6 +23,10 @@
  */
 
 import { partsOf, type WorkOrder } from "../01c-crm-connector/work-orders.js";
+import { coverage, plusMonths } from "./catch-up.js";
+
+// Rule (DECISIONS 83): the parts of one instalment. A payment that covers several instalments holds that many instalments worth of parts.
+const partsPer = (w: WorkOrder): number => Math.max(1, Math.round(partsOf(w) / (w.covers ?? 1)));
 
 export type CommitmentState = "complete" | "in_progress" | "open_ended";
 
@@ -100,7 +104,8 @@ export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
       const have = new Set(numbers);
       for (let n = (numbers[0] as number) + 1; n < (numbers[numbers.length - 1] as number); n++) if (!have.has(n)) gaps.push(n);
     }
-    const paid = real.length;
+    // Rule (DECISIONS 83): a payment that covers more than one instalment counts for that many.
+    const paid = real.reduce((n, w) => n + (w.covers ?? 1), 0);
     commitments.push({
       subscriptionId,
       supporterId: first.supporterId,
@@ -110,8 +115,8 @@ export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
       categoryId: first.categoryId,
       frameworkId: first.frameworkId ?? "",
       projectName: first.projectName ?? "",
-      partsPerInstalment: partsOf(first),
-      partsVary: sorted.some((w) => partsOf(w) !== partsOf(first)),
+      partsPerInstalment: partsPer(first),
+      partsVary: sorted.some((w) => partsPer(w) !== partsPer(first)),
       planned,
       paid,
       state: planned === null ? "open_ended" : paid >= planned ? "complete" : "in_progress",
@@ -122,7 +127,7 @@ export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
       planStatus: latest.planStatus ?? "",
       nextDue: latest.planNextDue ?? "",
       planPaid: latest.planPaid ?? null,
-      paidMonths: [...new Set(real.map((w) => w.paidDate.slice(0, 7)).filter((m) => m !== ""))].sort(),
+      paidMonths: coverage(real).months,
       legacyOpening: sortedAll.length > real.length,
       startsLate: numbers.length > 0 && (numbers[0] as number) > 1,
       conflict: sortedAll.some((w) => w.supporterId !== first.supporterId || w.itemId !== first.itemId),
@@ -149,12 +154,6 @@ export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
 // ---- One-off payments (DECISIONS 64) ----
 
 export const ONCE_PREFIX = "once-";
-
-// Month arithmetic on "YYYY-MM".
-function plusMonths(month: string, n: number): string {
-  const total = Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7)) - 1 + n;
-  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`;
-}
 
 /**
  * Rule (DECISIONS 64): a single payment for a per-period item (one paid for a number of months) is a commitment too. It is paid up front,
