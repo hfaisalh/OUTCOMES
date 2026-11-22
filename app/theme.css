@@ -225,3 +225,9 @@ details.mo{display:inline-block;position:relative;margin-left:6px;vertical-align
 .payacts-in details.mo{margin:0;display:inline-flex}.payacts-in .iconact.sm{width:28px;height:28px}.payacts-in select{font-size:12px;padding:2px 4px;max-width:130px}
 .cellend{display:inline-flex;align-items:center;justify-content:flex-end;gap:6px}
 .subtable td.date{font-variant-numeric:tabular-nums}.cellstart{display:inline-flex;align-items:center;gap:6px}.subtable td:nth-child(2){min-width:130px}
+
+/* One size for every icon button (DECISIONS 122): 26px, drawn the same way whether it is a button or a summary, so rows line up */
+.iconact,.iconact.sm,.iconact.ok{box-sizing:border-box;width:26px;height:26px;min-width:26px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;line-height:1;vertical-align:middle}
+.iconact svg,.iconact.sm svg{width:15px;height:15px}
+.payacts-in{align-items:center}.payacts-in details.mo{display:flex;align-items:center;height:26px;margin:0}.payacts-in details.mo>summary{display:flex}
+.partsrow{gap:6px}.statusact{margin-top:10px}

@@ -255,4 +255,8 @@ describe("giftsPage", () => {
     expect(win).toContain('class="iconact sm" data-excl=');
     expect(win).toContain('<div class="payacts-in">');
   });
+  it("puts the Allocate manually button in its own spaced block under the status (DECISIONS 122)", () => {
+    const win = giftDetailHtml(view({ workOrders: [sub(1, { key: "n1", subscriptionId: "SN", partsAuto: 1 })] }), "SN");
+    expect(win).toMatch(/<div class="statusact"><button[^>]*data-manual-set="n1"/);
+  });
 });

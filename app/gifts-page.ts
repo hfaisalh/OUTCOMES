@@ -319,7 +319,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Cause", esc(first?.cause ?? ""))}
         ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
         ${row("Allocated to", allocation)}
-        ${row("Status", `${status} ${logBtn} ${markManual}`)}
+        ${row("Status", `${status} ${logBtn}${markManual ? `<div class="statusact">${markManual}</div>` : ""}`)}
         ${first ? row("Credit", creditLine(first), true) : ""}
         ${row("Could belong to", link, true)}
       </div>

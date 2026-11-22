@@ -275,3 +275,5 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 
 121. **The payments table is aligned (22 Nov 2026, from Faisal).** The calendar and cross buttons are the same size and sit in one row with an even gap. Every column header is aligned with its column: text on the left, Parts and Value on the right, and the status circle centred.
 
+122. **Icon buttons are one size and line up (22 Nov 2026, from Faisal).** Every round icon button (Save and Reset in Parts, and the calendar and exclude buttons on each payment) is the same smaller size, 26px, and is drawn the same way whether it is a button or the calendar summary, so the calendar and the cross sit on one line. The Allocate manually button has space above it, away from the status pills.
+
