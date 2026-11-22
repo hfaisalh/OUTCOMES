@@ -34,6 +34,14 @@ describe("adaptExports", () => {
     expect(adapt().rows).toHaveLength(7);
   });
 
+  it("carries the currency the line was paid in, never converted (DECISIONS 81)", () => {
+    expect(byLine("9001")["currency"]).toBe("GBP");
+    expect(byLine("9007")["currency"]).toBe("USD"); // paid in dollars, so it stays USD
+    const noCurrency = load("export-donation-lines-sample.csv").map(({ Currency: _drop, ...rest }) => rest);
+    const rows = adaptExports(noCurrency, load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), load("export-catalogue-prices-sample.csv")).rows;
+    expect(rows.every((r) => r["currency"] === "")).toBe(true); // unknown: left blank
+  });
+
   it("takes the feedback trigger from the catalogue by item code", () => {
     expect(byLine("9001")["item_feedback"]).toBe("2"); // Feedback report
     expect(byLine("9004")["item_feedback"]).toBe("1"); // Acknowledgement only

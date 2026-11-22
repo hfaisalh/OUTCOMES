@@ -5,4 +5,4 @@
 9004,General Fund,MWF-GEN-001,,General,Sadaqah,,,2,REF-2004,Paid,POS / staff,GBP,20,Bank Transfer,,D102,04/11/2026 09:05,One-time,Sample,Supporter C,
 9005,Hifz Sponsorship,MWF-HIF-001,,Hifz,Sadaqah,1,502,1,REF-2005,Paid,Website,GBP,25,Apple Pay,Stripe,D103,05/11/2026 14:30,Recurring,Sample,Supporter D,
 9006,Hifz Sponsorship,MWF-HIF-001,,Hifz,Sadaqah,3,509,1,REF-2006,Paid,Website,GBP,25,Google Pay,Stripe,D104,06/11/2026 16:00,Recurring,Sample,Supporter E,
-9007,Mystery Item,MWF-XXX-999,,General,Sadaqah,,,1,REF-2007,Paid,Website,GBP,10,Credit / Debit Card,Stripe,D105,07/11/2026 08:20,One-time,Sample,Supporter F,
+9007,Mystery Item,MWF-XXX-999,,General,Sadaqah,,,1,REF-2007,Paid,Website,USD,10,Credit / Debit Card,Stripe,D105,07/11/2026 08:20,One-time,Sample,Supporter F,

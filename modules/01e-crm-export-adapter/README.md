@@ -7,7 +7,7 @@ Until the CRM has a feed view or API (`docs/CRM-FEED-SPEC.md`), run OUTCOMES on 
 Three CSV exports, with the Export Centre's own column labels:
 | Export | Columns used |
 |---|---|
-| Donation lines (paid) | Line ID, Item Name, Item Code, Intention, Instalment no, Subscription ID, Order Quantity, Order Reference, Order Status, Source, Item Cost, Payment Gateway, Merchant, Donor ID, Payment Date, Period, First Name (Billing), Last Name (Billing) |
+| Donation lines (paid) | Line ID, Item Name, Item Code, Intention, Instalment no, Subscription ID, Order Quantity, Order Reference, Order Status, Source, Currency, Item Cost, Payment Gateway, Merchant, Donor ID, Payment Date, Period, First Name (Billing), Last Name (Billing) |
 | Catalogue items | Item SKU, Feedback type |
 | Recurring plans | Plan ID, Instalments planned, Until cancelled. Opening order ID links a plan to its opening line (with Donation ID in Donation lines) |
 | Catalogue prices (optional) | Item SKU, Bundle, Quantity. Gives each bundle its parts, and each one-off line the months it covers (the instalment plan length). Tick Item Bundle in Donation lines too |
