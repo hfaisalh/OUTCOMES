@@ -57,6 +57,7 @@ function unitsVisual(g: GiftRow, v: View): string {
   const held = Math.min(slots, Math.max(1, c.partsPerInstalment));
   const start = c.paidMonths[0] ?? now;
   const count = Math.min(24, c.planned ?? Math.max(12, c.paid + 3));
+  const stopped = g.planStatus === "paused" || g.planStatus === "cancelled";
   const paid = new Set(c.paidMonths), caught = new Set(c.catchUpMonths);
   const pie = (cls: string, tip: string): string => {
     const R = 14, C = 2 * Math.PI * R, len = C / slots;
@@ -67,6 +68,8 @@ function unitsVisual(g: GiftRow, v: View): string {
     const m = plusMonths(start, i);
     if (caught.has(m)) return pie("c", `Instalment ${i + 1}, ${m}: filled by a catch-up payment`);
     if (paid.has(m)) return pie("p", `Instalment ${i + 1}, ${m}: paid`);
+    // Rule: while a plan is paused or cancelled, the months after the last payment are not expected, so they are not missed.
+    if (stopped && m > (c.paidMonths[c.paidMonths.length - 1] ?? "")) return pie("u", `Instalment ${i + 1}, ${m}: plan ${g.planStatus}, nothing expected`);
     if (m < now) return pie("m", `Instalment ${i + 1}, ${m}: missed`);
     // Rule (DECISIONS 85, as in the Allocation month view): orange is expected. A month not paid yet, this month or later, is expected.
     return pie("e", `Instalment ${i + 1}, ${m}: ${m === now ? "due this month" : "upcoming"}`);

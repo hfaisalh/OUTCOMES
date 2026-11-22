@@ -151,3 +151,4 @@ td.bad{color:#d23b3b;font-weight:600}
 .upies{display:flex;flex-wrap:wrap;gap:4px}.upie .seg.c{stroke:#3b6fd4}.upie .seg.u{stroke:var(--line)}.ukey{display:flex;gap:10px;align-items:center;font-size:11px;margin-top:4px}.ukey i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px;vertical-align:middle}.ukey i.p{background:#1f8a4c}.ukey i.c{background:#3b6fd4}.ukey i.e{background:#e08a1e}.ukey i.m{background:#d23b3b}.ukey i.f{background:var(--line)}
 .pill.done{background:rgba(31,138,76,.12);color:#1f6b3f}.pill.done s{opacity:.7}
 .gi.manual{color:#e08a1e}.manual-note{margin-top:4px;font-size:12px;color:var(--muted)}
+.upie .seg.m{stroke:#d23b3b}
