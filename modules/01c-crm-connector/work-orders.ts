@@ -39,6 +39,7 @@ export interface WorkOrder {
   itemId: string;
   itemName: string;
   amount: number; // the price of one unit, for reference only (DECISIONS 81)
+  customAmount?: true; // the gift is of the CRM's Custom Amount item (the donor chose the amount), so it is managed by hand (DECISIONS 129)
   partsAuto?: number; // no longer used (DECISIONS 127). Cleared when a work order is checked again
   partsManual?: string; // why this payment is for manual allocation (a custom amount, or marked by a person), absent when it is not
   partsByPerson?: true; // the manual mark was made by a person, so a price never takes it back
@@ -172,6 +173,7 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
         ...(line.periodCount > 0 ? { periodCount: line.periodCount } : {}),
         ...(line.projectName !== "" ? { projectName: line.projectName } : {}),
         ...(line.cause !== "" ? { cause: line.cause } : {}),
+        ...(line.customAmount ? { customAmount: true as const } : {}),
         ...(line.legacyUpload ? { legacyUpload: true as const } : {}),
         intention: line.intention,
         subscriptionId: line.subscriptionId,
@@ -199,8 +201,8 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
     const refFilled = current.transactionRef === "" && line.transactionRef !== "";
     const planFactsChanged = (current.planStatus ?? "") !== line.planStatus || (current.planNextDue ?? "") !== line.planNextDue || (current.planPaid ?? null) !== line.planPaid;
     const planChanged = refFilled || planFactsChanged || current.subscriptionId !== line.subscriptionId || current.instalmentNumber !== line.instalmentNumber || current.instalmentCount !== line.instalmentCount;
-    if (fwMissing || (current.currency ?? "") !== line.currency || (current.lineTotal ?? null) !== line.lineTotal || (current.bundleQty ?? 1) !== line.bundleQty || (current.periodCount ?? 0) !== line.periodCount || (current.projectName ?? "") !== line.projectName || (current.cause ?? "") !== line.cause || (current.legacyUpload === true) !== line.legacyUpload || planChanged) {
-      const { cause: _ca, lineTotal: _lt, currency: _cu, bundleQty: _b, periodCount: _c, projectName: _j, legacyUpload: _l, planStatus: _s, planNextDue: _n, planPaid: _p, ...rest } = current;
+    if (fwMissing || (current.currency ?? "") !== line.currency || (current.lineTotal ?? null) !== line.lineTotal || (current.bundleQty ?? 1) !== line.bundleQty || (current.periodCount ?? 0) !== line.periodCount || (current.projectName ?? "") !== line.projectName || (current.cause ?? "") !== line.cause || (current.customAmount === true) !== line.customAmount || (current.legacyUpload === true) !== line.legacyUpload || planChanged) {
+      const { customAmount: _cu2, cause: _ca, lineTotal: _lt, currency: _cu, bundleQty: _b, periodCount: _c, projectName: _j, legacyUpload: _l, planStatus: _s, planNextDue: _n, planPaid: _p, ...rest } = current;
       have = {
         ...rest,
         ...(fwMissing ? fwOf(current.itemId, options) : {}),
@@ -215,6 +217,7 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
         ...(line.periodCount > 0 ? { periodCount: line.periodCount } : {}),
         ...(line.projectName !== "" ? { projectName: line.projectName } : {}),
         ...(line.cause !== "" ? { cause: line.cause } : {}),
+        ...(line.customAmount ? { customAmount: true as const } : {}),
         ...(line.legacyUpload ? { legacyUpload: true as const } : {}),
       };
       updated.push(have);

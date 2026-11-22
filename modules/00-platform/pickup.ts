@@ -18,7 +18,7 @@ import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
 import { auditFeed, auditRecord } from "../01f-batch-audit/audit.js";
 import { planWorkOrders, type ReviewItem, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import { frameworkByItem } from "../02-project-rules/categories.js";
-import { applyPrices, type PriceBook } from "../04b-commitments/parts.js";
+import { markCustomAmounts } from "../04b-commitments/parts.js";
 import { setupOf, type OrgConfig, type RunInfo, type Store } from "./store.js";
 
 export interface PickupDeps {
@@ -84,13 +84,9 @@ export function backfillFrameworks(orders: WorkOrder[], config: OrgConfig): Work
   return orders.filter((w) => w.status !== "excluded" && w.frameworkId === undefined && fw[w.itemId] !== undefined).map((w) => ({ ...w, frameworkId: fw[w.itemId] as string }));
 }
 
-// Rule (DECISIONS 127): the prices an organisation has told us about: the catalogue list uploaded and the prices a person accepted or rejected.
-export const priceBookOf = (config: OrgConfig): PriceBook => ({ catalogue: config.catalogue ?? {}, accepted: config.acceptedPrices ?? [], rejected: config.rejectedPrices ?? [] });
-
-// Rule (DECISIONS 127): checks every work order against the prices an item really sells at, and marks the ones at an unknown price for manual allocation.
-// Returns only what changed.
-export function deriveParts(orders: WorkOrder[], config: OrgConfig): WorkOrder[] {
-  return applyPrices(orders, priceBookOf(config));
+// Rule (DECISIONS 129): marks the gifts of the CRM's Custom Amount item for manual allocation. Returns only what changed.
+export function deriveParts(orders: WorkOrder[], _config: OrgConfig): WorkOrder[] {
+  return markCustomAmounts(orders);
 }
 
 // Rule (DECISIONS 64): when a person asks for it, every work order is moved to the framework that now applies to its item, so a changed

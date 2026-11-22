@@ -29,7 +29,6 @@ export interface AdaptIssue {
 export interface AdaptResult {
   rows: FeedRow[];
   issues: AdaptIssue[]; // problems a person may need to look at
-  unitPrices?: Record<string, number[]>; // item code to the prices (one part, one month) the catalogue price list offers (DECISIONS 127). Absent without a price list
   info?: string[]; // things that were done on purpose, shown once when loading but not listed as problems
   // Plain counts for a summary, no donor data.
   counts: { lines: number; feedbackLines: number; recurringLines: number; recurringWithoutPlan: number; recurringCountUnknown: number };
@@ -140,6 +139,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
     const n = pick(r, "Payments");
     if (sku !== "" && pick(r, "Way of giving") === "Instalments" && Number.isInteger(Number(n)) && Number(n) > 1 && !planLength.has(`${sku}|${pick(r, "Bundle")}`)) planLength.set(`${sku}|${pick(r, "Bundle")}`, n);
   }
+  const customItems = customAmountItems(catalogue); // items the donor chooses the amount of (DECISIONS 129)
   const unknownBundles = new Set<string>();
   let bundleLines = 0;
 
@@ -273,6 +273,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
       bundle_qty: bundleQuantity,
       project_name: pick(r, "Project"), // the project the donor chose (DECISIONS 66)
       cause: pick(r, "Cause"), // the cause the gift was given to, shown when there is no named project (DECISIONS 109)
+      custom_amount: customItems.has(pick(r, "Item Code")) ? "1" : "", // the donor chose the amount (DECISIONS 129)
       period_count: !recurring ? (planLength.get(`${code}|${bundleName}`) ?? "") : "", // months a one-off covers
       intention: pick(r, "Intention"),
     });
@@ -289,40 +290,25 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
   if (blankReferences > 0) issues.push({ code: "missing_order_reference", message: `${blankReferences} of ${rows.length} lines have no Order Reference and no Donation ID in the export. Each is still identified by its Line ID, so work orders are made. Tick Donation ID in the Donation lines export to give every line a reference.` });
   if (badDates > 0) issues.push({ code: "bad_date", message: `${badDates} line(s) have a Payment Date that is not a real date.` });
 
-  return { rows, issues, info, ...(prices.length > 0 ? { unitPrices: catalogueUnitPrices(prices, lines) } : {}), counts: { lines: rows.length, feedbackLines, recurringLines, recurringWithoutPlan, recurringCountUnknown } };
+  return { rows, issues, info, counts: { lines: rows.length, feedbackLines, recurringLines, recurringWithoutPlan, recurringCountUnknown } };
 }
 
 // ---- Picking the files ----
 
-/**
- * Rule (DECISIONS 127): the prices of one part for one month that the catalogue price list offers, by item code. Instalments: each payment divided by the bundle size.
- * A single payment: its price divided by the bundle size and by the months of the matching instalment plan (480 once is 12 months at 40). Only the currency most
- * lines were paid in is used, since prices differ by currency.
- */
-export function catalogueUnitPrices(prices: ExportRow[], lines: ExportRow[]): Record<string, number[]> {
-  const count = new Map<string, number>();
-  for (const r of lines) { const c = pick(r, "Currency"); if (c !== "") count.set(c, (count.get(c) ?? 0) + 1); }
-  const currency = [...count].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
-  const months = new Map<string, number>();
-  for (const r of prices) {
-    if (currency !== "" && pick(r, "Currency") !== currency) continue;
-    const n = Number(pick(r, "Payments"));
-    if (pick(r, "Way of giving") === "Instalments" && Number.isInteger(n) && n > 1) months.set(`${pick(r, "Item SKU")}|${pick(r, "Bundle")}`, n);
-  }
-  const out = new Map<string, Set<number>>();
-  for (const r of prices) {
-    if (currency !== "" && pick(r, "Currency") !== currency) continue;
+// Rule (DECISIONS 129): an item is a custom amount item when its catalogue price is not a figure, such as "Donor chooses the amount". The price column is named for the
+// currency ("Price GBP"), so any column that starts with "Price" is read. Returns the item codes.
+export function customAmountItems(catalogue: ExportRow[]): Set<string> {
+  const out = new Set<string>();
+  for (const r of catalogue) {
     const sku = pick(r, "Item SKU");
-    const each = Number(pick(r, "Each payment"));
-    const q = Number(pick(r, "Quantity")) > 0 ? Number(pick(r, "Quantity")) : 1;
-    const way = pick(r, "Way of giving");
-    if (sku === "" || !(each > 0)) continue;
-    const m = way === "Instalments" ? 1 : way === "Single payment" ? months.get(`${sku}|${pick(r, "Bundle")}`) ?? 0 : 0;
-    if (m === 0) continue;
-    const unit = Math.round((each / q / m) * 100) / 100;
-    (out.get(sku) ?? out.set(sku, new Set()).get(sku))?.add(unit);
+    if (sku === "") continue;
+    for (const key of Object.keys(r)) {
+      if (!/^price\b/i.test(key)) continue;
+      const v = (r[key] ?? "").toString().trim();
+      if (v !== "" && !Number.isFinite(Number(v.replace(/,/g, ""))) && /choos|any amount|custom|open/i.test(v)) out.add(sku);
+    }
   }
-  return Object.fromEntries([...out].map(([k, v]) => [k, [...v].sort((a, b) => a - b)]));
+  return out;
 }
 
 export type ExportKind = "lines" | "catalogue" | "plans" | "prices" | "feed" | "unknown";

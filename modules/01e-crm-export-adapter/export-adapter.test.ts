@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseCsv, toRecords } from "../01-data-mapping/csv";
 import { MWF_CRM_CONFIG, readFeed } from "../01c-crm-connector/feed";
-import { adaptExports, adaptFiles, catalogueUnitPrices, classifyExport, toFeedDate } from "./export-adapter";
+import { adaptExports, adaptFiles, classifyExport, customAmountItems, toFeedDate } from "./export-adapter";
 
 const load = (name: string) => toRecords(parseCsv(readFileSync(new URL(`../../samples/${name}`, import.meta.url), "utf8"))).records;
 const adapt = () => adaptExports(load("export-donation-lines-sample.csv"), load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), load("export-catalogue-prices-sample.csv"));
@@ -256,23 +256,23 @@ describe("months a one-off payment covers (DECISIONS 64)", () => {
   });
 });
 
-describe("the prices the catalogue offers (DECISIONS 127)", () => {
-  const row = (over: Record<string, string>) => ({ "Item SKU": "ORP", Item: "Orphan Sponsorship", Bundle: "", Quantity: "1", Currency: "GBP", "Way of giving": "Instalments", "Each payment": "40", Payments: "12", ...over });
-  const lines = [{ Currency: "GBP" }, { Currency: "GBP" }, { Currency: "USD" }];
-  it("gives the price of one part for one month: instalments by their bundle, a single payment by the months of its plan", () => {
-    const u = catalogueUnitPrices([
-      row({}), row({ "Way of giving": "Single payment", "Each payment": "480", Payments: "1" }),
-      row({ Bundle: "Sponsor an Orphan", Quantity: "3", "Each payment": "120" }), row({ Bundle: "Sponsor an Orphan", Quantity: "3", "Way of giving": "Single payment", "Each payment": "1440", Payments: "1" }),
-      row({ "Each payment": "35" }), // an older option still listed
-    ], lines);
-    expect(u["ORP"]).toEqual([35, 40]); // 40 from the instalments, the single payment and both bundles, and 35
+describe("custom amount items (DECISIONS 129)", () => {
+  const cat = (sku: string, price: string) => ({ "Item SKU": sku, Item: sku, "Feedback type": "Feedback report", "Price GBP": price });
+  it("finds the items whose catalogue price is not a figure, such as Donor chooses the amount", () => {
+    const items = customAmountItems([cat("WMN", "Donor chooses the amount"), cat("ORP", "480"), cat("PMP", "1,200"), cat("ODD", ""), cat("OTH", "Price on request")]);
+    expect([...items]).toEqual(["WMN"]); // a figure, a figure with a comma, blank, or other text are not custom amount items
   });
-  it("uses only the currency most lines were paid in, and skips a single payment with no plan length", () => {
-    expect(catalogueUnitPrices([row({ Currency: "USD", "Each payment": "50" }), row({})], lines)["ORP"]).toEqual([40]);
-    expect(catalogueUnitPrices([row({ "Way of giving": "Single payment", "Each payment": "480", Payments: "1" })], lines)).toEqual({});
+  it("reads any price column, whatever the currency", () => {
+    expect(customAmountItems([{ "Item SKU": "WMN", "Price USD": "Donor chooses the amount" }]).has("WMN")).toBe(true);
   });
-  it("comes with the adapted lines when a price list is given", () => {
-    const r = adaptExports([], [], [], []);
-    expect(r.unitPrices).toBeUndefined();
+  it("marks the feed lines of a custom amount item, and no others", () => {
+    const lines = [
+      { "Line ID": "1", "Item Name": "Custom Amount", "Item Code": "WMN", "Order Reference": "A", "Payment Date": "2026-06-01 10:00:00", "Order Status": "Paid", "Donor ID": "D1", "Item Cost": "50", "Order Quantity": "1", Currency: "GBP" },
+      { "Line ID": "2", "Item Name": "Orphan", "Item Code": "ORP", "Order Reference": "B", "Payment Date": "2026-06-01 10:00:00", "Order Status": "Paid", "Donor ID": "D2", "Item Cost": "35", "Order Quantity": "1", Currency: "GBP" },
+    ];
+    const catalogue = [{ "Item SKU": "WMN", Item: "Custom Amount", "Feedback type": "Feedback report", "Price GBP": "Donor chooses the amount" }, { "Item SKU": "ORP", Item: "Orphan", "Feedback type": "Feedback report", "Price GBP": "35" }];
+    const r = adaptExports(lines, catalogue, [], []);
+    expect(r.rows.find((x) => x["line_id"] === "1")?.["custom_amount"]).toBe("1");
+    expect(r.rows.find((x) => x["line_id"] === "2")?.["custom_amount"]).toBe("");
   });
 });

@@ -63,6 +63,7 @@ export interface FeedLine {
   currency: string; // the currency code of the amount (for example GBP), "" when the feed has none
   quantity: number;
   bundleQty: number; // parts of the item in the bundle the line was bought as, 1 when none (DECISIONS 51)
+  customAmount: boolean; // the line is of the CRM's Custom Amount item: the donor chose the amount (DECISIONS 129)
   cause: string; // the cause the gift was given to, such as Water for All, "" when the feed has none (DECISIONS 109)
   projectName: string; // the project the donor chose on the line, as the CRM names it. Blank or "Where Needed Most" means a general gift (DECISIONS 66)
   periodCount: number; // months a one-off payment covers (the item's plan length), 0 when not given (DECISIONS 64)
@@ -205,6 +206,7 @@ export function readFeed(rows: FeedRow[], config: FeedConfig = MWF_CRM_CONFIG): 
       periodCount: periodsOf(r["period_count"]),
       projectName: (r["project_name"] ?? "").trim(),
       cause: (r["cause"] ?? "").trim(),
+      customAmount: isYes(r["custom_amount"], ["1", "yes", "true", "y"]),
       intention: (r["intention"] ?? "").trim(),
       subscriptionId: (r["subscription_id"] ?? "").trim(),
       instalmentNumber: (r["instalment_number"] ?? "").trim(),

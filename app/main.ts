@@ -13,7 +13,7 @@
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, clearLegacy, placeInNode, placeInPartner, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
 import { setCovers, setLooked, setParts, setPeriods } from "../modules/04b-commitments/catch-up";
-import { applyPrices, choosePrice, emptyBook, setManual, type PriceBook } from "../modules/04b-commitments/parts";
+import { markCustomAmounts, setManual } from "../modules/04b-commitments/parts";
 import { giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts-page";
 import { partnersPage } from "./partners-page";
 import { projectsPage } from "./projects-page";
@@ -35,7 +35,6 @@ import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { dataFeedPage, dataFilesPage } from "./data-page";
-import { pricesPage } from "./prices-page";
 import { createMapping } from "./mapping-controller";
 import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { ensureRefs } from "../modules/05-outcomes/refs";
@@ -70,9 +69,6 @@ const state = {
   projectWin: { open: false, id: "" }, // the project form
   giftWin: { key: "", log: false }, // the gift details window (DECISIONS 78): the key of the gift it shows, "" when closed
   partnerWin: { open: false, id: "", tab: "profile" as PartnerTab, draft: null as Record<string, unknown> | null }, // the partner window (DECISIONS 70)
-  catalogue: {} as Record<string, number[]>, // the prices (one part, one month) in the catalogue price list (DECISIONS 127)
-  acceptedPrices: [] as { itemId: string; price: number }[],
-  rejectedPrices: [] as { itemId: string; price: number }[],
   itemIcons: {} as Record<string, string>, // the icon chosen for an item (DECISIONS 107)
   idCounters: {} as Record<string, number>, // the last number used for each ID prefix (DECISIONS 105)
   outcomeTypes: starterOutcomeTypes() as OutcomeType[], // the kinds of outcome and their profile fields (DECISIONS 103)
@@ -99,10 +95,9 @@ const state = {
 const permissions = () => (state.me ? state.me.perms : DEMO_ROLES.find((r) => r.id === state.roleId)?.permissions ?? []);
 
 // Run the CRM feed through the connector and bring the work orders up to date.
-// Prices (DECISIONS 127): the catalogue prices and the choices a person made. In the demo the gifts are checked against these too.
-const priceBook = (): PriceBook => ({ catalogue: state.catalogue, accepted: state.acceptedPrices, rejected: state.rejectedPrices });
+// Custom amount gifts (DECISIONS 129): in the demo they are marked too. The server does the same on a pick-up and when the list is read.
 function deriveDemoParts(): void {
-  const changed = new Map(applyPrices(state.workOrders, priceBook()).map((w) => [w.key, w]));
+  const changed = new Map(markCustomAmounts(state.workOrders).map((w) => [w.key, w]));
   if (changed.size > 0) state.workOrders = state.workOrders.map((w) => changed.get(w.key) ?? w);
 }
 
@@ -126,7 +121,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
-    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.itemIcons = o.itemIcons ?? state.itemIcons; state.catalogue = o.catalogue ?? state.catalogue; state.acceptedPrices = o.acceptedPrices ?? state.acceptedPrices; state.rejectedPrices = o.rejectedPrices ?? state.rejectedPrices; }).catch(() => undefined);
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.itemIcons = o.itemIcons ?? state.itemIcons; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
     state.message = "";
   } catch (e) {
@@ -196,7 +191,7 @@ function view(): View {
   const flaggedItems = [...items.values()];
   return {
     workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
-    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, priceBook: priceBook(), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
+    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
 }
@@ -231,9 +226,6 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.outcomeTypes = r.outcomeTypes ?? state.outcomeTypes;
       state.idCounters = r.idCounters ?? state.idCounters;
       state.itemIcons = r.itemIcons ?? state.itemIcons;
-      state.catalogue = r.catalogue ?? state.catalogue;
-      state.acceptedPrices = r.acceptedPrices ?? state.acceptedPrices;
-      state.rejectedPrices = r.rejectedPrices ?? state.rejectedPrices;
       if (body["action"] === "remove-many") state.message = `Removed ${r.removed ?? 0}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`;
       else if (body["action"] === "adopt-legacy") state.message = `Moved ${(r as unknown as { moved?: number }).moved ?? 0} into the partner.`;
       else if (body["action"] === "clear-legacy") state.message = `Removed ${(r as unknown as { removed?: number }).removed ?? 0} and released ${(r as unknown as { released?: number }).released ?? 0} gifts.`;
@@ -245,7 +237,6 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       const str = (k: string) => String(body[k] ?? "");
       let error: string | undefined;
       // Outcome types (DECISIONS 103): the same pure rule the server uses.
-      if (body["action"] === "price-accept" || body["action"] === "price-reject" || body["action"] === "price-clear") { const b2 = choosePrice(priceBook(), String(body["itemId"] ?? ""), Number(body["price"]), body["action"] === "price-accept" ? "accept" : body["action"] === "price-reject" ? "reject" : "clear"); state.acceptedPrices = b2.accepted; state.rejectedPrices = b2.rejected; deriveDemoParts(); }
       if (body["action"] === "item-icon") { const icon = String(body["icon"] ?? ""); const next = { ...state.itemIcons }; if (icon === "") delete next[String(body["itemId"])]; else next[String(body["itemId"])] = icon; state.itemIcons = next; }
       const ot = typeof body["action"] === "string" && (body["action"] as string).startsWith("ot-") ? applyOutcomeTypeAction(state.outcomeTypes, state.frameworks.map((f) => f.id), [...new Set(state.outcomes.map((o) => o.outcomeTypeId ?? "").filter((x) => x !== ""))], body) : null;
       if (ot) { if ("error" in ot) error = ot.error; else state.outcomeTypes = ot.types; }
@@ -375,15 +366,6 @@ document.addEventListener("click", (e) => {
   if (save) { const key = save.dataset.periodsSave ?? ""; return void applyPeriods([key], Number((document.getElementById(`pm-select-${key}`) as HTMLSelectElement | null)?.value ?? "1")); }
   const back = t.closest?.("[data-periods-set]") as HTMLElement | null;
   if (back) return void applyPeriods([back.dataset.periodsSet ?? ""], Number(back.dataset.n));
-  // The Prices page: accept, reject or take back a price (DECISIONS 127).
-  const pa = t.closest?.("[data-price-act]") as HTMLElement | null;
-  if (pa) return void outcomeChange({ action: `price-${pa.dataset.priceAct}`, itemId: pa.dataset.item ?? "", price: Number(pa.dataset.price) });
-  // Accept the price of this gift as normal for its item (DECISIONS 127). Every gift at that price is checked again.
-  const acc = t.closest?.("[data-accept-price]") as HTMLElement | null;
-  if (acc) return void outcomeChange({ action: "price-accept", itemId: acc.dataset.acceptPrice ?? "", price: Number(acc.dataset.price) });
-  // The months that would make a single payment normal (DECISIONS 127).
-  const mo = t.closest?.("[data-suggest-months]") as HTMLElement | null;
-  if (mo) return void applyPeriods([mo.dataset.suggestMonths ?? ""], Number(mo.dataset.n));
 });
 // Marks a gift for manual allocation, or takes the mark back (DECISIONS 113).
 async function applyManual(keys: string[], on: boolean): Promise<void> {
@@ -505,7 +487,6 @@ function draw(): void {
     : state.page === "work-orders" ? giftsPage(v)
     : state.page === "data-feed" ? dataFeedPage(v)
     : state.page === "data-files" ? dataFilesPage(v)
-    : state.page === "prices" ? pricesPage(v)
     : state.page === "attention" ? attentionPage(v)
     : state.page === "allocation" ? allocationPage(v)
     : state.page === "outcomes" ? outcomesPage(v)
@@ -850,7 +831,7 @@ async function loadFiles(files: File[]): Promise<void> {
     }
     if (state.live()) {
       await step(`Sending ${r.counts.lines} lines to your saved data and auditing them...`);
-      const res = await importFeed({ ...packFeed(r.rows), ...(r.unitPrices ? { catalogue: r.unitPrices } : {}) }, files.map((f) => f.name).join(", "), r.issues.map((i) => i.message));
+      const res = await importFeed(packFeed(r.rows), files.map((f) => f.name).join(", "), r.issues.map((i) => i.message));
       if (!res.ok) throw new Error(res.error || "The import did not finish.");
       await reloadLive();
       state.pendingFiles = [];

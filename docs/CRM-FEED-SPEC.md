@@ -28,6 +28,7 @@ Paid lines only is not required: OUTCOMES filters by status itself. Send all lin
 | `currency` | Optional. The currency code of the amount, for example GBP. Shown beside values, never used in a rule | Decision 80 |
 | `project_name` | Optional. The project the donor chose on the line, as the CRM names it (for example "Aghosh"). Blank or "Where Needed Most" means a general gift that can go to any project. Matched to an OUTCOMES project by name or alias | Decision 66 |
 | `cause` | Optional. The cause the gift was given to (for example Water for All, Orphan Care). Shown beside gifts that have no named project | Decision 109 |
+| `custom_amount` | Optional. `1` when the line is of the CRM's Custom Amount item (the donor chose the amount). Such gifts are allocated by hand | Decision 129 |
 | `period_count` | Optional. For a one-off line: the months it covers, which is the item's instalment plan length (for example 12). Blank or missing means one period. Ignored on recurring lines | Decision 64 |
 | `bundle_qty` | Optional. Parts of the item in the bundle the line was bought as (for example "Sponsor an Orphan" = 3). Blank or missing means the item on its own, 1. Parts = `bundle_qty` x `quantity`. Never worked out from the amount | Decision 51 |
 | `intention` | For example Sadaqah, Zakat | |

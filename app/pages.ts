@@ -16,7 +16,6 @@ import { allocOptions, type GiftProject, type Node, type Project } from "../modu
 import type { BenFilter } from "./beneficiaries-page";
 import { outcomeTypesCard } from "./outcome-types-card";
 import { shortDate, shortDateTime } from "./dates";
-import type { PriceBook } from "../modules/04b-commitments/parts";
 import { ICONS, iconHtml, itemIcon } from "./icons";
 import type { OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { allocatable, buildCommitments, needsLook, type Commitment } from "../modules/04b-commitments/commitments";
@@ -55,7 +54,6 @@ export interface View {
   config: typeof MWF_CRM_CONFIG;
   categories: Category[];
   frameworks?: FrameworkTemplate[]; // framework templates (DECISIONS 59)
-  priceBook?: PriceBook; // the catalogue prices and the prices a person accepted or rejected (DECISIONS 127)
   itemIcons?: Record<string, string>; // the icon chosen for an item (DECISIONS 107)
   outcomeTypes?: OutcomeType[]; // the kinds of outcome and their profile fields (DECISIONS 103)
   itemFramework?: Record<string, string>; // an item's own framework, where it differs from its category

@@ -71,7 +71,7 @@ export const loadWorkOrders = () => call<WorkOrdersReply>("/api/work-orders");
 export const runPickupNow = () => call<{ ok?: boolean; error?: string; created?: number; rerouted?: number; skipped?: string }>("/api/pickup", { method: "POST" });
 
 export const loadAudits = () => call<{ audits: AuditRecord[] }>("/api/audits");
-export const importFeed = (feed: CompactFeed & { catalogue?: Record<string, number[]> }, source: string, notes: string[] = []) => call<{ ok: boolean; error: string; rows: number; created: number; unchanged: number; issues: string[] }>("/api/import", { method: "POST", body: { ...feed, source, notes } });
+export const importFeed = (feed: CompactFeed, source: string, notes: string[] = []) => call<{ ok: boolean; error: string; rows: number; created: number; unchanged: number; issues: string[] }>("/api/import", { method: "POST", body: { ...feed, source, notes } });
 export const ownerLogin = (passphrase: string) => call<{ ok: boolean }>("/api/owner-login", { method: "POST", body: { passphrase } });
 export const loadAttention = () => call<{ items: AttentionItem[] }>("/api/triage");
 export const decideAttention = (id: string, action: "review" | "reopen", note = "") => call<{ items: AttentionItem[] }>("/api/triage", { method: "POST", body: { id, action, note } });
@@ -95,9 +95,6 @@ export interface OutcomesReply {
   outcomeTypes?: OutcomeType[];
   idCounters?: Record<string, number>;
   itemIcons?: Record<string, string>;
-  acceptedPrices?: { itemId: string; price: number }[];
-  rejectedPrices?: { itemId: string; price: number }[];
-  catalogue?: Record<string, number[]>;
   warning?: string;
   placed?: number;
   removed?: number;

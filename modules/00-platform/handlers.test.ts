@@ -497,43 +497,24 @@ describe("outcomes (DECISIONS 61)", () => {
     expect(t.outcomeTypes.find((x) => x.id === "water-pump")?.icon).toBe("pump-lg");
   });
 
-  it("learns an item's prices from its gifts and the catalogue, marks custom amounts, and lets a person accept or reject a price (DECISIONS 127)", async () => {
+  it("marks only gifts of the Custom Amount item for manual allocation, never by price, and lets a person mark one by hand (DECISIONS 129)", async () => {
     const cookie = await signIn(d);
-    // three gifts at 35 and one at 70 (a donor who raised their plan)
-    const rows = [1, 2, 3, 4].map((n) => ({ ...line(String(n), `50${n}`, "1"), amount: n === 4 ? "70" : "35" }));
+    // three normal gifts at different prices of the same item, and one of the Custom Amount item
+    const rows = [{ ...line("1", "501", "1"), amount: "35" }, { ...line("2", "502", "1"), amount: "42" }, { ...line("3", "503", "1"), amount: "70" }, { ...line("4", "504", "1"), amount: "50", custom_amount: "1" }];
     await handleImport(as(cookie, { method: "POST", body: up(rows) }), d);
     await handleConfig(as(cookie, { method: "PUT", body: fwSetup }), d);
-    const read = async () => ((await handleWorkOrders(as(cookie), d)).body as { workOrders: { key: string; partsManual?: string; amount: number }[] }).workOrders;
+    const read = async () => ((await handleWorkOrders(as(cookie), d)).body as { workOrders: { key: string; partsManual?: string; amount: number; customAmount?: boolean }[] }).workOrders;
     const after = await read();
-    const by = (amount: number) => after.filter((w) => w.amount === amount);
-    expect(by(35).every((w) => w.partsManual === undefined)).toBe(true); // seen on three gifts: a normal price
-    expect(by(70)[0]?.partsManual).toContain("A custom amount: 2 times a normal price (35). 70 a part a month. Prices seen for this item: 35"); // an unusual one
-    // accept the price: its gift is normal again, and the choice is kept
-    const accepted = (await post(cookie, { action: "price-accept", itemId: "ORP", price: 70 })).body as { acceptedPrices: unknown[]; changed: number };
-    expect(accepted.acceptedPrices).toEqual([{ itemId: "ORP", price: 70 }]);
-    expect(accepted.changed).toBe(1);
-    expect((await read()).every((w) => w.partsManual === undefined)).toBe(true);
-    // reject the usual price: its gifts are marked, and clearing takes the choice back
-    const rejected = (await post(cookie, { action: "price-reject", itemId: "ORP", price: 35 })).body as { changed: number };
-    expect(rejected.changed).toBe(3);
-    expect((await read()).filter((w) => w.partsManual !== undefined)).toHaveLength(3);
-    await post(cookie, { action: "price-clear", itemId: "ORP", price: 35 });
-    expect((await read()).every((w) => w.partsManual === undefined)).toBe(true);
-    expect((await post(cookie, { action: "price-accept", itemId: "ORP", price: -1 })).status).toBe(400);
-    // a person marks a gift manual, and takes the mark back
-    const key = (await read())[0]?.key as string;
+    expect(after.filter((w) => w.partsManual !== undefined).map((w) => w.amount)).toEqual([50]); // only the custom amount gift
+    expect(after.find((w) => w.amount === 50)?.customAmount).toBe(true);
+    expect(after.find((w) => w.amount === 50)?.partsManual).toContain("the donor chose the amount");
+    expect(after.filter((w) => w.amount !== 50).every((w) => w.partsManual === undefined)).toBe(true); // 35, 42 and 70 are the item's unit
+    // a person marks a normal gift manual, and takes the mark back
+    const key = after.find((w) => w.amount === 35)?.key as string;
     const wo = (await handleExclude(as(cookie, { method: "POST", body: { keys: [key], action: "manual", manual: true } }), d)).body as { workOrders: { partsManual?: string }[] };
     expect(wo.workOrders[0]?.partsManual).toBe("Marked by a person");
     const back = (await handleExclude(as(cookie, { method: "POST", body: { keys: [key], action: "manual", manual: false } }), d)).body as { workOrders: { partsManual?: string }[] };
     expect(back.workOrders[0]?.partsManual).toBeUndefined();
-  });
-
-  it("keeps the catalogue prices an upload sends, and refuses nothing it can clean (DECISIONS 127)", async () => {
-    const cookie = await signIn(d);
-    const body = { ...up([line("1", "501", "1")]), catalogue: { ORP: [35, 40, "bad", -1], "": [1] } };
-    await handleImport(as(cookie, { method: "POST", body }), d);
-    const cat = ((await handleOutcomes(as(cookie), d)).body as { catalogue: Record<string, number[]> }).catalogue;
-    expect(cat["ORP"]).toEqual([35, 40]);
   });
 
   it("refuses a missing framework, a bad action, a viewer and a signed-out caller, and keeps organisations apart", async () => {
