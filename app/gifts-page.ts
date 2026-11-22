@@ -263,9 +263,18 @@ export function giftMetricsHtml(v: View): string {
   const value = currencies.length <= 1 ? money(total, currencies[0] ?? "") : "mixed currencies";
   const count = (f: (g: GiftRow) => boolean) => rows.filter(f).length;
   const waiting = count((g) => where(g).state === "waiting");
-  const look = count((g) => g.needsLook);
-  const unrouted = count((g) => g.unrouted);
-  return `${metric(rows.length, "Gifts shown")}${metric(count((g) => g.kind === "recurring" || g.kind === "unlinked"), "Recurring")}${metric(count((g) => g.kind === "one_off"), "One payment")}${metric(value, "Value")}${metric(waiting, "Waiting for allocation", waiting ? "warn" : "")}${metric(look, "Need a look", look ? "warn" : "")}${unrouted ? metric(unrouted, "Unrouted", "warn") : ""}`;
+  const review = count((g) => g.needsLook || g.inReview || g.unrouted);
+  const recurring = count((g) => g.kind === "recurring" || g.kind === "unlinked");
+  const status = (st: string) => count((g) => g.planStatus === st);
+  const small = (n: number, label: string) => `<span class="sm"><b>${n}</b> ${label}</span>`;
+  // Rule (DECISIONS 99): six tiles. Recurring is the large number with the single payments small beside it, the plan statuses share one tile, and
+  // everything that needs a person (a look, a review or a category) is one tile called Review.
+  return `<div class="metric"><b>${rows.length}</b><span>Gifts</span></div>
+    <div class="metric"><b>${recurring}</b><span>Recurring</span><div class="smrow">${small(count((g) => g.kind === "one_off"), "one payments")}</div></div>
+    <div class="metric"><b>${value}</b><span>Value</span></div>
+    <div class="metric"><span>Plan status</span><div class="smrow">${small(status("cancelled"), "cancelled")}${small(status("paused"), "paused")}${small(status("completed"), "completed")}</div></div>
+    <div class="metric${waiting ? " warn" : ""}"><b>${waiting}</b><span>Unallocated</span></div>
+    <div class="metric${review ? " warn" : ""}"><b>${review}</b><span>Review</span></div>`;
 }
 
 export function giftsPage(v: View): string {

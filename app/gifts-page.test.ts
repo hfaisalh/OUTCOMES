@@ -118,17 +118,18 @@ describe("giftsPage", () => {
     expect(html).not.toContain("<img");
     expect(html).not.toContain("<b>x</b>");
   });
-  it("has tiles that count what the list shows, so they change with the tab and the filters (DECISIONS 97)", () => {
-    const orders = [sub(1), sub(2), { ...base, key: "o1", subscriptionId: "", instalmentNumber: "", instalmentCount: "", currency: "GBP" }];
+  it("has six tiles that count what the list shows, so they change with the tab and the filters (DECISIONS 99)", () => {
+    const orders = [sub(1, { planStatus: "paused" }), sub(2, { planStatus: "paused" }), { ...base, key: "o1", subscriptionId: "", instalmentNumber: "", instalmentCount: "", currency: "GBP" }];
     const all = giftMetricsHtml(view({ workOrders: orders }));
-    expect(all).toContain("<span>Gifts shown</span>");
-    expect(all).toMatch(/<b>2<\/b><span>Gifts shown/); // one subscription and one single payment
-    expect(all).toMatch(/<b>1<\/b><span>Recurring/);
-    expect(all).toMatch(/<b>1<\/b><span>One payment/);
-    expect(all).toContain("<span>Value</span>");
+    expect(all).toMatch(/<b>2<\/b><span>Gifts<\/span>/); // one subscription and one single payment
+    expect(all).toMatch(/<b>1<\/b><span>Recurring<\/span>[\s\S]*<b>1<\/b> one payments/); // recurring large, single payments small beside it
+    expect(all).toMatch(/<span>Value<\/span>/);
+    expect(all).toMatch(/<b>0<\/b> cancelled[\s\S]*<b>1<\/b> paused[\s\S]*<b>0<\/b> completed/); // plan statuses share one tile
+    expect(all).toContain("<span>Unallocated</span>");
+    expect(all).toContain("<span>Review</span>");
     // a narrower filter changes the tiles
     const narrowed = giftMetricsHtml(view({ workOrders: orders, criteria: { text: "no-such-donor", itemId: "", categoryId: "", status: "", kind: "any", legacy: "", from: "", to: "" } }));
-    expect(narrowed).toMatch(/<b>0<\/b><span>Gifts shown/);
+    expect(narrowed).toMatch(/<b>0<\/b><span>Gifts<\/span>/);
     // the page holds the tiles in a place that is redrawn with the list, and the pick-up note sits beside the tabs
     const page = giftsPage(view({ workOrders: orders }));
     expect(page).toContain('data-list="main-metrics"');

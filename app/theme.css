@@ -192,3 +192,4 @@ td.bad{color:#d23b3b;font-weight:600}
 .filters{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;overflow-x:auto;padding:8px 10px}.filters input,.filters select,.filters button{font-size:13px;padding:5px 7px;min-width:0;flex:0 1 auto}
 .filters input[type=search]{flex:1 1 150px;min-width:120px}.filters select{max-width:140px}.filters input[type=date]{width:128px}.filters button{white-space:nowrap}
 .tabrow{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.tabrow .pickup{font-size:12px}
+.metric .smrow{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px}.metric .sm{font-size:12px;color:var(--muted)}.metric .sm b{display:inline;font-size:13px;color:var(--text)}.metric.warn b{color:#c47a00}
