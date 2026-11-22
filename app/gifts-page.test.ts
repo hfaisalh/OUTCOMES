@@ -191,7 +191,9 @@ describe("giftsPage", () => {
     // the window explains and offers the parts, and marking by hand is offered on a normal gift
     const win = giftDetailHtml(v(), "SM");
     expect(win).toContain("<b>Allocate by hand.</b>");
-    expect(win).toContain('data-parts-set="m1" data-keys="m1 m2" data-n="2"'); // the choice goes to every payment of the gift
+    expect(win).toContain('id="gp-select"'); // choose in a drop-down...
+    expect(win).toContain('data-parts-save="1" data-keys="m1 m2"'); // ...then Save, which goes to every payment of the gift
+    expect(win).not.toContain("Reset"); // nothing set by hand yet, so nothing to take back
     expect(giftDetailHtml(v(), "SC")).toContain('data-manual-set="c1" data-keys="c1 c2" data-on="1"');
     expect(win).not.toContain('data-on="0"'); // a custom amount is not marked by a person, so there is nothing to take back
     const byPerson = giftDetailHtml(v({ workOrders: [{ ...(custom[0] as WorkOrder), partsByPerson: true }, custom[1] as WorkOrder] }), "SM");
@@ -201,5 +203,18 @@ describe("giftsPage", () => {
     expect(decided).not.toContain('title="Allocate by hand.'); // no hand on a row (the key still names it)
     expect(decided).toContain("manual changes that the CRM does not know about"); // the orange tick says a person set the parts
     expect(giftDetailHtml(v({ workOrders: [...clean, ...custom.map((w) => ({ ...w, partsFixed: 2 }))] }), "SM")).not.toContain("Allocate by hand.");
+  });
+  it("always offers Parts to choose and Save, and Reset once a person has set them, even after the gift is no longer manual (DECISIONS 116)", () => {
+    const set = [1, 2].map((n) => sub(n, { key: `f${n}`, subscriptionId: "SF", amount: 40, quantity: 2, partsFixed: 2 }));
+    const win = giftDetailHtml(view({ workOrders: set }), "SF");
+    expect(win).toContain('id="gp-select"');
+    expect(win).toContain('<option value="2" selected>2 parts</option>');
+    expect(win).toContain('data-parts-save="1" data-keys="f1 f2"');
+    expect(win).toContain('data-parts-set="f1" data-keys="f1 f2" data-n="0"'); // Reset
+    expect(win).toContain("Set by hand. The CRM says 2.");
+    // a gift with parts the system worked out has the control but no Reset
+    const auto = giftDetailHtml(view({ workOrders: [sub(1, { key: "g1", subscriptionId: "SG", partsAuto: 1 })] }), "SG");
+    expect(auto).toContain('id="gp-select"');
+    expect(auto).not.toContain('data-n="0"');
   });
 });

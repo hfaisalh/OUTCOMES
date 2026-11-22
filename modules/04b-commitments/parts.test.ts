@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorkOrder } from "../01c-crm-connector/work-orders";
 import { buildCommitments } from "./commitments";
+import { setParts } from "./catch-up";
 import { applyPartPrices, derivePartsFor, priceAt, setManual, type PartPrice } from "./parts";
 
 const PRICES: PartPrice[] = [{ from: "2000-01-01", price: 35 }, { from: "2027-01-01", price: 40 }];
@@ -118,5 +119,19 @@ describe("what a person decides for a gift (DECISIONS 114)", () => {
     const marked = [sub("a", 1, { amount: 35, partsAuto: 1 })].map((w) => (setManual(w, true) as { order: WorkOrder }).order);
     const next = applyPartPrices([...marked, sub("b", 2, { amount: 35 })], pricesOf);
     expect(next[0]).toMatchObject({ key: "b", partsManual: "Marked by a person", partsByPerson: true });
+  });
+  it("a person can choose parts and then take the choice back, and the price decides again (DECISIONS 116)", () => {
+    const marked = applyPartPrices([sub("a", 1)], pricesOf);
+    expect(marked[0]?.partsManual).toBeDefined(); // a custom amount
+    const chosen = (setParts(marked[0] as WorkOrder, 2) as { order: WorkOrder }).order;
+    expect(chosen.partsFixed).toBe(2);
+    expect(buildCommitments([chosen]).commitments[0]?.manual).toBe(""); // no longer manual
+    const changed = (setParts(chosen, 3) as { order: WorkOrder }).order; // a mistake can be changed
+    expect(changed.partsFixed).toBe(3);
+    const reset = (setParts(changed, 0) as { order: WorkOrder }).order;
+    expect(reset.partsFixed).toBeUndefined();
+    expect(buildCommitments([reset]).commitments[0]?.manual).toContain("A custom amount"); // back to manual, as the system had it
+    expect(setParts(chosen, 21)).toHaveProperty("error");
+    expect(setParts(chosen, -1)).toHaveProperty("error");
   });
 });

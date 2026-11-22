@@ -151,8 +151,13 @@ export function suggestPartFixes(payments: WorkOrder[]): PartFix[] {
 }
 
 // Rule: a person sets the parts of a payment, 1 to 20. Setting what the CRM sent confirms it is right, so it is not suggested again.
+// 0 takes the person's setting back, so the price (or the quantity) decides again (DECISIONS 116).
 export function setParts(w: WorkOrder, parts: number): { order: WorkOrder } | { error: string } {
-  if (!Number.isInteger(parts) || parts < 1 || parts > 20) return { error: "Parts are a whole number from 1 to 20." };
+  if (!Number.isInteger(parts) || parts < 0 || parts > 20) return { error: "Parts are a whole number from 1 to 20, or 0 to go back." };
   if (w.status !== "unrouted" && w.status !== "ready") return { error: "Work has already started on this one, or it is excluded, so it cannot be changed." };
+  if (parts === 0) {
+    const { partsFixed: _f, ...rest } = w;
+    return { order: rest };
+  }
   return { order: { ...w, partsFixed: parts } };
 }

@@ -365,12 +365,19 @@ async function applyParts(keys: string[], parts: number): Promise<void> {
         return "order" in r ? r.order : w;
       });
     }
-    state.message = `Set to ${parts} part${parts === 1 ? "" : "s"}.`;
+    state.message = parts === 0 ? "Back to what the price says." : `Saved: ${parts} part${parts === 1 ? "" : "s"}.`;
   } catch (e) {
     state.message = e instanceof Error ? e.message : "That did not work.";
   }
   draw();
 }
+// Choose the parts in the drop-down, then Save (DECISIONS 116).
+document.addEventListener("click", (e) => {
+  const sv = (e.target as HTMLElement).closest?.("[data-parts-save]") as HTMLElement | null;
+  if (!sv) return;
+  const n = Number((document.getElementById("gp-select") as HTMLSelectElement | null)?.value ?? "");
+  void applyParts((sv.dataset.keys ?? "").split(" ").filter((k) => k !== ""), n);
+});
 document.addEventListener("click", (e) => {
   const b = (e.target as HTMLElement).closest("[data-parts-set]") as HTMLElement | null;
   if (b) void applyParts((b.dataset.keys ?? b.dataset.partsSet ?? "").split(" ").filter((k) => k !== ""), Number(b.dataset.n));

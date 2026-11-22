@@ -10,7 +10,7 @@
  */
 
 import { filterWorkOrders, isFiltering } from "../modules/01c-crm-connector/filter";
-import { lineValue } from "../modules/01c-crm-connector/work-orders";
+import { lineValue, sentPartsOf, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { iconHtml, itemIcon } from "./icons";
 import { plusMonths } from "../modules/04b-commitments/catch-up";
 import { allocatable, type Commitment } from "../modules/04b-commitments/commitments";
@@ -260,8 +260,14 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   const firstReal = g.payments.find((w) => w.legacyUpload !== true);
   const realKeys = g.payments.filter((w) => w.legacyUpload !== true).map((w) => w.key).join(" ");
   const manualBox = g.manual !== "" && firstReal
-    ? `<div class="suggest-box"><b>Allocate by hand.</b> ${esc(g.manual)}. Choose how many parts each payment is, then allocate it in Allocation.
-        <div class="actions">${[1, 2, 3, 4, 6].map((n) => `<button data-parts-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-n="${n}">${n} part${n === 1 ? "" : "s"}</button>`).join("")}${firstReal.partsByPerson ? `<button data-manual-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-on="0">Back to automatic</button>` : ""}</div></div>`
+    ? `<div class="suggest-box"><b>Allocate by hand.</b> ${esc(g.manual)}. Choose how many parts each payment is under <b>Parts</b> below and press Save, then allocate it in Allocation.${firstReal.partsByPerson ? `<div class="actions"><button data-manual-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-on="0">Back to automatic</button></div>` : ""}</div>`
+    : "";
+  // Parts (DECISIONS 116): a standing control, always there. Choose, then Save. Reset takes a person's choice back.
+  const fixed = g.payments.some((w) => w.legacyUpload !== true && w.partsFixed !== undefined);
+  const partOptions = [...new Set([1, 2, 3, 4, 5, 6, g.parts])].sort((x, y) => x - y);
+  const partsControl = firstReal && g.kind !== "excluded"
+    ? `<select id="gp-select" aria-label="Parts of each payment">${partOptions.map((n) => `<option value="${n}"${n === g.parts ? " selected" : ""}>${n} part${n === 1 ? "" : "s"}</option>`).join("")}</select>
+        <button data-parts-save="1" data-keys="${esc(realKeys)}">Save</button>${fixed ? `<button data-parts-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-n="0" title="Go back to what the price or the CRM says">Reset</button>` : ""}`
     : "";
   const markManual = g.manual === "" && firstReal && g.kind !== "excluded" ? `<button data-manual-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-on="1" title="Take this gift out of automatic allocation, so a person allocates it">Mark as manual</button>` : "";
   const partFix = g.partFixes.map((x) => `<div class="suggest-box"><b>The quantity looks wrong.</b> ${esc(x.reason)} part${x.parts === 1 ? "" : "s"}.
@@ -277,6 +283,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Paid", progress)}
         ${row("Dates", `${esc(g.firstPaid)}${g.lastPaid && g.lastPaid !== g.firstPaid ? ` \u2192 ${esc(g.lastPaid)}` : ""}${g.nextDue ? `<div class="muted">next due ${esc(g.nextDue)}</div>` : ""}`)}
         ${row("Plan status", g.planStatus ? `<span class="pill ${g.planStatus === "active" ? "ready" : "review"}">${esc(g.planStatus)}</span>` : "")}
+        ${row("Parts", partsControl ? `<span class="partsrow">${partsControl}</span>${fixed ? `<div class="muted">Set by hand. The CRM says ${esc(String(g.payments.find((w) => w.legacyUpload !== true) ? sentPartsOf(g.payments.find((w) => w.legacyUpload !== true) as WorkOrder) : g.parts))}.</div>` : ""}` : "")}
         ${row("Project chosen", esc(g.projectName))}
         ${row("Cause", esc(first?.cause ?? ""))}
         ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
