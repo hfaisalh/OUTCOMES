@@ -61,7 +61,7 @@ const state = {
   giftProjects: [] as GiftProject[], // the projects donors choose, and the partners that deliver them (DECISIONS 76)
   benFilter: { ...NO_BEN_FILTER } as BenFilter, // the filters on the Beneficiaries page
   projectWin: { open: false, id: "" }, // the project form
-  giftWin: { key: "" }, // the gift details window (DECISIONS 78): the key of the gift it shows, "" when closed
+  giftWin: { key: "", log: false }, // the gift details window (DECISIONS 78): the key of the gift it shows, "" when closed
   partnerWin: { open: false, id: "", tab: "profile" as PartnerTab, draft: null as Record<string, unknown> | null }, // the partner window (DECISIONS 70)
   partnerTypes: [] as string[], // the organisation's own list of partner types (DECISIONS 69)
   partnerFields: [] as string[], // and its own extra partner fields
@@ -416,25 +416,32 @@ function draw(): void {
 // A pop-up outside the redrawn page. It is drawn again from the new state after every change, and closes itself when the gift is no longer there.
 function renderGiftWindow(): void {
   let root = document.getElementById("gift-root");
-  if (state.giftWin.key === "") { if (root) root.innerHTML = ""; return; }
+  if (state.giftWin.key === "") { state.giftWin.log = false; if (root) root.innerHTML = ""; return; }
   if (!root) {
     root = document.createElement("div");
     root.id = "gift-root";
     document.body.appendChild(root);
   }
-  const html = giftDetailHtml(view(), state.giftWin.key);
+  const html = giftDetailHtml(view(), state.giftWin.key, state.giftWin.log);
   if (html === "") state.giftWin.key = "";
   root.innerHTML = html;
 }
 document.addEventListener("click", (e) => {
   const t = e.target as HTMLElement;
+  // The small log window inside the gift window.
+  const lg = t.closest("[data-gift-log]") as HTMLElement | null;
+  if (lg && (lg.dataset.giftLog !== "overlay" || t === lg)) { state.giftWin.log = lg.dataset.giftLog === "open"; return renderGiftWindow(); }
   const close = t.closest("[data-gift-close]") as HTMLElement | null;
-  if (close && (close.dataset.giftClose !== "overlay" || t === close)) { state.giftWin.key = ""; return renderGiftWindow(); }
+  if (close && (close.dataset.giftClose !== "overlay" || t === close)) { state.giftWin.key = ""; state.giftWin.log = false; return renderGiftWindow(); }
   // A click on a row opens it, unless the click was on a tick box, a drop-down or a button of its own.
   const open = t.closest("[data-gift-open]") as HTMLElement | null;
-  if (open && !t.closest("input,select,button:not(.gi-open),a,details")) { state.giftWin.key = open.dataset.giftOpen ?? ""; renderGiftWindow(); }
+  if (open && !t.closest("input,select,button:not(.gi-open),a,details")) { state.giftWin.key = open.dataset.giftOpen ?? ""; state.giftWin.log = false; renderGiftWindow(); }
 });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && state.giftWin.key !== "") { state.giftWin.key = ""; renderGiftWindow(); } });
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || state.giftWin.key === "") return;
+  if (state.giftWin.log) state.giftWin.log = false; else state.giftWin.key = "";
+  renderGiftWindow();
+});
 
 document.addEventListener("click", (e) => {
   const target = e.target as HTMLElement;

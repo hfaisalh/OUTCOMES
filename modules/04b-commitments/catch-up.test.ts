@@ -10,6 +10,8 @@ import type { WorkOrder } from "../01c-crm-connector/work-orders";
 import { buildCommitments } from "./commitments";
 import { coverage, fillMonths, setCovers, setLooked, setParts, suggestCatchUps, suggestPartFixes } from "./catch-up";
 import { giftRows } from "./gifts";
+import { giftDetailHtml } from "../../app/gifts-page";
+import type { View } from "../../app/pages";
 
 const inst = (n: number, date: string, amount = 35, over: Partial<WorkOrder> = {}): WorkOrder => ({
   key: `L${n}`, lineId: `L${n}`, transactionRef: `T${n}`, paidDate: `${date} 10:00:00`, supporterId: "D1", supporterName: "Sample Supporter", group: "", itemId: "I1", itemName: "Orphan Sponsorship",
@@ -107,5 +109,15 @@ describe("catch-up payments", () => {
     expect(giftRows(sub83, sub83)[0]?.adjustments).toEqual([]); // untouched data shows none
     // saying the CRM is right keeps the quantity and stops the suggestion
     expect(suggestPartFixes([sub83[0]!, sub83[1]!, (setParts(sub83[2]!, 2) as { order: WorkOrder }).order, sub83[3]!]).map((x) => x.key)).toEqual(["L4"]);
+  });
+  it("keeps the log of manual changes in its own small window, opened by an info button", () => {
+    const done = [{ ...inst(1, "2026-08-11", 35, { quantity: 2 }), covers: 2 }, inst(2, "2026-09-11"), inst(3, "2026-10-11")];
+    const v = { workOrders: done, review: [], categories: [], frameworks: [], today: "2026-11-22" } as unknown as View;
+    const closed = giftDetailHtml(v, "S1", false);
+    expect(closed).toContain('data-gift-log="open"');
+    expect(closed).not.toContain("Changed by hand here. The CRM does not know");
+    const open = giftDetailHtml(v, "S1", true);
+    expect(open).toContain("Changed by hand here. The CRM does not know");
+    expect(open).toContain("marked as covering 2 instalments");
   });
 });

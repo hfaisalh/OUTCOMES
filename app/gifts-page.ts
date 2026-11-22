@@ -202,7 +202,7 @@ export function giftListHtml(v: View): string {
 }
 
 // The window for one gift: everything the list leaves out (DECISIONS 78). Returns "" when the gift is not in the data, so the caller closes the window.
-export function giftDetailHtml(v: View, giftKey: string): string {
+export function giftDetailHtml(v: View, giftKey: string, logOpen = false): string {
   const g = giftRows(v.workOrders, v.workOrders, new Set(v.review.map((r) => r.key))).find((r) => r.key === giftKey);
   if (!g) return "";
   const first = g.payments[0];
@@ -214,9 +214,12 @@ export function giftDetailHtml(v: View, giftKey: string): string {
   const status = [
     g.kind === "excluded" ? "" : g.unrouted ? `<span class="pill unrouted">Unrouted</span>` : `<span class="pill ready">Ready</span>`,
     g.inReview ? `<span class="pill review">Review</span>` : "",
-    ...g.notes.map((n) => n.resolved ? `<span class="pill done" title="${esc(n.title ?? (g.checked ? "Checked by a person" : "Resolved"))}"><s>${esc(n.text)}</s> resolved</span>` : `<span class="pill review"${n.title ? ` title="${esc(n.title)}"` : ""}>${esc(n.text)}</span>`),
+    ...g.notes.map((n) => n.resolved ? `<span class="pill done" title="${esc(`Resolved. ${n.title ?? (g.checked ? "Checked by a person." : "")}`)}">\u2713 <s>${esc(n.text)}</s></span>` : `<span class="pill review"${n.title ? ` title="${esc(n.title)}"` : ""}>${esc(n.text)}</span>`),
   ].filter((x) => x !== "").join(" ");
-  const manual = g.adjustments.length ? `<div class="manual-note"><span class="gi manual">${SYMBOL.ok}</span> Changed by hand here, not in the CRM: ${g.adjustments.map(esc).join("; ")}.</div>` : "";
+  // The log of what was resolved and what a person changed by hand opens in its own small window, so it does not take room here (DECISIONS 89).
+  const logItems = [...g.adjustments.map((t) => `<li><span class="gi manual">${SYMBOL.ok}</span> ${esc(t)}</li>`), ...g.notes.filter((n) => n.resolved).map((n) => `<li><span class="gi good">${SYMBOL.ok}</span> <s>${esc(n.text)}</s> resolved${n.title ? `<div class="muted">${esc(n.title)}</div>` : ""}</li>`)];
+  const logBtn = logItems.length ? `<button class="gi-open${g.adjustments.length ? " manual" : ""}" data-gift-log="open" title="${g.adjustments.length ? "Changed by hand here, not in the CRM. See the log." : "See what was resolved."}" aria-label="Open the log">${SYMBOL.info}</button>` : "";
+  const logWin = logOpen && logItems.length ? `<div class="pf-overlay log" data-gift-log="overlay"><div class="pf-box small" role="dialog" aria-label="Change log"><header><h2>Log</h2><button data-gift-log="close">Close</button></header><div class="pf-body compact">${g.adjustments.length ? `<p class="muted">Changed by hand here. The CRM does not know about these.</p>` : ""}<ul class="loglist">${logItems.join("")}</ul></div></div></div>` : "";
   const link = g.kind !== "unlinked" ? "" : g.suggestions.length === 0 ? `<div class="muted">No commitment for the same supporter and item</div>` : g.suggestions.map((s) => `<div class="muted">Possibly subscription <b>${esc(s.subscriptionId)}</b> (${s.daysApart === null ? "legacy upload, date not comparable" : s.daysApart === 0 ? "same day" : `${Math.abs(s.daysApart)} day${Math.abs(s.daysApart) === 1 ? "" : "s"} ${s.daysApart < 0 ? "before its first instalment" : "after its first instalment"}`})</div>`).join("");
   // The suggestion for a payment that looks like a catch-up: what it would cover, with one click to agree or to say it is normal.
   const monthName = (m: string) => m;
@@ -238,12 +241,12 @@ export function giftDetailHtml(v: View, giftKey: string): string {
         ${row("Project chosen", esc(g.projectName))}
         ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
         ${row("Allocated to", allocation)}
-        ${row("Status", `${status}${manual}`)}
+        ${row("Status", `${status} ${logBtn}`)}
         ${first ? row("Credit", creditLine(first), true) : ""}
         ${row("Could belong to", link, true)}
       </div>
       <section><h3>Payments (${g.payments.length})</h3>${paymentsTable(g, v)}</section>
-    </div></div></div>`;
+    </div></div>${logWin}</div>`;
 }
 
 export function giftsPage(v: View): string {
