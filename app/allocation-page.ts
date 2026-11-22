@@ -1,7 +1,7 @@
 /**
  * allocation-page.ts
  *
- * What it does: draws the Place gifts page (DECISIONS 66). A summary for each project (how many beneficiaries, units, sponsored,
+ * What it does: draws the Allocation page (DECISIONS 66). A summary for each project (how many beneficiaries, units, sponsored,
  * free, inside the buffer, waiting, surplus or deficit), the gifts waiting for a place with where each would go, and the places with room.
  * A person drags a gift onto a place, or chooses a place from a list, and the suggestion is only a starting point. Pure: it takes a View
  * and returns HTML.
@@ -42,8 +42,8 @@ export function allocationPage(v: View): string {
   const partnerRows = sum.rows.filter((r) => r.projectId !== "" && r.beneficiaries > 0);
   const placeOptions = partnerRows.map((r) => `<option value="partner:${esc(r.projectId)}">${esc(r.name)}, anyone (${r.free} free)</option>`).join("") + nodes.filter((n) => (roll.byNode.get(n.id)?.places ?? 0) > 0).slice(0, MAX_PLACES).map((n) => `<option value="${esc(n.id)}">${esc(nodeLabel(n.id))} (${(roll.byNode.get(n.id)?.places ?? 0) - (roll.byNode.get(n.id)?.used ?? 0)} free)</option>`).join("");
 
-  const head = `<h1>Place gifts</h1>
-    <p class="sub">Gifts that are waiting for a place, and where there is room. The suggestion for each gift is only a starting point: drag a gift onto a place, or choose a place from its list. A gift for a particular project goes to that project's partners, and a general gift is spread across places so more are sponsored.</p>
+  const head = `<h1>Allocation</h1>
+    <p class="sub">Gifts that are waiting for allocation, and where there is room. The suggestion for each gift is only a starting point: drag a gift onto a place, or choose one from its list. A gift for a particular project goes to that project's partners, and a general gift is spread across places so more are sponsored.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics"><div class="metric"><b>${waiting.length}</b><span>Gifts waiting (${waitingParts} parts)</span></div><div class="metric"><b>${totals.free}</b><span>Units with no sponsor</span></div><div class="metric"><b>${totals.grace}</b><span>Behind, inside the grace days</span></div><div class="metric ${totals.free - waitingParts >= 0 ? "ok" : "warn"}"><b>${signed(totals.free - waitingParts)}</b><span>Surplus or deficit of places</span></div></div>`;
 
@@ -57,7 +57,7 @@ export function allocationPage(v: View): string {
   };
   const hold = holdingReport(commitments, fws, opts.policy);
   const notAsking = [hold.noFramework ? `${hold.noFramework} have no framework (set one for the item or its category)` : "", hold.noRule ? `${hold.noRule} are on a framework that does not say how an instalment counts` : "", hold.cancelled ? `${hold.cancelled} are cancelled in the CRM` : "", hold.lapsed ? `${hold.lapsed} have missed more payments than the buffer` : "", hold.finished ? `${hold.finished} are fully paid` : ""].filter((x) => x !== "");
-  const holdNote = `<p class="muted">${hold.total} gift${hold.total === 1 ? "" : "s"} in all, ${hold.holding} asking for a place${notAsking.length ? `. Not asking: ${notAsking.join("; ")}` : ""}.</p>`;
+  const holdNote = `<p class="muted">${hold.total} gift${hold.total === 1 ? "" : "s"} in all, ${hold.holding} asking for allocation${notAsking.length ? `. Not asking: ${notAsking.join("; ")}` : ""}.</p>`;
   const rows = sum.rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${r.beneficiaries}</td><td>${r.capacity}</td><td>${r.used} ${meter(r.used, r.capacity)}</td><td>${r.free}</td><td>${r.inGrace}</td><td>${r.releaseDue}</td><td>${r.waitingParts}</td><td class="${r.free - r.waitingParts >= 0 ? "" : "bad"}">${signed(r.free - r.waitingParts)}</td><td>${esc(takes(projects.find((p) => p.id === r.projectId)))}</td></tr>`).join("");
   const buffer = `<label class="muted">A payment that is still unpaid <input type="number" min="0" max="90" value="${v.graceDays ?? 15}" data-grace aria-label="Grace days" style="width:64px" /> days after it was due makes the child eligible for reallocation. The place stays until a manager approves the release below.</label>`;
   const summary = `<div class="card"><h2>By partner</h2>
@@ -65,7 +65,7 @@ export function allocationPage(v: View): string {
     <p class="muted">${sum.generalWaiting.gifts} general gift${sum.generalWaiting.gifts === 1 ? "" : "s"} waiting (${sum.generalWaiting.parts} parts), which can go to any partner. Surplus or deficit is the free units minus the parts of waiting gifts.</p>
     ${holdNote}
     ${buffer}
-    <label class="muted"><input type="checkbox" data-require-ref${v.requireRef ? " checked" : ""} /> Place gifts only on beneficiaries that have an ID. Give IDs on each partner's Beneficiaries tab.</label></div>`;
+    <label class="muted"><input type="checkbox" data-require-ref${v.requireRef ? " checked" : ""} /> Allocate gifts only to beneficiaries that have an ID. Give IDs on each partner's Beneficiaries tab.</label></div>`;
 
   const gift = (c: (typeof waiting)[number]) => {
     const sug = suggested.get(c.subscriptionId);
@@ -78,7 +78,7 @@ export function allocationPage(v: View): string {
       <select data-place-select="${esc(c.subscriptionId)}" aria-label="Place in"><option value="">Place in...</option>${placeOptions}</select></div>`;
   };
   const left = `<div class="card"><h2>Gifts waiting <span class="muted">(${waiting.length})</span></h2>
-    <div class="actions"><button class="primary" data-action="auto-allocate"${waiting.length ? "" : " disabled"}>Place all suggestions</button><span class="muted">Releases what no longer holds, then places each waiting gift as suggested. Nothing already placed is moved.</span></div>
+    <div class="actions"><button class="primary" data-action="auto-allocate"${waiting.length ? "" : " disabled"}Allocate all suggestions</button><span class="muted">Releases what no longer holds, then allocates each waiting gift as suggested. Nothing already allocated is moved.</span></div>
     ${waiting.length ? waiting.slice(0, MAX_GIFTS).map(gift).join("") + (waiting.length > MAX_GIFTS ? `<p class="muted">Showing ${MAX_GIFTS} of ${waiting.length}, oldest first.</p>` : "") : `<div class="empty">Nothing is waiting. Every gift that holds a place has one.</div>`}</div>`;
 
   const placeRows = nodes.map((n) => ({ n, r: roll.byNode.get(n.id) })).filter((x) => (x.r?.places ?? 0) > 0).slice(0, MAX_PLACES);

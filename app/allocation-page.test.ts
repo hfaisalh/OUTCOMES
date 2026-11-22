@@ -43,13 +43,13 @@ describe("allocationPage", () => {
     expect(html).toContain('data-place-select="S1"');
     expect(html).toContain("data-grace");
   });
-  it("says whether each partner takes gifts and why not, and how many gifts are asking for a place", () => {
+  it("says whether each partner takes gifts and why not, and how many gifts are asking for allocation", () => {
     const { projects, nodes, outcomes } = built();
     const orders = [order("1", "S1", "Aghosh")];
     const active = allocationPage(base({ projects, nodes, outcomes, workOrders: orders }));
     expect(active).toContain("<th>Takes gifts</th>");
     expect(active).toContain("Yes, any item");
-    expect(active).toContain("1 gift in all, 1 asking for a place");
+    expect(active).toContain("1 gift in all, 1 asking for allocation");
     const pending = allocationPage(base({ projects: projects.map((p) => ({ ...p, status: "pending" as const })), nodes, outcomes, workOrders: orders }));
     expect(pending).toContain("No: status is pending");
     const noDd = allocationPage(base({ projects: projects.map((p) => ({ ...p, ddStatus: "pending" as const })), nodes, outcomes, workOrders: orders }));

@@ -43,7 +43,7 @@ export interface ModuleInfo {
 }
 
 export const MODULES: ModuleInfo[] = [
-  { id: "allocation", label: "Allocation", icon: "⇄", section: "Work", blurb: "Match waiting gifts to places, and see every place month by month." },
+  { id: "allocation", label: "Allocation", icon: "⇄", section: "Work", blurb: "Allocate gifts to beneficiaries, and see every beneficiary month by month." },
   { id: "data", label: "Data", icon: "⇅", section: "Data", blurb: "Gifts come in from the CRM, are checked here, and then appear in Gifts." },
   { id: "setup", label: "Settings", icon: "⚙", section: "Set up", blurb: "What needs a person, categories and sponsorship types, and the organisation." },
 ];
@@ -55,7 +55,7 @@ export const MENU: MenuItem[] = [
   { id: "projects", label: "Projects", icon: "▥", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "partners", label: "Partners", icon: "▤", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "beneficiaries", label: "Beneficiaries", icon: "☺", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
-  { id: "allocation", label: "Place gifts", icon: "⇄", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
+  { id: "allocation", label: "Allocate", icon: "⇄", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "outcomes", label: "Month by month", icon: "◎", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "dashboard", label: "Dashboard", icon: "◔", permission: PERMISSIONS.dashboards, section: "Work" },
   // Data (DECISIONS 92): everything about getting gifts in sits in its own area, as in a CRM's data integration. Gifts only shows the result.

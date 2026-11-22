@@ -73,7 +73,7 @@ describe("giftsPage", () => {
     expect(detail(mk(""))).toContain("No framework chosen");
     expect(detail(mk("x"), [{ ...fws[0]!, id: "x", instalment: undefined }])).toContain("Set how an instalment counts in the framework");
   });
-  it("shows where a gift is allocated, or that it waits for a place, or why it has none", () => {
+  it("shows where a gift is allocated, or that it waits for allocation with the reason (every gift needs one, DECISIONS 98)", () => {
     const fws = starterFrameworks();
     const orders = [1, 2].map((n) => sub(n, { frameworkId: "sponsorship-shared-parts", planStatus: "active", planNextDue: "2026-12-10", planPaid: 2 }));
     const outcomes = [{ id: "orphan-1", name: "Orphan 1", type: "child", cohort: "", frameworkId: "sponsorship-shared-parts", active: true, projectId: "p1" }];
@@ -81,8 +81,10 @@ describe("giftsPage", () => {
     const placed = giftListHtml(view({ workOrders: orders, frameworks: fws, outcomes, projects: partners, allocations: [{ commitmentKey: "S9", outcomeId: "orphan-1", parts: 1, how: "auto", at: "t" }] }));
     expect(placed).toContain("Orphan 1");
     expect(placed).toContain("Aghosh");
-    expect(giftListHtml(view({ workOrders: orders, frameworks: fws, outcomes, projects: partners, allocations: [] }))).toContain("Waiting for a place");
-    expect(giftListHtml(view({ workOrders: orders.map((w) => ({ ...w, frameworkId: "" })), frameworks: fws }))).toContain("No framework yet");
+    expect(giftListHtml(view({ workOrders: orders, frameworks: fws, outcomes, projects: partners, allocations: [] }))).toContain("Waiting for allocation");
+    expect(giftListHtml(view({ workOrders: orders.map((w) => ({ ...w, frameworkId: "" })), frameworks: fws }))).toContain("It needs a framework first");
+    // a cancelled plan needs no allocation
+    expect(giftListHtml(view({ workOrders: orders.map((w) => ({ ...w, planStatus: "cancelled" })), frameworks: fws }))).not.toContain("Waiting for allocation");
   });
   it("filters to unrouted only, and narrows the list by the filter boxes and says how many are shown", () => {
     const html = giftListHtml(view({ filter: "unrouted" }));
