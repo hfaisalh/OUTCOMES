@@ -41,7 +41,7 @@ function unitsCell(g: GiftRow, v: View): string {
 }
 
 // Units as a row of small pies (DECISIONS 85): one pie for each instalment of the plan, coloured by what has happened to it.
-// green = paid, blue = filled by a catch-up payment, orange = due this month and not paid, red = missed, grey = upcoming.
+// green = paid, blue = filled by a catch-up payment, orange = upcoming (expected, this month or later), red = missed, grey = a slice that is not this gift's.
 // Each pie has a slice for each part of a beneficiary and the gift's own parts are coloured. How the parts are shared out belongs to Allocation, not here.
 function unitsVisual(g: GiftRow, v: View): string {
   const c = g.commitment;
@@ -68,10 +68,10 @@ function unitsVisual(g: GiftRow, v: View): string {
     if (caught.has(m)) return pie("c", `Instalment ${i + 1}, ${m}: filled by a catch-up payment`);
     if (paid.has(m)) return pie("p", `Instalment ${i + 1}, ${m}: paid`);
     if (m < now) return pie("m", `Instalment ${i + 1}, ${m}: missed`);
-    if (m === now) return pie("e", `Instalment ${i + 1}, ${m}: due this month`);
-    return pie("u", `Instalment ${i + 1}, ${m}: upcoming`);
+    // Rule (DECISIONS 85, as in the Allocation month view): orange is expected. A month not paid yet, this month or later, is expected.
+    return pie("e", `Instalment ${i + 1}, ${m}: ${m === now ? "due this month" : "upcoming"}`);
   }).join("");
-  const key = `<div class="ukey muted"><i class="p"></i>paid <i class="c"></i>catch-up <i class="e"></i>due <i class="m"></i>missed <i class="f"></i>upcoming</div>`;
+  const key = `<div class="ukey muted"><i class="p"></i>paid <i class="c"></i>catch-up <i class="e"></i>upcoming <i class="m"></i>missed <i class="f"></i>not this gift\u2019s parts</div>`;
   return `<div class="upies">${pies}</div>${key}`;
 }
 
