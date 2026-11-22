@@ -242,7 +242,7 @@ describe("giftsPage", () => {
     expect(win).toContain('title="Unrouted: choose its category"');
     expect(win).toContain('title="Line L6782">MWFUK-205764'); // the line number is a tooltip, not a second line of text
     expect(win).not.toContain("<div class=\"muted\">Line ");
-    expect(win).toContain('title="2026-09-07">07/09/26'); // short date, full date in the tooltip
+    expect(win).toContain('title="2026-09-07"><span class="cellstart">07/09/26'); // short date, full date in the tooltip
     expect(win).toContain('class="legacyico"'); // a legacy record is an icon
     expect(win).not.toContain("Legacy upload");
     expect(win).toContain('aria-label="Exclude this payment"'); // an icon button, not the word Exclude
