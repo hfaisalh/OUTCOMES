@@ -28,7 +28,7 @@ function structureHtml(v: View, project: Project): string {
   const today = v.today ?? "2026-01-01";
   const tree = levelTree(project);
   const levelName = (id: string) => project.levels.find((l) => l.id === id)?.name ?? "";
-  const fwName = (id: string) => fws.find((f) => f.id === id)?.name ?? "No framework";
+  const fwName = (id: string) => fws.find((f) => f.id === id)?.name ?? "No workflow";
   const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
   const roll = rollupOf(nodes, outcomes, fws, v.allocations ?? [], commitments, allocOptions(v.projects ?? [], v.graceDays, today, v.requireRef === true, v.giftProjects ?? []).policy);
 

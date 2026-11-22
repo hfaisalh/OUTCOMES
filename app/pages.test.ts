@@ -53,15 +53,15 @@ describe("the lines behind a Needs attention entry", () => {
     expect(html).not.toContain("Show the lines");
   });
 
-  it("lists frameworks, lets a category pick one and an item differ, and says where each is used", () => {
+  it("shows categories as a label for reporting, with an optional default workflow and items that differ (DECISIONS 130)", () => {
     const fws = starterFrameworks();
     const cats = demoCategories();
     const html = categoriesPage(view({ frameworks: fws, categories: cats, itemFramework: { "MWF-EDU-003": "sponsorship-whole" } }));
-    expect(html).toContain("Sponsorship: shared parts");
-    expect(html).toContain("Units that make one beneficiary");
+    expect(html).toContain("only a label for reporting");
     expect(html).toContain("data-catfw=");
-    expect(html).toContain("Add the starting frameworks");
-    expect(categoriesPage(view({ frameworks: [], categories: cats }))).toContain("No frameworks yet");
+    expect(html).toContain("Default workflow for items in this category (optional)");
+    expect(html).not.toContain("<h2>Frameworks");
+    expect(categoriesPage(view({ frameworks: [], categories: cats }))).toContain("<h1>Categories</h1>");
   });
 
   it("shows each outcome as a row of months, a pie per month with a slice per unit, coloured by status, and opens a commitment with its donor", () => {

@@ -55,6 +55,6 @@ export const itemIcon = (itemId: string, name: string, chosen: Record<string, st
 export function iconHtml(id: string, label = "", size: "sm" | "lg" = "sm"): string {
   const i = ICONS.find((x) => x.id === id);
   if (!i) return "";
-  const tip = label || i.label;
-  return `<span class="ico ico-${size}" title="${tip.replace(/"/g, "&quot;")}" role="img" aria-label="${tip.replace(/"/g, "&quot;")}"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${i.paths}</svg></span>`;
+  const tip = (label || i.label).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); // item names come from the CRM, so they are made safe
+  return `<span class="ico ico-${size}" title="${tip}" role="img" aria-label="${tip}"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${i.paths}</svg></span>`;
 }

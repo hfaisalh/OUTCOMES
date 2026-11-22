@@ -38,3 +38,7 @@ The screen is the Categories page in `app/` (`pages.ts`, `main.ts`). `app/main.t
 
 ## How to test
 `npm test`. To try it: `npm run dev`, open `/app/`, choose Categories.
+
+
+## Workflows (DECISIONS 130)
+`workflows.ts` holds the pure parts of workflows: the tasks, the plain sentence, the six stages and their badges, the starting workflows (Orphan sponsorship, Student sponsorship, Water pump, House build, Livelihood, Activity) with their outcome types, and which workflow suits an item by its name. A workflow is a framework template plus its outcome type. Tests: `workflows.test.ts`.

@@ -70,8 +70,8 @@ describe("giftsPage", () => {
     const share = detail(mk("delivered-once"));
     expect(share).toContain("0.33 of 1");
     expect(share).toContain("whole item not paid yet");
-    expect(detail(mk(""))).toContain("No framework chosen");
-    expect(detail(mk("x"), [{ ...fws[0]!, id: "x", instalment: undefined }])).toContain("Set how an instalment counts in the framework");
+    expect(detail(mk(""))).toContain("No workflow chosen");
+    expect(detail(mk("x"), [{ ...fws[0]!, id: "x", instalment: undefined }])).toContain("Set how an instalment counts in the workflow");
   });
   it("shows where a gift is allocated, or that it waits for allocation with the reason (every gift needs one, DECISIONS 98)", () => {
     const fws = starterFrameworks();
@@ -82,7 +82,7 @@ describe("giftsPage", () => {
     expect(placed).toContain("Orphan 1");
     expect(placed).toContain("Aghosh");
     expect(giftListHtml(view({ workOrders: orders, frameworks: fws, outcomes, projects: partners, allocations: [] }))).toContain("Waiting for allocation");
-    expect(giftListHtml(view({ workOrders: orders.map((w) => ({ ...w, frameworkId: "" })), frameworks: fws }))).toContain("It needs a framework first");
+    expect(giftListHtml(view({ workOrders: orders.map((w) => ({ ...w, frameworkId: "" })), frameworks: fws }))).toContain("It needs a workflow first");
     // a paused plan stays parked and says so, and a cancelled one is parked as cancelled (DECISIONS 102)
     expect(giftListHtml(view({ workOrders: orders.map((w) => ({ ...w, planStatus: "paused" })), frameworks: fws }))).toContain("Plan paused, parked until payments resume");
     expect(giftListHtml(view({ workOrders: orders.map((w) => ({ ...w, planStatus: "cancelled" })), frameworks: fws }))).not.toContain("Waiting for allocation");

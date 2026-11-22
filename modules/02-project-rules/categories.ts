@@ -55,7 +55,11 @@ export interface FrameworkTemplate extends Framework {
   id: string; // stable, made from the name when added
   name: string;
   unitsPerBeneficiary: number; // units that make one whole beneficiary: 3 parts for an orphan, 1 for a scholarship (a whole number, 1 or more)
+  tasks?: WorkflowTask[]; // what happens after delivery: the checks and updates, with when each is due (DECISIONS 130)
 }
+
+// A task of a workflow: a check or an update due some months after the outcome is delivered or started, optionally asking for photos.
+export interface WorkflowTask { id: string; label: string; afterMonths: number; photo: boolean }
 
 export interface Category {
   id: string; // stable, saved with the map. Made from the name when added
@@ -329,5 +333,6 @@ export const isFrameworkTemplate = (x: unknown): x is FrameworkTemplate => {
   const f = x as FrameworkTemplate | null;
   return !!f && typeof f.id === "string" && f.id !== "" && typeof f.name === "string" && typeof f.unit === "string" && typeof f.reportType === "string" && typeof f.cycle === "string" && f.cycle in CYCLE_LABELS
     && Number.isInteger(f.unitsPerBeneficiary) && f.unitsPerBeneficiary >= 1 && (f.instalment === undefined || f.instalment === "per_period" || f.instalment === "share_of_whole")
+    && (f.tasks === undefined || (Array.isArray(f.tasks) && f.tasks.length <= 30 && f.tasks.every((t) => !!t && typeof t.id === "string" && typeof t.label === "string" && Number.isInteger(t.afterMonths) && t.afterMonths >= 0 && t.afterMonths <= 120 && typeof t.photo === "boolean")))
 ;
 };

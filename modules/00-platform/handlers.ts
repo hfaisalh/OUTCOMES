@@ -15,6 +15,7 @@ import { PERMISSIONS as P } from "../../app/menu.js";
 import { roleById } from "./roles.js";
 import { applyOutcomeTypeAction, starterOutcomeTypes } from "../05-outcomes/outcome-types.js";
 import { ensureRefs, withPrefixes } from "../05-outcomes/refs.js";
+import { linkStarterTypes } from "../02-project-rules/workflows.js";
 import { ICON_IDS } from "../../app/icons.js";
 import { currentFeedConfig } from "../01c-crm-connector/feed.js";
 import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
@@ -361,6 +362,12 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: next });
     }
     // Outcome types (DECISIONS 103): the same pure rule the demo uses. A type that outcomes already use cannot be removed.
+    // The outcome types the starting workflows need, linked to those workflows that exist (DECISIONS 130).
+    if (b["action"] === "ot-starters") {
+      outcomeTypes = withPrefixes(linkStarterTypes(outcomeTypes, fw.map((f) => f.id)));
+      await d.store.putConfig(org, { ...config, outcomeTypes });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: config.itemIcons ?? {} });
+    }
     if (typeof b["action"] === "string" && b["action"].startsWith("ot-")) {
       const used = [...new Set(outcomes.map((o) => o.outcomeTypeId ?? "").filter((x) => x !== ""))];
       const r = applyOutcomeTypeAction(outcomeTypes, fw.map((f) => f.id), used, b);

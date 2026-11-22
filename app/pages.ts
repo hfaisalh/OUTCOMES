@@ -14,7 +14,6 @@ import { partsOf } from "../modules/01c-crm-connector/work-orders";
 import { autoAllocate, fillOf, holdingReport, monthsAround, perPeriodRule, timelineOf, type UnitStatus, type Allocation, type Availability, type Outcome } from "../modules/05-outcomes/outcomes";
 import { allocOptions, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
 import type { BenFilter } from "./beneficiaries-page";
-import { outcomeTypesCard } from "./outcome-types-card";
 import { shortDate, shortDateTime } from "./dates";
 import { ICONS, iconHtml, itemIcon } from "./icons";
 import type { OutcomeType } from "../modules/05-outcomes/outcome-types";
@@ -55,7 +54,9 @@ export interface View {
   categories: Category[];
   frameworks?: FrameworkTemplate[]; // framework templates (DECISIONS 59)
   itemIcons?: Record<string, string>; // the icon chosen for an item (DECISIONS 107)
-  outcomeTypes?: OutcomeType[]; // the kinds of outcome and their profile fields (DECISIONS 103)
+  outcomeTypes?: OutcomeType[];
+  workflowSuggestions?: Record<string, string>; // item id to the workflow its name suggests (DECISIONS 130)
+  workflowSel?: { id: string; stage: number; parts: number; allocated: boolean }; // which workflow and stage the Workflows page shows, and the sample gift (DECISIONS 130) // the kinds of outcome and their profile fields (DECISIONS 103)
   itemFramework?: Record<string, string>; // an item's own framework, where it differs from its category
   itemFrameworkSuggestions?: Record<string, string>; // suggested item frameworks, for a person to accept
   suggestions: Record<string, string>; // item id to suggested category id, for items not yet sorted
@@ -227,38 +228,6 @@ const chip = (i: ItemInfo, v: View, hint = "") =>
 const field = (label: string, control: string) => `<label class="fld"><span>${label}</span>${control}</label>`;
 
 // A framework template: defined once, used by any number of categories and items (DECISIONS 59).
-const frameworkCard = (f: FrameworkTemplate, v: View): string => {
-  const missing = missingFramework(f);
-  const cats = v.categories.filter((c) => c.frameworkId === f.id).map((c) => c.name);
-  const items = Object.values(v.itemFramework ?? {}).filter((x) => x === f.id).length;
-  const used = [cats.length ? `categories: ${cats.map(esc).join(", ")}` : "", items ? `${items} item${items === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ");
-  const t = `data-tplid="${esc(f.id)}"`;
-  return `<details class="card fwtpl"><summary><b>${esc(f.name)}</b> <span class="muted">${used ? "used by " + used : "not used yet"}</span>${missing.length ? ` <span class="pill unrouted">to fill in</span>` : ""}</summary>
-    <div class="fwhead"><input class="title" data-fwrename="${esc(f.id)}" value="${esc(f.name)}" /><button data-action="dup-framework" data-id="${esc(f.id)}" title="Copy this framework, then change what differs">Duplicate</button><button data-action="remove-framework" data-id="${esc(f.id)}" title="Remove this framework (only when nothing uses it)">Remove</button></div>
-    ${field("What one delivery is (unit)", `<input data-tpl="unit" ${t} value="${esc(f.unit)}" placeholder="for example child, pump, animal" />`)}
-    ${field("Units that make one beneficiary", `<input type="number" min="1" step="1" data-tpl="unitsPerBeneficiary" ${t} value="${f.unitsPerBeneficiary}" title="3 parts make one orphan, 1 for a whole scholarship" />`)}
-    ${field("How an instalment counts toward a unit", `<select data-tpl="instalment" ${t}>${f.instalment === undefined ? `<option value="" selected>Choose...</option>` : ""}${(Object.keys(INSTALMENT_LABELS) as InstalmentRule[]).map((y) => `<option value="${y}"${y === f.instalment ? " selected" : ""}>${INSTALMENT_LABELS[y]}</option>`).join("")}</select>`)}
-    ${field("How often the donor hears back", `<select data-tpl="cycle" ${t}>${(Object.keys(CYCLE_LABELS) as Cycle[]).map((y) => `<option value="${y}"${y === f.cycle ? " selected" : ""}>${CYCLE_LABELS[y]}</option>`).join("")}</select>`)}
-    ${field("Report the donor receives", `<input data-tpl="reportType" ${t} value="${esc(f.reportType)}" placeholder="for example Quarterly update" />`)}
-    <p class="muted">Duration and instalment counts are not set here. They come from the CRM item. A bundle multiplies the units of the same framework.</p></details>`;
-};
-
-// The icon of each item that needs feedback (DECISIONS 107). It shows in the Gifts list and on outcome profiles. A suggestion from the name is used until one is chosen.
-function itemIconsCard(v: View): string {
-  const chosen = v.itemIcons ?? {};
-  const typeIconOf = (itemId: string): string => {
-    const fw = (v.itemFramework ?? {})[itemId] ?? "";
-    return (v.outcomeTypes ?? []).find((t) => fw !== "" && t.frameworkIds.includes(fw))?.icon ?? "";
-  };
-  const rows = [...v.flaggedItems].sort((a, b) => a.name.localeCompare(b.name)).map((i) => {
-    const cur = chosen[i.id] ?? "";
-    const shown = itemIcon(i.id, i.name, chosen, typeIconOf(i.id));
-    return `<tr><td>${iconHtml(shown, i.name)}</td><td>${esc(i.name)}</td><td><select data-icon-item="${esc(i.id)}" aria-label="Icon for ${esc(i.name)}"><option value=""${cur === "" ? " selected" : ""}>Suggested${shown ? ": " + esc(ICONS.find((x) => x.id === shown)?.label ?? "") : ""}</option>${ICONS.map((x) => `<option value="${x.id}"${cur === x.id ? " selected" : ""}>${esc(x.label)}</option>`).join("")}</select></td></tr>`;
-  }).join("");
-  return `<div class="card"><h2>Icons <span class="muted">(${v.flaggedItems.length} items)</span></h2><p class="muted">Each item has an icon in the Gifts list and on outcome profiles. One is suggested from the item's name. Choose another if it does not fit.</p>
-    <div class="twrap"><table class="icontable"><tbody>${rows || `<tr><td class="muted">No items yet.</td></tr>`}</tbody></table></div></div>`;
-}
-
 export function categoriesPage(v: View): string {
   const items: ItemInfo[] = v.flaggedItems.map((i) => ({ id: i.id, name: i.name }));
   const { unsorted, byCategory } = groupItems(items, v.itemCategories, v.categories);
@@ -272,28 +241,20 @@ export function categoriesPage(v: View): string {
   const card = (c: Category) => {
     const list = byCategory[c.id] ?? [];
     const own = list.filter((i) => itemFw[i.id] !== undefined).length;
-    return `<div class="card fw"><div class="fwname"><b>${esc(c.name)}</b> <span class="muted">(${list.length})</span>${c.frameworkId === "" ? ` <span class="pill unrouted">choose a framework</span>` : ` <span class="muted">· ${esc(fwName(c.frameworkId))}</span>`}</div>
+    return `<div class="card fw"><div class="fwname"><b>${esc(c.name)}</b> <span class="muted">(${list.length})</span>${c.frameworkId === "" ? ` <span class="pill unrouted">choose a workflow</span>` : ` <span class="muted">· ${esc(fwName(c.frameworkId))}</span>`}</div>
       <div class="zone" data-drop="${c.id}">${list.map((i) => chip(i, v) + (itemFw[i.id] !== undefined ? ` <small class="muted">${esc(fwName(itemFw[i.id] as string))}</small>` : "")).join("") || `<span class="muted">Drop items here</span>`}</div>
-      <details><summary>Edit${own ? ` <span class="muted">(${own} item${own === 1 ? "" : "s"} with its own framework)</span>` : ""}</summary>
+      <details><summary>Edit${own ? ` <span class="muted">(${own} item${own === 1 ? "" : "s"} with its own workflow)</span>` : ""}</summary>
         <div class="fwhead"><input class="title" data-rename="${c.id}" value="${esc(c.name)}" /><button data-remove="${c.id}" title="Remove this category (its items go back to unsorted)">Remove</button></div>
         ${field("Words that suggest this category", `<input data-keywords="${c.id}" value="${esc(c.keywords.join(", "))}" />`)}
-        ${field("Default framework for the items in this category", `<select data-catfw="${c.id}">${fwOptions(c.frameworkId, "Choose...")}</select>`)}
-        ${list.length ? `<h4 class="fwtitle">Items that differ from the category</h4><p class="muted">An item follows the category's framework unless you choose another here.</p>
+        ${field("Default workflow for items in this category (optional)", `<select data-catfw="${c.id}">${fwOptions(c.frameworkId, "Choose...")}</select>`)}
+        ${list.length ? `<h4 class="fwtitle">Items that differ from the category</h4><p class="muted">An item follows the category's workflow unless you choose another here.</p>
         <table class="inner"><tbody>${list.map((i) => `<tr><td>${esc(i.name)} <span class="muted">${esc(i.id)}</span></td><td><select data-itemfw="${esc(i.id)}">${fwOptions(itemFw[i.id] ?? "", `Same as category${c.frameworkId ? ` (${fwName(c.frameworkId)})` : ""}`)}</select></td></tr>`).join("")}</tbody></table>` : ""}
       </details></div>`;
   };
   return `
     <h1>Categories</h1>
-    <p class="sub">The CRM says which items need feedback. Drag each item into its category (or tap an item, then tap a category). A framework is defined once and used by any category or item: the item's own framework applies, otherwise its category's. Categories and frameworks are kept in OUTCOMES, not in the CRM.</p>
+    <p class="sub">The CRM says which items need feedback. Drag each item into its category (or tap an item, then tap a category). A category is only a label for reporting. What happens to a gift is decided by its item's workflow, set on the Workflows page. Categories and frameworks are kept in OUTCOMES, not in the CRM.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
-    <div class="card"><h2>Frameworks <span class="muted">(${frameworks.length})</span></h2>
-      <p class="muted">What an order in a category goes through: the unit, how many units make one beneficiary, how an instalment counts, and the report. Define each once, then choose it for a category or an item. For a small difference, duplicate one and change that setting.</p>
-      <div class="actions"><input id="newfw" placeholder="New framework name" /><button data-action="add-framework">Add framework</button><button data-action="add-starters" title="Adds the sponsorship frameworks (shared parts, whole), delivered once, and livelihood">Add the starting frameworks</button>
-        <button data-action="suggest-item-frameworks"${nItemSuggest ? "" : " disabled"}>Suggest ${nItemSuggest} item framework${nItemSuggest === 1 ? "" : "s"} (Hifz, school and similar)</button>
-        <button data-action="apply-frameworks" title="Work orders keep the framework they were made under. This moves every one to the framework that now applies to its item">Apply frameworks to existing work orders</button></div>
-      ${frameworks.length ? frameworks.map((f) => frameworkCard(f, v)).join("") : `<div class="empty">No frameworks yet. Add the starting frameworks, or add your own.</div>`}</div>
-    ${itemIconsCard(v)}
-    ${outcomeTypesCard(v.outcomeTypes ?? [], frameworks, Object.fromEntries((v.outcomeTypes ?? []).map((t) => [t.id, (v.outcomes ?? []).filter((o) => o.outcomeTypeId === t.id).length])))}
     <div class="actions"><button class="primary" data-action="accept-suggestions"${nSuggest ? "" : " disabled"}>Accept ${nSuggest} suggestion${nSuggest === 1 ? "" : "s"}</button>
       <input id="newcat" placeholder="New category name" /><button data-action="add-category">Add category</button></div>
     <div class="board"><div class="unsorted"><div class="card"><h2>Unsorted items <span class="muted">(${unsorted.length})</span></h2><p class="muted">Work orders for these stay unrouted. Nothing is lost.</p>
@@ -378,10 +339,10 @@ export function outcomesPage(v: View): string {
   const fills = new Map(outcomes.map((o) => [o.id, fillOf(o, fws, allocations, commitments, opts.policy)]));
   const waiting = autoAllocate(commitments, outcomes, fws, allocations, "", opts).unplaced; // a dry run: nothing is saved
   const hold = holdingReport(commitments, fws, opts.policy);
-  const why = [hold.noFramework ? `${hold.noFramework} have no framework (set one for the item or its category on the Categories tab)` : "", hold.noRule ? `${hold.noRule} are on a framework that does not say how an instalment counts (open it on the Categories tab and set it)` : "", hold.cancelled ? `${hold.cancelled} are cancelled in the CRM` : "", hold.finished ? `${hold.finished} are fully paid` : ""].filter((x) => x !== "");
+  const why = [hold.noFramework ? `${hold.noFramework} have no workflow (set one for the item on the Workflows page)` : "", hold.noRule ? `${hold.noRule} are on a framework that does not say how an instalment counts (open it on the Categories tab and set it)` : "", hold.cancelled ? `${hold.cancelled} are cancelled in the CRM` : "", hold.finished ? `${hold.finished} are fully paid` : ""].filter((x) => x !== "");
   const holdNote = `<p class="muted">${hold.total} commitment${hold.total === 1 ? "" : "s"}, ${hold.holding} asking for capacity${why.length ? `. Not asking: ${why.join("; ")}` : ""}.</p>`;
   const count = (s: Availability) => outcomes.filter((o) => fills.get(o.id)?.state === s).length;
-  const fwName = (id: string) => fws.find((f) => f.id === id)?.name ?? "No framework";
+  const fwName = (id: string) => fws.find((f) => f.id === id)?.name ?? "No workflow";
   const cohorts = [...new Set(outcomes.map((o) => o.cohort))];
 
   // One row per outcome, one small pie per month. A pie has a slice for each unit of capacity (3 parts, 3 slices), coloured by status:
@@ -442,7 +403,7 @@ export function outcomesPage(v: View): string {
 
   return `
     <h1>Month by month</h1>
-    <p class="sub">What the gifts are for: a child, a student, a widow, a building, an activity. Each outcome has a framework, which gives it a capacity in units. Recurring commitments and one-off payments for a number of months fill that capacity automatically, oldest first. Each outcome is one row of months. Each month is a small pie with a slice for every unit of capacity (an orphan has 3 parts, so 3 slices), coloured by status: paid (green), expected (orange), missed (red), nothing expected (grey). Click a slice to open its commitment, which holds the donor.</p>
+    <p class="sub">What the gifts are for: a child, a student, a widow, a building, an activity. Each outcome has a workflow, which gives it a capacity in units. Recurring commitments and one-off payments for a number of months fill that capacity automatically, oldest first. Each outcome is one row of months. Each month is a small pie with a slice for every unit of capacity (an orphan has 3 parts, so 3 slices), coloured by status: paid (green), expected (orange), missed (red), nothing expected (grey). Click a slice to open its commitment, which holds the donor.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics">${metric(outcomes.length, "Outcomes")}${metric(count("open"), "Open")}${metric(count("part"), "Part funded")}${metric(count("full"), "Full", "ok")}${metric(waiting.length, "Commitments waiting", waiting.length ? "warn" : "")}</div>
     <div class="actions"><button class="primary" data-action="auto-allocate"${outcomes.length ? "" : " disabled"}>Allocate automatically</button>

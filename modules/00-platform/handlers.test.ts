@@ -517,6 +517,28 @@ describe("outcomes (DECISIONS 61)", () => {
     expect(back.workOrders[0]?.partsManual).toBeUndefined();
   });
 
+  it("adds the outcome types the starting workflows need and links them, without changing a link a person made (DECISIONS 130)", async () => {
+    const cookie = await signIn(d);
+    const setup = { ...fwSetup, frameworks: [...fwSetup.frameworks, { id: "water-pump", name: "Water pump", unit: "pump", cycle: "on_delivery", reportType: "Handover report", instalment: "share_of_whole", unitsPerBeneficiary: 1 }, { id: "orphan-sponsorship", name: "Orphan sponsorship", unit: "orphan", cycle: "quarterly", reportType: "Update", instalment: "per_period", unitsPerBeneficiary: 3 }] };
+    await handleConfig(as(cookie, { method: "PUT", body: setup }), d);
+    type R = { outcomeTypes: { id: string; frameworkIds: string[] }[] };
+    const first = (await post(cookie, { action: "ot-starters" })).body as R;
+    expect(first.outcomeTypes.map((t) => t.id)).toEqual(["orphan", "water-pump", "student", "house", "livelihood", "activity"]);
+    expect(first.outcomeTypes.find((t) => t.id === "water-pump")?.frameworkIds).toEqual(["water-pump"]);
+    expect(first.outcomeTypes.find((t) => t.id === "orphan")?.frameworkIds).toEqual(["orphan-sponsorship"]);
+    expect(first.outcomeTypes.find((t) => t.id === "house")?.frameworkIds).toEqual([]); // that workflow was not added, so nothing is linked
+    // a person unlinks the pump type, links it to another workflow: it is not taken back
+    await post(cookie, { action: "ot-framework", typeId: "water-pump", frameworkId: "water-pump", on: false });
+    await post(cookie, { action: "ot-framework", typeId: "water-pump", frameworkId: "shared", on: true });
+    const again = (await post(cookie, { action: "ot-starters" })).body as R;
+    expect(again.outcomeTypes.find((t) => t.id === "water-pump")?.frameworkIds).toEqual(["shared"]);
+    // tasks are kept with the workflow
+    const withTasks = { ...setup, frameworks: setup.frameworks.map((f: Record<string, unknown>) => (f["id"] === "water-pump" ? { ...f, tasks: [{ id: "site-visit", label: "Site visit", afterMonths: 0, photo: false }] } : f)) };
+    expect((await handleConfig(as(cookie, { method: "PUT", body: withTasks }), d)).status).toBe(200);
+    expect(((await handleConfig(as(cookie), d)).body as { frameworks: { id: string; tasks?: unknown[] }[] }).frameworks.find((f) => f.id === "water-pump")?.tasks).toHaveLength(1);
+    expect((await handleConfig(as(cookie, { method: "PUT", body: { ...setup, frameworks: setup.frameworks.map((f: Record<string, unknown>) => ({ ...f, tasks: [{ id: "x", label: "Bad", afterMonths: -5, photo: false }] })) } }), d)).status).toBe(400); // a task that is not valid is refused
+  });
+
   it("refuses a missing framework, a bad action, a viewer and a signed-out caller, and keeps organisations apart", async () => {
     const cookie = await signIn(d);
     expect((await post(cookie, { action: "add", name: "Orphan", count: 1, type: "", cohort: "", frameworkId: "ghost" })).status).toBe(400);

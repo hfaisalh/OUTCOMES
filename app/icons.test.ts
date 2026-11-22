@@ -43,4 +43,9 @@ describe("icons", () => {
     expect(iconHtml("pump", 'A "special" pump')).toContain("&quot;special&quot;");
     expect(iconHtml("nope")).toBe("");
   });
+  it("makes an item name safe in the tooltip (CRM text never becomes HTML)", () => {
+    const html = iconHtml("pump", "<img src=x onerror=alert(1)> & co");
+    expect(html).not.toContain("<img");
+    expect(html).toContain("&lt;img src=x onerror=alert(1)&gt; &amp; co");
+  });
 });

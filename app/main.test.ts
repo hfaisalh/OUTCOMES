@@ -77,9 +77,11 @@ describe("the shell", () => {
     expect(shell.innerHTML).toContain("Give the category a name.");
   });
 
-  it("changes the framework of a category", () => {
-    fire("change", { target: { id: "", dataset: { rule: "unit", fw: "education" }, value: "student" } });
-    expect(shell.innerHTML).toContain('value="student"');
+  it("changes a setting of a workflow on the Workflows page", () => {
+    click({ page: "workflows" }, "data-page");
+    fire("change", { target: { id: "", dataset: { tpl: "unit", tplid: "sponsorship-shared-parts" }, value: "orphan child" } });
+    click({ wfSelect: "sponsorship-shared-parts" }, "data-wf-select");
+    expect(shell.innerHTML).toContain('value="orphan child"');
   });
 });
 
@@ -167,20 +169,56 @@ describe("the Data area and the icon menus (DECISIONS 92)", () => {
   });
 });
 
-describe("outcome types on the Categories and frameworks page (DECISIONS 103)", () => {
-  it("shows the starter types with their rules and profile fields", () => {
-    click({ page: "categories" }, "data-page");
-    expect(shell.innerHTML).toContain("Outcome types");
-    expect(shell.innerHTML).toContain("Water pump");
-    expect(shell.innerHTML).toContain("Creating a new draft");
-    expect(shell.innerHTML).toContain("GPS location");
-    expect(shell.innerHTML).toContain('data-ot-act="add"');
-    expect(shell.innerHTML).toContain('data-ot="framework"'); // a type is linked to the frameworks that use it
+describe("the Workflows page (DECISIONS 130)", () => {
+  const stageClick = (n: string) => click({ wfStage: n }, "data-wf-stage");
+  it("lists the workflows, shows one as a sentence and a flow of six stages, and its items", () => {
+    click({ page: "workflows" }, "data-page");
+    expect(shell.innerHTML).toContain("<h1>Workflows</h1>");
+    click({ wfSelect: "sponsorship-shared-parts" }, "data-wf-select");
+    expect(shell.innerHTML).toContain("Sponsorship: shared parts");
+    expect(shell.innerHTML).toContain('class="wf-sentence"');
+    expect(shell.innerHTML).toContain("When a gift for");
+    for (const title of ["Gift paid", "Outcome", "Released", "Assigned", "Delivering", "Updates and report"]) expect(shell.innerHTML).toContain(`<b>${title}</b>`);
+    expect(shell.innerHTML).toContain("Try a sample gift");
+    expect(shell.innerHTML).toContain('data-itemfw='); // each item has its workflow, category and icon
+    expect(shell.innerHTML).toContain('data-itemcat=');
+    expect(shell.innerHTML).toContain('data-icon-item=');
+    expect(shell.innerHTML).toContain("Category (reporting)");
   });
-  it("shows an Icons card with an icon for each item and a choice of fourteen (DECISIONS 107)", () => {
+  it("shows the rules of the stage that is clicked: what a payment buys, the outcome type, when it is released, assignment, delivering, and the tasks", () => {
+    stageClick("1");
+    expect(shell.innerHTML).toContain("What a payment buys");
+    stageClick("2");
+    expect(shell.innerHTML).toContain('data-wf-type="sponsorship-shared-parts"');
+    expect(shell.innerHTML).toContain("Add type");
+    stageClick("3");
+    expect(shell.innerHTML).toContain("When it is released");
+    stageClick("4");
+    expect(shell.innerHTML).toContain("Assigned to a partner");
+    stageClick("5");
+    expect(shell.innerHTML).toContain("The partner does the work");
+    stageClick("6");
+    expect(shell.innerHTML).toContain("Updates and the donor report");
+    expect(shell.innerHTML).toContain('data-wf-act="task-add"');
+  });
+  it("adds the standard workflows with their tasks and outcome types, once, and suggests a workflow for each item", () => {
+    click({ page: "workflows" }, "data-page");
+    click({ action: "add-starters" }, "data-action");
+    for (const n of ["Orphan sponsorship", "Student sponsorship", "Water pump", "House build", "Activity"]) expect(shell.innerHTML).toContain(n);
+    click({ wfSelect: "orphan-sponsorship" }, "data-wf-select");
+    stageClick("6");
+    expect(shell.innerHTML).toContain("3 month basic check");
+    stageClick("2");
+    expect(shell.innerHTML).toContain('<option value="orphan" selected>Orphan</option>'); // linked to its outcome type
+    expect(shell.innerHTML).toContain("ID prefix");
+    click({ action: "add-starters" }, "data-action");
+    expect(shell.innerHTML).toContain("already there");
+  });
+  it("keeps the categories page for sorting items into categories, a label for reporting", () => {
     click({ page: "categories" }, "data-page");
-    expect(shell.innerHTML).toContain("<h2>Icons");
-    expect(shell.innerHTML).toContain("data-icon-item=");
-    expect(shell.innerHTML).toContain('data-ot="icon"'); // an outcome type has an icon too
+    expect(shell.innerHTML).toContain("<h1>Categories</h1>");
+    expect(shell.innerHTML).toContain("only a label for reporting");
+    expect(shell.innerHTML).not.toContain("<h2>Frameworks");
+    expect(shell.innerHTML).not.toContain("Outcome types");
   });
 });

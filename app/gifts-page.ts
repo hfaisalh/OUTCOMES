@@ -33,9 +33,9 @@ function unitsCell(g: GiftRow, v: View): string {
   const c: Commitment | undefined = g.commitment;
   if (!c) return "";
   const fw = (v.frameworks ?? []).find((x) => x.id === c.frameworkId);
-  if (fw === undefined) return `<span class="muted">${c.categoryId === "" ? "Not in a category" : "No framework chosen for this item or its category"}</span>`;
+  if (fw === undefined) return `<span class="muted">${c.categoryId === "" ? "Not in a category" : "No workflow chosen for this item"}</span>`;
   const rule = fw.instalment;
-  if (rule === undefined) return `<span class="muted">Set how an instalment counts in the framework ${esc(fw.name)}</span>`;
+  if (rule === undefined) return `<span class="muted">Set how an instalment counts in the workflow ${esc(fw.name)}</span>`;
   const u = unitsForCommitment(rule, { parts: c.partsPerInstalment, paid: c.paid, planned: c.planned });
   if (rule === "share_of_whole") return u.target === null ? `<span class="muted">Count unknown</span>` : `${num(u.units)} of ${num(u.target)}${u.complete ? ` <span class="pill ready">Complete, can be delivered</span>` : ` <span class="muted">(whole item not paid yet)</span>`}`;
   // Who the units go to: whole beneficiaries (dedicated) and a shared remainder, from the framework's units per beneficiary.
@@ -189,7 +189,7 @@ function allocationContext(v: View) {
     // Rule (DECISIONS 102): a paused plan stays parked and says so. A cancelled one is parked as cancelled, and can be excluded manually until the donor pays again.
     if (g.planStatus === "paused") return waits(g, "Plan paused, parked until payments resume");
     if (g.planStatus === "cancelled") return { state: "none", who: "", partner: "", parts: null, why: "Plan cancelled, parked. Exclude it manually if it is not coming back" };
-    return waits(g, g.frameworkId === "" ? "It needs a framework first" : "Not allocated yet. Allocation for this kind of gift is built later");
+    return waits(g, g.frameworkId === "" ? "It needs a workflow first" : "Not allocated yet. Allocation for this kind of gift is built later");
   };
 }
 
