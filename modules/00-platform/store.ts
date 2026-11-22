@@ -14,6 +14,7 @@
 import { MWF_CRM_CONFIG, type FeedConfig } from "../01c-crm-connector/feed.js";
 import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js";
 import type { Allocation, Outcome } from "../05-outcomes/outcomes.js";
+import type { OutcomeType } from "../05-outcomes/outcome-types.js";
 import type { GiftProject, Node, Project } from "../06-projects/projects.js";
 import { migrateSetup, type Category, type FrameworkTemplate, type ItemMap, type Setup } from "../02-project-rules/categories.js";
 import type { AuditRecord } from "../01f-batch-audit/audit.js";
@@ -33,6 +34,7 @@ export interface OrgConfig {
   outcomes?: Outcome[]; // what gifts are allocated to (DECISIONS 61). Kept in the setup for now, to move to their own table when there are many
   allocations?: Allocation[];
   giftProjects?: GiftProject[]; // the projects donors choose, and the partners that deliver them (DECISIONS 76)
+  outcomeTypes?: OutcomeType[]; // the kinds of outcome, with their profile fields and how a gift gets its outcome (DECISIONS 103). Absent: the starter types
   partnerTypes?: string[]; // the organisation's own list of partner types (DECISIONS 69)
   partnerFields?: string[]; // the organisation's own extra partner profile fields, by label
   releaseLog?: { commitmentKey: string; outcomeId: string; by: string; at: string; daysOverdue: number }[]; // who approved which release, and when (DECISIONS 74)

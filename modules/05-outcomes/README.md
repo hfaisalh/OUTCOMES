@@ -35,3 +35,7 @@ The endpoint is `/api/outcomes` (`handleOutcomes`), the screens are Allocation, 
 
 ## How to test
 `npm test`. To try it: create a project and add beneficiaries on the Projects page, open Allocation, Place gifts, click Place all suggestions, then open Month by month and click a slice and a commitment.
+
+
+## Outcome types (DECISIONS 103)
+`outcome-types.ts` holds outcome types as configuration: a name, how a gift gets its outcome (pick an existing one or create a draft), automatic or suggested assignment, the frameworks that use the type, and its profile fields. `completeness` says how much of a profile is filled and whether the required minimum is there. Tests: `outcome-types.test.ts`.

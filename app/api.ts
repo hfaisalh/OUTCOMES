@@ -16,6 +16,7 @@ import type { AttentionItem } from "../modules/04-triage/triage";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import type { CompactFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { Allocation, Outcome } from "../modules/05-outcomes/outcomes";
+import type { OutcomeType } from "../modules/05-outcomes/outcome-types";
 import type { Category, FrameworkTemplate, ItemMap } from "../modules/02-project-rules/categories";
 
 export interface Me {
@@ -89,6 +90,7 @@ export interface OutcomesReply {
   requireRef?: boolean;
   partnerTypes?: string[];
   partnerFields?: string[];
+  outcomeTypes?: OutcomeType[];
   warning?: string;
   placed?: number;
   removed?: number;

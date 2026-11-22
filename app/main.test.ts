@@ -166,3 +166,15 @@ describe("the Data area and the icon menus (DECISIONS 92)", () => {
     expect(shell.innerHTML).toContain('id="mp-file"');
   });
 });
+
+describe("outcome types on the Categories and frameworks page (DECISIONS 103)", () => {
+  it("shows the starter types with their rules and profile fields", () => {
+    click({ page: "categories" }, "data-page");
+    expect(shell.innerHTML).toContain("Outcome types");
+    expect(shell.innerHTML).toContain("Water pump");
+    expect(shell.innerHTML).toContain("Creating a new draft");
+    expect(shell.innerHTML).toContain("GPS location");
+    expect(shell.innerHTML).toContain('data-ot-act="add"');
+    expect(shell.innerHTML).toContain('data-ot="framework"'); // a type is linked to the frameworks that use it
+  });
+});

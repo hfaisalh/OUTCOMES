@@ -14,6 +14,8 @@ import { partsOf } from "../modules/01c-crm-connector/work-orders";
 import { autoAllocate, fillOf, holdingReport, monthsAround, perPeriodRule, timelineOf, type UnitStatus, type Allocation, type Availability, type Outcome } from "../modules/05-outcomes/outcomes";
 import { allocOptions, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
 import type { BenFilter } from "./beneficiaries-page";
+import { outcomeTypesCard } from "./outcome-types-card";
+import type { OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { allocatable, buildCommitments, needsLook, type Commitment } from "../modules/04b-commitments/commitments";
 import { noIndividualDonor } from "../modules/01c-crm-connector/credits";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
@@ -50,6 +52,7 @@ export interface View {
   config: typeof MWF_CRM_CONFIG;
   categories: Category[];
   frameworks?: FrameworkTemplate[]; // framework templates (DECISIONS 59)
+  outcomeTypes?: OutcomeType[]; // the kinds of outcome and their profile fields (DECISIONS 103)
   itemFramework?: Record<string, string>; // an item's own framework, where it differs from its category
   itemFrameworkSuggestions?: Record<string, string>; // suggested item frameworks, for a person to accept
   suggestions: Record<string, string>; // item id to suggested category id, for items not yet sorted
@@ -270,6 +273,7 @@ export function categoriesPage(v: View): string {
         <button data-action="suggest-item-frameworks"${nItemSuggest ? "" : " disabled"}>Suggest ${nItemSuggest} item framework${nItemSuggest === 1 ? "" : "s"} (Hifz, school and similar)</button>
         <button data-action="apply-frameworks" title="Work orders keep the framework they were made under. This moves every one to the framework that now applies to its item">Apply frameworks to existing work orders</button></div>
       ${frameworks.length ? frameworks.map((f) => frameworkCard(f, v)).join("") : `<div class="empty">No frameworks yet. Add the starting frameworks, or add your own.</div>`}</div>
+    ${outcomeTypesCard(v.outcomeTypes ?? [], frameworks, Object.fromEntries((v.outcomeTypes ?? []).map((t) => [t.id, (v.outcomes ?? []).filter((o) => o.outcomeTypeId === t.id).length])))}
     <div class="actions"><button class="primary" data-action="accept-suggestions"${nSuggest ? "" : " disabled"}>Accept ${nSuggest} suggestion${nSuggest === 1 ? "" : "s"}</button>
       <input id="newcat" placeholder="New category name" /><button data-action="add-category">Add category</button></div>
     <div class="board"><div class="unsorted"><div class="card"><h2>Unsorted items <span class="muted">(${unsorted.length})</span></h2><p class="muted">Work orders for these stay unrouted. Nothing is lost.</p>

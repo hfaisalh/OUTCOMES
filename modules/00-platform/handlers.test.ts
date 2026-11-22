@@ -449,6 +449,24 @@ describe("outcomes (DECISIONS 61)", () => {
     expect((await post(cookie, { action: "release", commitmentKey: "501" })).body).toMatchObject({ allocations: [] });
   });
 
+  it("keeps outcome types as configuration: starter types first, then added types, fields and frameworks (DECISIONS 103)", async () => {
+    const cookie = await signIn(d);
+    await handleConfig(as(cookie, { method: "PUT", body: fwSetup }), d);
+    const first = (await handleOutcomes(as(cookie), d)).body as { outcomeTypes: { id: string; source: string }[] };
+    expect(first.outcomeTypes.map((t) => t.id)).toEqual(["child", "water-pump"]);
+    expect(first.outcomeTypes[1]?.source).toBe("create_new");
+    const added = (await post(cookie, { action: "ot-add", name: "House build" })).body as { outcomeTypes: { id: string; fields: unknown[]; frameworkIds: string[] }[] };
+    expect(added.outcomeTypes.map((t) => t.id)).toEqual(["child", "water-pump", "house-build"]);
+    const withField = (await post(cookie, { action: "ot-field-add", typeId: "house-build", label: "Plot size", kind: "number" })).body as typeof added;
+    expect(withField.outcomeTypes[2]?.fields).toHaveLength(1);
+    const linked = (await post(cookie, { action: "ot-framework", typeId: "house-build", frameworkId: "shared", on: true })).body as typeof added;
+    expect(linked.outcomeTypes[2]?.frameworkIds).toEqual(["shared"]);
+    expect((await post(cookie, { action: "ot-framework", typeId: "house-build", frameworkId: "nope", on: true })).status).toBe(400); // an unknown framework
+    expect((await post(cookie, { action: "ot-add", name: "house build" })).status).toBe(400); // the same name again
+    // it is kept: a fresh read returns it
+    expect(((await handleOutcomes(as(cookie), d)).body as typeof added).outcomeTypes).toHaveLength(3);
+  });
+
   it("refuses a missing framework, a bad action, a viewer and a signed-out caller, and keeps organisations apart", async () => {
     const cookie = await signIn(d);
     expect((await post(cookie, { action: "add", name: "Orphan", count: 1, type: "", cohort: "", frameworkId: "ghost" })).status).toBe(400);

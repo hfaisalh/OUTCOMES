@@ -35,6 +35,7 @@ import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { dataFeedPage, dataFilesPage } from "./data-page";
 import { createMapping } from "./mapping-controller";
+import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { checkingHtml, signinHtml } from "./signin-page";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
 import { landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
@@ -66,6 +67,7 @@ const state = {
   projectWin: { open: false, id: "" }, // the project form
   giftWin: { key: "", log: false }, // the gift details window (DECISIONS 78): the key of the gift it shows, "" when closed
   partnerWin: { open: false, id: "", tab: "profile" as PartnerTab, draft: null as Record<string, unknown> | null }, // the partner window (DECISIONS 70)
+  outcomeTypes: starterOutcomeTypes() as OutcomeType[], // the kinds of outcome and their profile fields (DECISIONS 103)
   partnerTypes: [] as string[], // the organisation's own list of partner types (DECISIONS 69)
   partnerFields: [] as string[], // and its own extra partner fields
   requireRef: false, // place gifts only on beneficiaries that have an ID (DECISIONS 75)
@@ -108,7 +110,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
-    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; }).catch(() => undefined);
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
     state.message = "";
   } catch (e) {
@@ -178,7 +180,7 @@ function view(): View {
   const flaggedItems = [...items.values()];
   return {
     workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
-    categories: state.categories, frameworks: state.frameworks, itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
+    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
 }
@@ -210,6 +212,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.requireRef = r.requireRef ?? state.requireRef;
       state.partnerTypes = r.partnerTypes ?? state.partnerTypes;
       state.partnerFields = r.partnerFields ?? state.partnerFields;
+      state.outcomeTypes = r.outcomeTypes ?? state.outcomeTypes;
       if (body["action"] === "remove-many") state.message = `Removed ${r.removed ?? 0}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`;
       else if (body["action"] === "adopt-legacy") state.message = `Moved ${(r as unknown as { moved?: number }).moved ?? 0} into the partner.`;
       else if (body["action"] === "clear-legacy") state.message = `Removed ${(r as unknown as { removed?: number }).removed ?? 0} and released ${(r as unknown as { released?: number }).released ?? 0} gifts.`;
@@ -220,7 +223,10 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       const at = new Date().toISOString();
       const str = (k: string) => String(body[k] ?? "");
       let error: string | undefined;
-      switch (body["action"]) {
+      // Outcome types (DECISIONS 103): the same pure rule the server uses.
+      const ot = typeof body["action"] === "string" && (body["action"] as string).startsWith("ot-") ? applyOutcomeTypeAction(state.outcomeTypes, state.frameworks.map((f) => f.id), [...new Set(state.outcomes.map((o) => o.outcomeTypeId ?? "").filter((x) => x !== ""))], body) : null;
+      if (ot) { if ("error" in ot) error = ot.error; else state.outcomeTypes = ot.types; }
+      else switch (body["action"]) {
         case "add": { const r = addOutcomes(state.outcomes, { name: str("name"), count: Number(body["count"] ?? 1), type: str("type"), cohort: str("cohort"), frameworkId: str("frameworkId") }); if (!state.frameworks.some((f) => f.id === str("frameworkId"))) error = "Choose a framework for the outcome."; else if (r.error) error = r.error; else state.outcomes = r.value; break; }
         case "active": state.outcomes = setActive(state.outcomes, str("id"), body["active"] === true); break;
         case "remove": { const r = removeOutcome(state.outcomes, state.allocations, str("id")); if (r.error) error = r.error; else state.outcomes = r.value; break; }
@@ -1174,3 +1180,35 @@ document.addEventListener("dragstart", (e) => mapping.onDragStart(e as DragEvent
 document.addEventListener("dragover", (e) => { mapping.onDragOver(e as DragEvent); });
 document.addEventListener("dragleave", (e) => mapping.onDragLeave(e as DragEvent));
 document.addEventListener("drop", (e) => { mapping.onDrop(e as DragEvent); });
+
+// ---- Outcome types on the Categories and frameworks page (DECISIONS 103) ----
+// Buttons carry data-ot-act, fields and drop-downs carry data-ot. Each becomes one request, applied on the server when live and in the browser in the demo.
+document.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest?.("[data-ot-act]") as HTMLElement | null;
+  if (!b) return;
+  const typeId = b.dataset.typeId ?? "";
+  const fieldId = b.dataset.fieldId ?? "";
+  const val = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value ?? "";
+  switch (b.dataset.otAct) {
+    case "add": return void outcomeChange({ action: "ot-add", name: val("newot") });
+    case "remove": return void outcomeChange({ action: "ot-remove", typeId });
+    case "up": return void outcomeChange({ action: "ot-field-move", typeId, fieldId, by: -1 });
+    case "down": return void outcomeChange({ action: "ot-field-move", typeId, fieldId, by: 1 });
+    case "field-remove": return void outcomeChange({ action: "ot-field-remove", typeId, fieldId });
+    case "field-add": return void outcomeChange({ action: "ot-field-add", typeId, label: val(`otf-label-${typeId}`), kind: val(`otf-kind-${typeId}`) });
+  }
+});
+document.addEventListener("change", (e) => {
+  const t = e.target as HTMLInputElement | HTMLSelectElement;
+  const what = t.dataset?.ot;
+  if (what === undefined) return;
+  const typeId = t.dataset["typeId"] ?? "";
+  const fieldId = t.dataset["fieldId"] ?? "";
+  if (what === "rename") void outcomeChange({ action: "ot-rename", typeId, name: t.value });
+  else if (what === "source") void outcomeChange({ action: "ot-source", typeId, source: t.value });
+  else if (what === "assign") void outcomeChange({ action: "ot-assign", typeId, assign: t.value });
+  else if (what === "framework") void outcomeChange({ action: "ot-framework", typeId, frameworkId: t.dataset["frameworkId"] ?? "", on: (t as HTMLInputElement).checked });
+  else if (what === "required") void outcomeChange({ action: "ot-field-set", typeId, fieldId, required: (t as HTMLInputElement).checked });
+  else if (what === "inreport") void outcomeChange({ action: "ot-field-set", typeId, fieldId, inReport: (t as HTMLInputElement).checked });
+  else if (what === "options") void outcomeChange({ action: "ot-field-set", typeId, fieldId, options: t.value });
+});

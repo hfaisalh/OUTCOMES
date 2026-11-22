@@ -32,6 +32,8 @@ export interface Outcome {
   projectId?: string; // the project it belongs to, absent for one made before projects existed (DECISIONS 65)
   nodeId?: string; // the place in the project's structure where it lives
   typeId?: string; // the project's type of beneficiary it is
+  outcomeTypeId?: string; // the organisation's outcome type it is (child, water pump, ...), which gives its profile fields (DECISIONS 103)
+  profile?: Record<string, string>; // its profile: field id to value, for the fields of its outcome type
   groupIds?: string[]; // the groups it is in inside its place, such as a class and a house (DECISIONS 71)
   ref?: string; // its own ID in the organisation's records, such as the child ID. Unique. Gifts can be placed only on beneficiaries that have one, if the organisation asks for it (DECISIONS 75)
 }

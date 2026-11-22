@@ -193,3 +193,10 @@ td.bad{color:#d23b3b;font-weight:600}
 .filters input[type=search]{flex:1 1 150px;min-width:120px}.filters select{max-width:140px}.filters input[type=date]{width:128px}.filters button{white-space:nowrap}
 .tabrow{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.tabrow .pickup{font-size:12px}
 .metric .smrow{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px}.metric .sm{font-size:12px;color:var(--muted)}.metric .sm b{display:inline;font-size:13px;color:var(--text)}.metric.warn b{color:#c47a00}
+
+/* Outcome types (DECISIONS 103) */
+.ot{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;background:var(--card)}.ot-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.ot-name{font:inherit;font-weight:600;font-size:15px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit}
+.ot-rules{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0}.ot-rules label{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--muted)}.ot-rules select,.ot-add input,.ot-add select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text)}
+.ot-fw{margin:6px 0;font-size:13px}.ot-check{display:inline-flex;gap:4px;align-items:center;margin-right:10px}
+.ot-fields{font-size:13px;margin-top:6px}.ot-fields th,.ot-fields td{padding:4px 8px}.ot-fields input[type=text],.ot-fields td input:not([type=checkbox]){font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:inherit}.ot-actions{white-space:nowrap}.ot-actions button{padding:1px 8px}
+.ot-add{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.ot-add input{flex:1 1 220px}
