@@ -121,8 +121,8 @@ function paymentsTable(g: GiftRow, v: View): string {
       <td>${inst}${catchUp}</td>
       <td class="num"><span class="cellend">${w.legacyUpload ? `<span class="muted">\u2013</span>` : partsOf(w)}${hand}</span></td>
       <td class="num">${money(lineValue(w), w.currency)}</td>
-      <td class="actcol">${monthsCell}</td>
-      <td class="actcol">${lastCell}</td></tr>`;
+      <td class="actcol"><div class="actbox">${monthsCell}</div></td>
+      <td class="actcol"><div class="actbox">${lastCell}</div></td></tr>`;
   };
   return `<div class="paywrap"><table class="subtable"><thead><tr><th class="c"></th><th>Reference</th><th>Paid</th><th>Instalment</th><th class="num">Parts</th><th class="num">Value</th><th class="actcol"></th><th class="actcol"></th></tr></thead><tbody>${g.payments.map(row).join("")}</tbody></table></div>`;
 }

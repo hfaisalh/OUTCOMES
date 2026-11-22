@@ -237,3 +237,6 @@ details.mo{display:inline-block;position:relative;margin-left:6px;vertical-align
 .subtable td.actcol details.mo{display:inline-flex;margin:0;height:26px;align-items:center;justify-content:center}
 select:not([multiple]){-webkit-appearance:none;appearance:none;background-color:var(--card);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%237a829e' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:12px;padding-right:30px;min-height:32px;border-radius:8px;cursor:pointer}
 select:not([multiple]):focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* Both buttons sit in a box of the same height with the content centred, so they share one line in the middle of the row (DECISIONS 125) */
+.actbox{display:flex;align-items:center;justify-content:center;height:30px}.actbox details.mo,.actbox .iconact{margin:0;vertical-align:middle;flex:0 0 auto}.actbox details.mo>summary{margin:0}

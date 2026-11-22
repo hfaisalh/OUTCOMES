@@ -281,3 +281,5 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 
 124. **Fix to decision 123: the button columns are part of the payments table (22 Nov 2026).** The two button columns were given the class `ico`, which is also the class of the rounded icon tiles, so they were drawn as separate blue boxes. They now use their own class, `actcol`, with no background, so the buttons sit in plain table cells under empty headers, in the same rows and the same line as the other columns.
 
+125. **The payment buttons are centred in the row and aligned (22 Nov 2026).** The calendar sat low because it is an inline element that rests on the text baseline, while the cross was a plain button. Both now sit in a box of the same height with their content centred, one box in each button column, so they share one line through the middle of the row.
+
