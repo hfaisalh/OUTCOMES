@@ -83,7 +83,8 @@ describe("giftsPage", () => {
     expect(placed).toContain("Aghosh");
     expect(giftListHtml(view({ workOrders: orders, frameworks: fws, outcomes, projects: partners, allocations: [] }))).toContain("Waiting for allocation");
     expect(giftListHtml(view({ workOrders: orders.map((w) => ({ ...w, frameworkId: "" })), frameworks: fws }))).toContain("It needs a framework first");
-    // a cancelled plan needs no allocation
+    // a paused plan stays parked and says so, and a cancelled one is parked as cancelled (DECISIONS 102)
+    expect(giftListHtml(view({ workOrders: orders.map((w) => ({ ...w, planStatus: "paused" })), frameworks: fws }))).toContain("Plan paused, parked until payments resume");
     expect(giftListHtml(view({ workOrders: orders.map((w) => ({ ...w, planStatus: "cancelled" })), frameworks: fws }))).not.toContain("Waiting for allocation");
   });
   it("filters to unrouted only, and narrows the list by the filter boxes and says how many are shown", () => {

@@ -123,10 +123,12 @@ function allocationContext(v: View) {
     if (keys.has(g.allocationKey)) {
       const a = allocationOf.get(g.allocationKey);
       const o = a ? outcomeById.get(a.outcomeId) : undefined;
-      return o ? { state: "placed", who: o.name, partner: partnerName(o.projectId) || "No partner", parts: a && a.parts !== g.parts ? a.parts : null, why: "" } : { state: "waiting", who: "", partner: "", parts: null, why: "Waiting for a place" };
+      return o ? { state: "placed", who: o.name, partner: partnerName(o.projectId) || "No partner", parts: a && a.parts !== g.parts ? a.parts : null, why: "" } : { state: "waiting", who: "", partner: "", parts: null, why: g.planStatus === "paused" ? "Plan paused, parked until payments resume" : "" };
     }
     // Rule (DECISIONS 98): every gift needs an allocation. One that cannot be allocated yet is waiting, with the reason, except a cancelled plan, which needs none.
-    if (g.planStatus === "cancelled") return { state: "none", who: "", partner: "", parts: null, why: "Plan cancelled, nothing to allocate" };
+    // Rule (DECISIONS 102): a paused plan stays parked and says so. A cancelled one is parked as cancelled, and can be excluded by hand until the donor pays again.
+    if (g.planStatus === "paused") return { state: "waiting", who: "", partner: "", parts: null, why: "Plan paused, parked until payments resume" };
+    if (g.planStatus === "cancelled") return { state: "none", who: "", partner: "", parts: null, why: "Plan cancelled, parked. Exclude it by hand if it is not coming back" };
     return { state: "waiting", who: "", partner: "", parts: null, why: g.frameworkId === "" ? "It needs a framework first" : "Not allocated yet. Allocation for this kind of gift is built later" };
   };
 }
@@ -180,7 +182,7 @@ export function giftListHtml(v: View): string {
   const allocCell = (g: GiftRow): string => {
     const a = where(g);
     if (a.state === "placed") return `<span title="${esc(a.who)} at ${esc(a.partner)}">${esc(a.who)} <span class="muted">${esc(a.partner)}</span></span>`;
-    if (a.state === "waiting") return icon("warn", SYMBOL.waiting, a.why ? `Waiting for allocation. ${a.why}` : "Waiting for allocation");
+    if (a.state === "waiting") return a.why.startsWith("Plan paused") ? icon("muted", PLAN_ICON["paused"]![0], a.why) : icon("warn", SYMBOL.waiting, a.why ? `Waiting for allocation. ${a.why}` : "Waiting for allocation");
     return a.state === "none" ? `<span class="muted" title="${esc(a.why)}">\u2013</span>` : "";
   };
 
