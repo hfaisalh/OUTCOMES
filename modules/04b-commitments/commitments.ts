@@ -25,7 +25,7 @@
 import { partsOf, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import { coverage, plusMonths } from "./catch-up.js";
 
-// Rule (DECISIONS 83): the parts of one instalment. A payment that covers several instalments holds that many instalments worth of parts.
+// Rule (DECISIONS 84): the parts of one instalment. A payment that covers several instalments holds that many instalments worth of parts.
 const partsPer = (w: WorkOrder): number => Math.max(1, Math.round(partsOf(w) / (w.covers ?? 1)));
 
 export type CommitmentState = "complete" | "in_progress" | "open_ended";
@@ -104,7 +104,7 @@ export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
       const have = new Set(numbers);
       for (let n = (numbers[0] as number) + 1; n < (numbers[numbers.length - 1] as number); n++) if (!have.has(n)) gaps.push(n);
     }
-    // Rule (DECISIONS 83): a payment that covers more than one instalment counts for that many.
+    // Rule (DECISIONS 84): a payment that covers more than one instalment counts for that many.
     const paid = real.reduce((n, w) => n + (w.covers ?? 1), 0);
     commitments.push({
       subscriptionId,

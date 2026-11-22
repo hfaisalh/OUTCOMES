@@ -278,7 +278,7 @@ async function applyExclusion(keys: string[], restoring: boolean, reason: string
   draw();
 }
 
-// Says how many instalments a payment covers (DECISIONS 83), on the server when live, in the browser in the demo.
+// Says how many instalments a payment covers (DECISIONS 84), on the server when live, in the browser in the demo.
 async function applyCovers(key: string, covers: number): Promise<void> {
   try {
     if (state.live()) {

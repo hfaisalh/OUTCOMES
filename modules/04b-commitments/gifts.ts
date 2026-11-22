@@ -45,7 +45,7 @@ export interface GiftRow {
   inReview: boolean; // a payment is held for review
   unrouted: boolean; // a payment is waiting for a category
   suggestions: Suggestion[]; // for an unlinked recurring line
-  catchUps: CatchUp[]; // payments that look like they cover more than one instalment, not yet checked by a person (DECISIONS 83)
+  catchUps: CatchUp[]; // payments that look like they cover more than one instalment, not yet checked by a person (DECISIONS 84)
   commitment?: Commitment;
 }
 

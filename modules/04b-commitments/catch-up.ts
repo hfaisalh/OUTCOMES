@@ -2,7 +2,7 @@
  * catch-up.ts
  *
  * What it does: finds recurring payments that look like a catch-up (one payment that covers more than one instalment, for example a failed month
- * taken together with the next), works out which months it fills, and counts the months a gift has paid when some payments cover more than one (DECISIONS 83).
+ * taken together with the next), works out which months it fills, and counts the months a gift has paid when some payments cover more than one (DECISIONS 84).
  * Who calls it: commitments.ts (paid months and paid count), gifts.ts (the suggestion on a gift) and the Gifts page.
  * Depends on: the work order type and lineValue only. Pure functions: no database, no screen. OUTCOMES's own suggestion method, no AI, so it is
  * explainable and can be ported to Apex.
@@ -11,7 +11,7 @@
  * - A payment covers 1 instalment unless a person says otherwise (`covers` on the work order). 1 set by a person means "checked, it is a normal payment".
  * - A suggestion is made only for a payment nobody has checked yet. The usual value is the value that most of the gift's payments share, and it needs
  *   at least two payments with that value. A payment worth 2 to 6 times the usual value, within 2 percent, is suggested as a catch-up covering that many.
- * - Which months a catch-up fills (Faisal, DECISIONS 83): a gap before it comes first, nearest the payment first. With no gap it covers the month
+ * - Which months a catch-up fills (Faisal, DECISIONS 84): a gap before it comes first, nearest the payment first. With no gap it covers the month
  *   before, and the one before that, and so on. It never fills a month another payment already covers.
  * - A suggestion changes nothing. A person applies it or dismisses it.
  */

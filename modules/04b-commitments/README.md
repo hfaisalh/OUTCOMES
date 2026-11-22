@@ -20,5 +20,5 @@ The saved work orders (excluded ones are left out).
 `npm test`. `commitments.test.ts` is pure and shows each rule on invented work orders.
 
 
-## Catch-up payments (DECISIONS 83)
+## Catch-up payments (DECISIONS 84)
 `catch-up.ts` spots a payment that looks like it covers more than one instalment (worth 2 to 6 times the usual value), suggests the months it fills (a gap first, else the months before), and counts covered months. A person applies or dismisses each suggestion. Tests: `catch-up.test.ts`.
