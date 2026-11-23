@@ -1541,3 +1541,12 @@ document.addEventListener("change", (e) => {
     return;
   }
 });
+
+// In the partner's benefits table, capacity and cost can only be filled in for a benefit that is ticked.
+document.addEventListener("change", (e) => {
+  const t = e.target as HTMLInputElement | null;
+  if (!t?.classList?.contains("pf-item")) return;
+  const row = t.closest("tr");
+  row?.classList.toggle("on", t.checked);
+  row?.querySelectorAll(".pf-cap,.pf-cost").forEach((i) => ((i as HTMLInputElement).disabled = !t.checked));
+});
