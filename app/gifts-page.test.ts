@@ -166,7 +166,7 @@ describe("giftsPage", () => {
       sub(1, { key: "d1", subscriptionId: "SD" }),
       sub(1, { key: "e1", subscriptionId: "SE", projectName: "Where Needed Most", cause: "Where Most Needed" }),
     ] }));
-    expect(html).toContain('<span class="muted" title="Where Most Needed">General</span>'); // the cause is itself general
+    expect(html).toContain('<span class="muted" title="Where Most Needed. No project was chosen: the gift is for its item">No project</span>'); // the cause is itself general: it says No project, not General
     expect(html).toContain("<th>Project</th>");
     expect(html).toContain('title="Aghosh. Cause: Orphan Care">Aghosh'); // a named project is shown, its cause is in the tooltip
     expect(html).toContain('<span class="muted">Water for All</span>'); // general: the cause instead

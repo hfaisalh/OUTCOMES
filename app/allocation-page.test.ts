@@ -36,7 +36,8 @@ describe("allocationPage", () => {
     expect(html).toContain("Gifts waiting");
     expect(html).toContain("Aghosh Orphan Homes");
     expect(html).toContain("Directed: Aghosh");
-    expect(html).toContain("General");
+    expect(html).toContain("No project");
+    expect(html).not.toContain("General");
     expect(html).toContain("Suggested: Branch 1 &gt; Orphan 1");
     expect(html).toContain('draggable="true"');
     expect(html).toContain('data-drop-node="');

@@ -149,7 +149,7 @@ export function shownGiftKeys(v: View): string[] {
   return listData(v).rows.slice(0, MAX_ROWS).flatMap((r) => r.payments.map((w) => w.key));
 }
 
-// Rule (DECISIONS 108): the project the donor chose in the CRM. A general gift (Where Needed Most, or none) is shown quietly, since it can go anywhere.
+// Rule (DECISIONS 108): the project the donor chose in the CRM. A gift with no project (blank, or the CRM's Where Needed Most) is shown quietly. It is not a general fund: it is for its own item (DECISIONS 157).
 export { shortDate };
 
 // Rule (DECISIONS 119): a plan with no end is shown as the infinity sign, with the words in a tooltip.
@@ -158,9 +158,9 @@ const countText = (count: string): string => (/indefinite/i.test(count) || count
 const projectCell = (name: string, cause = ""): string => {
   const general = name === "" || /^where needed most$/i.test(name.trim());
   if (!general) return esc(name);
-  // A general gift shows its cause instead (Water for All, Orphan Care), quietly. With no cause either, a dash.
-  // When the cause itself is Where Most Needed, the gift is simply general, so it says General.
-  if (/^where (most|needed)/i.test(cause.trim())) return `<span class="muted" title="${esc(cause)}">General</span>`;
+  // A gift with no project shows its cause instead (Water for All, Orphan Care), quietly. With no cause either, a dash.
+  // When the cause itself is Where Most Needed, it says No project, since the item still says what the gift is for.
+  if (/^where (most|needed)/i.test(cause.trim())) return `<span class="muted" title="${esc(cause)}. No project was chosen: the gift is for its item">No project</span>`;
   return cause ? `<span class="muted">${esc(cause)}</span>` : `<span class="muted">\u2013</span>`;
 };
 

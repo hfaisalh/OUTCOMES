@@ -37,7 +37,7 @@ export function projectFormHtml(g: Partial<GiftProject>, id: string, ctx: Projec
         <div class="pf-vendors" id="pr-vendors">${ordered.length ? ordered.map((p) => `<div class="pf-vendor"><label class="tick"><input type="checkbox" class="pr-partner" value="${esc(p.id)}"${partners.has(p.id) ? " checked" : ""} /> ${esc(p.name)}</label><span class="pf-vbtns"><button type="button" data-pj="vup" aria-label="Move up" title="Move up">&uarr;</button><button type="button" data-pj="vdown" aria-label="Move down" title="Move down">&darr;</button></span></div>`).join("") : '<span class="muted">No partners yet. Add them on the Partners page.</span>'}</div></section>
       <section><label class="pf-field wide"><span>Notes</span><textarea id="pr-notes" rows="2">${esc(g.notes ?? "")}</textarea></label></section>
     </div>
-    <footer><span id="pr-error" class="pf-error" role="alert">${esc(error)}</span>${id ? '<button data-pj="remove" title="Remove this project. Its CRM names become general gifts">Remove project</button>' : ""}<button data-pj="cancel">Cancel</button><button class="primary" data-pj="save">Save project</button></footer>
+    <footer><span id="pr-error" class="pf-error" role="alert">${esc(error)}</span>${id ? '<button data-pj="remove" title="Remove this project. Gifts that carried its CRM names then have no project">Remove project</button>' : ""}<button data-pj="cancel">Cancel</button><button class="primary" data-pj="save">Save project</button></footer>
   </div></div>`;
 }
 

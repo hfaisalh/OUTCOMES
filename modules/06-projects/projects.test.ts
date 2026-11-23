@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Allocation } from "../05-outcomes/outcomes";
 import type { Commitment } from "../04b-commitments/commitments";
-import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, autoCreateProjects, isGeneralProjectName, projectOffers, projectVendors, itemsSeenWith, capacityFor, eligiblePartners, samplePartnerProfile, SAMPLE_PARTNER_REFERENCE, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, removePartner, rollupOf, setNodeField, type Node, type Project } from "./projects";
+import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, autoCreateProjects, isGeneralProjectName, noProjectCount, projectOffers, projectVendors, itemsSeenWith, capacityFor, eligiblePartners, samplePartnerProfile, SAMPLE_PARTNER_REFERENCE, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, removePartner, rollupOf, setNodeField, type Node, type Project } from "./projects";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -220,7 +220,7 @@ describe("projects: what a donor chooses, and the partners that deliver it (DECI
   it("lists the names on real gifts with their counts, the project each is in, and a suggestion for one that is not", () => {
     const gps = [gp({ name: "Aghosh Orphan Homes", crmNames: ["Aghosh"] })];
     const list = crmNamesOf([...orders(["Where Needed Most", "Where Needed Most", "Aghosh", "", "Aghosh Girls Home", "Hope for Palestine"]), { projectName: "Aghosh", status: "excluded" }], gps);
-    expect(list.map((x) => [x.name, x.gifts])).toEqual([["Where Needed Most", 2], ["Aghosh", 1], ["Aghosh Girls Home", 1], ["Hope for Palestine", 1]]);
+    expect(list.map((x) => [x.name, x.gifts])).toEqual([["Aghosh", 1], ["Aghosh Girls Home", 1], ["Hope for Palestine", 1]]); // Where Needed Most is not a project, so it is not listed
     expect(list.find((x) => x.name === "Aghosh")).toMatchObject({ giftProjectId: "aghosh", suggestion: "" });
     expect(list.find((x) => x.name === "Aghosh Girls Home")).toMatchObject({ giftProjectId: "", suggestion: "aghosh" });
     expect(list.find((x) => x.name === "Hope for Palestine")).toMatchObject({ giftProjectId: "", suggestion: "" });
@@ -264,6 +264,9 @@ describe("projects: what a donor chooses, and the partners that deliver it (DECI
 
 describe("projects made automatically from the project a gift carries (DECISIONS 155)", () => {
   const w = (projectName: string | undefined, status = "ready") => ({ projectName, status });
+  it("counts the gifts that have no project, which are for their own items and not a general fund (DECISIONS 157)", () => {
+    expect(noProjectCount([w("Where Needed Most"), w(" where needed most "), w(""), w(undefined), w("Aghosh"), w("Where Needed Most", "excluded")])).toBe(4);
+  });
   it("says which names are general: blank and Where Needed Most, in any case", () => {
     for (const n of ["", "  ", "Where Needed Most", " where  needed most "]) expect(isGeneralProjectName(n)).toBe(true);
     for (const n of ["Dadyal Orphan Complex", "Where Most Needed"]) expect(isGeneralProjectName(n)).toBe(false);

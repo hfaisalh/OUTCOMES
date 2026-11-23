@@ -34,8 +34,11 @@ describe("projectsPage", () => {
     const gps = [{ id: "aghosh", name: "Aghosh Orphan Homes", crmNames: [], partnerIds: [] }];
     const html = projectsPage(base({ projects: partners, giftProjects: gps, workOrders: [wo("Where Needed Most"), wo("Where Needed Most"), wo("Aghosh Girls Home"), wo("Hope for Palestine")] }));
     expect(html).toContain("Names the CRM uses");
-    expect(html).toContain('data-crm-project="Where Needed Most"');
-    expect(html).toContain("No project (general)");
+    expect(html).not.toContain('data-crm-project="Where Needed Most"'); // it is not a project, so it is not listed
+    expect(html).toContain("Gifts with no project <span class=\"muted\">(2)</span>"); // counted on its own, not as a project
+    expect(html).toContain("not a general fund");
+    expect(html).toContain("<option value=\"\">No project</option>");
+    expect(html).not.toContain("(general)");
     expect(html).toContain('data-action="assign-crm" data-name="Aghosh Girls Home" data-project="aghosh"');
     expect(html).toContain("Use 1 suggestion");
     expect(html).toContain('data-pj="from-name" data-name="Hope for Palestine"'); // a name with no project and no suggestion can start one

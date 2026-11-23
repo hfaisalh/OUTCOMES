@@ -7,7 +7,7 @@
  * Who calls it: app/main.ts. Depends on: Module 6 (projects), and esc and View from pages.ts.
  */
 
-import { crmNamesOf, itemsSeenWith } from "../modules/06-projects/projects";
+import { crmNamesOf, itemsSeenWith, noProjectCount } from "../modules/06-projects/projects";
 import { esc, type View } from "./pages";
 
 export function projectsPage(v: View): string {
@@ -19,7 +19,7 @@ export function projectsPage(v: View): string {
   const itemName = (id: string) => v.flaggedItems.find((i) => i.id === id)?.name ?? id;
 
   const head = `<h1>Projects</h1>
-    <p class="sub">A project is what a donor chooses on the website, such as Aghosh. A gift carries the project's name from the CRM. Here you say which CRM names belong to each project, which benefits it offers, and which vendors deliver it, in order. A gift for a project can go to any of its partners and is spread across them. A gift with no project is general and can go to any partner.</p>
+    <p class="sub">A project is what a donor chooses on the website, such as Aghosh. A gift carries the project's name from the CRM. Here you say which CRM names belong to each project, which benefits it offers, and which vendors deliver it, in order. A gift for a project can go to any of its partners and is spread across them. A gift with no project is not a general fund: it is for its own item, and goes to any partner that delivers that item.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="actions"><button class="primary" data-pj="new">New project</button></div>`;
 
@@ -34,9 +34,13 @@ export function projectsPage(v: View): string {
   const suggestable = names.filter((n) => n.suggestion !== "");
   const gpName = (id: string) => gps.find((g) => g.id === id)?.name ?? id;
   const namesCard = names.length ? `<div class="card"><h2>Names the CRM uses <span class="muted">(${names.length})</span></h2>
-    <p class="muted">The project a donor chose, counted on your gifts. Put each name in a project. A name in no project is a general gift. Where Needed Most should stay in none.</p>
+    <p class="muted">The project a donor chose, counted on your gifts. Put each name in a project. A name in no project makes its gifts wait for a person. "Where Needed Most" is not a project and is not listed: it means the donor did not choose one.</p>
     ${suggestable.length ? `<div class="actions"><button class="primary" data-action="assign-crm-all" data-pairs="${esc(JSON.stringify(suggestable.map((n) => [n.name, n.suggestion])))}">Use ${suggestable.length} suggestion${suggestable.length === 1 ? "" : "s"}</button></div>` : ""}
-    <div class="twrap"><table><thead><tr><th>CRM name</th><th>Gifts</th><th>Project</th></tr></thead><tbody>${names.map((n) => `<tr><td>${esc(n.name)}</td><td>${n.gifts}</td><td><select data-crm-project="${esc(n.name)}" aria-label="Project of ${esc(n.name)}"><option value="">No project (general)</option>${gps.map((g) => `<option value="${esc(g.id)}"${g.id === n.giftProjectId ? " selected" : ""}>${esc(g.name)}</option>`).join("")}</select>${n.suggestion ? ` <button data-action="assign-crm" data-name="${esc(n.name)}" data-project="${esc(n.suggestion)}">Use ${esc(gpName(n.suggestion))}</button> <span class="muted">suggested</span>` : ""}${n.giftProjectId === "" && !n.suggestion ? ` <button class="primary" data-pj="create-now" data-name="${esc(n.name)}" data-items="${esc(itemsSeenWith(v.workOrders, n.name).join(","))}" title="Makes the project at once, offering the benefits seen on its gifts. Add vendors afterwards.">Create project</button> <button data-pj="from-name" data-name="${esc(n.name)}" data-items="${esc(itemsSeenWith(v.workOrders, n.name).join(","))}">New project from this name</button>` : ""}</td></tr>`).join("")}</tbody></table></div></div>`
+    <div class="twrap"><table><thead><tr><th>CRM name</th><th>Gifts</th><th>Project</th></tr></thead><tbody>${names.map((n) => `<tr><td>${esc(n.name)}</td><td>${n.gifts}</td><td><select data-crm-project="${esc(n.name)}" aria-label="Project of ${esc(n.name)}"><option value="">No project</option>${gps.map((g) => `<option value="${esc(g.id)}"${g.id === n.giftProjectId ? " selected" : ""}>${esc(g.name)}</option>`).join("")}</select>${n.suggestion ? ` <button data-action="assign-crm" data-name="${esc(n.name)}" data-project="${esc(n.suggestion)}">Use ${esc(gpName(n.suggestion))}</button> <span class="muted">suggested</span>` : ""}${n.giftProjectId === "" && !n.suggestion ? ` <button class="primary" data-pj="create-now" data-name="${esc(n.name)}" data-items="${esc(itemsSeenWith(v.workOrders, n.name).join(","))}" title="Makes the project at once, offering the benefits seen on its gifts. Add vendors afterwards.">Create project</button> <button data-pj="from-name" data-name="${esc(n.name)}" data-items="${esc(itemsSeenWith(v.workOrders, n.name).join(","))}">New project from this name</button>` : ""}</td></tr>`).join("")}</tbody></table></div></div>`
     : `<div class="card"><h2>Names the CRM uses</h2><div class="empty">No gifts carry a project name yet. Load the donation lines with the Project column ticked.</div></div>`;
-  return `${head}${table}${namesCard}`;
+  // Rule (DECISIONS 157): gifts with no project are counted here, not listed as a project. Each is for its own item.
+  const none = noProjectCount(v.workOrders);
+  const noneCard = none > 0 ? `<div class="card"><h2>Gifts with no project <span class="muted">(${none})</span></h2>
+    <p class="muted">The donor did not choose a project: the CRM project is blank or "Where Needed Most". These are not a general fund that can go anywhere. Each is for its own item and goes to any partner that delivers that item.</p></div>` : "";
+  return `${head}${table}${namesCard}${noneCard}`;
 }

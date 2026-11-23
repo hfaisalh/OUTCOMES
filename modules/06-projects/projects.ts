@@ -843,7 +843,8 @@ export function itemsSeenWith(workOrders: { projectName?: string; itemId: string
   return [...new Set(workOrders.filter((w) => w.status !== "excluded" && clean(w.projectName ?? "").toLowerCase() === n && w.itemId !== "").map((w) => w.itemId))];
 }
 
-// Rule (DECISIONS 66, 155): a gift is general when its CRM project is blank or "Where Needed Most". Any other name is the donor's choice.
+// Rule (DECISIONS 66, 155, 157): a gift has no project when its CRM project is blank or "Where Needed Most". Any other name is the donor's choice. A gift with no project is NOT a general fund
+// that can go anywhere: it is for its own item, so it goes to partners and projects that deliver that item.
 export const isGeneralProjectName = (name: string): boolean => { const n = clean(name).toLowerCase(); return n === "" || n === "where needed most"; };
 
 /**
@@ -898,11 +899,15 @@ const words = (s: string): string[] => s.toLowerCase().split(/[^a-z0-9]+/).filte
 
 // Rule: the names the CRM uses on gifts, with how many gifts each has and the project each belongs to. Names are read from the work orders, so the list is always real.
 // For a name in no project, a project that shares a whole word with it is suggested (Aghosh with Aghosh Orphan Homes). A person decides.
+// How many gifts have no project (blank, or the CRM's Where Needed Most). Excluded payments are left out.
+export const noProjectCount = (workOrders: { projectName?: string; status: string }[]): number => workOrders.filter((w) => w.status !== "excluded" && isGeneralProjectName(w.projectName ?? "")).length;
+
 export function crmNamesOf(workOrders: { projectName?: string; status: string }[], gps: GiftProject[]): CrmName[] {
   const count = new Map<string, number>();
   for (const w of workOrders) {
     const n = clean(w.projectName ?? "");
-    if (n !== "" && w.status !== "excluded") count.set(n, (count.get(n) ?? 0) + 1);
+    // Rule (DECISIONS 157): "Where Needed Most" is not a project. It means the donor did not choose one, so it is not listed here (see noProjectCount).
+    if (n !== "" && !isGeneralProjectName(n) && w.status !== "excluded") count.set(n, (count.get(n) ?? 0) + 1);
   }
   return [...count.entries()].map(([name, gifts]): CrmName => {
     const own = gps.find((g) => same(g.name, name) || g.crmNames.some((x) => same(x, name)));

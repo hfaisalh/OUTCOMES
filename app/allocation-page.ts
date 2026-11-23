@@ -63,7 +63,7 @@ export function allocationPage(v: View): string {
   const buffer = `<label class="muted">A payment that is still unpaid <input type="number" min="0" max="90" value="${v.graceDays ?? 15}" data-grace aria-label="Grace days" style="width:64px" /> days after it was due makes the child eligible for reallocation. The place stays until a manager approves the release below.</label>`;
   const summary = `<div class="card"><h2>By partner</h2>
     ${sum.rows.length ? `<div class="twrap"><table><thead><tr><th>Partner</th><th>Beneficiaries</th><th>Units</th><th>Sponsored</th><th>Free</th><th>Behind, in grace</th><th>Release due</th><th>Waiting (parts)</th><th>Surplus or deficit</th><th>Takes gifts</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">No partners yet. Create one on the Partners page.</div>`}
-    <p class="muted">${sum.generalWaiting.gifts} general gift${sum.generalWaiting.gifts === 1 ? "" : "s"} waiting (${sum.generalWaiting.parts} units), which can go to any partner. Surplus or deficit is the free units minus the parts of waiting gifts.</p>
+    <p class="muted">${sum.generalWaiting.gifts} gift${sum.generalWaiting.gifts === 1 ? "" : "s"} with no project waiting (${sum.generalWaiting.parts} units). Each is for its own item, so it can go to any partner that delivers that item. Surplus or deficit is the free units minus the parts of waiting gifts.</p>
     ${holdNote}
     ${buffer}
     <label class="muted"><input type="checkbox" data-require-ref${v.requireRef ? " checked" : ""} /> Allocate gifts only to beneficiaries that have an ID. Give IDs on each partner's Beneficiaries tab.</label></div>`;
@@ -73,7 +73,7 @@ export function allocationPage(v: View): string {
     const o = sug ? byOutcome.get(sug) : undefined;
     const directed = (opts.projectIdsFor?.(c.projectName) ?? []).length > 0;
     return `<div class="gift" draggable="true" data-drag-key="${esc(c.subscriptionId)}">
-      <div class="row"><b>${esc(c.itemName)}</b><span class="tag ${directed ? "dir" : ""}">${directed ? `Directed: ${esc(c.projectName)}` : "General"}</span></div>
+      <div class="row"><b>${esc(c.itemName)}</b><span class="tag ${directed ? "dir" : ""}">${directed ? `Directed: ${esc(c.projectName)}` : "No project"}</span></div>
       <span class="note">${c.partsPerInstalment} part${c.partsPerInstalment === 1 ? "" : "s"}, ${c.once ? `one payment for ${c.planned} months` : c.planned === null ? "monthly, no end date" : `monthly, ${c.paid} of ${c.planned} paid`}. Given ${esc(shortDate(c.firstPaid))}.</span>
       ${o ? `<span class="suggest">Suggested: ${esc(o.nodeId ? nodeLabel(o.nodeId) : "")}${o.nodeId ? " &gt; " : ""}${esc(o.name)}</span>` : `<span class="tag hold">Waiting</span> <span class="note">${esc(why.get(c.subscriptionId) ?? "")}</span>`}
       <select data-place-select="${esc(c.subscriptionId)}" aria-label="Place in"><option value="">Place in...</option>${placeOptions}</select></div>`;
