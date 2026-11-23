@@ -1,7 +1,7 @@
 /**
  * kind-features.ts
  *
- * What it does: the features of each kind of benefit (DECISIONS 146). The six kinds (Person(s), Activity, Build, Distribution, Programme, Waqf) are fixed and always present (benefits.ts).
+ * What it does: the features of each type of benefit (DECISIONS 146). Called "kind" in the code and in the saved settings (itemKinds, kindFeatures), shown as "type" on screen (DECISIONS 147). The six kinds (Person(s), Activity, Build, Distribution, Programme, Waqf) are fixed and always present (benefits.ts).
  * Each has features that are managed here: a description, a few properties (needs a location, holds sensitive data, eligibility check, on behalf of, who receives) and the profile
  * fields a beneficiary of that kind holds (each with a type, whether it is needed first, and whether it goes in the donor report). Each kind starts with sensible defaults, and only a
  * kind a person has changed is saved. This module holds the defaults and the changes, as pure functions.
@@ -60,7 +60,7 @@ export const isCustomised = (saved: SavedFeatures, kind: string): boolean => sav
 type Result = { value: SavedFeatures } | { error: string };
 const isKindId = (x: string): x is BenefitKind => KINDS.some((k) => k.id === x);
 const change = (saved: SavedFeatures, kind: string, edit: (cur: KindFeatures) => KindFeatures | string): Result => {
-  if (!isKindId(kind)) return { error: "That kind was not found." };
+  if (!isKindId(kind)) return { error: "That type was not found." };
   const next = edit(featuresOf(saved, kind));
   return typeof next === "string" ? { error: next } : { value: { ...saved, [kind]: next } };
 };
@@ -77,15 +77,15 @@ export function setProp(saved: SavedFeatures, kind: string, prop: string, value:
 export function addField(saved: SavedFeatures, kind: string, label: string, type: string): Result {
   const l = label.trim();
   if (l.length < 2) return { error: "Give the field a name." };
-  if (!FIELD_KINDS.some((k) => k.id === type)) return { error: "That field type is not known." };
-  return change(saved, kind, (c) => c.fields.length >= 40 ? "A kind has at most 40 fields." : { ...c, fields: [...c.fields, { id: uniqueId(l, c.fields.map((x) => x.id)), label: l.slice(0, 60), type: type as FieldKind, required: false, inReport: false }] });
+  if (!FIELD_KINDS.some((k) => k.id === type)) return { error: "That field format is not known." };
+  return change(saved, kind, (c) => c.fields.length >= 40 ? "A type has at most 40 fields." : { ...c, fields: [...c.fields, { id: uniqueId(l, c.fields.map((x) => x.id)), label: l.slice(0, 60), type: type as FieldKind, required: false, inReport: false }] });
 }
 
 export const setField = (saved: SavedFeatures, kind: string, fieldId: string, patch: { label?: string; type?: string; required?: boolean; inReport?: boolean; options?: string }): Result =>
   change(saved, kind, (c) => {
     if (!c.fields.some((x) => x.id === fieldId)) return "That field was not found.";
     if (patch.label !== undefined && patch.label.trim().length < 2) return "Give the field a name.";
-    if (patch.type !== undefined && !FIELD_KINDS.some((k) => k.id === patch.type)) return "That field type is not known.";
+    if (patch.type !== undefined && !FIELD_KINDS.some((k) => k.id === patch.type)) return "That field format is not known.";
     return { ...c, fields: c.fields.map((x) => x.id !== fieldId ? x : { ...x, ...(patch.label !== undefined ? { label: patch.label.trim().slice(0, 60) } : {}), ...(patch.type !== undefined ? { type: patch.type as FieldKind } : {}), ...(patch.required !== undefined ? { required: patch.required } : {}), ...(patch.inReport !== undefined ? { inReport: patch.inReport } : {}), ...(patch.options !== undefined ? { options: patch.options.split(",").map((o) => o.trim()).filter((o) => o !== "").slice(0, 30) } : {}) }) };
   });
 
@@ -104,7 +104,7 @@ export const removeField = (saved: SavedFeatures, kind: string, fieldId: string)
 
 // Rule: resetting a kind drops what a person changed, so its defaults show again.
 export function resetKind(saved: SavedFeatures, kind: string): Result {
-  if (!isKindId(kind)) return { error: "That kind was not found." };
+  if (!isKindId(kind)) return { error: "That type was not found." };
   const { [kind]: _gone, ...rest } = saved;
   return { value: rest };
 }

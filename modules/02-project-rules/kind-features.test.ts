@@ -59,7 +59,7 @@ describe("the features of a kind", () => {
     expect(applyKindAction(s, { action: "kf-reset", kind: "person" })).toHaveProperty("value");
   });
   it("refuses an unknown kind, property, value, field or field type, and a field with no name", () => {
-    expect(applyKindAction({}, { action: "kf-prop", kind: "microfinance", prop: "location", value: true })).toEqual({ error: "That kind was not found." });
+    expect(applyKindAction({}, { action: "kf-prop", kind: "microfinance", prop: "location", value: true })).toEqual({ error: "That type was not found." });
     expect(setProp({}, "build", "bogus", true)).toHaveProperty("error");
     expect(setProp({}, "build", "location", "yes")).toHaveProperty("error");
     expect(setProp({}, "build", "receiver", "alien")).toHaveProperty("error");

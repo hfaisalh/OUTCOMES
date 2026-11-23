@@ -262,7 +262,7 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     click({ action: "add-starters" }, "data-action");
     expect(shell.innerHTML).toContain("already there");
   });
-  it("sets the kind of benefit of an item, and manages the features of a kind (DECISIONS 143, 146)", () => {
+  it("sets the type of benefit of an item, and manages the features of a type (DECISIONS 143, 146)", () => {
     click({ page: "benefits" }, "data-page");
     expect(shell.innerHTML).toContain("<h1>Benefits</h1>");
     fire("change", { target: { id: "", dataset: { kindItem: "MWF-ORP-001" }, value: "distribution", checked: false } });

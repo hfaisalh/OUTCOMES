@@ -21,7 +21,7 @@ describe("the Benefits page", () => {
     expect(html).toContain('data-kind-item="I1"');
     expect(html).toContain("Suggested: Build"); // Small Pump
     expect(html).toContain("Suggested: Person(s)"); // Orphan Sponsorship
-    expect(html).toContain("Choose a kind"); // Mystery Gift
+    expect(html).toContain("Choose a type"); // Mystery Gift
     expect(html).toContain("0 chosen, 2 suggested, 1 to choose");
   });
   it("shows a chosen kind as chosen, and counts it", () => {

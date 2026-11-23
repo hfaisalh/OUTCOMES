@@ -422,3 +422,9 @@ Agreed after a sector review (humanitarian sectors, UK charitable purposes, Isla
 - Each kind starts with sensible defaults. Only a kind a person has changed is saved (`kindFeatures` in the organisation's settings), and "Reset to the starting features" drops the changes. Kinds that were changed are marked in the list.
 - Features belong to the kind, never to the item or to a workflow. An item is only a tag that points at a kind. Pure rules are in `modules/02-project-rules/kind-features.ts`, applied the same way by the server and the demo (actions `kf-...`).
 - New kinds beyond the six can be added later the same way if wanted. Not built: sections in the workflow's Allocation panel picking their fields from the kinds, the kind on the Gifts list, partners and benefits, clusters, the beneficiary register.
+
+## 147. "Type" on screen, not "kind" (23/11/2026)
+
+- "Kind" clashes with "in kind", the sector's word for donated goods and services, so on screen the six are **types** (Person(s), Activity, Build, Distribution, Programme, Waqf). On the Benefits page, which is already about benefits, it is just "Type", not "benefit type".
+- To keep "type" meaning one thing, the data type of a profile field (text, number, date, GPS, photo) is now called **Format**.
+- Only what people see changed: the page, tooltips and messages. The code and the saved settings keep the names `kind`, `itemKinds` and `kindFeatures`, so nothing already saved breaks. Earlier decisions (143, 146 and others) say "kind" and mean what is now called type.

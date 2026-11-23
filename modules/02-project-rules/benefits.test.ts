@@ -37,7 +37,7 @@ describe("kinds of benefit", () => {
     expect("value" in set && set.value).toEqual({ I1: "build" });
     const back = setItemKind({ I1: "build", I2: "person" }, "I1", "");
     expect("value" in back && back.value).toEqual({ I2: "person" });
-    expect(setItemKind({}, "I1", "microfinance")).toEqual({ error: "That kind was not found." });
+    expect(setItemKind({}, "I1", "microfinance")).toEqual({ error: "That type was not found." });
     expect(setItemKind({}, "", "build")).toEqual({ error: "That item was not found." });
   });
 });
