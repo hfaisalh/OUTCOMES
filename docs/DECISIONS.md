@@ -439,3 +439,11 @@ Agreed with Faisal. More is added as data comes in (eligibility, access by field
 - **When a beneficiary ends** (a child leaves, a build is handed over and closed): either **their sponsors are offered a new beneficiary automatically** (the starting choice for Person(s), as in the orphan workflow rules), or **the gift becomes Unallocated** and a person decides (the starting choice for the other types).
 - Removing a field takes it out of the duplicate check, and the last duplicate field cannot be removed. Types saved before these settings existed take them from the defaults.
 - Not built: the beneficiary register that applies the duplicate rule and the ID numbers, the end of a beneficiary and the re-offer to sponsors.
+
+## 149. Partners: the benefits each is active for, with capacity and cost per unit (23/11/2026)
+
+- The Partners page and the partner profile already existed (decisions 69, 70, 76: identity, contacts, status, due diligence, structure, items it delivers, capacity). The items a partner delivers are the **benefits it is active for**, so that section is renamed "Benefits they are active for". Nothing was rebuilt.
+- New, on the link between a partner and a benefit: a **capacity** for that item (how many at once) and the **cost per unit** agreed with that partner. Both are optional and are kept only for items the partner delivers. The cost is for reference only, since OUTCOMES does not manage money. Without a capacity for the item, the partner's overall capacity is used. A capacity of 0 for an item stops new work orders of that item going to that partner. Saved as `benefitTerms` on the partner.
+- **Who an item can be assigned to** is one pure rule, `eligiblePartners`, for the Assignment decision: the partner is active, its due diligence is approved and in date, it delivers the item (a partner with no items listed delivers any), and its capacity for the item is not 0. The Assignment process will use it when built.
+- In the code a partner is still called a Project (from before partners were named). That is renamed when clusters are built, so that "project" belongs only to the CRM project.
+- Not built yet: using the capacity to count what a partner holds, the partner's waiting list of batches, confirmation (approve or reject), the partner health score, and the partner sign-in.

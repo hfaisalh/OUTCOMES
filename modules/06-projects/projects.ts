@@ -52,6 +52,10 @@ export interface PartnerContact {
   handles: string; // what they deal with, such as updates or batches
 }
 
+// Rule (DECISIONS 149): what is specific to a partner and a benefit (a gift item): how many it can take at once, and the cost per unit agreed with it. The cost is kept for reference
+// only: OUTCOMES does not manage money. Both are optional.
+export interface BenefitTerms { capacity?: number; costPerUnit?: number }
+
 export interface Project {
   id: string;
   name: string; // the name shown, the working name
@@ -66,6 +70,7 @@ export interface Project {
   countries?: string;
   regions?: string;
   itemIds?: string[]; // CRM item ids it can deliver. Empty or absent means any item
+  benefitTerms?: Record<string, BenefitTerms>; // for an item it delivers: its own capacity and the agreed cost per unit (DECISIONS 149)
   capacity?: number; // how many jobs it can take at once, set by hand, then adjusted by how it performs
   capacityNote?: string;
   reportVia?: string; // how it sends updates (email, WhatsApp, portal)
@@ -398,6 +403,16 @@ export function partnerAccepts(projects: Project[], projectId: string | undefine
   return isActivePartner(p, today) && ((p.itemIds ?? []).length === 0 || (p.itemIds ?? []).includes(itemId));
 }
 
+// Rule (DECISIONS 149): the capacity a partner has for an item is the one set for that item, else its overall capacity, else none is set (undefined).
+export const capacityFor = (p: Project, itemId: string): number | undefined => p.benefitTerms?.[itemId]?.capacity ?? p.capacity;
+
+/**
+ * Rule (DECISIONS 149): the partners an item can be assigned to, for the Assignment decision. A partner must be active with its due diligence approved and in date, and must deliver the item
+ * (a partner with no items listed delivers any). A partner whose capacity for the item is set to 0 is left out. Returned in the order given.
+ */
+export const eligiblePartners = (projects: Project[], itemId: string, today: string): Project[] =>
+  projects.filter((p) => partnerAccepts([p], p.id, itemId, today) && capacityFor(p, itemId) !== 0);
+
 /**
  * Rule: create a partner, or update one when an id is given. Only the name and the type are required. A new type is added to the organisation's
  * list. A partner cannot be made active unless its due diligence is approved and in date. Extra fields are kept only if the organisation has defined them.
@@ -425,11 +440,22 @@ export function savePartner(s: ProjectState, raw: Record<string, unknown>, id: s
   const contacts = (Array.isArray(raw["contacts"]) ? raw["contacts"] : []).slice(0, 20).map((c): PartnerContact => { const x = (c ?? {}) as Record<string, unknown>; return { name: text(x["name"], 100), position: text(x["position"], 100), phone: text(x["phone"], 40), mobile: text(x["mobile"], 40), email: text(x["email"], 120), handles: text(x["handles"], 100) }; }).filter((c) => Object.values(c).some((v) => v !== ""));
   const documents = (Array.isArray(raw["documents"]) ? raw["documents"] : []).slice(0, 30).map((d) => { const x = (d ?? {}) as Record<string, unknown>; return { title: text(x["title"], 100), url: text(x["url"], 300) }; }).filter((d) => d.title !== "" || d.url !== "");
   const itemIds = [...new Set((Array.isArray(raw["itemIds"]) ? raw["itemIds"] : []).filter((x): x is string => typeof x === "string" && x !== "").map((x) => x.slice(0, 100)))].slice(0, 1000);
+  // Terms are kept only for the items the partner delivers: a capacity (a whole number, 0 to 100000) and a cost per unit (a number, 0 or more), each optional.
+  const termsIn = (raw["terms"] ?? {}) as Record<string, unknown>;
+  const benefitTerms: Record<string, BenefitTerms> = {};
+  for (const itemId of itemIds) {
+    const t = (termsIn[itemId] ?? {}) as Record<string, unknown>;
+    const capT = text(t["capacity"], 10), costT = text(t["costPerUnit"], 12);
+    const c = capT === "" ? undefined : Number(capT), k = costT === "" ? undefined : Number(costT);
+    if (c !== undefined && (!Number.isInteger(c) || c < 0 || c > 100000)) return { value: s, error: "The capacity for an item is a whole number, or leave it empty." };
+    if (k !== undefined && (!Number.isFinite(k) || k < 0 || k > 100000000)) return { value: s, error: "The cost per unit is a number, or leave it empty." };
+    if (c !== undefined || k !== undefined) benefitTerms[itemId] = { ...(c !== undefined ? { capacity: c } : {}), ...(k !== undefined ? { costPerUnit: k } : {}) };
+  }
   const customIn = (raw["custom"] ?? {}) as Record<string, unknown>;
   const custom = Object.fromEntries(s.partnerFields.map((f) => [f, text(customIn[f], 300)]).filter(([, v]) => v !== ""));
   const optional = { officialName: text(raw["officialName"], 150), reference: text(raw["reference"], 60), parent: text(raw["parent"], 150), established, partnershipStart, countries: text(raw["countries"], 200), regions: text(raw["regions"], 300), capacityNote: text(raw["capacityNote"], 200), reportVia: text(raw["reportVia"], 100), reportContact: text(raw["reportContact"], 150), language: text(raw["language"], 60), media: text(raw["media"], 400), ddReference: text(raw["ddReference"], 100), notes: text(raw["notes"], 1000) };
-  const { officialName: _o, reference: _r, parent: _pa, established: _e, partnershipStart: _ps, countries: _c, regions: _re, capacityNote: _cn, reportVia: _rv, reportContact: _rc, language: _l, media: _m, ddReference: _dr, notes: _n, capacity: _cap, contacts: _ct, documents: _d, itemIds: _i, custom: _cu, ...base } = draft;
-  const saved: Project = { ...base, ...Object.fromEntries(Object.entries(optional).filter(([, v]) => v !== "")), ...(cap !== undefined ? { capacity: cap } : {}), ...(contacts.length ? { contacts } : {}), ...(documents.length ? { documents } : {}), ...(itemIds.length ? { itemIds } : {}), ...(Object.keys(custom).length ? { custom } : {}) };
+  const { officialName: _o, reference: _r, parent: _pa, established: _e, partnershipStart: _ps, countries: _c, regions: _re, capacityNote: _cn, reportVia: _rv, reportContact: _rc, language: _l, media: _m, ddReference: _dr, notes: _n, capacity: _cap, contacts: _ct, documents: _d, itemIds: _i, benefitTerms: _bt, custom: _cu, ...base } = draft;
+  const saved: Project = { ...base, ...Object.fromEntries(Object.entries(optional).filter(([, v]) => v !== "")), ...(cap !== undefined ? { capacity: cap } : {}), ...(contacts.length ? { contacts } : {}), ...(documents.length ? { documents } : {}), ...(itemIds.length ? { itemIds } : {}), ...(Object.keys(benefitTerms).length ? { benefitTerms } : {}), ...(Object.keys(custom).length ? { custom } : {}) };
   // A new partner may start with the levels and types of another.
   const source = existing ? undefined : s.projects.find((p) => p.id === copyFrom);
   const withStructure: Project = source ? { ...saved, levels: source.levels.map((l) => ({ ...l })), types: source.types.map((t) => ({ ...t })) } : saved;

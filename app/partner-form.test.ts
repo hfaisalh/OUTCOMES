@@ -14,7 +14,7 @@ const ctx = { types: ["Institute", "Contractor"], fields: ["Registration no."], 
 describe("partnerProfileHtml", () => {
   it("asks for the whole profile, with the organisation's own types, items and extra fields", () => {
     const html = partnerProfileHtml({}, "", ctx);
-    for (const w of ["Who they are", "Contacts", "Where they work", "What they deliver", "How they report", "Due diligence", "Notes and documents", "Extra fields", "Structure"]) expect(html).toContain(w);
+    for (const w of ["Who they are", "Contacts", "Where they work", "Benefits they are active for", "How they report", "Due diligence", "Notes and documents", "Extra fields", "Structure"]) expect(html).toContain(w);
     expect(html).toContain("New type...");
     expect(html).toContain(">Contractor<");
     expect(html).toContain("Small Water Pump");
@@ -44,5 +44,13 @@ describe("partnerProfileHtml", () => {
     expect(html).toContain("Give the partner a name.");
     expect(html).not.toContain("<img");
     expect(html).not.toContain("<script>");
+  });
+  it("asks for a capacity and a cost per unit beside each benefit, and fills them in for a partner being edited (DECISIONS 149)", () => {
+    const html = partnerProfileHtml({ itemIds: ["I1"], benefitTerms: { I1: { capacity: 6, costPerUnit: 950.5 } } } as never, "p1", { types: [], items: [{ id: "I1", name: "Small Pump" }, { id: "I2", name: "Tent" }], fields: [], others: [] } as never);
+    expect(html).toContain('class="pf-cap" data-item="I1"');
+    expect(html).toContain('value="6"');
+    expect(html).toContain('value="950.5"');
+    expect(html).toContain('class="pf-cost" data-item="I2"');
+    expect(html).toContain("capacity of 0 stops new work orders");
   });
 });

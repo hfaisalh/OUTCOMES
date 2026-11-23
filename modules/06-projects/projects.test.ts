@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Allocation } from "../05-outcomes/outcomes";
 import type { Commitment } from "../04b-commitments/commitments";
-import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, removePartner, rollupOf, setNodeField, type Node, type Project } from "./projects";
+import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, capacityFor, eligiblePartners, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, removePartner, rollupOf, setNodeField, type Node, type Project } from "./projects";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -281,6 +281,34 @@ describe("the partner profile (DECISIONS 69)", () => {
     expect(r.value.projects[0]).toMatchObject({ officialName: "Sample Development Org", itemIds: ["MWF-WAT-001"], capacity: 40, capacityNote: "two crews", reportVia: "WhatsApp", status: "active", custom: { "Parent charity number": "123" } });
     expect(r.value.projects[0]?.contacts).toHaveLength(1); // the empty contact is dropped
     expect(r.value.projects[0]?.documents).toHaveLength(1);
+  });
+  it("keeps a capacity and an agreed cost per unit for each benefit it delivers, only for the ones it delivers (DECISIONS 149)", () => {
+    const r = save(empty(), { name: "SDO", type: "Contractor", capacity: "40", itemIds: ["PUMP", "TENT"], terms: { PUMP: { capacity: "6", costPerUnit: "950.50" }, TENT: { capacity: "", costPerUnit: "" }, OTHER: { capacity: "9", costPerUnit: "1" } } });
+    expect(r.error).toBeUndefined();
+    const p = r.value.projects[0]!;
+    expect(p.benefitTerms).toEqual({ PUMP: { capacity: 6, costPerUnit: 950.5 } }); // none for TENT (empty) and none for OTHER (not delivered)
+    expect(capacityFor(p, "PUMP")).toBe(6);
+    expect(capacityFor(p, "TENT")).toBe(40); // falls back to its overall capacity
+    expect(capacityFor({ ...p, capacity: undefined }, "TENT")).toBeUndefined();
+    expect(save(empty(), { name: "X", type: "T", itemIds: ["A"], terms: { A: { capacity: "2.5" } } }).error).toContain("whole number");
+    expect(save(empty(), { name: "X", type: "T", itemIds: ["A"], terms: { A: { costPerUnit: "-1" } } }).error).toContain("cost per unit");
+    expect(save(empty(), { name: "X", type: "T", itemIds: ["A"], terms: { A: { costPerUnit: "abc" } } }).error).toContain("cost per unit");
+  });
+  it("offers an item only to partners that are active and approved, deliver it, and have not set its capacity to 0 (DECISIONS 149)", () => {
+    const ok = (id: string, over: Partial<Project> = {}): Project => ({ id, name: id, status: "active", ddStatus: "approved", aliases: [], levels: [], types: [], ...over });
+    const partners = [
+      ok("any"), // no items listed delivers any
+      ok("pumps", { itemIds: ["PUMP"] }),
+      ok("tents", { itemIds: ["TENT"] }),
+      ok("paused", { itemIds: ["PUMP"], status: "on_hold" }),
+      ok("unchecked", { itemIds: ["PUMP"], ddStatus: "pending" }),
+      ok("lapsed", { itemIds: ["PUMP"], ddReview: "2026-01-01" }),
+      ok("full", { itemIds: ["PUMP"], benefitTerms: { PUMP: { capacity: 0 } } }),
+      ok("busy", { itemIds: ["PUMP"], capacity: 0, benefitTerms: { PUMP: { capacity: 3 } } }), // its own capacity for the item wins over a 0 overall
+    ];
+    expect(eligiblePartners(partners, "PUMP", "2026-11-20").map((p) => p.id)).toEqual(["any", "pumps", "busy"]);
+    expect(eligiblePartners(partners, "TENT", "2026-11-20").map((p) => p.id)).toEqual(["any", "tents"]);
+    expect(eligiblePartners(partners, "NOTHING", "2026-11-20").map((p) => p.id)).toEqual(["any"]);
   });
   it("makes a partner active only while its due diligence is approved and in date", () => {
     expect(save(empty(), { name: "X", type: "T", status: "active" }).error).toContain("due diligence is approved");
