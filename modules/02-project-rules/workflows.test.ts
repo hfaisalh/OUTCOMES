@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { isFrameworkTemplate, type FrameworkTemplate } from "./categories";
 import { starterOutcomeTypes } from "../05-outcomes/outcome-types";
-import { assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, stageChips, STAGES, suggestWorkflowFor, workflowSentence } from "./workflows";
+import { assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, setUnitRule, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, stageChips, STAGES, suggestWorkflowFor, workflowSentence } from "./workflows";
 
 const fw = (over: Partial<FrameworkTemplate> = {}): FrameworkTemplate => ({ id: "w", name: "Orphan sponsorship", unit: "orphan", cycle: "quarterly", reportType: "Quarterly orphan update", instalment: "per_period", unitsPerBeneficiary: 3, ...over });
 const ok = (r: { frameworks: FrameworkTemplate[] } | { error: string }): FrameworkTemplate[] => { if ("error" in r) throw new Error(r.error); return r.frameworks; };
