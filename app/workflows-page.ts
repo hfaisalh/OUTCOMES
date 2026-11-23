@@ -45,7 +45,7 @@ function stagePanel(f: FrameworkTemplate, type: OutcomeType | undefined, stage: 
       ${(f.tasks ?? []).map((k) => `<tr><td><input data-wf-task="label" data-wf="${esc(f.id)}" data-task="${esc(k.id)}" value="${esc(k.label)}"></td><td class="num"><input type="number" min="0" max="120" data-wf-task="after" data-wf="${esc(f.id)}" data-task="${esc(k.id)}" value="${k.afterMonths}"></td><td class="c"><input type="checkbox" data-wf-task="photo" data-wf="${esc(f.id)}" data-task="${esc(k.id)}"${k.photo ? " checked" : ""} aria-label="Asks for a photo"></td><td class="actcol"><div class="actbox"><button class="iconact" data-wf-act="task-remove" data-wf="${esc(f.id)}" data-task="${esc(k.id)}" title="Remove this check" aria-label="Remove this check">${BIN}</button></div></td></tr>`).join("") || `<tr><td colspan="4" class="muted">No checks yet.</td></tr>`}
     </tbody></table>
     <div class="ot-add"><input id="wf-task-label" placeholder="New check, for example 3 month basic check"><input id="wf-task-after" type="number" min="0" max="120" value="3" aria-label="Due after months" style="width:90px"><label class="ot-check"><input type="checkbox" id="wf-task-photo"> photo</label><button class="iconact ok" data-wf-act="task-add" data-wf="${esc(f.id)}" title="Add the check" aria-label="Add the check">${TICK}</button></div>`;
-  const flag = (k: "reassign" | "urgent" | "approve", text: string): string => `<label class="ot-check"><input type="checkbox" data-wf-flag="${k}" data-wf="${esc(f.id)}"${flagOf(f, k) ? " checked" : ""}> ${text}</label>`;
+  const flag = (k: "reassign" | "urgent" | "approve" | "feedback", text: string): string => `<label class="ot-check"><input type="checkbox" data-wf-flag="${k}" data-wf="${esc(f.id)}"${flagOf(f, k) ? " checked" : ""}> ${text}</label>`;
   if (stage === 2) {
     const how = assignOf(f, type);
     return `<h3>Assignment</h3>
@@ -55,7 +55,7 @@ function stagePanel(f: FrameworkTemplate, type: OutcomeType | undefined, stage: 
     ${flag("urgent", "An urgent gift jumps to high priority")}
     <p class="muted">Only partners approved for the item are considered. The work order lands in the partner's waiting list as a batch. Priority when several are waiting: urgent first, then a donor's directed project or partner, then a deadline, then the oldest first. Each partner sets its capacity on its own profile.</p>`;
   }
-  if (stage === 3) return `<h3>Confirm</h3>
+  if (stage === 3) return `<h3>Confirmation</h3>
     <h4 class="wf-h">Decision: the partner confirms the batch</h4>
     <div class="wf-two"><label class="wf-field"><span>Days the partner has to approve or reject</span><input type="number" min="0" max="60" data-wf-confirm="days" data-wf="${esc(f.id)}" value="${confirmDaysOf(f)}"></label>
     <label class="wf-field"><span>Tell the donor, once the partner has confirmed</span><input data-wf-confirm="tell" data-wf="${esc(f.id)}" value="${esc(f.confirmTell ?? "")}" placeholder="Nothing"></label></div>
@@ -79,6 +79,10 @@ function stagePanel(f: FrameworkTemplate, type: OutcomeType | undefined, stage: 
     <h4 class="wf-h">Monitoring and evaluation (MEAL) checks</h4>
     ${tasksTable}
     <p class="muted">Checks say what will be asked and when, to keep the quality of delivery up. They are not created yet: that comes with the Updates page.</p>`;
+  if (stage === 7) return `<h3>Feedback</h3>
+    <h4 class="wf-h">Decision: ask the donor for feedback</h4>
+    ${flag("feedback", "Once the order is complete, the donor is asked for feedback")}
+    <p class="muted">This improves the quality of delivery. When the donor is asked, how, and the questions come later.</p>`;
   const living = unitModeOf(f) !== "once";
   return `<h3>Report and complete</h3>
     <h4 class="wf-h">Decision: reporting protocol</h4>
@@ -105,7 +109,7 @@ export function workflowsPage(v: View): string {
   // Rule (DECISIONS 134): a workflow has its own icon, a target until one is chosen. It no longer follows an item or an outcome type.
   const iconOfWorkflow = (fid: string): string => fws.find((x) => x.id === fid)?.icon || "bullseye";
   const f = fws.find((x) => x.id === sel.id) ?? fws[0];
-  const stage = Math.min(6, Math.max(1, sel.stage));
+  const stage = Math.min(7, Math.max(1, sel.stage));
 
   const list = `<div class="card"><h3 class="wf-h">Workflows <span class="muted">(${fws.length})</span></h3><div class="wlist">${fws.map((x) => `<button class="wbtn${x.id === f?.id ? " on" : ""}" data-wf-select="${esc(x.id)}">${iconHtml(iconOfWorkflow(x.id), x.name, "lg") || `<span class="ico ico-lg"></span>`}<span><b>${esc(x.name)}</b><small>${itemsOf(x.id).length} item${itemsOf(x.id).length === 1 ? "" : "s"}</small></span></button>`).join("") || `<div class="empty">No workflows yet.</div>`}</div>
     <div class="actions"><input id="newfw" placeholder="New workflow name"><button data-action="add-framework">Add</button></div>

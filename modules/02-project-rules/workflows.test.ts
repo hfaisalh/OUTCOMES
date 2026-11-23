@@ -147,7 +147,7 @@ describe("assigned for implementation (DECISIONS 137)", () => {
     expect(start.every((x) => (x.stages ?? []).length === 3 && isFrameworkTemplate(x))).toBe(true);
   });
   it("has three yes or no decisions that are yes until turned off (DECISIONS 138)", () => {
-    for (const k of ["reassign", "urgent", "approve"] as const) {
+    for (const k of ["reassign", "urgent", "approve", "feedback"] as const) {
       expect(flagOf(fw(), k)).toBe(true);
       const off = ok(setFlag([fw()], "w", k, false))[0]!;
       expect(flagOf(off, k)).toBe(false);

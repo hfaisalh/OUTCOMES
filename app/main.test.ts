@@ -211,6 +211,8 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     stageClick("6");
     expect(shell.innerHTML).toContain("Decision: reporting protocol");
     expect(shell.innerHTML).toContain("a stage"); // the legend
+    stageClick("7");
+    expect(shell.innerHTML).toContain("Decision: ask the donor for feedback");
   });
   it("turns the assignment and approval decisions on and off", () => {
     click({ page: "workflows" }, "data-page");
@@ -221,10 +223,13 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     expect(shell.innerHTML).not.toMatch(/data-wf-flag="urgent" data-wf="water-pump" checked/);
     stageClick("5");
     fire("change", { target: { id: "", dataset: { wfFlag: "approve", wf: "water-pump" }, checked: false, value: "" } });
-    expect(shell.innerHTML).toContain("no approval");
+    expect(shell.innerHTML).not.toMatch(/data-wf-flag="approve" data-wf="water-pump" checked/);
+    stageClick("7");
+    expect(shell.innerHTML).toContain("Decision: ask the donor for feedback");
+    expect(shell.innerHTML).toMatch(/data-wf-flag="feedback" data-wf="water-pump" checked/);
     stageClick("3");
     fire("change", { target: { id: "", dataset: { wfConfirm: "days", wf: "water-pump" }, checked: false, value: "9" } });
-    expect(shell.innerHTML).toContain("9 days");
+    expect(shell.innerHTML).toContain('data-wf-confirm="days" data-wf="water-pump" value="9"');
   });
   it("adds, changes, moves and removes the partner's stages, and sets how the assignment happens (DECISIONS 137, 138)", () => {
     click({ page: "workflows" }, "data-page");
@@ -232,10 +237,12 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     click({ wfSelect: "water-pump" }, "data-wf-select");
     stageClick("4");
     expect(shell.innerHTML).toContain("Basic details");
+    stageClick("2");
     fire("change", { target: { id: "", dataset: { wfAssign: "water-pump" }, value: "auto", checked: false } });
-    expect(shell.innerHTML).toContain("automatic");
+    expect(shell.innerHTML).toContain('<option value="auto" selected>');
+    stageClick("4");
     fire("change", { target: { id: "", dataset: { wfSub: "days", wf: "water-pump", sub: "basic-details" }, value: "5", checked: false } });
-    expect(shell.innerHTML).toContain("5 days");
+    expect(shell.innerHTML).toContain('data-wf-sub="days" data-wf="water-pump" data-sub="basic-details" value="5"');
     fire("change", { target: { id: "", dataset: { wfSub: "tell", wf: "water-pump", sub: "basic-details" }, value: "Your gift has been accepted.", checked: false } });
     expect(shell.innerHTML).toContain("Your gift has been accepted.");
     click({ wfAct: "sub-down", wf: "water-pump", sub: "basic-details" }, "data-wf-act");

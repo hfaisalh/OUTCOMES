@@ -14,65 +14,33 @@ const fw = (over: Partial<FrameworkTemplate> = {}): FrameworkTemplate => ({ id: 
 const text = (svg: string): string => svg.replace(/<title>.*?<\/title>/g, "").replace(/<[^>]*>/g, " ");
 
 describe("the flow chart", () => {
-  const types = starterOutcomeTypes();
-  const stages = [
-    { id: "accepted", label: "Accepted by the partner", days: 7, needs: [], photo: false, canPause: true, tell: "" },
-    { id: "delivered", label: "Delivered", days: 30, needs: ["Location"], photo: true, canPause: false, tell: "Your gift has been delivered." },
-  ];
-  it("goes from the gift to work order, assignment, confirm, allocation with its profile sections, review and the report", () => {
-    const svg = flowChart(fw({ stages }), undefined, 1);
-    const words = text(svg);
-    const order = ["Gift", "Work order", "Assignment", "Confirm", "Allocation: outcome profile", "Accepted by", "Review", "Report", "Ends"].map((w) => words.indexOf(w));
-    expect(order.every((i) => i >= 0)).toBe(true);
-    expect([...order].sort((a, b) => a - b)).toEqual(order); // in this order
-    expect(words).not.toContain("Gift paid"); // payments may still be coming in
-    expect(svg).toContain("7 days");
-    expect(svg).toContain("30 days");
-    expect(svg).toContain("by a person");
-    expect(flowChart(fw({ stages, assign: "auto" }), undefined, 1)).toContain("automatic");
-    expect(flowChart(fw({ stages, confirmDays: 5 }), undefined, 3)).toContain("5 days");
-    expect(flowChart(fw({ stages }), undefined, 5)).toContain("MWF approves");
-    expect(flowChart(fw({ stages, approve: false }), undefined, 5)).toContain("no approval");
+  const titles = ["Gift", "Work order", "Assignment", "Confirmation", "Allocation", "Review", "Report", "Complete", "Feedback"];
+  const stageTitles = (svg: string): string[] => [...svg.matchAll(/<text [^>]*class="fc-t">([^<]*)<\/text>/g)].map((m) => m[1] as string);
+  it("carries only the nine titles, in order: everything else is a decision in the panel below", () => {
+    const svg = flowChart(fw(), undefined, 1);
+    expect(stageTitles(svg)).toEqual(titles);
+    for (const w of ["by a person", "automatic", "3 days", "units", "MWF approves", "on a cycle", "Gift paid", "Fully paid"]) expect(text(svg)).not.toContain(w); // no decision shown in a box
+    expect(svg).not.toContain("fc-group"); // the outcome profile sections are in the Allocation panel, not drawn in the chart
+  });
+  it("is the same chart whatever the workflow's rules are, since the rules are decisions", () => {
+    expect(stageTitles(flowChart(fw({ instalment: "share_of_whole", unitsPerBeneficiary: 1, assign: "auto", confirmDays: 9, approve: false }), undefined, 1))).toEqual(titles);
   });
   it("draws a rectangle for a stage and a diamond for a process, with the reject branches going back", () => {
-    const svg = flowChart(fw({ stages }), undefined, 1);
-    const diamonds = (svg.match(/<path d="M[\d. ]+ [\d. ]+ L[^"]*Z"/g) ?? []).length;
-    expect(diamonds).toBe(3); // assignment, confirm and review
-    expect(flowChart(fw({ instalment: "share_of_whole", unitsPerBeneficiary: 1, stages }), undefined, 1).match(/ L[^"]*Z"/g)?.length).toBe(4); // and fully paid
+    const svg = flowChart(fw(), undefined, 1);
+    expect((svg.match(/ L[^"]*Z"/g) ?? []).length).toBe(3); // assignment, confirmation and review
     expect(svg).toContain("Reject: reassign");
     expect(svg).toContain("Reject: back to the partner");
-    expect((svg.match(/<title>Approved<\/title>/g) ?? []).length).toBe(2); // a green circled tick on each approved arrow, not a word that a box could cover
+    expect((svg.match(/<title>Approved<\/title>/g) ?? []).length).toBe(2); // a green circled tick on each approved arrow
     expect((svg.match(/<title>Rejected<\/title>/g) ?? []).length).toBe(2); // a red circled cross on each rejected return
-    expect(svg).not.toContain(">Approve<");
-    expect(svg).not.toContain('rx="20"'); // no ovals any more
+    expect(svg).not.toContain('rx="20"'); // no ovals
   });
-  it("has a decision only when release waits for full payment, with both branches labelled", () => {
-    const once = flowChart(fw({ instalment: "share_of_whole", unitsPerBeneficiary: 1, stages }), undefined, 1);
-    expect(once).toContain("Fully paid?");
-    expect(once).toContain(">Yes<");
-    expect(once).toContain(">No<");
-    expect(once).toContain("Held as Funding");
-    const monthly = flowChart(fw({ stages }), undefined, 1);
-    expect(monthly).not.toContain("Fully paid?");
-    expect(monthly).not.toContain(">No<");
-  });
-  it("describes rules only: no number of units, no donor, no kind of outcome", () => {
-    const words = text(flowChart(fw({ unit: "pump", unitsPerBeneficiary: 3, stages: [] }), { ...types[1]!, frameworkIds: ["w"] }, 1)).replace(/\d+ days?/g, "");
-    expect(words).not.toMatch(/\b3\b|donor|pump|orphan/i);
-  });
-  it("makes each part open its stage, marks the open one, and shows which section tells the donor", () => {
-    const svg = flowChart(fw({ stages }), undefined, 4);
-    for (const n of [1, 2, 3, 4, 5, 6]) expect(svg).toContain(`data-wf-stage="${n}"`);
-    expect((svg.match(/class="fc-node[^"]*\bon\b/g) ?? []).length).toBe(2); // both profile sections are the allocation stage
-    expect(svg).toContain("Tells the donor");
+  it("makes each stage open its panel, and marks the open one", () => {
+    const svg = flowChart(fw(), undefined, 4);
+    for (const n of [1, 2, 3, 4, 5, 6, 7]) expect(svg).toContain(`data-wf-stage="${n}"`);
+    expect((svg.match(/class="fc-node[^"]*\bon\b/g) ?? []).length).toBe(1);
     expect(svg).toContain("Rule: how it is assigned to a partner");
     expect(svg).toContain("Rule: MWF approves before the donor sees the data");
     expect(svg).toContain("Rule: the partner approves or rejects the batch");
-  });
-  it("shows one plain box when no sections are set, names a living and a transactional order, and counts checks", () => {
-    expect(text(flowChart(fw(), undefined, 1))).toContain("Allocation: outcome profile");
-    expect(flowChart(fw({ tasks: [{ id: "a", label: "Check", afterMonths: 3, photo: false }] }), undefined, 5)).toContain("1 check");
-    expect(text(flowChart(fw(), undefined, 6))).toContain("on a cycle");
-    expect(text(flowChart(fw({ instalment: "share_of_whole", unitsPerBeneficiary: 1 }), undefined, 6))).toContain("one, then closed");
+    expect(svg).toContain("Feedback from the donor");
   });
 });

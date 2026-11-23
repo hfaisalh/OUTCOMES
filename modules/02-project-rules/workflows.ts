@@ -105,7 +105,7 @@ export const assignOf = (fw: FrameworkTemplate, type: OutcomeType | undefined): 
 
 // Rule (DECISIONS 138): three yes or no decisions, each yes unless a person turns it off. A person may reassign a work order from one partner to another. An urgent gift jumps to
 // high priority. MWF approves a report before the donor sees the data (until then the donor only hears that a phase changed).
-export type WorkflowFlag = "reassign" | "urgent" | "approve";
+export type WorkflowFlag = "reassign" | "urgent" | "approve" | "feedback";
 export const flagOf = (fw: FrameworkTemplate, flag: WorkflowFlag): boolean => fw[flag] ?? true;
 export const setFlag = (frameworks: FrameworkTemplate[], id: string, flag: WorkflowFlag, on: boolean): Edited => editWf(frameworks, id, (f) => ({ ...f, [flag]: on }));
 

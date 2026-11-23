@@ -362,3 +362,10 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 - Confirm has its own settings: the days the partner has to answer (3 unless set) and what the donor is told once the partner has confirmed.
 - Panels, in order: 1 Work order, 2 Assignment, 3 Confirm, 4 Allocation, 5 Review and approval, 6 Report.
 - Gift status follows the shapes: Gift, Work order, Waiting at a partner, Confirmed, Allocated (in the profile), Under review, Reported, Complete. Showing it on the Gifts list is still to build.
+
+## 140. The chart carries titles only (23/11/2026)
+
+- Each box in the chart has only its title: **Gift, Work order, Assignment, Confirmation, Allocation, Review, Report, Complete, Feedback**. Everything else about a stage is a **decision**, set in the panel under the chart where that stage is configured. Nothing about a decision (automatic or by a person, the days, units, approval) is written in a box, so the chart is the same for every workflow and only the open stage is marked.
+- Rectangles are stages (Gift, Work order, Allocation, Report, Complete, Feedback) and diamonds are processes (Assignment, Confirmation, Review). Approved arrows carry a green tick, rejected returns a red cross, as in 139.
+- Removed from the chart: the Fully paid? diamond and its Held as Funding box (release is a decision of Work order), and the outcome profile sections drawn inside Allocation (they are decisions of Allocation).
+- New: **Feedback** is the last stage, with one decision for now: the donor is asked for feedback once the order is complete (on unless turned off). When, how and the questions come later. Panels are numbered 1 Work order to 7 Feedback. Gift and Complete have no panel.

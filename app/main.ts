@@ -1462,7 +1462,7 @@ document.addEventListener("change", (e) => {
     return;
   }
   if (t.dataset?.wfFlag !== undefined) {
-    const r = setFlag(state.frameworks, t.dataset.wf ?? "", t.dataset.wfFlag as "reassign" | "urgent" | "approve", (t as HTMLInputElement).checked);
+    const r = setFlag(state.frameworks, t.dataset.wf ?? "", t.dataset.wfFlag as "reassign" | "urgent" | "approve" | "feedback", (t as HTMLInputElement).checked);
     if ("error" in r) { state.message = r.error; draw(); } else { state.frameworks = r.frameworks; afterConfig(false); draw(); }
     return;
   }
