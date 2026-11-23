@@ -14,12 +14,20 @@
  */
 
 import { FIELD_KINDS, type FieldKind } from "../05-outcomes/outcome-types.js";
+import { cleanPrefix, validPrefix } from "../05-outcomes/refs.js";
 import { KINDS, type BenefitKind } from "./benefits.js";
 
 export type Receiver = "" | "person" | "group" | "institution";
 export interface KindProps { location: boolean; sensitive: boolean; eligibility: boolean; onBehalf: boolean; receiver: Receiver }
 export interface KindField { id: string; label: string; type: FieldKind; required: boolean; inReport: boolean; options?: string[] }
-export interface KindFeatures { what: string; props: KindProps; fields: KindField[] }
+// Rule (DECISIONS 148): what happens when a beneficiary of this type ends (a child leaves, a pump is handed over and closed). "reallocate": the sponsors are offered a new one automatically.
+// "unallocated": the gift becomes Unallocated and a person decides.
+export type OnEnd = "reallocate" | "unallocated";
+export const ON_END: { id: OnEnd; label: string }[] = [{ id: "reallocate", label: "Their sponsors are offered a new beneficiary automatically" }, { id: "unallocated", label: "The gift becomes Unallocated, and a person decides" }];
+
+// The bare minimum to configure a type (DECISIONS 148): its ID prefix (the number is permanent and never used twice), the fields that make a duplicate, the profile fields with which are needed
+// first, what happens when a beneficiary ends, and its properties. More is added as data comes in.
+export interface KindFeatures { what: string; prefix: string; duplicateOn: string[]; onEnd: OnEnd; props: KindProps; fields: KindField[] }
 
 export const PROP_LABELS: { id: Exclude<keyof KindProps, "receiver">; label: string; hint: string }[] = [
   { id: "location", label: "Needs a location", hint: "A place and GPS are part of the proof" },
@@ -36,25 +44,27 @@ const withIds = (fields: Omit<KindField, "id">[]): KindField[] => fields.reduce<
 const props = (over: Partial<KindProps>): KindProps => ({ location: false, sensitive: false, eligibility: false, onBehalf: false, receiver: "", ...over });
 
 // The starting features of each kind. Staff change them on the Benefits page.
-const DEFAULTS: Record<BenefitKind, { props: KindProps; fields: Omit<KindField, "id">[] }> = {
-  person: { props: props({ sensitive: true, receiver: "person" }), fields: [f("Full name", "text", true, true), f("Date of birth", "date", true, true), f("Guardian or family", "text"), f("Photo", "photo", false, true), f("Progress notes", "longtext", false, true)] },
-  activity: { props: props({ location: true, receiver: "group" }), fields: [f("Place", "text", true, true), f("Date", "date", true, true), f("People attending", "number", false, true), f("Photos", "photo", false, true), f("Report", "longtext", false, true)] },
-  build: { props: props({ location: true, receiver: "group" }), fields: [f("Location", "text", true, true), f("GPS location", "gps", false, true), f("People served", "number", false, true), f("Progress photos", "photo", false, true), f("Handover date", "date", false, true)] },
-  distribution: { props: props({ receiver: "group" }), fields: [f("Place", "text", true, true), f("Date", "date", true, true), f("Quantity delivered", "number", true, true), f("Recipients", "number", false, true), f("Photos", "photo", false, true)] },
-  programme: { props: props({ receiver: "group" }), fields: [f("Place", "text", true, true), f("People served this month", "number", true, true), f("Notes", "longtext", false, true)] },
-  waqf: { props: props({ location: true, receiver: "institution" }), fields: [f("Asset", "text", true, true), f("Location", "text", false, true)] },
+const DEFAULTS: Record<BenefitKind, { prefix: string; duplicateOn: string[]; onEnd: OnEnd; props: KindProps; fields: Omit<KindField, "id">[] }> = {
+  person: { prefix: "PRS", duplicateOn: ["Full name", "Date of birth"], onEnd: "reallocate", props: props({ sensitive: true, receiver: "person" }), fields: [f("Full name", "text", true, true), f("Date of birth", "date", true, true), f("Guardian or family", "text"), f("Photo", "photo", false, true), f("Progress notes", "longtext", false, true)] },
+  activity: { prefix: "ACT", duplicateOn: ["Place", "Date"], onEnd: "unallocated", props: props({ location: true, receiver: "group" }), fields: [f("Place", "text", true, true), f("Date", "date", true, true), f("People attending", "number", false, true), f("Photos", "photo", false, true), f("Report", "longtext", false, true)] },
+  build: { prefix: "BLD", duplicateOn: ["Location"], onEnd: "unallocated", props: props({ location: true, receiver: "group" }), fields: [f("Location", "text", true, true), f("GPS location", "gps", false, true), f("People served", "number", false, true), f("Progress photos", "photo", false, true), f("Handover date", "date", false, true)] },
+  distribution: { prefix: "DST", duplicateOn: ["Place", "Date"], onEnd: "unallocated", props: props({ receiver: "group" }), fields: [f("Place", "text", true, true), f("Date", "date", true, true), f("Quantity delivered", "number", true, true), f("Recipients", "number", false, true), f("Photos", "photo", false, true)] },
+  programme: { prefix: "PRG", duplicateOn: ["Place"], onEnd: "unallocated", props: props({ receiver: "group" }), fields: [f("Place", "text", true, true), f("People served this month", "number", true, true), f("Notes", "longtext", false, true)] },
+  waqf: { prefix: "WQF", duplicateOn: ["Asset"], onEnd: "unallocated", props: props({ location: true, receiver: "institution" }), fields: [f("Asset", "text", true, true), f("Location", "text", false, true)] },
 };
 
 export function defaultFeatures(kind: BenefitKind): KindFeatures {
   const d = DEFAULTS[kind];
   const info = KINDS.find((k) => k.id === kind);
   const what = info ? `${info.what}. Counted by: ${info.counted.toLowerCase()}. Proof: ${info.proof.toLowerCase()}. Examples: ${info.examples.toLowerCase()}.` : "";
-  return { what, props: { ...d.props }, fields: withIds(d.fields) };
+  const fields = withIds(d.fields);
+  return { what, prefix: d.prefix, duplicateOn: d.duplicateOn.map((label) => fields.find((x) => x.label === label)?.id ?? "").filter((x) => x !== ""), onEnd: d.onEnd, props: { ...d.props }, fields };
 }
 
 // Rule: a kind's features are the saved ones if a person changed them, else the defaults.
 export type SavedFeatures = Record<string, KindFeatures>;
-export const featuresOf = (saved: SavedFeatures, kind: BenefitKind): KindFeatures => saved[kind] ?? defaultFeatures(kind);
+// Settings saved before a feature existed take that feature from the defaults.
+export const featuresOf = (saved: SavedFeatures, kind: BenefitKind): KindFeatures => (saved[kind] ? { ...defaultFeatures(kind), ...saved[kind] } : defaultFeatures(kind));
 export const isCustomised = (saved: SavedFeatures, kind: string): boolean => saved[kind] !== undefined;
 
 type Result = { value: SavedFeatures } | { error: string };
@@ -64,6 +74,27 @@ const change = (saved: SavedFeatures, kind: string, edit: (cur: KindFeatures) =>
   const next = edit(featuresOf(saved, kind));
   return typeof next === "string" ? { error: next } : { value: { ...saved, [kind]: next } };
 };
+
+// Rule (DECISIONS 148): the prefix is 2 to 5 capital letters or digits and no two types share one. It changes new IDs only. The number is permanent and is never used twice.
+export function setPrefix(saved: SavedFeatures, kind: string, prefix: string): Result {
+  const p = cleanPrefix(prefix);
+  if (!validPrefix(p)) return { error: "A prefix is 2 to 5 letters or digits, for example PRS." };
+  if (isKindId(kind) && KINDS.some((k) => k.id !== kind && featuresOf(saved, k.id).prefix === p)) return { error: `Another type already uses ${p}.` };
+  return change(saved, kind, (c) => ({ ...c, prefix: p }));
+}
+
+// Rule: a duplicate is a beneficiary that matches an existing one on every one of these fields. At least one field, and at most five, from the type's own fields.
+export const setDuplicateField = (saved: SavedFeatures, kind: string, fieldId: string, on: boolean): Result =>
+  change(saved, kind, (c) => {
+    if (!c.fields.some((x) => x.id === fieldId)) return "That field was not found.";
+    const next = on ? [...new Set([...c.duplicateOn, fieldId])] : c.duplicateOn.filter((x) => x !== fieldId);
+    if (next.length === 0) return "Choose at least one field that makes a duplicate.";
+    if (next.length > 5) return "At most five fields can make a duplicate.";
+    return { ...c, duplicateOn: c.fields.map((x) => x.id).filter((x) => next.includes(x)) };
+  });
+
+export const setOnEnd = (saved: SavedFeatures, kind: string, onEnd: string): Result =>
+  ON_END.some((o) => o.id === onEnd) ? change(saved, kind, (c) => ({ ...c, onEnd: onEnd as OnEnd })) : { error: "That is not known." };
 
 export const setWhat = (saved: SavedFeatures, kind: string, what: string): Result => change(saved, kind, (c) => ({ ...c, what: what.slice(0, 500) }));
 
@@ -100,7 +131,27 @@ export const moveField = (saved: SavedFeatures, kind: string, fieldId: string, b
     return { ...c, fields: list };
   });
 
-export const removeField = (saved: SavedFeatures, kind: string, fieldId: string): Result => change(saved, kind, (c) => ({ ...c, fields: c.fields.filter((x) => x.id !== fieldId) }));
+export const removeField = (saved: SavedFeatures, kind: string, fieldId: string): Result =>
+  change(saved, kind, (c) => {
+    const rest = c.duplicateOn.filter((x) => x !== fieldId);
+    if (c.duplicateOn.includes(fieldId) && rest.length === 0) return "That field is the only one that makes a duplicate. Choose another one first.";
+    return { ...c, fields: c.fields.filter((x) => x.id !== fieldId), duplicateOn: rest };
+  });
+
+/**
+ * Rule (DECISIONS 148): is a new beneficiary a duplicate? It is when an existing one matches it on every duplicate field, ignoring capitals and spaces at the ends. A field the new one has not
+ * filled in cannot be compared, so the check says which are missing and the beneficiary is not accepted until they are filled. A duplicate is blocked, naming the one that exists.
+ * `existing` are the profiles of the beneficiaries already there (field id to value) with their IDs. Returns what to do.
+ */
+export type DuplicateCheck = { ok: true } | { ok: false; reason: "incomplete"; missing: string[]; message: string } | { ok: false; reason: "duplicate"; existingId: string; message: string };
+export function checkDuplicate(features: KindFeatures, existing: { id: string; profile: Record<string, string> }[], candidate: Record<string, string>): DuplicateCheck {
+  const norm = (x: string | undefined): string => (x ?? "").trim().toLowerCase();
+  const label = (id: string): string => features.fields.find((x) => x.id === id)?.label ?? id;
+  const missing = features.duplicateOn.filter((id) => norm(candidate[id]) === "");
+  if (missing.length > 0) return { ok: false, reason: "incomplete", missing, message: `Fill in ${missing.map(label).join(" and ")} first, so it can be checked against the beneficiaries already there.` };
+  const same = existing.find((e) => features.duplicateOn.every((id) => norm(e.profile[id]) === norm(candidate[id])));
+  return same ? { ok: false, reason: "duplicate", existingId: same.id, message: `Beneficiary already exists: ${same.id}.` } : { ok: true };
+}
 
 // Rule: resetting a kind drops what a person changed, so its defaults show again.
 export function resetKind(saved: SavedFeatures, kind: string): Result {
@@ -115,6 +166,9 @@ export function resetKind(saved: SavedFeatures, kind: string): Result {
 export function applyKindAction(saved: SavedFeatures, body: Record<string, unknown>): Result | null {
   const s = (k: string) => (typeof body[k] === "string" ? (body[k] as string) : "");
   switch (body["action"]) {
+    case "kf-prefix": return setPrefix(saved, s("kind"), s("prefix"));
+    case "kf-dup": return setDuplicateField(saved, s("kind"), s("fieldId"), body["on"] === true);
+    case "kf-onend": return setOnEnd(saved, s("kind"), s("value"));
     case "kf-what": return setWhat(saved, s("kind"), s("what"));
     case "kf-prop": return setProp(saved, s("kind"), s("prop"), s("prop") === "receiver" ? s("value") : body["value"]);
     case "kf-field-add": return addField(saved, s("kind"), s("label"), s("type"));

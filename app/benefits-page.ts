@@ -8,7 +8,7 @@
  */
 
 import { KINDS, kindOf } from "../modules/02-project-rules/benefits";
-import { featuresOf, isCustomised, PROP_LABELS, RECEIVERS, type SavedFeatures } from "../modules/02-project-rules/kind-features";
+import { featuresOf, isCustomised, ON_END, PROP_LABELS, RECEIVERS, type SavedFeatures } from "../modules/02-project-rules/kind-features";
 import { FIELD_KINDS } from "../modules/05-outcomes/outcome-types";
 import { resolveFrameworkId } from "../modules/02-project-rules/categories";
 import { iconHtml, itemIcon } from "./icons";
@@ -39,6 +39,11 @@ export function benefitsPage(v: View): string {
     <h4 class="wf-h">Properties</h4>
     <div class="ot-props">${PROP_LABELS.map((p) => `<label class="ot-check" title="${esc(p.hint)}"><input type="checkbox" data-kf="prop" data-prop="${p.id}" data-kind="${sel.id}"${ft.props[p.id] ? " checked" : ""}> ${esc(p.label)}</label>`).join("")}
       <label class="ot-check">Who receives <select data-kf="prop" data-prop="receiver" data-kind="${sel.id}" aria-label="Who receives">${RECEIVERS.map((r) => `<option value="${r.id}"${ft.props.receiver === r.id ? " selected" : ""}>${esc(r.label)}</option>`).join("")}</select></label></div>
+    <h4 class="wf-h">Rules for every beneficiary of this type</h4>
+    <div class="wf-two"><label class="wf-field"><span>ID prefix</span><input data-kf="prefix" data-kind="${sel.id}" value="${esc(ft.prefix)}" maxlength="5" aria-label="ID prefix"></label>
+      <label class="wf-field"><span>When a beneficiary ends</span><select data-kf="onend" data-kind="${sel.id}" aria-label="When a beneficiary ends">${ON_END.map((o) => `<option value="${o.id}"${ft.onEnd === o.id ? " selected" : ""}>${esc(o.label)}</option>`).join("")}</select></label></div>
+    <p class="muted">Each beneficiary gets an ID such as <b>${esc(ft.prefix)}-0001</b>. The number is permanent and never used twice, even if the sponsor, partner or institute changes.</p>
+    <div class="ot-props"><span class="muted">A beneficiary is a duplicate when these fields all match one that exists. It is then blocked, with a message saying the beneficiary already exists.</span>${ft.fields.map((x) => `<label class="ot-check"><input type="checkbox" data-kf="dup" data-kind="${sel.id}" data-field-id="${esc(x.id)}"${ft.duplicateOn.includes(x.id) ? " checked" : ""}> ${esc(x.label)}</label>`).join("")}</div>
     <h4 class="wf-h">Profile fields <span class="muted">(${ft.fields.length})</span></h4>
     <p class="muted">The data a beneficiary of this type holds. Needed first is the minimum before a partner takes it. In the report means it goes in the donor report.</p>
     <div class="tablewrap"><table class="wf-tasks"><thead><tr><th>Field</th><th>Format</th><th class="c">Needed first</th><th class="c">In the report</th><th class="actcol"></th></tr></thead><tbody>${fieldRows || `<tr><td colspan="5" class="muted">No fields yet.</td></tr>`}</tbody></table></div>

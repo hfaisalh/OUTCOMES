@@ -1398,6 +1398,9 @@ document.addEventListener("change", (e) => {
     const kind = t.dataset.kind ?? "", fieldId = t.dataset.fieldId ?? "", what = t.dataset.kf;
     const checked = (t as unknown as HTMLInputElement).checked;
     if (what === "what") void outcomeChange({ action: "kf-what", kind, what: t.value });
+    else if (what === "prefix") void outcomeChange({ action: "kf-prefix", kind, prefix: t.value });
+    else if (what === "dup") void outcomeChange({ action: "kf-dup", kind, fieldId, on: checked });
+    else if (what === "onend") void outcomeChange({ action: "kf-onend", kind, value: t.value });
     else if (what === "prop") void outcomeChange({ action: "kf-prop", kind, prop: t.dataset.prop ?? "", value: t.dataset.prop === "receiver" ? t.value : checked });
     else if (what === "label") void outcomeChange({ action: "kf-field-set", kind, fieldId, label: t.value });
     else if (what === "type") void outcomeChange({ action: "kf-field-set", kind, fieldId, type: t.value });

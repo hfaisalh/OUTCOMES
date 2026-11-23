@@ -428,3 +428,14 @@ Agreed after a sector review (humanitarian sectors, UK charitable purposes, Isla
 - "Kind" clashes with "in kind", the sector's word for donated goods and services, so on screen the six are **types** (Person(s), Activity, Build, Distribution, Programme, Waqf). On the Benefits page, which is already about benefits, it is just "Type", not "benefit type".
 - To keep "type" meaning one thing, the data type of a profile field (text, number, date, GPS, photo) is now called **Format**.
 - Only what people see changed: the page, tooltips and messages. The code and the saved settings keep the names `kind`, `itemKinds` and `kindFeatures`, so nothing already saved breaks. Earlier decisions (143, 146 and others) say "kind" and mean what is now called type.
+
+## 148. The bare minimum to configure a type (23/11/2026)
+
+Agreed with Faisal. More is added as data comes in (eligibility, access by field, update cadence, field validation, who can see what, and so on).
+
+- **ID.** Each type has a prefix (2 to 5 capital letters or digits, no two types share one, for example PRS-0001). The number is **permanent** and never used twice, even if the sponsor, partner or institute changes. Changing a prefix changes new IDs only.
+- **Duplicates.** A type says which of its fields make a duplicate (at least one, at most five). A new beneficiary that matches an existing one on every one of them (ignoring capitals and spaces at the ends) is **blocked**, with the message "Beneficiary already exists: PRS-0001." A beneficiary whose duplicate fields are not all filled in cannot be checked and is not accepted until they are. The rule is a pure function, ready for the beneficiary register, which is not built yet. Starting fields: Person(s) name and date of birth, Activity place and date, Build location, Distribution place and date, Programme place, Waqf asset.
+- **Profile fields and properties**, as in 146: each field with its format, needed first, and in the report.
+- **When a beneficiary ends** (a child leaves, a build is handed over and closed): either **their sponsors are offered a new beneficiary automatically** (the starting choice for Person(s), as in the orphan workflow rules), or **the gift becomes Unallocated** and a person decides (the starting choice for the other types).
+- Removing a field takes it out of the duplicate check, and the last duplicate field cannot be removed. Types saved before these settings existed take them from the defaults.
+- Not built: the beneficiary register that applies the duplicate rule and the ID numbers, the end of a beneficiary and the re-offer to sponsors.

@@ -278,6 +278,12 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     expect(shell.innerHTML).toMatch(/data-kf="required" data-kind="build" data-field-id="gps-location" checked/);
     click({ kfAct: "field-remove", kind: "build", fieldId: "handover-date" }, "data-kf-act");
     expect(shell.innerHTML).not.toContain('data-field-id="handover-date"');
+    fire("change", { target: { id: "", dataset: { kf: "prefix", kind: "build" }, checked: false, value: "bld2" } });
+    expect(shell.innerHTML).toContain('data-kf="prefix" data-kind="build" value="BLD2"');
+    fire("change", { target: { id: "", dataset: { kf: "dup", kind: "build", fieldId: "gps-location" }, checked: true, value: "" } });
+    expect(shell.innerHTML).toMatch(/data-kf="dup" data-kind="build" data-field-id="gps-location" checked/);
+    fire("change", { target: { id: "", dataset: { kf: "onend", kind: "build" }, checked: false, value: "reallocate" } });
+    expect(shell.innerHTML).toContain('<option value="reallocate" selected>');
     click({ kfAct: "reset", kind: "build" }, "data-kf-act");
     expect(shell.innerHTML).toContain('data-field-id="handover-date"'); // back to the starting features
     expect(shell.innerHTML).not.toContain('data-kf-act="reset"');

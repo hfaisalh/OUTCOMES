@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { KINDS } from "./benefits";
-import { applyKindAction, defaultFeatures, featuresOf, isCustomised, resetKind, setProp, type SavedFeatures } from "./kind-features";
+import { applyKindAction, checkDuplicate, defaultFeatures, featuresOf, isCustomised, resetKind, setProp, type SavedFeatures } from "./kind-features";
 
 const ok = (r: { value: SavedFeatures } | { error: string } | null): SavedFeatures => { if (!r || "error" in r) throw new Error(r ? r.error : "not a kind request"); return r.value; };
 
@@ -70,5 +70,54 @@ describe("the features of a kind", () => {
   });
   it("is not a kind request when the action is something else", () => {
     expect(applyKindAction({}, { action: "item-icon" })).toBeNull();
+  });
+});
+
+describe("the bare minimum of a type (DECISIONS 148)", () => {
+  it("starts every type with its own ID prefix, the fields that make a duplicate, and what happens when a beneficiary ends", () => {
+    const all = KINDS.map((k) => defaultFeatures(k.id));
+    expect(new Set(all.map((f) => f.prefix)).size).toBe(6); // no two share a prefix
+    for (const f of all) {
+      expect(f.duplicateOn.length).toBeGreaterThanOrEqual(1);
+      expect(f.duplicateOn.every((id) => f.fields.some((x) => x.id === id))).toBe(true); // each is one of its own fields
+    }
+    expect(defaultFeatures("person")).toMatchObject({ prefix: "PRS", duplicateOn: ["full-name", "date-of-birth"], onEnd: "reallocate" });
+    expect(defaultFeatures("build")).toMatchObject({ prefix: "BLD", duplicateOn: ["location"], onEnd: "unallocated" });
+  });
+  it("changes the prefix, cleaned up, never to one another type uses, and refuses a bad one", () => {
+    const s = ok(applyKindAction({}, { action: "kf-prefix", kind: "build", prefix: " bld-2 " }));
+    expect(featuresOf(s, "build").prefix).toBe("BLD2");
+    expect(applyKindAction({}, { action: "kf-prefix", kind: "build", prefix: "prs" })).toEqual({ error: "Another type already uses PRS." });
+    expect(applyKindAction({}, { action: "kf-prefix", kind: "build", prefix: "x" })).toHaveProperty("error");
+    expect(applyKindAction({}, { action: "kf-prefix", kind: "build", prefix: "BLD" })).toHaveProperty("value"); // its own is fine
+  });
+  it("chooses the fields that make a duplicate: at least one, at most five, from its own fields", () => {
+    let s = ok(applyKindAction({}, { action: "kf-dup", kind: "person", fieldId: "guardian-or-family", on: true }));
+    expect(featuresOf(s, "person").duplicateOn).toEqual(["full-name", "date-of-birth", "guardian-or-family"]); // in the order of the fields
+    s = ok(applyKindAction(s, { action: "kf-dup", kind: "person", fieldId: "full-name", on: false }));
+    s = ok(applyKindAction(s, { action: "kf-dup", kind: "person", fieldId: "date-of-birth", on: false }));
+    expect(applyKindAction(s, { action: "kf-dup", kind: "person", fieldId: "guardian-or-family", on: false })).toEqual({ error: "Choose at least one field that makes a duplicate." });
+    expect(applyKindAction({}, { action: "kf-dup", kind: "person", fieldId: "nope", on: true })).toEqual({ error: "That field was not found." });
+    // removing a field takes it out of the check, but not the last one
+    const r = ok(applyKindAction({}, { action: "kf-field-remove", kind: "person", fieldId: "full-name" }));
+    expect(featuresOf(r, "person").duplicateOn).toEqual(["date-of-birth"]);
+    expect(applyKindAction(r, { action: "kf-field-remove", kind: "person", fieldId: "date-of-birth" })).toHaveProperty("error");
+    const six = ok(applyKindAction({}, { action: "kf-what", kind: "person", what: "x" }));
+    expect(applyKindAction(six, { action: "kf-onend", kind: "person", value: "unallocated" })).toHaveProperty("value");
+    expect(applyKindAction({}, { action: "kf-onend", kind: "person", value: "delete" })).toHaveProperty("error");
+  });
+  it("blocks a duplicate beneficiary and names the one that exists, and asks for the missing fields first", () => {
+    const f = defaultFeatures("person"); // a duplicate has the same name and date of birth
+    const existing = [{ id: "PRS-0001", profile: { "full-name": "Amina Khan", "date-of-birth": "2015-03-02", "guardian-or-family": "Aunt" } }];
+    expect(checkDuplicate(f, existing, { "full-name": " amina KHAN ", "date-of-birth": "2015-03-02" })).toEqual({ ok: false, reason: "duplicate", existingId: "PRS-0001", message: "Beneficiary already exists: PRS-0001." });
+    expect(checkDuplicate(f, existing, { "full-name": "Amina Khan", "date-of-birth": "2016-01-01" })).toEqual({ ok: true }); // a different date of birth
+    const missing = checkDuplicate(f, existing, { "full-name": "Amina Khan" });
+    expect(missing).toMatchObject({ ok: false, reason: "incomplete", missing: ["date-of-birth"] });
+    expect("message" in missing && missing.message).toContain("Date of birth");
+    expect(checkDuplicate(f, [], { "full-name": "A", "date-of-birth": "2000-01-01" })).toEqual({ ok: true }); // nothing to match
+  });
+  it("gives a kind saved before these settings existed the defaults for them", () => {
+    const old = { build: { what: "Mine", props: defaultFeatures("build").props, fields: defaultFeatures("build").fields } } as unknown as SavedFeatures;
+    expect(featuresOf(old, "build")).toMatchObject({ what: "Mine", prefix: "BLD", duplicateOn: ["location"], onEnd: "unallocated" });
   });
 });

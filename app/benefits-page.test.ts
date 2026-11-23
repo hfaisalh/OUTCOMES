@@ -51,6 +51,18 @@ describe("the Benefits page", () => {
     expect(html).not.toContain('data-kf-act="reset"'); // nothing changed yet
     expect(benefitsPage(view({ kindSel: "person" }))).toMatch(/data-kf="prop" data-prop="sensitive" data-kind="person" checked/);
   });
+  it("shows the rules of a type: its ID prefix, what makes a duplicate, and what happens when a beneficiary ends (DECISIONS 148)", () => {
+    const html = benefitsPage(view({ kindSel: "person" }));
+    expect(html).toContain('data-kf="prefix" data-kind="person" value="PRS"');
+    expect(html).toContain("PRS-0001");
+    expect(html).toContain("permanent and never used twice");
+    expect(html).toMatch(/data-kf="dup" data-kind="person" data-field-id="full-name" checked/);
+    expect(html).toMatch(/data-kf="dup" data-kind="person" data-field-id="date-of-birth" checked/);
+    expect(html).not.toMatch(/data-kf="dup" data-kind="person" data-field-id="photo" checked/);
+    expect(html).toContain("blocked, with a message saying the beneficiary already exists");
+    expect(html).toContain('<option value="reallocate" selected>');
+    expect(benefitsPage(view({ kindSel: "build" }))).toContain('<option value="unallocated" selected>');
+  });
   it("shows a kind a person changed, and offers to reset it", () => {
     const changed = { build: { what: "Mine", props: { location: false, sensitive: true, eligibility: false, onBehalf: false, receiver: "" }, fields: [{ id: "x", label: "Only field", type: "text", required: false, inReport: false }] } };
     const html = benefitsPage(view({ kindSel: "build", kindFeatures: changed }));
