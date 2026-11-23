@@ -35,6 +35,7 @@ import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { dataFeedPage, dataFilesPage } from "./data-page";
+import { benefitsPage } from "./benefits-page";
 import { unitPie, workflowsPage } from "./workflows-page";
 import { addStarterWorkflows, addTask, assignToWorkflow, linkStarterTypes, removeTask, removeWorkflow, setTask, setUnitRule, setFlag, setConfirm, addStage, setStage, removeStage, moveStage, setAssign, suggestWorkflowFor, unassignItem } from "../modules/02-project-rules/workflows";
 import { createMapping } from "./mapping-controller";
@@ -42,6 +43,7 @@ import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from ".
 import { ensureRefs } from "../modules/05-outcomes/refs";
 import { checkingHtml, signinHtml } from "./signin-page";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
+import { setItemKind } from "../modules/02-project-rules/benefits";
 import { isPageId, landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
 import { outcomesPage, listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, type Filter, type View } from "./pages";
 
@@ -87,6 +89,7 @@ const state = {
   partnerWin: { open: false, id: "", tab: "profile" as PartnerTab, draft: null as Record<string, unknown> | null }, // the partner window (DECISIONS 70)
   workflowSel: { id: "", stage: 1, parts: 1, allocated: false, pick: "" } as NonNullable<View["workflowSel"]>, // the workflow and stage the Workflows page shows, and its sample gift (DECISIONS 130)
   itemIcons: {} as Record<string, string>, // the icon chosen for an item (DECISIONS 107)
+  itemKinds: {} as Record<string, string>, // the kind of benefit chosen for an item (DECISIONS 143)
   idCounters: {} as Record<string, number>, // the last number used for each ID prefix (DECISIONS 105)
   outcomeTypes: starterOutcomeTypes() as OutcomeType[], // the kinds of outcome and their profile fields (DECISIONS 103)
   partnerTypes: [] as string[], // the organisation's own list of partner types (DECISIONS 69)
@@ -208,7 +211,7 @@ function view(): View {
   const flaggedItems = [...items.values()];
   return {
     workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
-    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
+    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
 }
@@ -243,6 +246,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.outcomeTypes = r.outcomeTypes ?? state.outcomeTypes;
       state.idCounters = r.idCounters ?? state.idCounters;
       state.itemIcons = r.itemIcons ?? state.itemIcons;
+      state.itemKinds = r.itemKinds ?? state.itemKinds;
       if (body["action"] === "remove-many") state.message = `Removed ${r.removed ?? 0}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`;
       else if (body["action"] === "adopt-legacy") state.message = `Moved ${(r as unknown as { moved?: number }).moved ?? 0} into the partner.`;
       else if (body["action"] === "clear-legacy") state.message = `Removed ${(r as unknown as { removed?: number }).removed ?? 0} and released ${(r as unknown as { released?: number }).released ?? 0} gifts.`;
@@ -254,7 +258,6 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       const str = (k: string) => String(body[k] ?? "");
       let error: string | undefined;
       // Outcome types (DECISIONS 103): the same pure rule the server uses.
-      if (body["action"] === "item-icon") { const icon = String(body["icon"] ?? ""); const next = { ...state.itemIcons }; if (icon === "") delete next[String(body["itemId"])]; else next[String(body["itemId"])] = icon; state.itemIcons = next; }
       const ot = typeof body["action"] === "string" && (body["action"] as string).startsWith("ot-") ? applyOutcomeTypeAction(state.outcomeTypes, state.frameworks.map((f) => f.id), [...new Set(state.outcomes.map((o) => o.outcomeTypeId ?? "").filter((x) => x !== ""))], body) : null;
       if (ot) { if ("error" in ot) error = ot.error; else state.outcomeTypes = ot.types; }
       else switch (body["action"]) {
@@ -272,6 +275,8 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "set-grace": { const n = Number(body["days"]); if (!Number.isInteger(n) || n < 0 || n > 90) error = "The grace period is a whole number of days, from 0 to 90."; else state.graceDays = n; break; }
         case "approve-release": { const due = releaseApprovals(state.allocations, commitments, state.frameworks, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy).find((x) => x.commitmentKey === str("commitmentKey")); if (!due) error = "That place is not due for release."; else state.allocations = releaseAllocation(state.allocations, due.commitmentKey); break; }
         case "release": state.allocations = releaseAllocation(state.allocations, str("commitmentKey")); break;
+        case "item-icon": { const icon = str("icon"); const next = { ...state.itemIcons }; if (icon === "") delete next[str("itemId")]; else next[str("itemId")] = icon; state.itemIcons = next; break; }
+        case "item-kind": { const r = setItemKind(state.itemKinds, str("itemId"), str("kind")); if ("error" in r) error = r.error; else state.itemKinds = r.value; break; }
         default: {
           // Projects (DECISIONS 65): the same pure rule the server uses.
           const r = applyProjectAction({ projects: state.projects, nodes: state.nodes, outcomes: state.outcomes, partnerTypes: state.partnerTypes, partnerFields: state.partnerFields, giftProjects: state.giftProjects }, state.frameworks, body, new Date().toISOString().slice(0, 10), new Set(state.allocations.map((x) => x.outcomeId)));
@@ -506,6 +511,7 @@ function draw(): void {
     : state.page === "data-feed" ? dataFeedPage(v)
     : state.page === "data-files" ? dataFilesPage(v)
     : state.page === "workflows" ? workflowsPage(v)
+    : state.page === "benefits" ? benefitsPage(v)
     : state.page === "attention" ? attentionPage(v)
     : state.page === "allocation" ? allocationPage(v)
     : state.page === "outcomes" ? outcomesPage(v)
@@ -1381,6 +1387,7 @@ document.addEventListener("change", (e) => {
 document.addEventListener("change", (e) => {
   const t = e.target as HTMLSelectElement;
   if (t.dataset?.iconItem !== undefined) void outcomeChange({ action: "item-icon", itemId: t.dataset.iconItem, icon: t.value });
+  if (t.dataset?.kindItem !== undefined) void outcomeChange({ action: "item-kind", itemId: t.dataset.kindItem, kind: t.value });
 });
 
 // ---- The Workflows page (DECISIONS 130, 131) ----

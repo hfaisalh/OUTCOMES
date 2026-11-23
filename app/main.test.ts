@@ -262,6 +262,14 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     click({ action: "add-starters" }, "data-action");
     expect(shell.innerHTML).toContain("already there");
   });
+  it("sets the kind of benefit of an item on the Benefits page (DECISIONS 143)", () => {
+    click({ page: "benefits" }, "data-page");
+    expect(shell.innerHTML).toContain("<h1>Benefits</h1>");
+    fire("change", { target: { id: "", dataset: { kindItem: "MWF-ORP-001" }, value: "distribution", checked: false } });
+    expect(shell.innerHTML).toContain('<option value="distribution" selected>Distribution</option>');
+    fire("change", { target: { id: "", dataset: { kindItem: "MWF-ORP-001" }, value: "", checked: false } });
+    expect(shell.innerHTML).not.toContain('<option value="distribution" selected>Distribution</option>');
+  });
   it("has no Categories page in the menu any more", () => {
     click({ menu: "settings" }, "data-menu");
     expect(shell.innerHTML).not.toContain('data-page="categories"');

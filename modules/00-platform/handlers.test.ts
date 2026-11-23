@@ -497,6 +497,15 @@ describe("outcomes (DECISIONS 61)", () => {
     expect(t.outcomeTypes.find((x) => x.id === "water-pump")?.icon).toBe("pump-lg");
   });
 
+  it("keeps the kind of benefit chosen for an item, and takes the choice back (DECISIONS 143)", async () => {
+    const cookie = await signIn(d);
+    const set = (await post(cookie, { action: "item-kind", itemId: "I9", kind: "build" })).body as { itemKinds: Record<string, string> };
+    expect(set.itemKinds).toEqual({ I9: "build" });
+    expect((await post(cookie, { action: "item-kind", itemId: "I9", kind: "microfinance" })).status).toBe(400); // not a kind yet
+    expect(((await handleOutcomes(as(cookie), d)).body as typeof set).itemKinds).toEqual({ I9: "build" }); // kept
+    expect(((await post(cookie, { action: "item-kind", itemId: "I9", kind: "" })).body as typeof set).itemKinds).toEqual({}); // taken back
+  });
+
   it("marks only gifts of the Custom Amount item for manual allocation, never by price, and lets a person mark one by hand (DECISIONS 129)", async () => {
     const cookie = await signIn(d);
     // three normal gifts at different prices of the same item, and one of the Custom Amount item
