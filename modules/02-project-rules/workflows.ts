@@ -67,18 +67,23 @@ export function setUnitRule(frameworks: FrameworkTemplate[], id: string, units: 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
 const lower = (s: string): string => s.charAt(0).toLowerCase() + s.slice(1);
 
-// Rule: the workflow in one plain sentence, so it can be checked without reading the fields.
-export function workflowSentence(fw: FrameworkTemplate, type: OutcomeType | undefined, itemNames: string[]): string {
-  const items = itemNames.length ? (itemNames.length > 2 ? `${itemNames.slice(0, 2).join(", ")} and ${itemNames.length - 2} more` : itemNames.join(" and ")) : "no items yet";
+// Rule (DECISIONS 135): what happens to one unit on its way through the workflow, as steps. Each step says which rule (if any) decides it, so the diagram can show the
+// rule icon beside it. The words are general (outcome, unit) and never name a kind of outcome or a donor.
+export interface JourneyStep { key: "gift" | "split" | "hold" | "outcome" | "assign" | "deliver" | "report"; text: string; rule: boolean }
+export function unitJourney(fw: FrameworkTemplate, type: OutcomeType | undefined): JourneyStep[] {
   const mode = unitModeOf(fw);
-  // Rule (DECISIONS 133): the sentence uses general terms (outcome, unit) and never the name of a kind of outcome, and says nothing about donors.
-  const units = mode === undefined ? "How units are allocated to an outcome is not set yet."
-    : mode === "once" ? "One unit is one whole outcome, released when it is fully paid."
-    : fw.unitsPerBeneficiary === 1 ? "One unit is one whole outcome."
-    : `One outcome is made of ${fw.unitsPerBeneficiary} units.`;
-  const outcome = type ? `${type.source === "pick_existing" ? "It picks an existing" : "It creates a new"} ${lower(type.name)}${mode === "once" ? " once fully paid" : ""}, assigned to a partner ${type.assign === "auto" ? "automatically when the partner has capacity" : "by suggestion for a person to confirm"}.` : "It has no outcome type yet, so a gift cannot become an outcome.";
-  const tasks = (fw.tasks ?? []).length ? ` ${plural((fw.tasks ?? []).length, "follow-up task")} ${(fw.tasks ?? []).length === 1 ? "is" : "are"} then due, and a ${fw.reportType ? lower(fw.reportType) : "report"} is sent.` : ` A ${fw.reportType ? lower(fw.reportType) : "report"} is sent.`;
-  return `Items in this workflow (${items}) follow these rules. ${units} ${outcome}${tasks}`;
+  const n = fw.unitsPerBeneficiary;
+  const split = mode === undefined ? "Units not set" : mode === "once" ? "1 unit is 1 outcome" : n === 1 ? "1 unit is 1 outcome" : `Gift split into units, ${n} make 1 outcome`;
+  const tasks = (fw.tasks ?? []).length;
+  return [
+    { key: "gift", text: "Gift paid", rule: false },
+    { key: "split", text: split, rule: true },
+    { key: "hold", text: mode === "once" ? "Held until fully paid" : "Released as each payment arrives", rule: true },
+    { key: "outcome", text: "Joins an outcome", rule: false },
+    { key: "assign", text: type?.assign === "auto" ? "Assigned to a partner automatically" : "Assigned to a partner by suggestion", rule: true },
+    { key: "deliver", text: "Partner delivers", rule: false },
+    { key: "report", text: tasks ? `${plural(tasks, "task")}, then ${fw.reportType ? lower(fw.reportType) : "a report"}` : (fw.reportType ? fw.reportType : "A report"), rule: true },
+  ];
 }
 
 export interface StageChip { tone: "auto" | "wait" | "person" | "plain"; text: string }

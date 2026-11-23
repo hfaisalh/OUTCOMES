@@ -8,30 +8,33 @@
 import { describe, expect, it } from "vitest";
 import { isFrameworkTemplate, type FrameworkTemplate } from "./categories";
 import { starterOutcomeTypes } from "../05-outcomes/outcome-types";
-import { assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, setUnitRule, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, stageChips, STAGES, suggestWorkflowFor, workflowSentence } from "./workflows";
+import { assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, setUnitRule, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, stageChips, STAGES, suggestWorkflowFor, unitJourney } from "./workflows";
 
 const fw = (over: Partial<FrameworkTemplate> = {}): FrameworkTemplate => ({ id: "w", name: "Orphan sponsorship", unit: "orphan", cycle: "quarterly", reportType: "Quarterly orphan update", instalment: "per_period", unitsPerBeneficiary: 3, ...over });
 const ok = (r: { frameworks: FrameworkTemplate[] } | { error: string }): FrameworkTemplate[] => { if ("error" in r) throw new Error(r.error); return r.frameworks; };
 
-describe("the plain sentence", () => {
+describe("the unit's journey (DECISIONS 135)", () => {
   const types = starterOutcomeTypes();
-  it("says what a payment buys, what the gift becomes, and how it is assigned, for a monthly sponsorship", () => {
-    const type = { ...types[0]!, frameworkIds: ["w"] };
-    const sentence = workflowSentence(fw({ tasks: [{ id: "a", label: "3 month check", afterMonths: 3, photo: false }, { id: "b", label: "6 month update", afterMonths: 6, photo: true }] }), type, ["Orphan Sponsorship"]);
-    expect(sentence).toContain("Items in this workflow (Orphan Sponsorship) follow these rules.");
-    expect(sentence).toContain("One outcome is made of 3 units.");
-    expect(sentence).toContain("It picks an existing orphan");
-    expect(sentence).toContain("automatically when the partner has capacity");
-    expect(sentence).toContain("2 follow-up tasks are then due, and a quarterly orphan update is sent.");
+  const texts = (f: FrameworkTemplate, t?: (typeof types)[number]) => unitJourney(f, t).map((x) => x.text);
+  it("follows one unit through the steps, and says which steps a rule decides", () => {
+    const j = unitJourney(fw({ tasks: [{ id: "a", label: "3 month check", afterMonths: 3, photo: false }, { id: "b", label: "6 month update", afterMonths: 6, photo: true }] }), { ...types[0]!, frameworkIds: ["w"] });
+    expect(j.map((x) => x.key)).toEqual(["gift", "split", "hold", "outcome", "assign", "deliver", "report"]);
+    expect(j.filter((x) => x.rule).map((x) => x.key)).toEqual(["split", "hold", "assign", "report"]);
+    expect(j[1]?.text).toBe("Gift split into units, 3 make 1 outcome");
+    expect(j[2]?.text).toBe("Released as each payment arrives");
+    expect(j[6]?.text).toBe("2 tasks, then quarterly orphan update");
   });
-  it("says a pump is paid up to one whole and released when fully paid, and that a type is missing when there is none", () => {
-    const pump = { ...types[1]!, frameworkIds: ["w"] };
-    const s = workflowSentence(fw({ unit: "pump", unitsPerBeneficiary: 1, instalment: "share_of_whole", reportType: "Handover report" }), pump, ["Small Pump", "Large Pump", "Water Tanker"]);
-    expect(s).toContain("Items in this workflow (Small Pump, Large Pump and 1 more) follow these rules.");
-    expect(s).toContain("One unit is one whole outcome, released when it is fully paid.");
-    expect(s).toContain("It creates a new water pump once fully paid, assigned to a partner by suggestion");
-    expect(workflowSentence(fw({ instalment: undefined }), undefined, [])).toContain("How units are allocated to an outcome is not set yet.");
-    expect(workflowSentence(fw(), undefined, [])).toContain("It has no outcome type yet");
+  it("changes with the rules: a whole outcome, held until fully paid, assigned automatically or by suggestion", () => {
+    const pump = texts(fw({ unitsPerBeneficiary: 1, instalment: "share_of_whole" }), { ...types[1]!, frameworkIds: ["w"] });
+    expect(pump[1]).toBe("1 unit is 1 outcome");
+    expect(pump[2]).toBe("Held until fully paid");
+    expect(pump[4]).toBe("Assigned to a partner by suggestion");
+    expect(texts(fw(), { ...types[0]!, frameworkIds: ["w"] })[4]).toBe("Assigned to a partner automatically");
+    expect(texts(fw({ instalment: undefined }))[1]).toBe("Units not set");
+  });
+  it("never names a kind of outcome or a donor", () => {
+    const all = texts(fw({ unit: "pump" }), { ...types[1]!, frameworkIds: ["w"] }).join(" ");
+    expect(all).not.toMatch(/pump|donor/i);
   });
 });
 

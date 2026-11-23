@@ -321,3 +321,10 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 - What a partner must supply is the same for every item in a workflow, so those fields stay with the workflow. They are settled later, when the stages are configured. Moving the outcome type onto the item, and stage 2, are left until then.
 - Each workflow has its own icon from the icon library (a target when none is chosen), no longer taken from an item or type. The library gained Target, Person, Group, Tent, Heart and Supplies, and grows as needed.
 - Done now: the first part, a gift into units (decision 133), and the workflow icon. Next: the flow diagram with a rule icon on each stage.
+
+## 135. Icon library popup, plain workflow line, the unit's journey diagram (23/11/2026)
+
+- The workflow icon is chosen the usual way: click the icon, a popup shows the library as pictures, click one, then OK to keep it or Cancel to leave it. The dropdown is gone (supersedes the picker in 134).
+- The line under the workflow name is only "Items assigned to this workflow follow these set rules." The details are in the flow, not in a sentence.
+- The flow now has a strip that follows one unit: gift paid, split into units, held until fully paid or released as each payment arrives, joins an outcome, assigned to a partner, partner delivers, tasks and report. It changes as the rules change. Steps decided by a rule carry a rule icon (split, hold or release, assign, report), and so does each of the six stage boxes. The words are general and never name a kind of outcome or a donor.
+- Gift unit configuration is complete with the split number and the fully paid tick. What a unit is, and monthly or once, stay settled in Gifts. Whether one donor may hold several slices of one outcome is an allocation rule.

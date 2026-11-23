@@ -56,7 +56,7 @@ export interface View {
   itemIcons?: Record<string, string>; // the icon chosen for an item (DECISIONS 107)
   outcomeTypes?: OutcomeType[];
   workflowSuggestions?: Record<string, string>; // item id to the workflow its name suggests (DECISIONS 130)
-  workflowSel?: { id: string; stage: number; parts: number; allocated: boolean; pick?: string }; // which workflow and stage the Workflows page shows, and the sample gift (DECISIONS 130) // the kinds of outcome and their profile fields (DECISIONS 103)
+  workflowSel?: { id: string; stage: number; parts: number; allocated: boolean; pick?: string; iconPick?: string }; // which workflow and stage the Workflows page shows, and the sample gift (DECISIONS 130) // the kinds of outcome and their profile fields (DECISIONS 103)
   itemFramework?: Record<string, string>; // an item's own framework, where it differs from its category
   itemFrameworkSuggestions?: Record<string, string>; // suggested item frameworks, for a person to accept
   suggestions: Record<string, string>; // item id to suggested category id, for items not yet sorted

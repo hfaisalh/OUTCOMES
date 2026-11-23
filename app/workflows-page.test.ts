@@ -24,7 +24,7 @@ describe("the Workflows page", () => {
     expect(html).toContain("<h1>Workflows</h1>");
     for (const n of ["Orphan sponsorship", "Student sponsorship", "Water pump", "House build", "Livelihood", "Activity"]) expect(html).toContain(`<b>${n}</b>`);
     expect(html).toContain("<small>1 item</small>"); // Orphan sponsorship has one item
-    expect(html).toContain("Items in this workflow (Orphan Sponsorship) follow these rules. One outcome is made of 3 units.");
+    expect(html).toContain("Items assigned to this workflow follow these set rules.");
     expect((html.match(/class="wf-node/g) ?? []).length).toBe(6);
     expect(html).toContain("3 month basic check");
     const words = html.replace(/<[^>]*>/g, " ");
@@ -81,9 +81,24 @@ describe("the Workflows page", () => {
   });
   it("gives each workflow its own icon, a target when none is chosen, and a picker for it (DECISIONS 134)", () => {
     const html = workflowsPage(view({ workflowSel: { id: "water-pump", stage: 1, parts: 1, allocated: false, pick: "" } }));
-    expect(html).toContain('data-tpl="icon" data-tplid="water-pump"');
-    expect(html).toContain('<option value="pump" selected>');
+    expect(html).toContain('data-wf-iconopen="water-pump"');
+    expect(html).toMatch(/data-wf-iconopen="water-pump"[\s\S]{0,160}title="Water pump"/); // its own icon, the pump here
     const plain = workflowsPage(view({ frameworks: [{ id: "x", name: "Transactional", unit: "", cycle: "on_delivery", reportType: "", unitsPerBeneficiary: 1 }], workflowSel: { id: "x", stage: 1, parts: 1, allocated: false, pick: "" } }));
-    expect(plain).toContain('<option value="bullseye" selected>');
+    expect(plain).toMatch(/data-wf-iconopen="x"[\s\S]{0,160}title="Transactional"/);
+    expect(plain).toContain('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/>'); // a target
+  });
+  it("shows the unit's journey with rule icons, and opens an icon library popup to choose from (DECISIONS 135)", () => {
+    const html = workflowsPage(view());
+    expect(html).toContain("wf-journey");
+    expect(html).toContain("Gift split into units, 3 make 1 outcome");
+    expect(html).toContain('title="Rule: units in one outcome"');
+    expect(html).toContain('data-wf-iconopen="orphan-sponsorship"'); // the icon itself opens the library
+    expect(html).not.toContain("wf-modal"); // closed until it is clicked
+    expect(html).not.toContain('data-tpl="icon"'); // no dropdown any more
+    const open = workflowsPage(view({ workflowSel: { id: "orphan-sponsorship", stage: 1, parts: 1, allocated: false, pick: "", iconPick: "tent" } }));
+    expect(open).toContain("wf-modal");
+    expect(open).toMatch(/data-wf-iconchoose="tent" aria-pressed="true"/);
+    expect(open).toContain('data-wf-iconok="orphan-sponsorship"');
+    expect(open).toContain("data-wf-iconcancel");
   });
 });

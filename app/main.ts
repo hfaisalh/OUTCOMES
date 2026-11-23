@@ -71,7 +71,7 @@ const state = {
   projectWin: { open: false, id: "" }, // the project form
   giftWin: { key: "", log: false }, // the gift details window (DECISIONS 78): the key of the gift it shows, "" when closed
   partnerWin: { open: false, id: "", tab: "profile" as PartnerTab, draft: null as Record<string, unknown> | null }, // the partner window (DECISIONS 70)
-  workflowSel: { id: "", stage: 1, parts: 1, allocated: false, pick: "" }, // the workflow and stage the Workflows page shows, and its sample gift (DECISIONS 130)
+  workflowSel: { id: "", stage: 1, parts: 1, allocated: false, pick: "" } as NonNullable<View["workflowSel"]>, // the workflow and stage the Workflows page shows, and its sample gift (DECISIONS 130)
   itemIcons: {} as Record<string, string>, // the icon chosen for an item (DECISIONS 107)
   idCounters: {} as Record<string, number>, // the last number used for each ID prefix (DECISIONS 105)
   outcomeTypes: starterOutcomeTypes() as OutcomeType[], // the kinds of outcome and their profile fields (DECISIONS 103)
@@ -1382,6 +1382,20 @@ function moveItem(itemId: string, workflowId: string): void {
 document.addEventListener("click", (e) => {
   const t = e.target as HTMLElement;
   // Items are put in a workflow with the switch on the Items list (DECISIONS 133), handled on change.
+  // The icon library popup (DECISIONS 135): open, choose, OK keeps it, Cancel leaves it.
+  const iconOpen = t.closest?.("[data-wf-iconopen]") as HTMLElement | null;
+  if (iconOpen) { const w = state.frameworks.find((x) => x.id === iconOpen.dataset.wfIconopen); state.workflowSel = { ...state.workflowSel, iconPick: w?.icon || "bullseye" }; return draw(); }
+  const iconChoose = t.closest?.("[data-wf-iconchoose]") as HTMLElement | null;
+  if (iconChoose) { state.workflowSel = { ...state.workflowSel, iconPick: iconChoose.dataset.wfIconchoose ?? "" }; return draw(); }
+  if (t.closest?.("[data-wf-iconcancel]")) { const { iconPick: _i, ...rest } = state.workflowSel; state.workflowSel = rest; return draw(); }
+  const iconOk = t.closest?.("[data-wf-iconok]") as HTMLElement | null;
+  if (iconOk) {
+    const { iconPick, ...rest } = state.workflowSel;
+    state.frameworks = updateTemplate(state.frameworks, iconOk.dataset.wfIconok ?? "", { icon: iconPick || undefined });
+    state.workflowSel = rest;
+    afterConfig(false);
+    return draw();
+  }
   const pick = t.closest?.("[data-wf-select]") as HTMLElement | null;
   if (pick) { state.workflowSel = { ...state.workflowSel, id: pick.dataset.wfSelect ?? "", stage: 1 }; return draw(); }
   const stage = t.closest?.("[data-wf-stage]") as HTMLElement | null;

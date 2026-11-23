@@ -67,6 +67,21 @@ describe("the shell", () => {
     expect(shell.innerHTML).not.toMatch(/data-wf-toggle="I14"[^>]*disabled/);
   });
 
+  it("chooses an icon from the library popup: OK keeps it, Cancel leaves it (DECISIONS 135)", () => {
+    click({ page: "workflows" }, "data-page");
+    click({ wfSelect: "sponsorship-shared-parts" }, "data-wf-select");
+    click({ wfIconopen: "sponsorship-shared-parts" }, "data-wf-iconopen");
+    expect(shell.innerHTML).toContain("wf-modal");
+    click({ wfIconchoose: "tent" }, "data-wf-iconchoose");
+    click({ wfIconcancel: "1" }, "data-wf-iconcancel");
+    expect(shell.innerHTML).not.toContain("wf-modal");
+    click({ wfIconopen: "sponsorship-shared-parts" }, "data-wf-iconopen");
+    click({ wfIconchoose: "tent" }, "data-wf-iconchoose");
+    click({ wfIconok: "sponsorship-shared-parts" }, "data-wf-iconok");
+    expect(shell.innerHTML).not.toContain("wf-modal");
+    expect(shell.innerHTML).toMatch(/data-wf-iconopen="sponsorship-shared-parts"[^>]*>[\s\S]{0,600}<path d="M2.5 20 12 4/); // the tent
+  });
+
   it("chooses a workflow for an unrouted gift from the list", () => {
     fire("change", { target: { id: "", dataset: { assignWf: "I11" }, value: "sponsorship-shared-parts" } });
     expect(shell.innerHTML).not.toContain('data-assign-wf="I11"');
@@ -172,7 +187,7 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     click({ wfSelect: "sponsorship-shared-parts" }, "data-wf-select");
     expect(shell.innerHTML).toContain("Sponsorship: shared parts");
     expect(shell.innerHTML).toContain('class="wf-sentence"');
-    expect(shell.innerHTML).toContain("follow these rules");
+    expect(shell.innerHTML).toContain("follow these set rules");
     for (const title of ["Gift paid", "Outcome", "Released", "Assigned", "Delivering", "Updates and report"]) expect(shell.innerHTML).toContain(`<b>${title}</b>`);
     expect(shell.innerHTML).toContain("data-wf-toggle");
     expect(shell.innerHTML).toContain("Switch an item on");
