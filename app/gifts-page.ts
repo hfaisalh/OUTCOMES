@@ -16,6 +16,7 @@ import { iconHtml, itemIcon } from "./icons";
 import { plusMonths } from "../modules/04b-commitments/catch-up";
 import { allocatable, type Commitment } from "../modules/04b-commitments/commitments";
 import { giftRows, type GiftRow } from "../modules/04b-commitments/gifts";
+import { giftStage, STAGE_TITLES, type StageResult } from "../modules/04b-commitments/stage";
 import { allocationShape, unitsForCommitment } from "../modules/02-project-rules/categories";
 import { perPeriodRule, takesCapacity } from "../modules/05-outcomes/outcomes";
 import { creditLine, criteriaFor, esc, filterBar, listBase, MAX_ROWS, metric, workflowPicker, type Filter, type View } from "./pages";
@@ -167,6 +168,13 @@ const projectCell = (name: string, cause = ""): string => {
 const giftIcon = (v: View, g: GiftRow, size: "sm" | "lg" = "sm"): string => iconHtml(itemIcon(g.itemId, g.itemName, v.itemIcons, (v.outcomeTypes ?? []).find((t) => g.frameworkId !== "" && t.frameworkIds.includes(g.frameworkId))?.icon ?? ""), g.itemName, size);
 
 // Everything about where gifts are allocated, worked out once for the list and for the window.
+// Rule (DECISIONS 141): the stage of a gift's workflow it is in now, shown as a small pill with the reason in its tooltip. Excluded payments have none.
+function stageFor(v: View, g: GiftRow, a: { state: "placed" | "waiting" | "manual" | "none" | "n/a"; who: string; partner: string }): StageResult {
+  const fw = (v.frameworks ?? []).find((f) => f.id === g.frameworkId);
+  return giftStage({ kind: g.kind, hasWorkflow: g.frameworkId !== "" && !g.unrouted, holdUntilPaid: fw?.instalment === "share_of_whole", planStatus: g.planStatus, paid: g.paid, planned: g.planned, placement: a.state, where: a.state === "placed" ? `${a.who} at ${a.partner}` : "" });
+}
+const stagePill = (r: StageResult): string => (r.stage === null ? "" : `<span class="pill stage st-${r.stage}" title="${esc(r.note || STAGE_TITLES[r.stage])}">${esc(STAGE_TITLES[r.stage])}</span>`);
+
 function allocationContext(v: View) {
   const fws = v.frameworks ?? [];
   const today = v.today ?? "2026-01-01";
@@ -262,11 +270,12 @@ export function giftListHtml(v: View): string {
       <td class="num muted" title="Total of its payments, for reference">${money(g.payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0), currencyOf(g))}</td>
       <td class="num" title="${esc(paid)}">${esc(shortDate(paid))}</td>
       <td class="num muted" title="${esc(g.nextDue)}">${esc(shortDate(g.nextDue))}</td>
+      <td class="clip">${stagePill(stageFor(v, g, where(g)))}</td>
       <td class="clip">${allocCell(g)}</td>
       <td class="c st">${statusIcons(g)}${g.kind === "excluded" && first ? `<button data-excl="${esc(first.key)}" data-excl-action="restore" title="${esc(reason || "Excluded")}">Restore</button>` : ""}</td>
       </tr>`;
   };
-  return `${bulk}${note}${rows.length === 0 ? `<div class="empty">No gifts match the filters.</div>` : `${key}<div class="tablewrap"><table class="giftlist"><thead><tr><th><input type="checkbox" data-selall="main" title="Tick all shown"${allTicked ? " checked" : ""}></th><th></th><th>Rec. ID</th><th>Donor</th><th>Item</th><th>Project</th><th>Plan</th><th>Value</th><th>Paid</th><th>Next</th><th>Allocated to</th><th>Status</th><th></th></tr></thead><tbody>${shown.map(row).join("")}</tbody></table></div>`}`;
+  return `${bulk}${note}${rows.length === 0 ? `<div class="empty">No gifts match the filters.</div>` : `${key}<div class="tablewrap"><table class="giftlist"><thead><tr><th><input type="checkbox" data-selall="main" title="Tick all shown"${allTicked ? " checked" : ""}></th><th></th><th>Rec. ID</th><th>Donor</th><th>Item</th><th>Project</th><th>Plan</th><th>Value</th><th>Paid</th><th>Next</th><th>Stage</th><th>Allocated to</th><th>Status</th><th></th></tr></thead><tbody>${shown.map(row).join("")}</tbody></table></div>`}`;
 }
 
 // The window for one gift: everything the list leaves out (DECISIONS 78). Returns "" when the gift is not in the data, so the caller closes the window.
@@ -328,6 +337,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Project chosen", esc(g.projectName))}
         ${row("Cause", esc(first?.cause ?? ""))}
         ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
+        ${row("Stage", `${stagePill(stageFor(v, g, a))}${stageFor(v, g, a).note ? `<div class="muted">${esc(stageFor(v, g, a).note)}</div>` : ""}`)}
         ${row("Allocated to", allocation)}
         ${row("Status", `${status} ${logBtn}${markManual ? `<div class="statusact">${markManual}</div>` : ""}`)}
         ${first ? row("Credit", creditLine(first), true) : ""}

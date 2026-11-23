@@ -369,3 +369,10 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 - Rectangles are stages (Gift, Work order, Allocation, Report, Complete, Feedback) and diamonds are processes (Assignment, Confirmation, Review). Approved arrows carry a green tick, rejected returns a red cross, as in 139.
 - Removed from the chart: the Fully paid? diamond and its Held as Funding box (release is a decision of Work order), and the outcome profile sections drawn inside Allocation (they are decisions of Allocation).
 - New: **Feedback** is the last stage, with one decision for now: the donor is asked for feedback once the order is complete (on unless turned off). When, how and the questions come later. Panels are numbered 1 Work order to 7 Feedback. Gift and Complete have no panel.
+
+## 141. Each gift shows its stage (23/11/2026)
+
+- The Gifts list has a **Stage** column and the gift window a Stage row, using the titles of the workflow chart: Gift, Work order, Assignment, Confirmation, Allocation, Review, Report, Complete, Feedback. The reason is in the tooltip (list) and under the pill (window).
+- Worked out by a pure function (`modules/04b-commitments/stage.ts`) from what is known now. A gift with no workflow is at **Gift** (choose a workflow). A gift whose workflow releases only when fully paid is at **Work order**, funding, until every payment is in ("Funding, 4 of 10 paid"). A manual gift is at Work order. A paused plan is parked at Work order, a cancelled one at Gift. A released gift not yet placed is at **Assignment** (waiting for a partner). A gift placed in an outcome is at **Allocation**. Excluded payments have no stage.
+- Confirmation, Review, Report, Complete and Feedback need the partner side (batch list, outcome profile, approval), so no gift is put there yet. They arrive with Partners.
+- Not built yet: a filter by stage, and stage history.
