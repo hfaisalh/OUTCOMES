@@ -19,7 +19,7 @@ import { partnersPage } from "./partners-page";
 import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
 import { projectFormHtml, readProjectForm } from "./project-form";
-import { NEW_CONTACT_ROW, NEW_DOC_ROW, readPartnerForm } from "./partner-form";
+import { benefitRow, NEW_CONTACT_ROW, NEW_DOC_ROW, readPartnerForm } from "./partner-form";
 import { partnerWindowHtml, type PartnerTab } from "./partner-window";
 import { allocationPage } from "./allocation-page";
 import { addOutcomes, autoAllocate, perPeriodRule, releaseApprovals, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, type Allocation, type Outcome } from "../modules/05-outcomes/outcomes";
@@ -1240,6 +1240,19 @@ document.addEventListener("click", (e) => {
   const el = target.closest("[data-pf]") as HTMLElement | null;
   if (!el) return;
   const what = el.dataset.pf;
+  if (what === "rm-item") {
+    const row = el.closest(".pf-benrow") as HTMLElement | null;
+    const sel = document.getElementById("pf-additem") as HTMLSelectElement | null;
+    if (row && sel) {
+      const name = row.querySelector("td")?.textContent ?? "";
+      const o = document.createElement("option");
+      o.value = row.dataset.item ?? ""; o.textContent = name;
+      sel.appendChild(o);
+      row.remove();
+      if (!document.querySelector(".pf-benrow")) document.getElementById("pf-benempty")?.removeAttribute("hidden");
+    }
+    return;
+  }
   if (what === "new") return openPartnerWindow("");
   if (what === "sample") return void outcomeChange({ action: "save-partner", projectId: "", copyFrom: "", profile: samplePartnerProfile(view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), new Date().toISOString().slice(0, 10)) });
   if (what === "open" || what === "edit") return openPartnerWindow(el.dataset.id ?? "");
@@ -1542,11 +1555,16 @@ document.addEventListener("change", (e) => {
   }
 });
 
-// In the partner's benefits table, capacity and cost can only be filled in for a benefit that is ticked.
+// In the partner's benefits (line by line): choosing a benefit from the list adds its line, and the x takes a line off and puts the benefit back in the list.
 document.addEventListener("change", (e) => {
-  const t = e.target as HTMLInputElement | null;
-  if (!t?.classList?.contains("pf-item")) return;
-  const row = t.closest("tr");
-  row?.classList.toggle("on", t.checked);
-  row?.querySelectorAll(".pf-cap,.pf-cost").forEach((i) => ((i as HTMLInputElement).disabled = !t.checked));
+  const t = e.target as HTMLSelectElement | null;
+  if (t?.id !== "pf-additem" || t.value === "") return;
+  const opt = t.selectedOptions[0];
+  const body = document.getElementById("pf-bentbody");
+  if (!opt || !body) return;
+  body.insertAdjacentHTML("beforeend", benefitRow(opt.value, opt.textContent ?? opt.value));
+  opt.remove();
+  t.value = "";
+  document.getElementById("pf-benempty")?.setAttribute("hidden", "");
+  (body.lastElementChild?.querySelector(".pf-cap") as HTMLInputElement | null)?.focus();
 });

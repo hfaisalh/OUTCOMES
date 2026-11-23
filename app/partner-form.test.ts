@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { partnerProfileHtml } from "./partner-form";
+import { benefitRow, partnerProfileHtml } from "./partner-form";
 
 const ctx = { types: ["Institute", "Contractor"], fields: ["Registration no."], items: [{ id: "MWF-WAT-001", name: "Small Water Pump" }, { id: "MWF-ORP-001", name: "Orphan Sponsorship" }], others: [{ id: "aghosh", name: "Aghosh" }] };
 
@@ -31,7 +31,8 @@ describe("partnerProfileHtml", () => {
     const html = partnerProfileHtml({ name: "SDO", type: "Supplier", itemIds: ["MWF-WAT-001"], capacity: 40, ddStatus: "approved", custom: { "Registration no.": "R9" }, contacts: [{ name: "A Person", position: "", phone: "", mobile: "", email: "a@example.org", handles: "" }] }, "sdo", ctx);
     expect(html).toContain('value="SDO"');
     expect(html).toContain('<option value="Supplier" selected>');
-    expect(html).toMatch(/value="MWF-WAT-001" checked/);
+    expect(html).toContain('class="pf-benrow" data-item="MWF-WAT-001"'); // its item is a line, and the other is in the selector
+    expect(html).toContain('<option value="MWF-ORP-001">Orphan Sponsorship</option>');
     expect(html).not.toMatch(/value="MWF-ORP-001" checked/);
     expect(html).toContain('value="40"');
     expect(html).toContain('<option value="approved" selected>');
@@ -45,25 +46,25 @@ describe("partnerProfileHtml", () => {
     expect(html).not.toContain("<img");
     expect(html).not.toContain("<script>");
   });
-  it("asks for a capacity and a cost per unit beside each benefit, and fills them in for a partner being edited (DECISIONS 149)", () => {
-    const html = partnerProfileHtml({ itemIds: ["I1"], benefitTerms: { I1: { capacity: 6, costPerUnit: 950.5 } } } as never, "p1", { types: [], items: [{ id: "I1", name: "Small Pump" }, { id: "I2", name: "Tent" }], fields: [], others: [] } as never);
-    expect(html).toContain('<table><thead><tr><th>Benefit</th><th class="num">Capacity</th><th class="num">Cost per unit</th></tr></thead>'); // one row per benefit, in aligned columns
-    expect(html).toContain('class="pf-cap" data-item="I1"');
-    expect(html).toMatch(/class="pf-cap" data-item="I2"[^>]*disabled/); // not ticked, so not filled in
-    expect(html).not.toMatch(/class="pf-cap" data-item="I1"[^>]*disabled/);
+  it("lists only the benefits a partner is active for, one line each with capacity, cost and a remove button, and a selector to add another (DECISIONS 149)", () => {
+    const html = partnerProfileHtml({ itemIds: ["I1"], benefitTerms: { I1: { capacity: 6, costPerUnit: 950.5 } } } as never, "p1", { types: [], items: [{ id: "I1", name: "Small Pump" }, { id: "I2", name: "Tent" }, { id: "I3", name: "Tanker" }], fields: [], others: [] } as never);
+    expect((html.match(/class="pf-benrow"/g) ?? []).length).toBe(1); // only the ticked one is a line
+    expect(html).toContain('class="pf-benrow" data-item="I1"');
     expect(html).toContain('value="6"');
     expect(html).toContain('value="950.5"');
-    expect(html).toContain('class="pf-cost" data-item="I2"');
+    expect(html).toContain('data-pf="rm-item"');
+    expect(html).toContain('<select id="pf-additem" aria-label="Add a benefit"><option value="">Add a benefit...</option><option value="I2">Tent</option><option value="I3">Tanker</option></select>'); // the others are in the selector
+    expect(html).not.toContain('<option value="I1">'); // already added
     expect(html).toContain("capacity of 0 stops new work orders");
+    expect(html).toContain('id="pf-benempty" hidden>'); // the "any benefit" note is hidden when there are lines
   });
-  it("asks for the legal, funding and safeguarding details, and suggests the usual document titles (DECISIONS 151)", () => {
-    const html = partnerProfileHtml({ registrationNumber: "REG-1", fundingMethod: "banking", safeguardingLead: "A. Lead" } as never, "p1", { types: [], items: [], fields: [], others: [] } as never);
-    for (const w of ["Legal and funding", "Safeguarding", "Registration number", "How money is sent to them"]) expect(html).toContain(w);
-    expect(html).toContain('value="REG-1"');
-    expect(html).toContain('<option value="banking" selected>Regulated banking</option>');
-    expect(html).toContain('value="A. Lead"');
-    expect(html).toContain('list="pf-doctitles"');
-    expect(html).toContain('<option value="Safeguarding policy">');
-    expect(html).toContain("does not manage money");
+  it("says it can take any benefit while none are added", () => {
+    const html = partnerProfileHtml({} as never, "p1", { types: [], items: [{ id: "I1", name: "Small Pump" }], fields: [], others: [] } as never);
+    expect(html).toContain('id="pf-benempty">No benefits added: this partner can take any benefit.');
+    expect((html.match(/class="pf-benrow"/g) ?? []).length).toBe(0);
+  });
+  it("makes a benefit line with its name made safe", () => {
+    expect(benefitRow("I9", "<b>x</b>")).not.toContain("<b>x</b>");
+    expect(benefitRow("I9", "Pump", { capacity: 3 })).toContain('value="3"');
   });
 });
