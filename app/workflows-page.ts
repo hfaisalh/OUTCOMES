@@ -2,13 +2,13 @@
  * workflows-page.ts
  *
  * What it does: the Workflows page (DECISIONS 130). A workflow is what happens to a kind of gift from payment to donor report. The page lists the workflows, shows the chosen one as
- * a plain sentence and a flow of six stages (click a stage to edit its rules), a sample gift that draws the parts the way Allocation does, and the items with their workflow,
- * category (for reporting) and icon. One page replaces the framework cards, the outcome types card and the icons card.
+ * a plain sentence and a flow of six stages (click a stage to edit its rules), a sample gift that draws the units the way Allocation does, and the items with their workflow,
+ * icon. Items are dragged onto workflows, and an item is in one workflow only. There is no category here. One page replaces the framework cards, the outcome types card and the icons card.
  * Who calls it: app/main.ts. Depends on: modules/02-project-rules/workflows.ts, app/outcome-types-card.ts, app/icons.ts and the helpers in pages.ts. Pure: it takes a View and returns HTML.
  */
 
-import { CYCLE_LABELS, INSTALMENT_LABELS, type Cycle, type FrameworkTemplate, type InstalmentRule } from "../modules/02-project-rules/categories";
-import { PAYS_FOR, STAGES, stageChips, workflowSentence } from "../modules/02-project-rules/workflows";
+import { CYCLE_LABELS, type Cycle, type FrameworkTemplate } from "../modules/02-project-rules/categories";
+import { outcomeName, STAGES, stageChips, unitModeLabels, unitModeOf, workflowSentence, type UnitMode } from "../modules/02-project-rules/workflows";
 import { typeForFramework, type OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { ICONS, iconHtml, itemIcon } from "./icons";
 import { outcomeTypeEditor } from "./outcome-types-card";
@@ -26,7 +26,7 @@ function pies(parts: number, slots: number, allocated: boolean): string {
   const one = (held: number): string => {
     const R = 14, C = 2 * Math.PI * R, len = C / slots;
     const arcs = Array.from({ length: slots }, (_, i) => `<circle cx="18" cy="18" r="${R}" fill="none" stroke="${i < held ? colour : "var(--line)"}" stroke-width="9" stroke-dasharray="${slots === 1 ? C : Math.max(len - 2, 0.5)} ${C}" stroke-dashoffset="${-i * len}" transform="rotate(-90 18 18)"/>`).join("");
-    return `<svg viewBox="0 0 36 36" width="44" height="44" role="img" aria-label="${held} of ${slots} parts">${arcs}</svg>`;
+    return `<svg viewBox="0 0 36 36" width="44" height="44" role="img" aria-label="${held} of ${slots} units">${arcs}</svg>`;
   };
   return Array.from({ length: n }, (_, i) => one(Math.min(slots, total - i * slots))).join("");
 }
@@ -35,18 +35,22 @@ function stagePanel(f: FrameworkTemplate, type: OutcomeType | undefined, stage: 
   const t = `data-tplid="${esc(f.id)}"`;
   const used = Object.fromEntries((v.outcomeTypes ?? []).map((x) => [x.id, (v.outcomes ?? []).filter((o) => o.outcomeTypeId === x.id).length]));
   const needType = `<p class="muted">Choose an outcome type for this workflow in stage 2 first.</p>`;
-  if (stage === 1) return `<h3>What a payment buys</h3>
-    <label class="wf-field"><span>A payment buys</span><select data-tpl="instalment" ${t}>${f.instalment === undefined ? `<option value="" selected>Choose...</option>` : ""}${(Object.keys(PAYS_FOR) as InstalmentRule[]).map((k) => `<option value="${k}"${f.instalment === k ? " selected" : ""}>${esc(PAYS_FOR[k])}</option>`).join("")}</select></label>
-    <p class="muted">${esc(f.instalment ? INSTALMENT_LABELS[f.instalment] : "Say whether a payment is a month of support, or a share of one whole item.")} The gift tells us whether it is monthly or one payment, and the CRM catalogue gives the bundle sizes and the months, so none of that is set here.</p>
-    <div class="wf-two"><label class="wf-field"><span>What one delivery is</span><input data-tpl="unit" ${t} value="${esc(f.unit)}" placeholder="orphan, pump, house"></label>
-    <label class="wf-field"><span>${esc(f.unit || "One outcome")} is made of (parts)</span><input type="number" min="1" step="1" data-tpl="unitsPerBeneficiary" ${t} value="${f.unitsPerBeneficiary}"></label></div>`;
+  if (stage === 1) {
+    const name = outcomeName(f, type);
+    const mode = unitModeOf(f);
+    const labels = unitModeLabels(name);
+    return `<h3>A unit supports</h3>
+    <label class="wf-field"><span>A unit supports</span><select data-wf-mode="${esc(f.id)}">${mode === undefined ? `<option value="" selected>Choose...</option>` : ""}${(Object.keys(labels) as UnitMode[]).map((k) => `<option value="${k}"${mode === k ? " selected" : ""}>${esc(labels[k])}</option>`).join("")}</select></label>
+    ${mode === "share" ? `<label class="wf-field"><span>Units that make one ${esc(name)}</span><input type="number" min="2" max="100" step="1" data-wf-shares="${esc(f.id)}" value="${f.unitsPerBeneficiary}"></label>` : ""}
+    <p class="muted">${mode === "share" ? `Several units together support one ${esc(name)}, so several donors can share one.` : mode === "whole" ? `One unit supports one whole ${esc(name)}, month by month.` : mode === "once" ? `One unit funds one whole ${esc(name)}. The gift waits until it is fully paid, then it is released.` : `Say how a unit supports an outcome.`} What a unit is, and whether it is paid monthly or at once, is already settled in Gifts.</p>`;
+  }
   if (stage === 2) return `<h3>What the gift becomes</h3>
     <label class="wf-field"><span>Outcome type</span><select data-wf-type="${esc(f.id)}"><option value="">No outcome type yet</option>${(v.outcomeTypes ?? []).map((x) => `<option value="${esc(x.id)}"${type?.id === x.id ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>
     ${type ? outcomeTypeEditor(type, [], used, { assign: false, frameworks: false, remove: false }) : `<p class="muted">An outcome is the specific thing a gift becomes: an orphan, a pump, a house. Choose a type, or add a new one below.</p>`}
     <div class="ot-add"><input id="newot" placeholder="A new outcome type, for example Rickshaw"><button data-ot-act="add">Add type</button></div>`;
   if (stage === 3) return `<h3>When it is released</h3>${f.instalment === "share_of_whole"
-    ? `<p>The payments add up to one whole ${esc(f.unit || "item")}. The gift <b>waits as Funding</b> until it is fully paid, and only then can it go to a partner. A one-off payment in full is released at once.</p>`
-    : `<p>Each payment is a month of support, so the gift is <b>released each month</b> as it is paid. Nothing waits.</p>`}
+    ? `<p>The unit funds one whole ${esc(outcomeName(f, type))}. The gift <b>waits as Funding</b> until it is fully paid, and only then can it go to a partner. A one-off payment in full is released at once.</p>`
+    : `<p>The unit supports month by month, so the gift is <b>released each month</b> as it is paid. Nothing waits.</p>`}
     <p class="muted">If payments stop before the end, the gift stays parked as Paused or Cancelled. Nothing is cancelled or released by the system itself.</p>`;
   if (stage === 4) return `<h3>Assigned to a partner</h3>${type ? `<label class="wf-field"><span>Assigned</span><select data-ot="assign" data-type-id="${esc(type.id)}"><option value="auto"${type.assign === "auto" ? " selected" : ""}>Automatically, when a partner has capacity</option><option value="suggest"${type.assign === "suggest" ? " selected" : ""}>Only suggested to a person</option></select></label>` : needType}
     <p class="muted">Priority when several are waiting: a donor's directed project or partner, then a deadline, then an urgent flag, then the oldest paid first. A partner only gets what it delivers and is approved for. Each partner sets its capacity on its own profile.</p>`;
@@ -64,7 +68,7 @@ function stagePanel(f: FrameworkTemplate, type: OutcomeType | undefined, stage: 
 export function workflowsPage(v: View): string {
   const fws = v.frameworks ?? [];
   const types = v.outcomeTypes ?? [];
-  const sel = v.workflowSel ?? { id: "", stage: 1, parts: 1, allocated: false };
+  const sel = v.workflowSel ?? { id: "", stage: 1, parts: 1, allocated: false, pick: "" };
   const items = v.flaggedItems;
   const itemFw = v.itemFramework ?? {};
   const effective = (itemId: string): string => itemFw[itemId] ?? v.categories.find((c) => c.id === v.itemCategories[itemId])?.frameworkId ?? "";
@@ -74,26 +78,24 @@ export function workflowsPage(v: View): string {
   const f = fws.find((x) => x.id === sel.id) ?? fws[0];
   const stage = Math.min(6, Math.max(1, sel.stage));
 
-  const list = `<div class="card"><h3 class="wf-h">Workflows <span class="muted">(${fws.length})</span></h3><div class="wlist">${fws.map((x) => `<button class="wbtn${x.id === f?.id ? " on" : ""}" data-wf-select="${esc(x.id)}">${iconHtml(iconOfWorkflow(x.id), x.name, "lg") || `<span class="ico ico-lg"></span>`}<span><b>${esc(x.name)}</b><small>${itemsOf(x.id).length} item${itemsOf(x.id).length === 1 ? "" : "s"}</small></span></button>`).join("") || `<div class="empty">No workflows yet.</div>`}</div>
+  const list = `<div class="card"><h3 class="wf-h">Workflows <span class="muted">(${fws.length})</span></h3><div class="wlist">${fws.map((x) => `<button class="wbtn${x.id === f?.id ? " on" : ""}" data-wf-select="${esc(x.id)}" data-wf-drop="${esc(x.id)}">${iconHtml(iconOfWorkflow(x.id), x.name, "lg") || `<span class="ico ico-lg"></span>`}<span><b>${esc(x.name)}</b><small>${itemsOf(x.id).length} item${itemsOf(x.id).length === 1 ? "" : "s"}</small></span></button>`).join("") || `<div class="empty">No workflows yet.</div>`}</div>
     <div class="actions"><input id="newfw" placeholder="New workflow name"><button data-action="add-framework">Add</button></div>
     <div class="actions"><button data-action="add-starters" title="Adds Orphan sponsorship, Student sponsorship, Water pump, House build, Livelihood and Activity, with their outcome types and tasks. Nothing you built is replaced.">Add the standard workflows</button></div>
     <p class="hint muted">A workflow is what happens to a kind of gift, from payment to donor report.</p></div>`;
 
   const nameOf = (id: string) => fws.find((x) => x.id === id)?.name ?? "";
-  const opts = (cur: string, blank: string) => `<option value="">${esc(blank)}</option>${fws.map((x) => `<option value="${esc(x.id)}"${x.id === cur ? " selected" : ""}>${esc(x.name)}</option>`).join("")}`;
-  const nSuggest = items.filter((i) => itemFw[i.id] === undefined && v.workflowSuggestions?.[i.id] !== undefined).length;
-  const itemsCard = `<section class="card"><h2>Items <span class="muted">(${items.length})</span></h2>
-    <p class="muted">Each item has its own workflow. The category is only a label for reporting.</p>
-    <div class="actions"><button data-action="suggest-workflows"${nSuggest ? "" : " disabled"}>Suggest workflows for ${nSuggest} item${nSuggest === 1 ? "" : "s"}</button>
+  const unassigned = items.filter((i) => effective(i.id) === "");
+  const pick = sel.pick ?? "";
+  const chip = (i: { id: string; name: string }, suggested = ""): string => `<span class="chip wf-chip${pick === i.id ? " sel" : ""}" draggable="true" data-wf-item="${esc(i.id)}" title="Drag onto a workflow, or tap it and then tap a workflow">${iconHtml(itemIcon(i.id, i.name, v.itemIcons ?? {}, typeIcon(effective(i.id))), i.name)} ${esc(i.name)}${suggested ? ` <small class="muted">${esc(nameOf(suggested))}?</small>` : ""}</span>`;
+  const nSuggest = unassigned.filter((i) => v.workflowSuggestions?.[i.id] !== undefined).length;
+  const poolCard = `<section class="card"><h2>Unassigned items <span class="muted">(${unassigned.length})</span></h2>
+    <p class="muted">Drag an item onto a workflow, or tap an item and then a workflow. An item is in one workflow only: once it is placed it is no longer here.</p>
+    <div class="actions"><button data-action="suggest-workflows"${nSuggest ? "" : " disabled"}>Suggest ${nSuggest} workflow${nSuggest === 1 ? "" : "s"} from the item names</button>
       <button data-action="apply-frameworks" title="Gifts keep the workflow they were made under. This moves every one to the workflow that now applies to its item.">Apply to existing gifts</button></div>
-    <div class="tablewrap"><table class="subtable wf-items"><thead><tr><th class="c"></th><th>Item</th><th>Workflow</th><th>Category (reporting)</th><th>Icon</th></tr></thead><tbody>${[...items].sort((a, b) => a.name.localeCompare(b.name)).map((i) => {
-      const cur = effective(i.id);
-      const suggested = v.workflowSuggestions?.[i.id];
-      return `<tr><td class="c">${iconHtml(itemIcon(i.id, i.name, v.itemIcons ?? {}, typeIcon(cur)), i.name)}</td><td>${esc(i.name)}</td>
-        <td><select data-itemfw="${esc(i.id)}" aria-label="Workflow of ${esc(i.name)}">${opts(itemFw[i.id] ?? "", cur ? `From its category: ${nameOf(cur)}` : "Not set")}</select>${suggested && itemFw[i.id] === undefined ? ` <span class="pill blue" title="Suggested from the item's name">suggested: ${esc(nameOf(suggested))}</span>` : ""}</td>
-        <td><select data-itemcat="${esc(i.id)}" aria-label="Category of ${esc(i.name)}"><option value="">Unsorted</option>${v.categories.map((c) => `<option value="${esc(c.id)}"${v.itemCategories[i.id] === c.id ? " selected" : ""}>${esc(c.name)}</option>`).join("")}</select></td>
-        <td><select data-icon-item="${esc(i.id)}" aria-label="Icon of ${esc(i.name)}"><option value=""${v.itemIcons?.[i.id] ? "" : " selected"}>Suggested</option>${ICONS.map((x) => `<option value="${x.id}"${v.itemIcons?.[i.id] === x.id ? " selected" : ""}>${esc(x.label)}</option>`).join("")}</select></td></tr>`;
-    }).join("") || `<tr><td colspan="5" class="muted">No items yet. Load the gifts under Data.</td></tr>`}</tbody></table></div></section>`;
+    <div class="zone wf-pool" data-wf-drop="">${unassigned.map((i) => chip(i, v.workflowSuggestions?.[i.id] ?? "")).join("") || `<span class="muted">Every item is in a workflow.</span>`}</div></section>`;
+  const iconsCard = `<details class="card"><summary><b>Item icons</b> <span class="muted">(${items.length})</span></summary><p class="muted">Each item has an icon in the Gifts list. One is suggested from its name. Choose another if it does not fit.</p>
+    <div class="tablewrap"><table class="subtable"><tbody>${[...items].sort((a, b) => a.name.localeCompare(b.name)).map((i) => `<tr><td class="c">${iconHtml(itemIcon(i.id, i.name, v.itemIcons ?? {}, typeIcon(effective(i.id))), i.name)}</td><td>${esc(i.name)}</td><td><select data-icon-item="${esc(i.id)}" aria-label="Icon of ${esc(i.name)}"><option value=""${v.itemIcons?.[i.id] ? "" : " selected"}>Suggested</option>${ICONS.map((x) => `<option value="${x.id}"${v.itemIcons?.[i.id] === x.id ? " selected" : ""}>${esc(x.label)}</option>`).join("")}</select></td></tr>`).join("")}</tbody></table></div></details>`;
+  const itemsCard = `${poolCard}${iconsCard}`;
 
   if (!f) return `<h1>Workflows</h1><p class="sub">What happens to a gift, from payment to donor report.</p>${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}<div class="wf-layout">${list}<div class="card empty">Add the standard workflows to start, or add your own.</div></div>${itemsCard}`;
 
@@ -103,10 +105,10 @@ export function workflowsPage(v: View): string {
   const slots = Math.max(1, f.unitsPerBeneficiary);
   const parts = Math.max(1, Math.min(9, sel.parts));
   const flow = STAGES.map((s, i) => `${i ? ARROW : ""}<button class="wf-node${s.n === stage ? " on" : ""}" data-wf-stage="${s.n}"><span class="n">Stage ${s.n}</span><b>${esc(s.title)}</b>${(chips[s.n] ?? []).map((c) => `<span class="chip ${c.tone}">${esc(c.text)}</span>`).join("")}</button>`).join("");
-  const sim = `<div class="wf-rule"><h3>Try a sample gift</h3><div class="wf-sim"><label class="wf-field"><span>Parts in the gift</span><select id="wf-sim-parts">${[1, 2, 3, 4, 6, 9].map((n) => `<option value="${n}"${n === parts ? " selected" : ""}>${n}</option>`).join("")}</select></label><label class="ot-check"><input type="checkbox" id="wf-sim-alloc"${sel.allocated ? " checked" : ""}> allocated</label></div>
+  const sim = `<div class="wf-rule"><h3>Try a sample gift</h3><div class="wf-sim"><label class="wf-field"><span>Units in the gift</span><select id="wf-sim-parts">${[1, 2, 3, 4, 6, 9].map((n) => `<option value="${n}"${n === parts ? " selected" : ""}>${n}</option>`).join("")}</select></label><label class="ot-check"><input type="checkbox" id="wf-sim-alloc"${sel.allocated ? " checked" : ""}> allocated</label></div>
     <div class="upies">${pies(parts, slots, sel.allocated)}</div>
-    <div class="ukey muted"><i class="p"></i>allocated <i class="e"></i>expected, not allocated <i class="f"></i>not this gift's parts</div>
-    <p class="muted">${f.instalment === "share_of_whole" ? `${parts} part${parts === 1 ? "" : "s"} need ${parts} ${esc(f.unit || "outcome")}${parts === 1 ? "" : "s"}, each paid in full before release.` : `${parts} part${parts === 1 ? "" : "s"} fill${parts === 1 ? "s" : ""} ${Math.ceil(parts / slots)} ${esc(f.unit || "outcome")}${Math.ceil(parts / slots) === 1 ? "" : "s"}, ${slots} parts to each.`}</p></div>`;
+    <div class="ukey muted"><i class="p"></i>allocated <i class="e"></i>expected, not allocated <i class="f"></i>not this gift's units</div>
+    <p class="muted">${unitModeOf(f) === "once" ? `${parts} unit${parts === 1 ? "" : "s"} fund${parts === 1 ? "s" : ""} ${parts} ${esc(outcomeName(f, type))}${parts === 1 ? "" : "s"}, each released when fully paid.` : `${parts} unit${parts === 1 ? "" : "s"} support${parts === 1 ? "s" : ""} ${Math.ceil(parts / slots)} ${esc(outcomeName(f, type))}${Math.ceil(parts / slots) === 1 ? "" : "s"}${slots > 1 ? `, ${slots} units to each` : ""}.`}</p></div>`;
 
   return `<h1>Workflows</h1><p class="sub">What happens to a gift, from payment to donor report. Click a stage to see and change its rules.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
@@ -115,7 +117,8 @@ export function workflowsPage(v: View): string {
         <div class="card"><div class="wf-head">${iconHtml(iconOfWorkflow(f.id), f.name, "lg")}<input class="title" data-fwrename="${esc(f.id)}" value="${esc(f.name)}" aria-label="Workflow name"><span class="muted">${itemsOf(f.id).length} item${itemsOf(f.id).length === 1 ? "" : "s"}</span>
           <button class="iconact" data-action="dup-framework" data-id="${esc(f.id)}" title="Copy this workflow" aria-label="Copy this workflow"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 15V6a1 1 0 0 1 1-1h9"/></svg></button>
           <button class="iconact" data-action="remove-framework" data-id="${esc(f.id)}" title="Remove this workflow" aria-label="Remove this workflow">${BIN}</button></div>
-          <p class="wf-sentence">${esc(sentence)}</p></div>
+          <p class="wf-sentence">${esc(sentence)}</p>
+          <h3 class="wf-h" style="margin-top:12px">Items in this workflow</h3><div class="zone wf-pool" data-wf-drop="${esc(f.id)}">${itemsOf(f.id).map((i) => chip(i)).join("") || `<span class="muted">Drop items here.</span>`}</div></div>
         <section class="card"><h3 class="wf-h">The flow</h3><div class="wf-flow">${flow}</div>
           <div class="wf-rules"><div class="wf-rule">${stagePanel(f, type, stage, v)}</div>${sim}</div></section>
       </div></div>

@@ -18,7 +18,7 @@ import { allocatable, type Commitment } from "../modules/04b-commitments/commitm
 import { giftRows, type GiftRow } from "../modules/04b-commitments/gifts";
 import { allocationShape, unitsForCommitment } from "../modules/02-project-rules/categories";
 import { perPeriodRule, takesCapacity } from "../modules/05-outcomes/outcomes";
-import { categoryName, creditLine, criteriaFor, esc, filterBar, listBase, MAX_ROWS, metric, picker, type Filter, type View } from "./pages";
+import { creditLine, criteriaFor, esc, filterBar, listBase, MAX_ROWS, metric, workflowPicker, type Filter, type View } from "./pages";
 
 const num = (n: number) => String(Math.round(n * 100) / 100);
 // Rule: a value is for reference only (OUTCOMES does not manage money). The CRM feed gives no currency, so none is shown.
@@ -33,7 +33,7 @@ function unitsCell(g: GiftRow, v: View): string {
   const c: Commitment | undefined = g.commitment;
   if (!c) return "";
   const fw = (v.frameworks ?? []).find((x) => x.id === c.frameworkId);
-  if (fw === undefined) return `<span class="muted">${c.categoryId === "" ? "Not in a category" : "No workflow chosen for this item"}</span>`;
+  if (fw === undefined) return `<span class="muted">No workflow chosen for this item</span>`;
   const rule = fw.instalment;
   if (rule === undefined) return `<span class="muted">Set how an instalment counts in the workflow ${esc(fw.name)}</span>`;
   const u = unitsForCommitment(rule, { parts: c.partsPerInstalment, paid: c.paid, planned: c.planned });
@@ -78,7 +78,7 @@ function unitsVisual(g: GiftRow, v: View): string {
     // Rule (DECISIONS 85, as in the Allocation month view): orange is expected. A month not paid yet, this month or later, is expected.
     return pie("e", `Instalment ${i + 1}, ${m}: ${m === now ? "due this month" : "upcoming"}`);
   }).join("");
-  const key = `<div class="ukey muted"><i class="p"></i>paid <i class="c"></i>catch-up <i class="e"></i>upcoming <i class="m"></i>missed <i class="f"></i>not this gift\u2019s parts</div>`;
+  const key = `<div class="ukey muted"><i class="p"></i>paid <i class="c"></i>catch-up <i class="e"></i>upcoming <i class="m"></i>missed <i class="f"></i>not this gift\u2019s units</div>`;
   return `<div class="upies">${pies}</div>${key}`;
 }
 
@@ -108,9 +108,9 @@ function paymentsTable(g: GiftRow, v: View): string {
   const reviewKeys = new Set(v.review.map((r) => r.key));
   const row = (w: WorkOrder): string => {
     const state = w.status === "excluded" ? `<span class="gi off" title="Excluded${w.exclusion ? `: ${esc(w.exclusion.reason)}` : ""}">${SYMBOL.excluded}</span>`
-      : w.status === "unrouted" ? `<span class="gi warn" title="Unrouted: choose its category">${SYMBOL.unrouted}</span>`
+      : w.status === "unrouted" ? `<span class="gi warn" title="Unrouted: choose its workflow">${SYMBOL.unrouted}</span>`
       : `<span class="dotok" title="Ready" aria-label="Ready"></span>`;
-    const hand = w.legacyUpload ? "" : w.partsFixed !== undefined ? `<span class="gi manual" title="Parts set manually. The CRM says ${sentPartsOf(w)}.">${SYMBOL.manual}</span>` : w.partsManual !== undefined ? `<span class="gi manual" title="${esc(w.partsManual)}">${SYMBOL.manual}</span>` : "";
+    const hand = w.legacyUpload ? "" : w.partsFixed !== undefined ? `<span class="gi manual" title="Units set manually. The CRM says ${sentPartsOf(w)}.">${SYMBOL.manual}</span>` : w.partsManual !== undefined ? `<span class="gi manual" title="${esc(w.partsManual)}">${SYMBOL.manual}</span>` : "";
     const legacy = w.legacyUpload ? `<span class="legacyico" title="Uploaded from the old system. This date is the day it was loaded, not the day it was paid.">${ICON_ARCHIVE}</span>` : "";
     const inst = w.instalmentNumber === "" ? `<span class="muted">one-off${periodsOf(w) > 1 ? ` \u00B7 ${periodsOf(w)} months` : ""}</span>` : `${esc(w.instalmentNumber)} of ${countText(w.instalmentCount)}`;
     const catchUp = w.covers && w.covers > 1 ? ` <span class="pill blue" title="One payment that pays for ${w.covers} months. The months it fills are blue in the circles.">\u00D7${w.covers} months</span>` : "";
@@ -121,7 +121,7 @@ function paymentsTable(g: GiftRow, v: View): string {
     const lastCell = restorable ? `<button class="iconact" data-excl="${esc(w.key)}" data-excl-action="restore" title="Restore" aria-label="Restore">${ICON_UNDO}</button>`
       : editable ? `<button class="iconact" data-excl="${esc(w.key)}" data-excl-action="exclude" title="Exclude this payment" aria-label="Exclude this payment">${ICON_X}</button>` : "";
     return `<tr class="pay"><td class="c">${state}${reviewKeys.has(w.key) ? ` <span class="gi warn" title="Held for review">${SYMBOL.review}</span>` : ""}</td>
-      <td title="Line ${esc(w.key)}">${esc(w.transactionRef) || `<span class="muted">no reference</span>`}${w.status === "unrouted" ? ` ${picker(v.categories, w.itemId, "")}` : ""}</td>
+      <td title="Line ${esc(w.key)}">${esc(w.transactionRef) || `<span class="muted">no reference</span>`}${w.status === "unrouted" ? ` ${workflowPicker(v, w.itemId)}` : ""}</td>
       <td class="date" title="${esc(w.paidDate.slice(0, 10))}"><span class="cellstart">${esc(shortDate(w.paidDate))}${legacy}</span></td>
       <td>${inst}${catchUp}</td>
       <td class="num"><span class="cellend">${w.legacyUpload ? `<span class="muted">\u2013</span>` : partsOf(w)}${hand}</span></td>
@@ -129,7 +129,7 @@ function paymentsTable(g: GiftRow, v: View): string {
       <td class="actcol"><div class="actbox">${monthsCell}</div></td>
       <td class="actcol"><div class="actbox">${lastCell}</div></td></tr>`;
   };
-  return `<div class="paywrap"><table class="subtable"><thead><tr><th class="c"></th><th>Reference</th><th>Paid</th><th>Instalment</th><th class="num">Parts</th><th class="num">Value</th><th class="actcol"></th><th class="actcol"></th></tr></thead><tbody>${g.payments.map(row).join("")}</tbody></table></div>`;
+  return `<div class="paywrap"><table class="subtable"><thead><tr><th class="c"></th><th>Reference</th><th>Paid</th><th>Instalment</th><th class="num">Units</th><th class="num">Value</th><th class="actcol"></th><th class="actcol"></th></tr></thead><tbody>${g.payments.map(row).join("")}</tbody></table></div>`;
 }
 
 // Everything the list needs, worked out once: the gifts after the filters, and where each is allocated.
@@ -208,7 +208,7 @@ const kindIcon = (g: GiftRow): string =>
 function statusIcons(g: GiftRow): string {
   if (g.kind === "excluded") return "";
   const out: string[] = [];
-  if (g.unrouted) out.push(icon("warn", SYMBOL.unrouted, "Unrouted: choose its category"));
+  if (g.unrouted) out.push(icon("warn", SYMBOL.unrouted, "Unrouted: choose its workflow"));
   if (g.inReview) out.push(icon("warn", SYMBOL.review, "Held for review: it changed in the CRM"));
   if (g.needsLook) out.push(icon("warn", SYMBOL.look, g.notes.filter((n) => !n.resolved).map((n) => n.text).join(". ") || "Needs a look"));
   const p = PLAN_ICON[g.planStatus];
@@ -256,7 +256,7 @@ export function giftListHtml(v: View): string {
       <td class="c">${kindIcon(g)}</td>
       <td class="num muted">${g.kind === "recurring" ? esc(g.key) : ""}</td>
       <td class="clip" title="${esc(g.supporterName)} ${esc(g.supporterId)}">${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span></td>
-      <td class="clip" title="${esc(g.itemName)}">${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${picker(v.categories, first.itemId, "")}` : ""}</td>
+      <td class="clip" title="${esc(g.itemName)}">${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${workflowPicker(v, first.itemId)}` : ""}</td>
       <td class="clip" title="${esc([g.projectName, first?.cause ? `Cause: ${first.cause}` : ""].filter((x) => x !== "").join(". "))}">${projectCell(g.projectName, first?.cause ?? "")}</td>
       <td class="num">${planCell(g)}</td>
       <td class="num muted" title="Total of its payments, for reference">${money(g.payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0), currencyOf(g))}</td>
@@ -301,30 +301,30 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   const firstReal = g.payments.find((w) => w.legacyUpload !== true);
   const realKeys = g.payments.filter((w) => w.legacyUpload !== true).map((w) => w.key).join(" ");
   const manualBox = g.manual !== "" && firstReal
-    ? `<div class="suggest-box"><b>Allocate manually.</b> ${esc(g.manual)}. Choose how many parts each payment is under <b>Parts</b> below and press Save, then allocate it in Allocation. Or leave it out of project management by excluding its payments.${firstReal.partsByPerson ? `<div class="actions"><button data-manual-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-on="0">Back to automatic</button></div>` : ""}</div>`
+    ? `<div class="suggest-box"><b>Allocate manually.</b> ${esc(g.manual)}. Choose how many units each payment is under <b>Units</b> below and press Save, then allocate it in Allocation. Or leave it out of project management by excluding its payments.${firstReal.partsByPerson ? `<div class="actions"><button data-manual-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-on="0">Back to automatic</button></div>` : ""}</div>`
     : "";
   // Parts (DECISIONS 116): a standing control, always there. Choose, then Save. Reset takes a person's choice back.
   const fixed = g.payments.some((w) => w.legacyUpload !== true && w.partsFixed !== undefined);
   const partOptions = [...new Set([1, 2, 3, 4, 5, 6, g.parts])].sort((x, y) => x - y);
   const partsControl = firstReal && g.kind !== "excluded"
-    ? `<select id="gp-select" aria-label="Parts of each payment">${partOptions.map((n) => `<option value="${n}"${n === g.parts ? " selected" : ""}>${n} part${n === 1 ? "" : "s"}</option>`).join("")}</select>
-        <button class="iconact ok" data-parts-save="1" data-keys="${esc(realKeys)}" title="Save the parts" aria-label="Save the parts"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>${fixed ? `<button class="iconact" data-parts-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-n="0" title="Reset: go back to what the price or the CRM says" aria-label="Reset the parts"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v4.5h4.5"/></svg></button>` : ""}`
+    ? `<select id="gp-select" aria-label="Units of each payment">${partOptions.map((n) => `<option value="${n}"${n === g.parts ? " selected" : ""}>${n} unit${n === 1 ? "" : "s"}</option>`).join("")}</select>
+        <button class="iconact ok" data-parts-save="1" data-keys="${esc(realKeys)}" title="Save the units" aria-label="Save the units"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>${fixed ? `<button class="iconact" data-parts-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-n="0" title="Reset: go back to what the price or the CRM says" aria-label="Reset the parts"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v4.5h4.5"/></svg></button>` : ""}`
     : "";
   const markManual = g.manual === "" && firstReal && g.kind !== "excluded" ? `<button data-manual-set="${esc(firstReal.key)}" data-keys="${esc(realKeys)}" data-on="1" title="Take this gift out of automatic allocation. It shows the hand symbol and goes to the Manual tab, and a person allocates it. Press Back to automatic to undo.">Allocate manually</button>` : "";
-  const partFix = g.partFixes.map((x) => `<div class="suggest-box"><b>The quantity looks wrong.</b> ${esc(x.reason)} part${x.parts === 1 ? "" : "s"}.
-      <div class="actions"><button class="primary" data-parts-set="${esc(x.key)}" data-n="${x.parts}">Yes, count it as ${x.parts} part${x.parts === 1 ? "" : "s"}</button><button data-parts-set="${esc(x.key)}" data-n="${x.sent}">No, ${x.sent} is right</button></div></div>`).join("");
+  const partFix = g.partFixes.map((x) => `<div class="suggest-box"><b>The quantity looks wrong.</b> ${esc(x.reason)} unit${x.parts === 1 ? "" : "s"}.
+      <div class="actions"><button class="primary" data-parts-set="${esc(x.key)}" data-n="${x.parts}">Yes, count it as ${x.parts} unit${x.parts === 1 ? "" : "s"}</button><button data-parts-set="${esc(x.key)}" data-n="${x.sent}">No, ${x.sent} is right</button></div></div>`).join("");
   return `<div class="pf-overlay" data-gift-close="overlay"><div class="pf-box" role="dialog" aria-label="Gift details">
     <header><h2>${esc(g.supporterName)} <span class="muted">${esc(g.itemName)}</span></h2><button data-gift-close="x" aria-label="Close">Close</button></header>
     <div class="pf-body compact">${manualBox}${catchUp}${partFix}<div class="fgrid">
         ${row("Donor", `${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span>${first && first.group ? ` <span class="muted">· ${esc(first.group)}</span>` : ""}`)}
-        ${row("Item", `${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${picker(v.categories, first.itemId, "")}` : `<div class="muted">${esc(categoryName(v.categories, g.categoryId))}${first && first.bundleQty && first.bundleQty > 1 && g.kind !== "recurring" ? ` \u00B7 bundle of ${first.bundleQty}${first.quantity > 1 ? ` x ${first.quantity}` : ""}` : ""}</div>`}`)}
+        ${row("Item", `${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${workflowPicker(v, first.itemId)}` : `<div class="muted">${esc((v.frameworks ?? []).find((f) => f.id === g.frameworkId)?.name ?? "")}${first && first.bundleQty && first.bundleQty > 1 && g.kind !== "recurring" ? ` \u00B7 bundle of ${first.bundleQty}${first.quantity > 1 ? ` x ${first.quantity}` : ""}` : ""}</div>`}`)}
         ${row("Type", esc(kindName))}
         ${row("Recurring ID", g.kind === "recurring" ? `<b>${esc(g.key)}</b>` : "")}
         ${row("Value (reference)", money(g.payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0), currencyOf(g)))}
         ${row("Paid", progress)}
         ${row("Dates", `${esc(shortDate(g.firstPaid))}${g.lastPaid && g.lastPaid !== g.firstPaid ? ` \u2192 ${esc(shortDate(g.lastPaid))}` : ""}${g.nextDue ? `<div class="muted">next due ${esc(shortDate(g.nextDue))}</div>` : ""}`)}
         ${row("Plan status", g.planStatus ? `<span class="pill ${g.planStatus === "active" ? "ready" : "review"}">${esc(g.planStatus)}</span>` : "")}
-        ${row("Parts", partsControl ? `<span class="partsrow">${partsControl}</span>${fixed ? `<div class="muted">Set manually. The CRM says ${esc(String(g.payments.find((w) => w.legacyUpload !== true) ? sentPartsOf(g.payments.find((w) => w.legacyUpload !== true) as WorkOrder) : g.parts))}.</div>` : ""}` : "")}
+        ${row("Units", partsControl ? `<span class="partsrow">${partsControl}</span>${fixed ? `<div class="muted">Set manually. The CRM says ${esc(String(g.payments.find((w) => w.legacyUpload !== true) ? sentPartsOf(g.payments.find((w) => w.legacyUpload !== true) as WorkOrder) : g.parts))}.</div>` : ""}` : "")}
         ${row("Project chosen", esc(g.projectName))}
         ${row("Cause", esc(first?.cause ?? ""))}
         ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
@@ -352,7 +352,7 @@ export function giftMetricsHtml(v: View): string {
   const status = (st: string) => count((g) => g.planStatus === st);
   const small = (n: number, label: string) => `<span class="sm"><b>${n}</b> ${label}</span>`;
   // Rule (DECISIONS 99): six tiles. Recurring is the large number with the single payments small beside it, the plan statuses share one tile, and
-  // everything that needs a person (a look, a review or a category) is one tile called Review.
+  // everything that needs a person (a look, a review or a workflow) is one tile called Review.
   return `<div class="metric"><b>${rows.length}</b><span>Gifts</span></div>
     <div class="metric"><b>${recurring}</b><span>Recurring</span><div class="smrow">${small(count((g) => g.kind === "one_off"), "one payments")}</div></div>
     <div class="metric"><b>${value}</b><span>Value</span></div>

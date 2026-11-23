@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { isFrameworkTemplate, type FrameworkTemplate } from "./categories";
 import { starterOutcomeTypes } from "../05-outcomes/outcome-types";
-import { addStarterWorkflows, addTask, removeTask, setTask, stageChips, STAGES, suggestWorkflowFor, workflowSentence } from "./workflows";
+import { assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, stageChips, STAGES, suggestWorkflowFor, workflowSentence } from "./workflows";
 
 const fw = (over: Partial<FrameworkTemplate> = {}): FrameworkTemplate => ({ id: "w", name: "Orphan sponsorship", unit: "orphan", cycle: "quarterly", reportType: "Quarterly orphan update", instalment: "per_period", unitsPerBeneficiary: 3, ...over });
 const ok = (r: { frameworks: FrameworkTemplate[] } | { error: string }): FrameworkTemplate[] => { if ("error" in r) throw new Error(r.error); return r.frameworks; };
@@ -19,7 +19,7 @@ describe("the plain sentence", () => {
     const type = { ...types[0]!, frameworkIds: ["w"] };
     const sentence = workflowSentence(fw({ tasks: [{ id: "a", label: "3 month check", afterMonths: 3, photo: false }, { id: "b", label: "6 month update", afterMonths: 6, photo: true }] }), type, ["Orphan Sponsorship"]);
     expect(sentence).toContain("When a gift for Orphan Sponsorship arrives");
-    expect(sentence).toContain("Each payment is a month of support. 3 parts make one orphan, so several donors can share one.");
+    expect(sentence).toContain("each unit supports a share of an orphan: 3 units make one orphan, so several donors can share one.");
     expect(sentence).toContain("It picks an existing orphan");
     expect(sentence).toContain("automatically when the partner has capacity");
     expect(sentence).toContain("2 follow-up tasks are due, and the donor gets a quarterly orphan update");
@@ -28,9 +28,9 @@ describe("the plain sentence", () => {
     const pump = { ...types[1]!, frameworkIds: ["w"] };
     const s = workflowSentence(fw({ unit: "pump", unitsPerBeneficiary: 1, instalment: "share_of_whole", reportType: "Handover report" }), pump, ["Small Pump", "Large Pump", "Water Tanker"]);
     expect(s).toContain("When a gift for Small Pump, Large Pump and 1 more arrives");
-    expect(s).toContain("The payments add up to one whole pump. It is released when it is fully paid.");
+    expect(s).toContain("a unit funds one whole water pump, released when it is fully paid.");
     expect(s).toContain("It creates a new water pump, once fully paid, and is assigned to a partner by suggestion");
-    expect(workflowSentence(fw({ instalment: undefined }), undefined, [])).toContain("It is not yet set what a payment buys.");
+    expect(workflowSentence(fw({ instalment: undefined }), undefined, [])).toContain("it is not yet set how a unit supports an outcome.");
     expect(workflowSentence(fw(), undefined, [])).toContain("It has no outcome type yet");
   });
 });
@@ -40,7 +40,7 @@ describe("the stages", () => {
     expect(STAGES.map((s) => s.title)).toEqual(["Gift paid", "Outcome", "Released", "Assigned", "Delivering", "Updates and report"]);
     const type = { ...starterOutcomeTypes()[1]!, frameworkIds: ["w"] };
     const chips = stageChips(fw({ instalment: "share_of_whole", unitsPerBeneficiary: 1, unit: "pump" }), type);
-    expect(chips[1]?.map((c) => c.text)).toEqual(["A share of one whole", "1 part to one pump"]);
+    expect(chips[1]?.map((c) => c.text)).toEqual(["A whole water pump, once paid in full"]);
     expect(chips[2]?.map((c) => c.text)).toEqual(["Water pump", "Creates a draft"]);
     expect(chips[3]).toEqual([{ tone: "wait", text: "Waits for full payment" }]);
     expect(chips[4]).toEqual([{ tone: "person", text: "Suggested" }]);
@@ -110,5 +110,33 @@ describe("which workflow suits an item", () => {
   });
   it("only suggests workflows that exist", () => {
     expect(suggestWorkflowFor("Small Pump", ["orphan-sponsorship"])).toBe("");
+  });
+});
+
+describe("items in workflows (DECISIONS 131)", () => {
+  const base = () => ({ categories: [], itemMap: {}, frameworks: [fw({ id: "a", name: "A" }), fw({ id: "b", name: "B" })], itemFramework: {} });
+  it("puts an item in one workflow only, and moving it takes it out of the first", () => {
+    const one = assignToWorkflow(base(), "i1", "a").value;
+    expect(itemsInWorkflow(one, "a")).toEqual(["i1"]);
+    const moved = assignToWorkflow(one, "i1", "b").value;
+    expect(itemsInWorkflow(moved, "a")).toEqual([]);
+    expect(itemsInWorkflow(moved, "b")).toEqual(["i1"]);
+    expect(assignToWorkflow(base(), "i1", "nope").error).toBeDefined();
+  });
+  it("unassigns an item, and refuses to remove a workflow that still holds items", () => {
+    const s = assignToWorkflow(base(), "i1", "a").value;
+    expect(removeWorkflow(s, "a").error).toContain("1 item is in this workflow");
+    const empty = unassignItem(s, "i1");
+    expect(itemsInWorkflow(empty, "a")).toEqual([]);
+    const gone = removeWorkflow(empty, "a");
+    expect(gone.error).toBeUndefined();
+    expect(gone.value.frameworks.map((f) => f.id)).toEqual(["b"]);
+    expect(gone.value.categories.some((c) => c.id === "wf-a")).toBe(false);
+  });
+  it("names the unit modes and the outcome", () => {
+    expect(Object.values(unitModeLabels("orphan"))).toEqual(["A share of an orphan", "A whole orphan", "A whole orphan, once paid in full"]);
+    expect(outcomeName(fw(), undefined)).toBe("orphan");
+    const r = setUnitMode([fw()], "w", "whole");
+    expect("frameworks" in r && r.frameworks[0]?.unitsPerBeneficiary).toBe(1);
   });
 });

@@ -32,56 +32,60 @@ const fire = (type: string, e: unknown) => (handlers[type] ?? []).forEach((h) =>
 const click = (attrs: Record<string, string>, match: string) => fire("click", { target: el(attrs, [match]) });
 
 describe("the shell", () => {
-  it("opens on the Gifts list with every flagged line unrouted", () => {
+  it("opens on the Gifts list with every flagged line unrouted, each with a workflow to choose", () => {
     expect(shell.innerHTML).toContain("<h1>Gifts</h1>");
     expect(shell.innerHTML).toContain("Unrouted");
-    expect(shell.innerHTML).toContain('data-assign="I14"');
+    expect(shell.innerHTML).toContain('data-assign-wf="I14"');
+    expect(shell.innerHTML).not.toContain("data-assign=");
+    expect(shell.innerHTML).not.toContain("All categories"); // no category on the list (DECISIONS 131)
   });
 
-  it("shows the category board with suggestions", () => {
-    click({ page: "categories" }, "data-page");
-    expect(shell.innerHTML).toContain("Unsorted items");
-    expect(shell.innerHTML).toContain("suggested: Transactional");
+  it("shows the items with no workflow in a pool on the Workflows page", () => {
+    click({ page: "workflows" }, "data-page");
+    expect(shell.innerHTML).toContain("Unassigned items");
+    expect(shell.innerHTML).toContain('data-wf-item="I14"');
+    expect(shell.innerHTML).toContain('data-wf-drop=""'); // the pool takes an item back out of a workflow
   });
 
-  it("drags an item onto a category and the work order is routed", () => {
-    fire("drop", { target: el({ drop: "transactional" }, ["data-drop"]), preventDefault() {}, dataTransfer: { getData: () => "I14" } });
+  it("drags an item onto a workflow and its gifts are routed", () => {
+    fire("drop", { target: el({ wfDrop: "sponsorship-shared-parts" }, ["data-wf-drop"]), preventDefault() {}, dataTransfer: { getData: () => "wfitem|I14" } });
     click({ page: "work-orders" }, "data-page");
-    expect(shell.innerHTML).not.toContain('data-assign="I14"');
+    expect(shell.innerHTML).not.toContain('data-assign-wf="I14"');
     expect(shell.innerHTML).toContain("Animal Sacrifice");
+    click({ page: "workflows" }, "data-page");
+    expect(shell.innerHTML).toMatch(/data-wf-drop="sponsorship-shared-parts"[^>]*>[\s\S]*data-wf-item="I14"/); // it is in that workflow now, no longer in the pool
   });
 
-  it("taps an item then a category (the touch path)", () => {
-    click({ page: "categories" }, "data-page");
-    click({ item: "I11" }, "data-item");
-    expect(shell.innerHTML).toContain('class="chip sel"');
-    click({ drop: "transactional" }, "data-drop");
+  it("puts an item in only one workflow: placing it in another takes it out of the first (DECISIONS 131)", () => {
+    fire("drop", { target: el({ wfDrop: "delivered-once" }, ["data-wf-drop"]), preventDefault() {}, dataTransfer: { getData: () => "wfitem|I14" } });
+    click({ wfSelect: "sponsorship-shared-parts" }, "data-wf-select");
+    const inFirst = shell.innerHTML.split('Items in this workflow')[1]?.split("</div>")[0] ?? "";
+    expect(inFirst).not.toContain('data-wf-item="I14"');
+    click({ wfSelect: "delivered-once" }, "data-wf-select");
+    expect(shell.innerHTML.split("Items in this workflow")[1]?.split("</div>")[0] ?? "").toContain('data-wf-item="I14"');
+  });
+
+  it("taps an item then a workflow (the touch path), and an item can be taken out again", () => {
+    click({ wfItem: "I11" }, "data-wf-item");
+    expect(shell.innerHTML).toContain("wf-chip sel");
+    click({ wfDrop: "delivered-once" }, "data-wf-drop");
     click({ page: "work-orders" }, "data-page");
-    expect(shell.innerHTML).not.toContain('data-assign="I11"');
+    expect(shell.innerHTML).not.toContain('data-assign-wf="I11"');
+    click({ page: "workflows" }, "data-page");
+    fire("drop", { target: el({ wfDrop: "" }, ["data-wf-drop"]), preventDefault() {}, dataTransfer: { getData: () => "wfitem|I11" } });
+    expect(shell.innerHTML.split("Unassigned items")[1]?.split("</section>")[0] ?? "").toContain('data-wf-item="I11"'); // back in the pool, available again
   });
 
-  it("accepts the remaining suggestions in one click", () => {
-    click({ page: "categories" }, "data-page");
-    click({ action: "accept-suggestions" }, "data-action");
-    expect(shell.innerHTML).toContain("Everything is sorted.");
-  });
-
-  it("shows the starter categories, adds a category, and refuses an empty name with a message", () => {
-    expect(shell.innerHTML).toContain("Sponsorship");
-    expect(shell.innerHTML).toContain("Transactional");
-    category = { value: "Education" };
-    click({ action: "add-category" }, "data-action");
-    expect(shell.innerHTML).toContain('data-drop="education"');
-    category = { value: "" };
-    click({ action: "add-category" }, "data-action");
-    expect(shell.innerHTML).toContain("Give the category a name.");
+  it("chooses a workflow for an unrouted gift from the list", () => {
+    fire("change", { target: { id: "", dataset: { assignWf: "I11" }, value: "sponsorship-shared-parts" } });
+    expect(shell.innerHTML).not.toContain('data-assign-wf="I11"');
   });
 
   it("changes a setting of a workflow on the Workflows page", () => {
     click({ page: "workflows" }, "data-page");
-    fire("change", { target: { id: "", dataset: { tpl: "unit", tplid: "sponsorship-shared-parts" }, value: "orphan child" } });
+    fire("change", { target: { id: "", dataset: { wfMode: "sponsorship-shared-parts" }, value: "once" } });
     click({ wfSelect: "sponsorship-shared-parts" }, "data-wf-select");
-    expect(shell.innerHTML).toContain('value="orphan child"');
+    expect(shell.innerHTML).toContain('<option value="once" selected>');
   });
 });
 
@@ -141,7 +145,7 @@ describe("the Data area and the icon menus (DECISIONS 92)", () => {
   it("opens the settings icon menu with its pages, and the person menu with sign out or sign in, one at a time", () => {
     click({ menu: "settings" }, "data-menu");
     expect(shell.innerHTML).toContain('role="menu"');
-    expect(shell.innerHTML).toContain('data-page="categories"');
+    expect(shell.innerHTML).toContain('data-page="workflows"');
     click({ menu: "user" }, "data-menu");
     expect(shell.innerHTML).toContain('data-action="show-signin"'); // the demo is not signed in
     expect((shell.innerHTML.match(/role="menu"/g) ?? []).length).toBe(1);
@@ -169,7 +173,7 @@ describe("the Data area and the icon menus (DECISIONS 92)", () => {
   });
 });
 
-describe("the Workflows page (DECISIONS 130)", () => {
+describe("the Workflows page (DECISIONS 130, 131)", () => {
   const stageClick = (n: string) => click({ wfStage: n }, "data-wf-stage");
   it("lists the workflows, shows one as a sentence and a flow of six stages, and its items", () => {
     click({ page: "workflows" }, "data-page");
@@ -180,14 +184,15 @@ describe("the Workflows page (DECISIONS 130)", () => {
     expect(shell.innerHTML).toContain("When a gift for");
     for (const title of ["Gift paid", "Outcome", "Released", "Assigned", "Delivering", "Updates and report"]) expect(shell.innerHTML).toContain(`<b>${title}</b>`);
     expect(shell.innerHTML).toContain("Try a sample gift");
-    expect(shell.innerHTML).toContain('data-itemfw='); // each item has its workflow, category and icon
-    expect(shell.innerHTML).toContain('data-itemcat=');
-    expect(shell.innerHTML).toContain('data-icon-item=');
-    expect(shell.innerHTML).toContain("Category (reporting)");
+    expect(shell.innerHTML).toContain("Items in this workflow");
+    expect(shell.innerHTML).toContain('data-icon-item='); // item icons
+    expect(shell.innerHTML).not.toContain("Category (reporting)"); // no category here
+    expect(shell.innerHTML).not.toContain("What one delivery is");
   });
-  it("shows the rules of the stage that is clicked: what a payment buys, the outcome type, when it is released, assignment, delivering, and the tasks", () => {
+  it("shows the rules of the stage that is clicked: how a unit supports, the outcome type, when it is released, assignment, delivering, and the tasks", () => {
     stageClick("1");
-    expect(shell.innerHTML).toContain("What a payment buys");
+    expect(shell.innerHTML).toContain("A unit supports");
+    expect(shell.innerHTML).not.toContain("What a payment buys");
     stageClick("2");
     expect(shell.innerHTML).toContain('data-wf-type="sponsorship-shared-parts"');
     expect(shell.innerHTML).toContain("Add type");
@@ -201,7 +206,7 @@ describe("the Workflows page (DECISIONS 130)", () => {
     expect(shell.innerHTML).toContain("Updates and the donor report");
     expect(shell.innerHTML).toContain('data-wf-act="task-add"');
   });
-  it("adds the standard workflows with their tasks and outcome types, once, and suggests a workflow for each item", () => {
+  it("adds the standard workflows with their tasks and outcome types, once", () => {
     click({ page: "workflows" }, "data-page");
     click({ action: "add-starters" }, "data-action");
     for (const n of ["Orphan sponsorship", "Student sponsorship", "Water pump", "House build", "Activity"]) expect(shell.innerHTML).toContain(n);
@@ -214,11 +219,8 @@ describe("the Workflows page (DECISIONS 130)", () => {
     click({ action: "add-starters" }, "data-action");
     expect(shell.innerHTML).toContain("already there");
   });
-  it("keeps the categories page for sorting items into categories, a label for reporting", () => {
-    click({ page: "categories" }, "data-page");
-    expect(shell.innerHTML).toContain("<h1>Categories</h1>");
-    expect(shell.innerHTML).toContain("only a label for reporting");
-    expect(shell.innerHTML).not.toContain("<h2>Frameworks");
-    expect(shell.innerHTML).not.toContain("Outcome types");
+  it("has no Categories page in the menu any more", () => {
+    click({ menu: "settings" }, "data-menu");
+    expect(shell.innerHTML).not.toContain('data-page="categories"');
   });
 });

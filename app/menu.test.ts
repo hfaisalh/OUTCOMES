@@ -23,7 +23,7 @@ describe("visibleMenu", () => {
   });
 
   it("shows everything to a role with every permission", () => {
-    expect(visibleMenu(Object.values(P))).toHaveLength(15);
+    expect(visibleMenu(Object.values(P))).toHaveLength(14);
   });
 
   it("keeps the registers and the journey in the side menu (Gifts, Projects, Partners, Beneficiaries, Allocation) and puts setup behind one Settings entry", () => {
@@ -35,7 +35,7 @@ describe("visibleMenu", () => {
     expect(all.find((e) => e.id === "data")?.pages.map((p) => p.id)).toEqual(["data-feed", "data-files", "audit", "sources"]);
     const setup = all.filter((e) => e.section === "Set up");
     expect(setup.map((e) => e.id)).toEqual(["setup"]);
-    expect(setup[0]?.pages.map((p) => p.id)).toEqual(["attention", "workflows", "categories", "settings"]);
+    expect(setup[0]?.pages.map((p) => p.id)).toEqual(["attention", "workflows", "settings"]);
   });
 
   it("shows only the Settings tabs a role may use, and no Settings at all without any of them", () => {

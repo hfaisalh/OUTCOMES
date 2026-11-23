@@ -26,7 +26,7 @@ import { addOutcomes, autoAllocate, perPeriodRule, releaseApprovals, moveAllocat
 import { allocatable } from "../modules/04b-commitments/commitments";
 import { filterWorkOrders, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { excludeWorkOrder, planWorkOrders, restoreWorkOrder, type ReviewItem, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
-import { acceptSuggestions, addCategory, addFramework, assignItem, duplicateFramework, frameworkByItem, removeCategory, removeFramework, renameCategory, renameFramework, setCategoryFramework, setItemFramework, setKeywords, suggestAll, updateTemplate, type Cycle, type FrameworkTemplate, type InstalmentRule, type Setup } from "../modules/02-project-rules/categories";
+import { acceptSuggestions, addCategory, addFramework, resolveFrameworkId, assignItem, duplicateFramework, frameworkByItem, removeCategory, removeFramework, renameCategory, renameFramework, setCategoryFramework, setItemFramework, setKeywords, suggestAll, updateTemplate, type Cycle, type FrameworkTemplate, type InstalmentRule, type Setup } from "../modules/02-project-rules/categories";
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
 import { buildAttention, type AttentionItem } from "../modules/04-triage/triage";
@@ -36,7 +36,7 @@ import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { dataFeedPage, dataFilesPage } from "./data-page";
 import { workflowsPage } from "./workflows-page";
-import { addStarterWorkflows, addTask, linkStarterTypes, removeTask, setTask, suggestWorkflowFor } from "../modules/02-project-rules/workflows";
+import { addStarterWorkflows, addTask, assignToWorkflow, linkStarterTypes, removeTask, removeWorkflow, setTask, setUnitMode, suggestWorkflowFor, unassignItem } from "../modules/02-project-rules/workflows";
 import { createMapping } from "./mapping-controller";
 import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { ensureRefs } from "../modules/05-outcomes/refs";
@@ -71,7 +71,7 @@ const state = {
   projectWin: { open: false, id: "" }, // the project form
   giftWin: { key: "", log: false }, // the gift details window (DECISIONS 78): the key of the gift it shows, "" when closed
   partnerWin: { open: false, id: "", tab: "profile" as PartnerTab, draft: null as Record<string, unknown> | null }, // the partner window (DECISIONS 70)
-  workflowSel: { id: "", stage: 1, parts: 1, allocated: false }, // the workflow and stage the Workflows page shows, and its sample gift (DECISIONS 130)
+  workflowSel: { id: "", stage: 1, parts: 1, allocated: false, pick: "" }, // the workflow and stage the Workflows page shows, and its sample gift (DECISIONS 130)
   itemIcons: {} as Record<string, string>, // the icon chosen for an item (DECISIONS 107)
   idCounters: {} as Record<string, number>, // the last number used for each ID prefix (DECISIONS 105)
   outcomeTypes: starterOutcomeTypes() as OutcomeType[], // the kinds of outcome and their profile fields (DECISIONS 103)
@@ -194,7 +194,7 @@ function view(): View {
   const flaggedItems = [...items.values()];
   return {
     workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
-    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
+    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
 }
@@ -773,9 +773,9 @@ document.addEventListener("click", (e) => {
   // Suggest a workflow for each item that has none, from its name (DECISIONS 130). A person's own choices are kept.
   if (action === "suggest-workflows") {
     const ids = state.frameworks.map((f) => f.id);
-    const next = { ...state.itemFramework };
-    for (const i of view().flaggedItems) if (next[i.id] === undefined) { const w = suggestWorkflowFor(i.name, ids); if (w !== "") next[i.id] = w; }
-    state.itemFramework = next;
+    let setup = setupNow();
+    for (const i of view().flaggedItems) if (resolveFrameworkId(setup, i.id) === "") { const w = suggestWorkflowFor(i.name, ids); if (w !== "") setup = assignToWorkflow(setup, i.id, w).value; }
+    state.categories = setup.categories; state.itemCategories = setup.itemMap; state.itemFramework = setup.itemFramework;
     afterConfig(false);
   }
   if (action === "dup-framework" && el.dataset.id) {
@@ -783,10 +783,12 @@ document.addEventListener("click", (e) => {
     afterConfig(false);
   }
   if (action === "remove-framework" && el.dataset.id) {
-    const r = removeFramework(setupNow(), el.dataset.id);
+    const r = removeWorkflow(setupNow(), el.dataset.id);
     state.message = r.error ?? "";
     if (!r.error) {
       state.frameworks = r.value.frameworks;
+      state.categories = r.value.categories;
+      state.workflowSel = { ...state.workflowSel, id: state.workflowSel.id === el.dataset.id ? "" : state.workflowSel.id };
       afterConfig(false);
     }
   }
@@ -1356,9 +1358,41 @@ document.addEventListener("change", (e) => {
   if (t.dataset?.iconItem !== undefined) void outcomeChange({ action: "item-icon", itemId: t.dataset.iconItem, icon: t.value });
 });
 
-// ---- The Workflows page (DECISIONS 130) ----
+// ---- The Workflows page (DECISIONS 130, 131) ----
+// Puts an item in a workflow (or takes it out, when the workflow is empty). An item is in one workflow only, so this replaces any earlier one.
+function moveItem(itemId: string, workflowId: string): void {
+  const setup = setupNow();
+  const r = workflowId === "" ? { value: unassignItem(setup, itemId), error: undefined as string | undefined } : assignToWorkflow(setup, itemId, workflowId);
+  if (r.error) { state.message = r.error; return draw(); }
+  state.categories = r.value.categories; state.itemCategories = r.value.itemMap; state.itemFramework = r.value.itemFramework;
+  state.message = "";
+  afterConfig(); // in the demo the sample feed is read again, so gifts of the item are routed
+  draw();
+}
+document.addEventListener("dragstart", (e) => {
+  const c = (e.target as HTMLElement | null)?.closest?.("[data-wf-item]") as HTMLElement | null;
+  if (c && e.dataTransfer) { e.dataTransfer.setData("text/plain", `wfitem|${c.dataset.wfItem}`); e.dataTransfer.effectAllowed = "move"; }
+});
+document.addEventListener("dragover", (e) => {
+  const z = (e.target as HTMLElement | null)?.closest?.("[data-wf-drop]") as HTMLElement | null;
+  if (z) { e.preventDefault(); z.classList.add("over"); }
+});
+document.addEventListener("dragleave", (e) => (e.target as HTMLElement | null)?.closest?.("[data-wf-drop]")?.classList.remove("over"));
+document.addEventListener("drop", (e) => {
+  const z = (e.target as HTMLElement | null)?.closest?.("[data-wf-drop]") as HTMLElement | null;
+  const text = (e as DragEvent).dataTransfer?.getData("text/plain") ?? "";
+  if (!z || !text.startsWith("wfitem|")) return;
+  e.preventDefault();
+  document.querySelectorAll?.("[data-wf-drop].over").forEach((x) => x.classList.remove("over"));
+  moveItem(text.slice(7), z.dataset.wfDrop ?? "");
+});
 document.addEventListener("click", (e) => {
   const t = e.target as HTMLElement;
+  // Items are put in a workflow by dragging, or by tapping the item and then the workflow (DECISIONS 131).
+  const chip = t.closest?.("[data-wf-item]") as HTMLElement | null;
+  if (chip) { state.workflowSel = { ...state.workflowSel, pick: state.workflowSel.pick === chip.dataset.wfItem ? "" : chip.dataset.wfItem ?? "" }; return draw(); }
+  const target = t.closest?.("[data-wf-drop]") as HTMLElement | null;
+  if (target && state.workflowSel.pick) { moveItem(state.workflowSel.pick, target.dataset.wfDrop ?? ""); state.workflowSel = { ...state.workflowSel, pick: "" }; return; }
   const pick = t.closest?.("[data-wf-select]") as HTMLElement | null;
   if (pick) { state.workflowSel = { ...state.workflowSel, id: pick.dataset.wfSelect ?? "", stage: 1 }; return draw(); }
   const stage = t.closest?.("[data-wf-stage]") as HTMLElement | null;
@@ -1376,6 +1410,20 @@ document.addEventListener("change", (e) => {
   const t = e.target as HTMLInputElement | HTMLSelectElement;
   if (t.id === "wf-sim-parts") { state.workflowSel = { ...state.workflowSel, parts: Number(t.value) }; return draw(); }
   if (t.id === "wf-sim-alloc") { state.workflowSel = { ...state.workflowSel, allocated: (t as HTMLInputElement).checked }; return draw(); }
+  // An unrouted gift: choose a workflow for its item, and the item moves into it (DECISIONS 131).
+  if (t.dataset?.assignWf !== undefined) { if (t.value !== "") moveItem(t.dataset.assignWf, t.value); return; }
+  // How a unit supports an outcome (DECISIONS 131).
+  if (t.dataset?.wfMode !== undefined) {
+    const f = state.frameworks.find((x) => x.id === t.dataset.wfMode);
+    const r = setUnitMode(state.frameworks, t.dataset.wfMode, t.value as "share" | "whole" | "once", f && f.unitsPerBeneficiary > 1 ? f.unitsPerBeneficiary : 3);
+    if ("error" in r) { state.message = r.error; draw(); } else { state.frameworks = r.frameworks; afterConfig(false); }
+    return;
+  }
+  if (t.dataset?.wfShares !== undefined) {
+    const r = setUnitMode(state.frameworks, t.dataset.wfShares, "share", Number(t.value));
+    if ("error" in r) { state.message = r.error; draw(); } else { state.frameworks = r.frameworks; afterConfig(false); }
+    return;
+  }
   // The outcome type of a workflow: a type belongs to at most one workflow, so choosing it takes it from the other (DECISIONS 103, 130).
   if (t.dataset?.wfType !== undefined) {
     const fid = t.dataset.wfType;
@@ -1391,6 +1439,4 @@ document.addEventListener("change", (e) => {
     if ("error" in r) { state.message = r.error; draw(); } else { state.frameworks = r.frameworks; afterConfig(false); }
     return;
   }
-  // The category of an item, a label for reporting (DECISIONS 130).
-  if (t.dataset?.itemcat !== undefined) { state.itemCategories = assignItem(state.itemCategories, state.categories, t.dataset.itemcat, t.value); afterConfig(false); }
 });

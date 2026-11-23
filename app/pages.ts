@@ -56,7 +56,7 @@ export interface View {
   itemIcons?: Record<string, string>; // the icon chosen for an item (DECISIONS 107)
   outcomeTypes?: OutcomeType[];
   workflowSuggestions?: Record<string, string>; // item id to the workflow its name suggests (DECISIONS 130)
-  workflowSel?: { id: string; stage: number; parts: number; allocated: boolean }; // which workflow and stage the Workflows page shows, and the sample gift (DECISIONS 130) // the kinds of outcome and their profile fields (DECISIONS 103)
+  workflowSel?: { id: string; stage: number; parts: number; allocated: boolean; pick?: string }; // which workflow and stage the Workflows page shows, and the sample gift (DECISIONS 130) // the kinds of outcome and their profile fields (DECISIONS 103)
   itemFramework?: Record<string, string>; // an item's own framework, where it differs from its category
   itemFrameworkSuggestions?: Record<string, string>; // suggested item frameworks, for a person to accept
   suggestions: Record<string, string>; // item id to suggested category id, for items not yet sorted
@@ -81,6 +81,10 @@ export const categoryName = (categories: Category[], id: string) => categories.f
 // A category picker. `item` is the CRM item id that the choice applies to.
 export const picker = (categories: Category[], item: string, current: string) =>
   `<select data-assign="${esc(item)}"><option value="">Choose category...</option>${categories.map((c) => `<option value="${c.id}"${c.id === current ? " selected" : ""}>${esc(c.name)}</option>`).join("")}</select>`;
+
+// Rule (DECISIONS 131): an item with no workflow is unrouted. Its workflow is chosen here, and the item is moved into it. There is no category to choose.
+export const workflowPicker = (v: View, item: string) =>
+  `<select data-assign-wf="${esc(item)}" aria-label="Choose a workflow"><option value="">Choose a workflow...</option>${(v.frameworks ?? []).map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>`;
 
 export const metric = (value: number | string, label: string, cls = "") => `<div class="metric ${cls}"><b>${value}</b><span>${label}</span></div>`;
 
@@ -163,7 +167,6 @@ export function filterBar(v: View, id: string, base: WorkOrder[]): string {
   return `<div class="card filters">
     <input type="search" data-f="text" ${d} placeholder="Search donor, item, reference, subscription" title="Search line id, order reference, supporter, item or subscription" value="${esc(c.text)}">
     <select data-f="itemId" ${d}><option value="">All items</option>${[...items].sort((a, b) => a[1].localeCompare(b[1])).map(([k, name]) => opt(k, name, c.itemId)).join("")}</select>
-    <select data-f="categoryId" ${d}><option value="">All categories</option>${v.categories.map((x) => opt(x.id, x.name, c.categoryId)).join("")}</select>
     ${id === "main" ? "" : `<select data-f="status" ${d}>${opt("", "Any status", c.status)}${opt("unrouted", "Unrouted", c.status)}${opt("ready", "Ready", c.status)}${opt("excluded", "Excluded", c.status)}</select>`}
     <select data-f="legacy" ${d}>${opt("", "Legacy: included", c.legacy)}${opt("only", "Legacy only", c.legacy)}${opt("hide", "No legacy", c.legacy)}</select>
     <select data-f="kind" ${d}>${opt("any", "All types", c.kind)}${opt("recurring", "Recurring", c.kind)}${opt("oneoff", "One-off", c.kind)}${opt("custom", "Custom amount", c.kind)}</select>
@@ -201,8 +204,8 @@ export function listHtml(v: View, id: string): string {
             (w) => `<tr><td><input type="checkbox" data-sel="${esc(w.key)}"${picked.has(w.key) ? " checked" : ""}></td>
             <td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)} · ${w.legacyUpload ? `${esc(shortDate(w.paidDate))} <span class="pill review" title="Uploaded from the old system. This date is the day it was loaded, not the real payment date.">Legacy upload</span>` : esc(shortDate(w.paidDate))}</div></td>
             <td>${esc(w.supporterName)}<div class="muted">${esc(w.supporterId)}${w.group ? " · " + esc(w.group) : ""}</div>${creditLine(w)}</td>
-            <td>${esc(w.itemName)}${partsOf(w) > 1 ? `<div class="muted">${partsOf(w)} parts${w.bundleQty && w.bundleQty > 1 ? ` (bundle of ${w.bundleQty}${w.quantity > 1 ? ` x ${w.quantity}` : ""})` : ""}</div>` : ""}</td><td>${instalment(w)}</td>
-            <td>${w.status === "unrouted" ? picker(v.categories, w.itemId, "") : esc(categoryName(v.categories, w.categoryId))}</td>
+            <td>${esc(w.itemName)}${partsOf(w) > 1 ? `<div class="muted">${partsOf(w)} units${w.bundleQty && w.bundleQty > 1 ? ` (bundle of ${w.bundleQty}${w.quantity > 1 ? ` x ${w.quantity}` : ""})` : ""}</div>` : ""}</td><td>${instalment(w)}</td>
+            <td>${w.status === "unrouted" ? workflowPicker(v, w.itemId) : esc(categoryName(v.categories, w.categoryId))}</td>
             <td>${w.status === "excluded" ? "" : `<span class="pill ${w.status === "unrouted" ? "unrouted" : "ready"}">${w.status === "unrouted" ? "Unrouted" : "Ready"}</span>`}${reviewKeys.has(w.key) ? ` <span class="pill review">Review</span>` : ""}${w.status === "excluded" ? `<span class="pill unrouted">Excluded</span><div class="muted">${esc(w.exclusion?.reason ?? "")}${w.exclusion ? ` (${esc(w.exclusion.by)}, ${esc(w.exclusion.at.slice(0, 10))})` : ""}</div>` : ""}</td>
             <td>${w.status === "excluded" ? `<button data-excl="${esc(w.key)}" data-excl-action="restore">Restore</button>` : w.status === "unrouted" || w.status === "ready" ? `<button data-excl="${esc(w.key)}" data-excl-action="exclude">Exclude</button>` : ""}</td></tr>`,
           )
@@ -310,7 +313,7 @@ export function attentionPage(v: View): string {
   };
   const card = (i: AttentionItem) => `<tr><td><b>${esc(i.title)}</b><div class="muted">${esc(i.detail)}</div>${i.note ? `<div class="muted">Note: ${esc(i.note)}</div>` : ""}${detail(i)}</td>
     <td style="text-align:right;white-space:nowrap;vertical-align:top">${
-      i.kind === "unrouted" && i.itemId !== undefined ? picker(v.categories, i.itemId, "")
+      i.kind === "unrouted" && i.itemId !== undefined ? workflowPicker(v, i.itemId)
       : !v.live ? ""
       : i.status === "open" ? `<button data-attn="${esc(i.id)}" data-attn-action="review">Mark reviewed</button>`
       : `<button data-attn="${esc(i.id)}" data-attn-action="reopen">Reopen</button>`

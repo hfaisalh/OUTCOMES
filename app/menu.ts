@@ -45,7 +45,7 @@ export interface ModuleInfo {
 export const MODULES: ModuleInfo[] = [
   { id: "allocation", label: "Allocation", icon: "⇄", section: "Work", blurb: "Allocate gifts to beneficiaries, and see every beneficiary month by month." },
   { id: "data", label: "Data", icon: "⇅", section: "Data", blurb: "Gifts come in from the CRM, are checked here, and then appear in Gifts." },
-  { id: "setup", label: "Settings", icon: "⚙", section: "Set up", blurb: "What needs a person, workflows, categories and the organisation." },
+  { id: "setup", label: "Settings", icon: "⚙", section: "Set up", blurb: "What needs a person, workflows and the organisation." },
 ];
 
 // Rule (DECISIONS 66, 76): the side menu has the gifts, then the three registers (Projects, Partners, Beneficiaries), then Allocation, which matches gifts to beneficiaries. Everything about setting up and checking
@@ -65,7 +65,6 @@ export const MENU: MenuItem[] = [
   { id: "sources", label: "Other sources", icon: "⇪", permission: PERMISSIONS.otherSources, section: "Data", module: "data" },
   { id: "attention", label: "Needs attention", icon: "!", permission: PERMISSIONS.viewWorkOrders, section: "Set up", module: "setup" },
   { id: "workflows", label: "Workflows", icon: "◈", permission: PERMISSIONS.mapFrameworks, section: "Set up", module: "setup" },
-  { id: "categories", label: "Categories", icon: "▦", permission: PERMISSIONS.mapFrameworks, section: "Set up", module: "setup" },
   { id: "settings", label: "Organisation", icon: "⚙", permission: PERMISSIONS.settings, section: "Set up", module: "setup" },
 ];
 

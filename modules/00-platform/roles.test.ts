@@ -18,8 +18,8 @@ describe("example roles", () => {
   it("shows each role only what its permissions allow", () => {
     expect(ids("viewer")).toEqual(["dashboard"]);
     expect(ids("agent")).toContain("work-orders");
-    expect(ids("agent")).not.toContain("categories");
-    expect(ids("gifts")).toContain("categories");
+    expect(ids("agent")).not.toContain("workflows");
+    expect(ids("gifts")).toContain("workflows");
     expect(ids("gifts")).not.toContain("settings");
   });
   it("has unique ids, and an unknown role is the one with no permissions", () => {

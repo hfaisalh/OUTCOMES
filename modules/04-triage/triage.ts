@@ -96,7 +96,7 @@ export function buildAttention(input: TriageInput): AttentionItem[] {
     unrouted.set(w.itemId, e);
   }
   for (const [itemId, e] of unrouted) {
-    out.push({ id: `unrouted:${itemId}`, kind: "unrouted", title: `${e.name} is not in a category`, detail: `${e.count} work order${e.count === 1 ? "" : "s"} wait for this item to be put in a category.`, itemId, itemName: e.name, count: e.count, lines: e.lines, status: "open" });
+    out.push({ id: `unrouted:${itemId}`, kind: "unrouted", title: `${e.name} has no workflow`, detail: `${e.count} work order${e.count === 1 ? "" : "s"} wait for this item to be put in a workflow.`, itemId, itemName: e.name, count: e.count, lines: e.lines, status: "open" });
   }
 
   // Section: problems found when a file was imported.

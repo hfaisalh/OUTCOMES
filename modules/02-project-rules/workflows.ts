@@ -15,8 +15,8 @@
  * - Starting workflows are only added when missing, by id or by name, so nothing a person built is replaced.
  */
 
-import type { Cycle, FrameworkTemplate, InstalmentRule, WorkflowTask } from "./categories.js";
-import { CYCLE_LABELS } from "./categories.js";
+import type { Changed, Cycle, FrameworkTemplate, InstalmentRule, Setup, WorkflowTask } from "./categories.js";
+import { CYCLE_LABELS, resolveFrameworkId } from "./categories.js";
 import { typeForFramework, type OutcomeType } from "../05-outcomes/outcome-types.js";
 
 export type { WorkflowTask };
@@ -30,7 +30,30 @@ export const STAGES: { n: number; title: string; hint: string }[] = [
   { n: 6, title: "Updates and report", hint: "What the donor hears" },
 ];
 
-export const PAYS_FOR: Record<InstalmentRule, string> = { per_period: "A month of support", share_of_whole: "A share of one whole" };
+// How a unit supports an outcome (DECISIONS 131). A unit is what a gift counts as, already set on the Gifts side, so this says nothing about instalments.
+// share: several units together support one outcome (3 units support one orphan). whole: one unit supports one whole outcome, month by month. once: one unit funds one
+// whole outcome once it is fully paid (a pump, a house).
+export type UnitMode = "share" | "whole" | "once";
+
+export const unitModeOf = (fw: FrameworkTemplate): UnitMode | undefined => (fw.instalment === undefined ? undefined : fw.instalment === "share_of_whole" ? "once" : fw.unitsPerBeneficiary > 1 ? "share" : "whole");
+
+// Rule: the name of the outcome, from its outcome type (Orphan, Water pump), else the workflow's unit, else "outcome".
+export const outcomeName = (fw: FrameworkTemplate, type: OutcomeType | undefined): string => (type ? type.name.toLowerCase() : fw.unit || "outcome");
+const article = (word: string): string => (/^[aeiou]/i.test(word) ? "an" : "a");
+
+// The three answers to "A unit supports", worded with the outcome's name.
+export function unitModeLabels(name: string): Record<UnitMode, string> {
+  return { share: `A share of ${article(name)} ${name}`, whole: `A whole ${name}`, once: `A whole ${name}, once paid in full` };
+}
+
+// Rule: choosing how a unit supports sets the workflow's rule and number: a share needs 2 or more units to make one outcome, the others are 1.
+export function setUnitMode(frameworks: FrameworkTemplate[], id: string, mode: UnitMode, shares = 3): Edited {
+  return editWf(frameworks, id, (f) => {
+    if (mode === "share" && (!Number.isInteger(shares) || shares < 2 || shares > 100)) return "A share needs 2 to 100 units to make one outcome.";
+    const units = mode === "share" ? shares : 1;
+    return { ...f, instalment: mode === "once" ? "share_of_whole" : "per_period", unitsPerBeneficiary: units };
+  });
+}
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
 const lower = (s: string): string => s.charAt(0).toLowerCase() + s.slice(1);
@@ -38,25 +61,28 @@ const lower = (s: string): string => s.charAt(0).toLowerCase() + s.slice(1);
 // Rule: the workflow in one plain sentence, so it can be checked without reading the fields.
 export function workflowSentence(fw: FrameworkTemplate, type: OutcomeType | undefined, itemNames: string[]): string {
   const items = itemNames.length ? (itemNames.length > 2 ? `${itemNames.slice(0, 2).join(", ")} and ${itemNames.length - 2} more` : itemNames.join(" and ")) : "an item that uses this workflow";
-  const unit = fw.unit || "outcome";
-  const pays = fw.instalment === "per_period"
-    ? `Each payment is a month of support. ${plural(fw.unitsPerBeneficiary, "part")} make one ${unit}${fw.unitsPerBeneficiary > 1 ? ", so several donors can share one" : ", so each donor has their own"}.`
-    : fw.instalment === "share_of_whole"
-      ? `The payments add up to one whole ${unit}. It is released when it is fully paid.`
-      : "It is not yet set what a payment buys.";
-  const outcome = type ? `${type.source === "pick_existing" ? `It picks an existing ${lower(type.name)}` : `It creates a new ${lower(type.name)}`}${fw.instalment === "share_of_whole" ? ", once fully paid," : ","} and is assigned to a partner ${type.assign === "auto" ? "automatically when the partner has capacity" : "by suggestion for a person to confirm"}.` : "It has no outcome type yet, so a gift cannot become an outcome.";
+  const name = outcomeName(fw, type);
+  const mode = unitModeOf(fw);
+  const supports = mode === "share"
+    ? `each unit supports a share of ${article(name)} ${name}: ${plural(fw.unitsPerBeneficiary, "unit")} make one ${name}, so several donors can share one.`
+    : mode === "whole" ? `each unit supports a whole ${name}, month by month.`
+    : mode === "once" ? `a unit funds one whole ${name}, released when it is fully paid.`
+    : "it is not yet set how a unit supports an outcome.";
+  const outcome = type ? `${type.source === "pick_existing" ? `It picks an existing ${lower(type.name)}` : `It creates a new ${lower(type.name)}`}${mode === "once" ? ", once fully paid," : ","} and is assigned to a partner ${type.assign === "auto" ? "automatically when the partner has capacity" : "by suggestion for a person to confirm"}.` : "It has no outcome type yet, so a gift cannot become an outcome.";
   const tasks = (fw.tasks ?? []).length ? ` After that ${plural((fw.tasks ?? []).length, "follow-up task")} ${(fw.tasks ?? []).length === 1 ? "is" : "are"} due, and the donor gets ${fw.reportType ? `a ${lower(fw.reportType)}` : "a report"}.` : ` The donor gets ${fw.reportType ? `a ${lower(fw.reportType)}` : "a report"}.`;
-  return `When a gift for ${items} arrives, ${pays} ${outcome}${tasks}`;
+  return `When a gift for ${items} arrives, ${supports} ${outcome}${tasks}`;
 }
 
 export interface StageChip { tone: "auto" | "wait" | "person" | "plain"; text: string }
 
 // Rule: the short badges on each stage of the flow, worked out from the workflow and its outcome type.
 export function stageChips(fw: FrameworkTemplate, type: OutcomeType | undefined): Record<number, StageChip[]> {
-  const wait = fw.instalment === "share_of_whole";
+  const mode = unitModeOf(fw);
+  const name = outcomeName(fw, type);
+  const wait = mode === "once";
   const tasks = fw.tasks ?? [];
   return {
-    1: [{ tone: "plain", text: fw.instalment ? PAYS_FOR[fw.instalment] : "Not set" }, { tone: "plain", text: `${plural(fw.unitsPerBeneficiary, "part")} to one ${fw.unit || "outcome"}` }],
+    1: mode ? [{ tone: "plain", text: unitModeLabels(name)[mode] }, ...(mode === "share" ? [{ tone: "plain" as const, text: `${plural(fw.unitsPerBeneficiary, "unit")} make one ${name}` }] : [])] : [{ tone: "wait", text: "Not set" }],
     2: [{ tone: type ? "auto" : "wait", text: type ? type.name : "No type yet" }, ...(type ? [{ tone: "plain" as const, text: type.source === "pick_existing" ? "Picks existing" : "Creates a draft" }] : [])],
     3: [{ tone: wait ? "wait" : "auto", text: wait ? "Waits for full payment" : "Released each month" }],
     4: [{ tone: type?.assign === "auto" ? "auto" : "person", text: type?.assign === "auto" ? "Automatic" : "Suggested" }],
@@ -174,4 +200,42 @@ export function linkStarterTypes(types: OutcomeType[], frameworkIds: string[]): 
     ts = ts.map((t) => (t.id === s.typeId && t.frameworkIds.length === 0 ? { ...t, frameworkIds: [s.id] } : t));
   }
   return ts;
+}
+
+// ---- Items in workflows (DECISIONS 131) ----
+// Each workflow has an automatic category behind the scenes (`wf-` and its id), so routing keeps working while categories are hidden. A person never sees it.
+const autoCategoryId = (workflowId: string): string => `wf-${workflowId}`;
+
+/**
+ * Rule: put an item in a workflow. An item is in one workflow only, so this replaces any earlier one. The workflow must exist. Returns the setup.
+ */
+export function assignToWorkflow(s: Setup, itemId: string, workflowId: string): Changed<Setup> {
+  const wf = s.frameworks.find((f) => f.id === workflowId);
+  if (!wf) return { value: s, error: "That workflow was not found." };
+  const catId = autoCategoryId(workflowId);
+  const categories = s.categories.some((c) => c.id === catId) ? s.categories.map((c) => (c.id === catId ? { ...c, name: wf.name, frameworkId: workflowId } : c)) : [...s.categories, { id: catId, name: wf.name, keywords: [], frameworkId: workflowId }];
+  return { value: { ...s, categories, itemMap: { ...s.itemMap, [itemId]: catId }, itemFramework: { ...s.itemFramework, [itemId]: workflowId } } };
+}
+
+// Rule: take an item out of its workflow, so it is unassigned again and its gifts are unrouted.
+export function unassignItem(s: Setup, itemId: string): Setup {
+  const { [itemId]: _m, ...itemMap } = s.itemMap;
+  const { [itemId]: _f, ...itemFramework } = s.itemFramework;
+  return { ...s, itemMap, itemFramework };
+}
+
+// The items a workflow holds, by item id: its own, or through a category that gives it.
+export function itemsInWorkflow(s: Setup, workflowId: string): string[] {
+  const ids = new Set([...Object.keys(s.itemMap), ...Object.keys(s.itemFramework)]);
+  return [...ids].filter((id) => resolveFrameworkId(s, id) === workflowId);
+}
+
+/**
+ * Rule: a workflow with items in it cannot be removed (drag them out first). Removing one takes its automatic category with it, and any category that pointed to it
+ * is left with no default workflow.
+ */
+export function removeWorkflow(s: Setup, id: string): Changed<Setup> {
+  const n = itemsInWorkflow(s, id).length;
+  if (n > 0) return { value: s, error: `${n} item${n === 1 ? " is" : "s are"} in this workflow. Drag ${n === 1 ? "it" : "them"} out first, to Unassigned or to another workflow.` };
+  return { value: { ...s, frameworks: s.frameworks.filter((f) => f.id !== id), categories: s.categories.filter((c) => c.id !== autoCategoryId(id)).map((c) => (c.frameworkId === id ? { ...c, frameworkId: "" } : c)) } };
 }

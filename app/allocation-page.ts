@@ -46,7 +46,7 @@ export function allocationPage(v: View): string {
   const head = `<h1>Allocation</h1>
     <p class="sub">Gifts that are waiting for allocation, and where there is room. The suggestion for each gift is only a starting point: drag a gift onto a place, or choose one from its list. A gift for a particular project goes to that project's partners, and a general gift is spread across places so more are sponsored.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
-    <div class="metrics"><div class="metric"><b>${waiting.length}</b><span>Gifts waiting (${waitingParts} parts)</span></div><div class="metric"><b>${totals.free}</b><span>Units with no sponsor</span></div><div class="metric"><b>${totals.grace}</b><span>Behind, inside the grace days</span></div><div class="metric ${totals.free - waitingParts >= 0 ? "ok" : "warn"}"><b>${signed(totals.free - waitingParts)}</b><span>Surplus or deficit of places</span></div></div>`;
+    <div class="metrics"><div class="metric"><b>${waiting.length}</b><span>Gifts waiting (${waitingParts} units)</span></div><div class="metric"><b>${totals.free}</b><span>Units with no sponsor</span></div><div class="metric"><b>${totals.grace}</b><span>Behind, inside the grace days</span></div><div class="metric ${totals.free - waitingParts >= 0 ? "ok" : "warn"}"><b>${signed(totals.free - waitingParts)}</b><span>Surplus or deficit of places</span></div></div>`;
 
   // Whether each partner takes gifts, and if not, why, so "nothing is placed" is never a mystery (DECISIONS 69).
   const takes = (p: Project | undefined): string => {
@@ -63,7 +63,7 @@ export function allocationPage(v: View): string {
   const buffer = `<label class="muted">A payment that is still unpaid <input type="number" min="0" max="90" value="${v.graceDays ?? 15}" data-grace aria-label="Grace days" style="width:64px" /> days after it was due makes the child eligible for reallocation. The place stays until a manager approves the release below.</label>`;
   const summary = `<div class="card"><h2>By partner</h2>
     ${sum.rows.length ? `<div class="twrap"><table><thead><tr><th>Partner</th><th>Beneficiaries</th><th>Units</th><th>Sponsored</th><th>Free</th><th>Behind, in grace</th><th>Release due</th><th>Waiting (parts)</th><th>Surplus or deficit</th><th>Takes gifts</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">No partners yet. Create one on the Partners page.</div>`}
-    <p class="muted">${sum.generalWaiting.gifts} general gift${sum.generalWaiting.gifts === 1 ? "" : "s"} waiting (${sum.generalWaiting.parts} parts), which can go to any partner. Surplus or deficit is the free units minus the parts of waiting gifts.</p>
+    <p class="muted">${sum.generalWaiting.gifts} general gift${sum.generalWaiting.gifts === 1 ? "" : "s"} waiting (${sum.generalWaiting.parts} units), which can go to any partner. Surplus or deficit is the free units minus the parts of waiting gifts.</p>
     ${holdNote}
     ${buffer}
     <label class="muted"><input type="checkbox" data-require-ref${v.requireRef ? " checked" : ""} /> Allocate gifts only to beneficiaries that have an ID. Give IDs on each partner's Beneficiaries tab.</label></div>`;

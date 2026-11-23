@@ -29,7 +29,7 @@ describe("giftsPage", () => {
     expect(html).toContain("<h1>Gifts</h1>");
     expect(html).not.toContain("By commitment"); // there is no second view to switch to
     expect(html).toContain("Animal Sacrifice");
-    expect(html).toContain('data-assign="I14"');
+    expect(html).toContain('data-assign-wf="I14"');
     expect(html).toContain("1/12"); // the plan is the short form in the list
     expect(html).toContain("1/\u221E");
   });
@@ -194,7 +194,7 @@ describe("giftsPage", () => {
     expect(win).toContain('id="gp-select"'); // choose in a drop-down...
     expect(win).toContain('data-parts-save="1" data-keys="m1 m2"'); // ...then Save, which goes to every payment of the gift
     expect(win).toContain('class="iconact ok"'); // an icon button, not words
-    expect(win).toContain('aria-label="Save the parts"');
+    expect(win).toContain('aria-label="Save the units"');
     expect(win).not.toContain("Reset"); // nothing set manually yet, so nothing to take back
     expect(giftDetailHtml(v(), "SC")).toContain('data-manual-set="c1" data-keys="c1 c2" data-on="1"');
     expect(win).not.toContain('data-on="0"'); // a custom amount is not marked by a person, so there is nothing to take back
@@ -206,17 +206,17 @@ describe("giftsPage", () => {
     expect(decided).toContain("manual changes that the CRM does not know about"); // the orange tick says a person set the parts
     expect(giftDetailHtml(v({ workOrders: [...clean, ...custom.map((w) => ({ ...w, partsFixed: 2 }))] }), "SM")).not.toContain("Allocate manually.");
   });
-  it("always offers Parts to choose and Save, and Reset once a person has set them, even after the gift is no longer manual (DECISIONS 116)", () => {
+  it("always offers Units to choose and Save, and Reset once a person has set them, even after the gift is no longer manual (DECISIONS 116)", () => {
     const set = [1, 2].map((n) => sub(n, { key: `f${n}`, subscriptionId: "SF", amount: 40, quantity: 2, partsFixed: 2 }));
     const win = giftDetailHtml(view({ workOrders: set }), "SF");
     expect(win).toContain('id="gp-select"');
-    expect(win).toContain('<option value="2" selected>2 parts</option>');
+    expect(win).toContain('<option value="2" selected>2 units</option>');
     expect(win).toContain('data-parts-save="1" data-keys="f1 f2"');
     expect(win).toContain('data-parts-set="f1" data-keys="f1 f2" data-n="0"'); // Reset
     expect(win).toContain("Set manually. The CRM says 2.");
     expect(win).toContain('class="iconact" data-parts-set="f1"'); // Reset is an icon too
-    expect(win).toContain('<th class="num">Parts</th>'); // each payment shows its parts
-    expect(win).toContain('title="Parts set manually. The CRM says 2."'); // a hand icon on the payment
+    expect(win).toContain('<th class="num">Units</th>'); // each payment shows its parts
+    expect(win).toContain('title="Units set manually. The CRM says 2."'); // a hand icon on the payment
     // a gift with parts the system worked out has the control but no Reset
     const auto = giftDetailHtml(view({ workOrders: [sub(1, { key: "g1", subscriptionId: "SG", partsAuto: 1 })] }), "SG");
     expect(auto).toContain('id="gp-select"');
@@ -239,7 +239,7 @@ describe("giftsPage", () => {
     const win = giftDetailHtml(view({ workOrders: orders }), "SP");
     expect(win).toContain('<tr class="pay">');
     expect(win).toContain('class="dotok"'); // ready is a green circle
-    expect(win).toContain('title="Unrouted: choose its category"');
+    expect(win).toContain('title="Unrouted: choose its workflow"');
     expect(win).toContain('title="Line L6782">MWFUK-205764'); // the line number is a tooltip, not a second line of text
     expect(win).not.toContain("<div class=\"muted\">Line ");
     expect(win).toContain('title="2026-09-07"><span class="cellstart">07/09/26'); // short date, full date in the tooltip
@@ -249,7 +249,7 @@ describe("giftsPage", () => {
     expect(win).not.toContain(">Exclude<");
     expect(win).not.toContain("<th>Category</th><th>Status</th>");
     // aligned (DECISIONS 121): the header sits over its column, and both icon buttons are the small size
-    expect(win).toContain('<th class="num">Parts</th><th class="num">Value</th><th class="actcol"></th><th class="actcol"></th>'); // each button has its own column
+    expect(win).toContain('<th class="num">Units</th><th class="num">Value</th><th class="actcol"></th><th class="actcol"></th>'); // each button has its own column
     expect(win).toContain('<td class="date" title="2026-09-07">'); // the date is left aligned, under its header
     expect(win).toContain('<summary class="iconact sm"');
     expect(win).toContain('class="iconact" data-excl=');

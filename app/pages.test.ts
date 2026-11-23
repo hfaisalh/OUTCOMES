@@ -166,14 +166,14 @@ describe("credit chain on the Gifts page", () => {
 
 describe("attentionPage", () => {
   const items = [
-    { id: "unrouted:I1", kind: "unrouted" as const, title: "Water Pump is not in a category", detail: "2 work orders wait.", itemId: "I1", itemName: "Water Pump", count: 2, status: "open" as const },
+    { id: "unrouted:I1", kind: "unrouted" as const, title: "Water Pump has no workflow", detail: "2 work orders wait.", itemId: "I1", itemName: "Water Pump", count: 2, status: "open" as const },
     { id: "import:x", kind: "import" as const, title: "Import problem", detail: "A <b>bad</b> date.", status: "open" as const },
     { id: "changed:T:1", kind: "changed" as const, title: "Changed in the CRM: T:1", detail: "Amount changed.", status: "reviewed" as const, note: "Checked", reviewedAt: "t" },
   ];
 
-  it("shows open entries first, a category picker for an unrouted item, and review buttons when signed in", () => {
+  it("shows open entries first, a workflow picker for an unrouted item, and review buttons when signed in", () => {
     const html = attentionPage(view({ live: true, attention: items }));
-    expect(html).toContain('data-assign="I1"');
+    expect(html).toContain('data-assign-wf="I1"');
     expect(html).toContain('data-attn="import:x" data-attn-action="review"');
     expect(html).toContain('data-attn="changed:T:1" data-attn-action="reopen"');
     expect(html).toContain("Note: Checked");
