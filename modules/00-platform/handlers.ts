@@ -364,7 +364,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     }
     // The kind of benefit chosen for an item (DECISIONS 143). An empty kind takes the choice back, so the name's suggestion shows again.
     if (b["action"] === "item-kind") {
-      const r = setItemKind(config.itemKinds ?? {}, str("itemId"), str("kind"), outcomeTypes.map((x) => x.id));
+      const r = setItemKind(config.itemKinds ?? {}, str("itemId"), str("kind"));
       if ("error" in r) return fail(r.error);
       await d.store.putConfig(org, { ...config, itemKinds: r.value });
       return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: config.itemIcons ?? {}, itemKinds: r.value });

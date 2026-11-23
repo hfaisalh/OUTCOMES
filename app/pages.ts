@@ -55,7 +55,6 @@ export interface View {
   frameworks?: FrameworkTemplate[]; // framework templates (DECISIONS 59)
   itemIcons?: Record<string, string>; // the icon chosen for an item (DECISIONS 107)
   itemKinds?: Record<string, string>; // the kind of benefit chosen for an item (DECISIONS 143)
-  kindSel?: string; // the kind the Benefits page shows (DECISIONS 146)
   outcomeTypes?: OutcomeType[];
   workflowSuggestions?: Record<string, string>; // item id to the workflow its name suggests (DECISIONS 130)
   workflowSel?: { id: string; stage: number; parts: number; allocated: boolean; pick?: string; iconPick?: string }; // which workflow and stage the Workflows page shows, and the sample gift (DECISIONS 130) // the kinds of outcome and their profile fields (DECISIONS 103)

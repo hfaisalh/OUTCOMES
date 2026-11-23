@@ -497,20 +497,11 @@ describe("outcomes (DECISIONS 61)", () => {
     expect(t.outcomeTypes.find((x) => x.id === "water-pump")?.icon).toBe("pump-lg");
   });
 
-  it("adds the standard kinds, sets a kind's properties, and keeps the kind chosen for an item (DECISIONS 143, 146)", async () => {
+  it("keeps the kind of benefit chosen for an item, and takes the choice back (DECISIONS 143)", async () => {
     const cookie = await signIn(d);
-    const added = (await post(cookie, { action: "ot-kinds-starters" })).body as { outcomeTypes: { id: string; props?: { location: boolean; receiver: string } }[] };
-    expect(added.outcomeTypes.map((t) => t.id)).toEqual(expect.arrayContaining(["person", "activity", "build", "distribution", "programme", "waqf"]));
-    const again = (await post(cookie, { action: "ot-kinds-starters" })).body as typeof added;
-    expect(again.outcomeTypes.length).toBe(added.outcomeTypes.length); // adding twice adds nothing
-    const prop = (await post(cookie, { action: "ot-prop", typeId: "person", prop: "location", value: true })).body as typeof added;
-    expect(prop.outcomeTypes.find((t) => t.id === "person")?.props?.location).toBe(true);
-    expect((await post(cookie, { action: "ot-prop", typeId: "person", prop: "receiver", value: "institution" })).status).toBe(200);
-    expect((await post(cookie, { action: "ot-prop", typeId: "person", prop: "bogus", value: true })).status).toBe(400);
-    expect((await post(cookie, { action: "ot-blurb", typeId: "person", blurb: "People we sponsor." })).status).toBe(200);
     const set = (await post(cookie, { action: "item-kind", itemId: "I9", kind: "build" })).body as { itemKinds: Record<string, string> };
     expect(set.itemKinds).toEqual({ I9: "build" });
-    expect((await post(cookie, { action: "item-kind", itemId: "I9", kind: "microfinance" })).status).toBe(400); // not a kind
+    expect((await post(cookie, { action: "item-kind", itemId: "I9", kind: "microfinance" })).status).toBe(400); // not a kind yet
     expect(((await handleOutcomes(as(cookie), d)).body as typeof set).itemKinds).toEqual({ I9: "build" }); // kept
     expect(((await post(cookie, { action: "item-kind", itemId: "I9", kind: "" })).body as typeof set).itemKinds).toEqual({}); // taken back
   });

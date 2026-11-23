@@ -37,24 +37,10 @@ export type OutcomeSource = "pick_existing" | "create_new";
 // auto: outcomes of this type are assigned to a partner by themselves when it has capacity. suggest: they are only suggested to a person (DECISIONS 101).
 export type AssignMode = "auto" | "suggest";
 
-// Rule (DECISIONS 146): the properties of a kind of benefit, set once on the kind. Who receives says what the beneficiary is: a person, a group or an institution.
-export type Receiver = "" | "person" | "group" | "institution";
-export interface KindProps { location: boolean; sensitive: boolean; eligibility: boolean; onBehalf: boolean; receiver: Receiver }
-export const NO_PROPS: KindProps = { location: false, sensitive: false, eligibility: false, onBehalf: false, receiver: "" };
-export const PROP_LABELS: { id: Exclude<keyof KindProps, "receiver">; label: string; hint: string }[] = [
-  { id: "location", label: "Needs a location", hint: "A place and GPS are part of the proof" },
-  { id: "sensitive", label: "Holds sensitive data", hint: "Role-based access, and donor contacts are never shown to a partner" },
-  { id: "eligibility", label: "Eligibility check", hint: "For example Zakat: the recipient must be eligible" },
-  { id: "onBehalf", label: "On behalf of", hint: "Done in the name of someone, with a tribute or a certificate" },
-];
-export const RECEIVERS: { id: Receiver; label: string }[] = [{ id: "", label: "Not set" }, { id: "person", label: "A person or a list of people" }, { id: "group", label: "A group or household" }, { id: "institution", label: "An institution" }];
-
 export interface OutcomeType {
   id: string;
   name: string; // singular, in the organisation's words: Orphan, Water pump
   icon?: string; // the icon id its outcomes show by default (DECISIONS 107)
-  blurb?: string; // what this kind of benefit is, in plain words, with what is counted, the proof of delivery and examples (DECISIONS 146)
-  props?: KindProps; // the properties of the kind (DECISIONS 146)
   prefix?: string; // the start of the IDs of its outcomes (ORP for ORP-0007). Changing it changes new IDs only (DECISIONS 105)
   source: OutcomeSource;
   assign: AssignMode;
@@ -81,51 +67,6 @@ export function starterOutcomeTypes(): OutcomeType[] {
     make("orphan", "Orphan", "pick_existing", "auto", [field("Full name", "text", true, true), field("Date of birth", "date", true, true), field("Gender", "choice", false, false, ["Girl", "Boy"]), field("School, institute or work", "text", false, true), field("Photo", "photo", false, true), field("Notes", "longtext", false, false)]),
     make("water-pump", "Water pump", "create_new", "suggest", [field("Location", "text", true, true), field("GPS location", "gps", false, true), field("Beneficiary name", "text", false, true), field("People served", "number", false, true), field("Depth in metres", "number", false, false), field("Photos", "photo", false, true), field("Video", "video", false, true), field("Notes", "longtext", false, false)]),
   ];
-}
-
-export const propsOf = (t: OutcomeType): KindProps => ({ ...NO_PROPS, ...(t.props ?? {}) });
-
-export const setBlurb = (types: OutcomeType[], id: string, blurb: string): Result => edit(types, id, (t) => ({ ...t, blurb: blurb.slice(0, 400) }));
-
-// Rule (DECISIONS 146): a property is a yes or no, or who receives. An unknown property is refused.
-export function setProp(types: OutcomeType[], id: string, prop: string, value: unknown): Result {
-  if (prop === "receiver") return RECEIVERS.some((r) => r.id === value) ? edit(types, id, (t) => ({ ...t, props: { ...propsOf(t), receiver: value as Receiver } })) : { error: "That is not known." };
-  if (!PROP_LABELS.some((p) => p.id === prop) || typeof value !== "boolean") return { error: "That property is not known." };
-  return edit(types, id, (t) => ({ ...t, props: { ...propsOf(t), [prop]: value } }));
-}
-
-// The six standard kinds of benefit (DECISIONS 143, 146), as the starting set. Each is an ordinary outcome type, so a person can change it or add others.
-// They are only added when missing, by id or by name. Micro finance is not one: it is a fund, dealt with separately (DECISIONS 145).
-export function starterKinds(): OutcomeType[] {
-  const make = (id: string, name: string, prefix: string, icon: string, source: OutcomeSource, blurb: string, props: Partial<KindProps>, fields: Omit<ProfileField, "id">[]): OutcomeType => ({
-    id, name, prefix, icon, source, assign: "suggest", frameworkIds: [], blurb, props: { ...NO_PROPS, ...props },
-    fields: fields.reduce<ProfileField[]>((all, f) => [...all, { ...f, id: uniqueId(f.label, all.map((x) => x.id)) }], []),
-  });
-  return [
-    make("person", "Person(s)", "PRS", "person", "pick_existing", "One person or a list of people: a child, a family, a cohort. Counted by people. Proof: profile updates, photos, reports. Examples: orphan sponsorship, scholarship, a family startup.", { sensitive: true, receiver: "person" },
-      [field("Full name", "text", true, true), field("Date of birth", "date", true, true), field("Guardian or family", "text", false, false), field("Photo", "photo", false, true), field("Progress notes", "longtext", false, true)]),
-    make("activity", "Activity", "ACT", "medical", "create_new", "An event on a date, for people or an institution. Counted by the event. Proof: date, place, attendance, photos. Examples: medical camp, iftar, training.", { location: true, receiver: "group" },
-      [field("Place", "text", true, true), field("Date", "date", true, true), field("People attending", "number", false, true), field("Photos", "photo", false, true), field("Report", "longtext", false, true)]),
-    make("build", "Build", "BLD", "house", "create_new", "Something made or installed at a location, with its own ID and stages. Counted by the item. Proof: location, progress stages, photos, handover. Examples: water pump, house, school, solar well.", { location: true, receiver: "group" },
-      [field("Location", "text", true, true), field("GPS location", "gps", false, true), field("People served", "number", false, true), field("Progress photos", "photo", false, true), field("Handover date", "date", false, true)]),
-    make("distribution", "Distribution", "DST", "box", "create_new", "Goods handed over in quantity. Counted by quantity. Proof: quantity delivered, recipients, receipts. Examples: Qurbani, food packs, tents, planting.", { receiver: "group" },
-      [field("Place", "text", true, true), field("Date", "date", true, true), field("Quantity delivered", "number", true, true), field("Recipients", "number", false, true), field("Photos", "photo", false, true)]),
-    make("programme", "Programme", "PRG", "heart", "create_new", "An ongoing service funded regularly. Counted by people served each month. Proof: monthly counts. Examples: feeding programme, mobile clinic.", { receiver: "group" },
-      [field("Place", "text", true, true), field("People served this month", "number", true, true), field("Notes", "longtext", false, true)]),
-    make("waqf", "Waqf", "WQF", "house", "create_new", "An asset given to the organisation that earns income. Set up later.", { location: true, receiver: "institution" },
-      [field("Asset", "text", true, true), field("Location", "text", false, true)]),
-  ];
-}
-export function addStarterKinds(types: OutcomeType[]): { types: OutcomeType[]; added: string[] } {
-  const out = [...types];
-  const added: string[] = [];
-  for (const k of starterKinds()) {
-    if (out.some((t) => t.id === k.id || t.name.toLowerCase() === k.name.toLowerCase())) continue;
-    const prefixes = out.map((t) => t.prefix ?? "");
-    out.push(prefixes.includes(k.prefix ?? "") ? { ...k, prefix: defaultPrefix(k.name, prefixes) } : k);
-    added.push(k.name);
-  }
-  return { types: out, added };
 }
 
 export const typeById = (types: OutcomeType[], id: string): OutcomeType | undefined => types.find((t) => t.id === id);
@@ -229,9 +170,6 @@ export function applyOutcomeTypeAction(types: OutcomeType[], knownFrameworks: st
     case "ot-add": return addOutcomeType(types, s("name"));
     case "ot-rename": return renameOutcomeType(types, s("typeId"), s("name"));
     case "ot-remove": return removeOutcomeType(types, s("typeId"), usedTypeIds);
-    case "ot-blurb": return setBlurb(types, s("typeId"), s("blurb"));
-    case "ot-prop": return setProp(types, s("typeId"), s("prop"), body["prop"] === "receiver" ? s("value") : body["value"] === true);
-    case "ot-kinds-starters": return { types: addStarterKinds(types).types };
     case "ot-prefix": return setPrefix(types, s("typeId"), s("prefix"));
     case "ot-icon": return setIcon(types, s("typeId"), s("icon"));
     case "ot-source": return setSource(types, s("typeId"), s("source") as OutcomeSource);
