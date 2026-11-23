@@ -161,8 +161,10 @@ export function extraStarterTypes(): OutcomeType[] {
   ];
 }
 
+// The icon each starting workflow begins with. Any workflow can be given another.
+const STARTER_ICONS: Record<string, string> = { "orphan-sponsorship": "orphan", "student-sponsorship": "student", "water-pump": "pump", "house-build": "house", "livelihood-start": "rickshaw", activity: "medical" };
 const mkWorkflow = (s: Starter): FrameworkTemplate => ({
-  id: s.id, name: s.name, unit: s.unit, cycle: s.cycle, reportType: s.report, instalment: s.rule, unitsPerBeneficiary: s.units,
+  id: s.id, ...(STARTER_ICONS[s.id] ? { icon: STARTER_ICONS[s.id] } : {}), name: s.name, unit: s.unit, cycle: s.cycle, reportType: s.report, instalment: s.rule, unitsPerBeneficiary: s.units,
   tasks: s.tasks.reduce<WorkflowTask[]>((all, [label, afterMonths, photo]) => [...all, { id: taskId(label, all.map((t) => t.id)), label, afterMonths, photo }], []),
 });
 

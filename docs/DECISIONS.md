@@ -314,3 +314,10 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 - The pie is drawn as equal numbered slices (one per unit, numbers up to 16 units) and redraws on every keystroke in the units field. Only the pie is redrawn, so typing is not interrupted. The number is saved when the field is left.
 - Items are one list with an on and off switch per item for the open workflow. An item in another workflow shows that workflow's name and its switch is locked: switch it off there first. The Item icons list and the assign box are merged into this list. Drag and drop is removed here (supersedes 131 and 132 on this point).
 - Still to do: a flow diagram that follows one unit through the stages as the rules change.
+
+## 134. The outcome belongs to the item, the workflow only organises the journey (23/11/2026)
+
+- The item in a gift is what the donor paid for, so the outcome is fixed at gift level by the item (a pump, a house, a tent). A workflow does not lock a kind of outcome. It organises how a unit gets there: the unit rule, release, assignment, tasks and report. One workflow can hold many kinds of item.
+- What a partner must supply is the same for every item in a workflow, so those fields stay with the workflow. They are settled later, when the stages are configured. Moving the outcome type onto the item, and stage 2, are left until then.
+- Each workflow has its own icon from the icon library (a target when none is chosen), no longer taken from an item or type. The library gained Target, Person, Group, Tent, Heart and Supplies, and grows as needed.
+- Done now: the first part, a gift into units (decision 133), and the workflow icon. Next: the flow diagram with a rule icon on each stage.

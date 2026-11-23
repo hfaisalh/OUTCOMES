@@ -9,8 +9,8 @@ import { describe, expect, it } from "vitest";
 import { ICON_IDS, ICONS, iconHtml, itemIcon, suggestIcon } from "./icons";
 
 describe("icons", () => {
-  it("has fourteen distinct icons, each with a label and shapes", () => {
-    expect(ICONS).toHaveLength(14);
+  it("has twenty distinct icons, each with a label and shapes", () => {
+    expect(ICONS).toHaveLength(20);
     expect(new Set(ICON_IDS).size).toBe(14);
     for (const i of ICONS) expect(i.paths.length).toBeGreaterThan(20);
   });

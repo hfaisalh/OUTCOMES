@@ -26,6 +26,12 @@ export const ICONS: IconInfo[] = [
   { id: "rickshaw", label: "Rickshaw", paths: '<circle cx="6" cy="17.5" r="3"/><circle cx="19" cy="17.5" r="2.5"/><path d="M6 17.5 9 9h5l3 8.5M9 9l-1-3H5"/><path d="M14 9l2.5-2.5H20M11 13h7"/>' },
   { id: "cart", label: "Trade cart", paths: '<path d="M3 4h2.5L8 15h9.5l2-8H6.5"/><circle cx="9.5" cy="19" r="1.5"/><circle cx="16.5" cy="19" r="1.5"/>' },
   { id: "medical", label: "Medical camp", paths: '<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M12 8.5v7M8.5 12h7"/>' },
+  { id: "bullseye", label: "Target", paths: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>' },
+  { id: "person", label: "Person", paths: '<circle cx="12" cy="8" r="3.4"/><path d="M5.5 21v-2.5a6.5 6.5 0 0 1 13 0V21"/>' },
+  { id: "group", label: "Group", paths: '<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2"/><circle cx="17" cy="9" r="2.4"/><path d="M17 14.2a5 5 0 0 1 4.5 4.8V20"/>' },
+  { id: "tent", label: "Tent", paths: '<path d="M2.5 20 12 4l9.5 16z"/><path d="M12 4v16M9 20l3-6 3 6"/>' },
+  { id: "heart", label: "Heart", paths: '<path d="M12 20.5C5 15.5 3 12 3 9a4.5 4.5 0 0 1 9-1 4.5 4.5 0 0 1 9 1c0 3-2 6.5-9 11.5z"/>' },
+  { id: "box", label: "Supplies", paths: '<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/>' },
   { id: "care", label: "Care home", paths: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M12 17.5c-2-1.4-3-2.4-3-3.7a1.7 1.7 0 0 1 3-1 1.7 1.7 0 0 1 3 1c0 1.3-1 2.3-3 3.7z"/>' },
 ];
 

@@ -74,7 +74,8 @@ export function workflowsPage(v: View): string {
   const effective = (itemId: string): string => itemFw[itemId] ?? v.categories.find((c) => c.id === v.itemCategories[itemId])?.frameworkId ?? "";
   const itemsOf = (fid: string) => items.filter((i) => effective(i.id) === fid);
   const typeIcon = (fid: string) => typeForFramework(types, fid)?.icon ?? "";
-  const iconOfWorkflow = (fid: string): string => typeIcon(fid) || itemIcon(itemsOf(fid)[0]?.id ?? "", itemsOf(fid)[0]?.name ?? "", v.itemIcons ?? {});
+  // Rule (DECISIONS 134): a workflow has its own icon, a target until one is chosen. It no longer follows an item or an outcome type.
+  const iconOfWorkflow = (fid: string): string => fws.find((x) => x.id === fid)?.icon || "bullseye";
   const f = fws.find((x) => x.id === sel.id) ?? fws[0];
   const stage = Math.min(6, Math.max(1, sel.stage));
 
@@ -105,7 +106,7 @@ export function workflowsPage(v: View): string {
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="wf-layout">${list}
       <div class="wf-main">
-        <div class="card"><div class="wf-head">${iconHtml(iconOfWorkflow(f.id), f.name, "lg")}<input class="title" data-fwrename="${esc(f.id)}" value="${esc(f.name)}" aria-label="Workflow name"><span class="muted">${itemsOf(f.id).length} item${itemsOf(f.id).length === 1 ? "" : "s"}</span>
+        <div class="card"><div class="wf-head">${iconHtml(iconOfWorkflow(f.id), f.name, "lg")}<select class="wf-iconpick" data-tpl="icon" data-tplid="${esc(f.id)}" aria-label="Workflow icon" title="Choose the icon of this workflow">${ICONS.map((x) => `<option value="${x.id}"${x.id === iconOfWorkflow(f.id) ? " selected" : ""}>${esc(x.label)}</option>`).join("")}</select><input class="title" data-fwrename="${esc(f.id)}" value="${esc(f.name)}" aria-label="Workflow name"><span class="muted">${itemsOf(f.id).length} item${itemsOf(f.id).length === 1 ? "" : "s"}</span>
           <button class="iconact" data-action="dup-framework" data-id="${esc(f.id)}" title="Copy this workflow" aria-label="Copy this workflow"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 15V6a1 1 0 0 1 1-1h9"/></svg></button>
           <button class="iconact" data-action="remove-framework" data-id="${esc(f.id)}" title="Remove this workflow" aria-label="Remove this workflow">${BIN}</button></div>
           <p class="wf-sentence">${esc(sentence)}</p></div>

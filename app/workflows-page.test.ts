@@ -79,4 +79,11 @@ describe("the Workflows page", () => {
     expect(other).toContain("Orphan sponsorship"); // and it says which one
     expect(html).not.toContain("Category");
   });
+  it("gives each workflow its own icon, a target when none is chosen, and a picker for it (DECISIONS 134)", () => {
+    const html = workflowsPage(view({ workflowSel: { id: "water-pump", stage: 1, parts: 1, allocated: false, pick: "" } }));
+    expect(html).toContain('data-tpl="icon" data-tplid="water-pump"');
+    expect(html).toContain('<option value="pump" selected>');
+    const plain = workflowsPage(view({ frameworks: [{ id: "x", name: "Transactional", unit: "", cycle: "on_delivery", reportType: "", unitsPerBeneficiary: 1 }], workflowSel: { id: "x", stage: 1, parts: 1, allocated: false, pick: "" } }));
+    expect(plain).toContain('<option value="bullseye" selected>');
+  });
 });
