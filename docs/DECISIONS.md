@@ -407,3 +407,10 @@ Agreed after a sector review (humanitarian sectors, UK charitable purposes, Isla
 - The page also describes each kind: what the beneficiary is, what is counted, what proves delivery, and examples.
 - In the demo the earlier `item-icon` action was handled outside the action list and showed "That request is not understood". It is now a normal action.
 - Not built yet: the partners active for each benefit (capacity and cost per unit), the fields and evidence of each kind's beneficiary profile, the kind shown on the Gifts list, clusters, and the beneficiary register.
+
+## 145. Micro finance is a fund, parked (23/11/2026)
+
+- Supersedes the micro finance lines of 143. **Micro finance is a fund, not a kind.** Donors build a fund. The fund is dispersed to benefits and then to beneficiaries, and is then managed: repayments replenish it and the money is recycled into further allocations. It sits upstream of the benefits, as a source of funding, so a benefit such as a rickshaw stays Person(s).
+- The same item can be given free or lent. The terms (gift or loan, with a repayment schedule, and a write-off with a reason if it cannot be repaid) are decided per recipient at allocation, not by the donor's gift, and not by two benefits or two workflows. A benefit would carry a setting "can be lent". Nothing of this is built.
+- **Parked for later**, with where the ledger lives and donor intent for repayments. First the ordinary donation path is managed: a donor gives to an item, and the gift flows to a beneficiary.
+
