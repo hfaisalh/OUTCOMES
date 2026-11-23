@@ -352,3 +352,13 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 - Rule: until MWF approves, the donor is only told that a phase changed, never shown the data. The approval switch is on by default, as are reassigning and the urgent trigger.
 - Partner stages start as Batch received, Outcome profile allocated, In delivery and Delivered. The starting workflows carry them.
 - Not built yet: Feedback from the donor after completion, the batch waiting list and drag and drop on the partner side, the urgent flag on gifts, the gift's current stage on the Gifts list, the partner health score, pausing the clock, sending the donor messages.
+
+## 139. The chart's terms: a rectangle is a stage, a diamond is a process (23/11/2026)
+
+- Supersedes the stage list of 138. A **rectangle is a stage** (a state the work order is in) and a **diamond is a process** (something done to move it on, which can be approved or rejected). A legend sits under the chart.
+- Stages: **Gift**, **Work order** (the gift as units and shares), **Allocation** (the work order sits in a specific outcome profile, which the partner completes in sections), **Report** and **Complete** (a living order ends, a transactional one closes). Processes: **Fully paid?** (transactional only), **Assignment**, **Confirm** (the partner approves or rejects the batch) and **Review** (MWF approves the report, with the MEAL checks).
+- A rejected confirm goes back to assignment. A rejected review goes back to the partner. Approved moves on.
+- The partner's work happens inside the outcome profile, so the former partner stages are now the profile's **sections** (name, days, what the partner supplies, photo, pause, the notice to the donor), drawn inside Allocation. Receiving and allocating are no longer separate steps.
+- Confirm has its own settings: the days the partner has to answer (3 unless set) and what the donor is told once the partner has confirmed.
+- Panels, in order: 1 Work order, 2 Assignment, 3 Confirm, 4 Allocation, 5 Review and approval, 6 Report.
+- Gift status follows the shapes: Gift, Work order, Waiting at a partner, Confirmed, Allocated (in the profile), Under review, Reported, Complete. Showing it on the Gifts list is still to build.

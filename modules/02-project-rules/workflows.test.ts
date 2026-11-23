@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { isFrameworkTemplate, type FrameworkTemplate } from "./categories";
 import { starterOutcomeTypes } from "../05-outcomes/outcome-types";
-import { addStage, assignOf, flagOf, setFlag, moveStage, removeStage, setAssign, setStage, totalDays, assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, setUnitRule, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, suggestWorkflowFor } from "./workflows";
+import { addStage, assignOf, confirmDaysOf, setConfirm, flagOf, setFlag, moveStage, removeStage, setAssign, setStage, totalDays, assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, setUnitRule, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, suggestWorkflowFor } from "./workflows";
 
 const fw = (over: Partial<FrameworkTemplate> = {}): FrameworkTemplate => ({ id: "w", name: "Orphan sponsorship", unit: "orphan", cycle: "quarterly", reportType: "Quarterly orphan update", instalment: "per_period", unitsPerBeneficiary: 3, ...over });
 const ok = (r: { frameworks: FrameworkTemplate[] } | { error: string }): FrameworkTemplate[] => { if ("error" in r) throw new Error(r.error); return r.frameworks; };
@@ -144,7 +144,7 @@ describe("assigned for implementation (DECISIONS 137)", () => {
     const start = addStarterWorkflows([], types).frameworks;
     expect(start.find((x) => x.id === "orphan-sponsorship")?.assign).toBe("auto");
     expect(start.find((x) => x.id === "water-pump")?.assign).toBe("suggest");
-    expect(start.every((x) => (x.stages ?? []).length === 4 && isFrameworkTemplate(x))).toBe(true);
+    expect(start.every((x) => (x.stages ?? []).length === 3 && isFrameworkTemplate(x))).toBe(true);
   });
   it("has three yes or no decisions that are yes until turned off (DECISIONS 138)", () => {
     for (const k of ["reassign", "urgent", "approve"] as const) {
@@ -155,5 +155,14 @@ describe("assigned for implementation (DECISIONS 137)", () => {
     }
     expect(isFrameworkTemplate({ ...fw(), urgent: "yes" })).toBe(false);
     expect(setFlag([fw()], "nope", "urgent", false)).toHaveProperty("error");
+  });
+  it("sets the days a partner has to confirm, 3 unless set, and what the donor is told (DECISIONS 139)", () => {
+    expect(confirmDaysOf(fw())).toBe(3);
+    const f = ok(setConfirm([fw()], "w", { days: 5, tell: "Accepted." }))[0]!;
+    expect(confirmDaysOf(f)).toBe(5);
+    expect(f.confirmTell).toBe("Accepted.");
+    expect(isFrameworkTemplate(f)).toBe(true);
+    expect(setConfirm([fw()], "w", { days: 61 })).toHaveProperty("error");
+    expect(setConfirm([fw()], "w", { days: 1.5 })).toHaveProperty("error");
   });
 });

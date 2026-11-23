@@ -36,7 +36,7 @@ import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { dataFeedPage, dataFilesPage } from "./data-page";
 import { unitPie, workflowsPage } from "./workflows-page";
-import { addStarterWorkflows, addTask, assignToWorkflow, linkStarterTypes, removeTask, removeWorkflow, setTask, setUnitRule, setFlag, addStage, setStage, removeStage, moveStage, setAssign, suggestWorkflowFor, unassignItem } from "../modules/02-project-rules/workflows";
+import { addStarterWorkflows, addTask, assignToWorkflow, linkStarterTypes, removeTask, removeWorkflow, setTask, setUnitRule, setFlag, setConfirm, addStage, setStage, removeStage, moveStage, setAssign, suggestWorkflowFor, unassignItem } from "../modules/02-project-rules/workflows";
 import { createMapping } from "./mapping-controller";
 import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { ensureRefs } from "../modules/05-outcomes/refs";
@@ -1448,6 +1448,11 @@ document.addEventListener("change", (e) => {
   }
   if (t.dataset?.wfFlag !== undefined) {
     const r = setFlag(state.frameworks, t.dataset.wf ?? "", t.dataset.wfFlag as "reassign" | "urgent" | "approve", (t as HTMLInputElement).checked);
+    if ("error" in r) { state.message = r.error; draw(); } else { state.frameworks = r.frameworks; afterConfig(false); draw(); }
+    return;
+  }
+  if (t.dataset?.wfConfirm !== undefined) {
+    const r = setConfirm(state.frameworks, t.dataset.wf ?? "", t.dataset.wfConfirm === "days" ? { days: Number(t.value) } : { tell: t.value });
     if ("error" in r) { state.message = r.error; draw(); } else { state.frameworks = r.frameworks; afterConfig(false); draw(); }
     return;
   }

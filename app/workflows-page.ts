@@ -8,7 +8,7 @@
  */
 
 import { CYCLE_LABELS, type Cycle, type FrameworkTemplate } from "../modules/02-project-rules/categories";
-import { assignOf, flagOf, outcomeName, totalDays, unitModeOf } from "../modules/02-project-rules/workflows";
+import { assignOf, confirmDaysOf, flagOf, outcomeName, totalDays, unitModeOf } from "../modules/02-project-rules/workflows";
 import { typeForFramework, type OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { flowChart } from "./workflow-flowchart";
 import { ICONS, iconHtml, itemIcon } from "./icons";
@@ -55,17 +55,24 @@ function stagePanel(f: FrameworkTemplate, type: OutcomeType | undefined, stage: 
     ${flag("urgent", "An urgent gift jumps to high priority")}
     <p class="muted">Only partners approved for the item are considered. The work order lands in the partner's waiting list as a batch. Priority when several are waiting: urgent first, then a donor's directed project or partner, then a deadline, then the oldest first. Each partner sets its capacity on its own profile.</p>`;
   }
-  if (stage === 3) {
+  if (stage === 3) return `<h3>Confirm</h3>
+    <h4 class="wf-h">Decision: the partner confirms the batch</h4>
+    <div class="wf-two"><label class="wf-field"><span>Days the partner has to approve or reject</span><input type="number" min="0" max="60" data-wf-confirm="days" data-wf="${esc(f.id)}" value="${confirmDaysOf(f)}"></label>
+    <label class="wf-field"><span>Tell the donor, once the partner has confirmed</span><input data-wf-confirm="tell" data-wf="${esc(f.id)}" value="${esc(f.confirmTell ?? "")}" placeholder="Nothing"></label></div>
+    <p class="muted">The batch waits in the partner's list. If the partner approves it, the work order moves on to allocation. If the partner rejects it, it goes back to assignment so a person or the automatic rule can pick another partner. The donor is only told that the batch was accepted, never any data.</p>`;
+  if (stage === 4) {
     const stages = f.stages ?? [];
-    return `<h3>Partner stages</h3>
+    return `<h3>Allocation: the outcome profile</h3>
+    <p class="muted">Allocation is where the work order sits in a specific outcome profile. The partner completes the profile in sections, filling in data and ticking the stages of the outcome. Each section has the days allowed from the one before, so delays can be seen. Until MWF approves the report, the donor is only told that a section is done, never shown the data.</p>
+    <h4 class="wf-h">Outcome profile sections
     <p class="muted">The partner works through these, in order: confirming it received the batch, giving each work order a specific outcome profile, then completing the profile's data in phases. Each stage has the days allowed from the one before, so delays can be seen. Until MWF approves the report, the donor is only told that a phase has changed, never shown the data.</p>
-    <h4 class="wf-h">Stages <span class="muted">(${stages.length}, ${totalDays(f)} days in all)</span></h4>
-    <div class="tablewrap"><table class="wf-tasks"><thead><tr><th>Stage</th><th class="num">Days</th><th>The partner supplies (separate with commas)</th><th class="c">Photo</th><th class="c">Can pause</th><th>Tell the donor that the phase changed</th><th class="actcol"></th></tr></thead><tbody>
-      ${stages.map((k, i) => `<tr><td><input data-wf-sub="label" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" value="${esc(k.label)}"></td><td class="num"><input type="number" min="0" max="365" data-wf-sub="days" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" value="${k.days}"></td><td><input data-wf-sub="needs" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" value="${esc(k.needs.join(", "))}" placeholder="Location, Beneficiaries"></td><td class="c"><input type="checkbox" data-wf-sub="photo" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}"${k.photo ? " checked" : ""} aria-label="Asks for a photo"></td><td class="c"><input type="checkbox" data-wf-sub="pause" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}"${k.canPause ? " checked" : ""} aria-label="The clock can be paused"></td><td><input data-wf-sub="tell" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" value="${esc(k.tell)}" placeholder="Nothing"></td><td class="actcol"><div class="actbox"><button class="iconact" data-wf-act="sub-up" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}"${i === 0 ? " disabled" : ""} title="Move up" aria-label="Move up">&uarr;</button><button class="iconact" data-wf-act="sub-down" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}"${i === stages.length - 1 ? " disabled" : ""} title="Move down" aria-label="Move down">&darr;</button><button class="iconact" data-wf-act="sub-remove" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" title="Remove this stage" aria-label="Remove this stage">${BIN}</button></div></td></tr>`).join("") || `<tr><td colspan="7" class="muted">No stages yet. Add the first one below.</td></tr>`}
+    <h4 class="wf-h">Sections <span class="muted">(${stages.length}, ${totalDays(f)} days in all)</span></h4>
+    <div class="tablewrap"><table class="wf-tasks"><thead><tr><th>Section</th><th class="num">Days</th><th>The partner supplies (separate with commas)</th><th class="c">Photo</th><th class="c">Can pause</th><th>Tell the donor that it is done</th><th class="actcol"></th></tr></thead><tbody>
+      ${stages.map((k, i) => `<tr><td><input data-wf-sub="label" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" value="${esc(k.label)}"></td><td class="num"><input type="number" min="0" max="365" data-wf-sub="days" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" value="${k.days}"></td><td><input data-wf-sub="needs" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" value="${esc(k.needs.join(", "))}" placeholder="Location, Beneficiaries"></td><td class="c"><input type="checkbox" data-wf-sub="photo" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}"${k.photo ? " checked" : ""} aria-label="Asks for a photo"></td><td class="c"><input type="checkbox" data-wf-sub="pause" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}"${k.canPause ? " checked" : ""} aria-label="The clock can be paused"></td><td><input data-wf-sub="tell" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" value="${esc(k.tell)}" placeholder="Nothing"></td><td class="actcol"><div class="actbox"><button class="iconact" data-wf-act="sub-up" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}"${i === 0 ? " disabled" : ""} title="Move up" aria-label="Move up">&uarr;</button><button class="iconact" data-wf-act="sub-down" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}"${i === stages.length - 1 ? " disabled" : ""} title="Move down" aria-label="Move down">&darr;</button><button class="iconact" data-wf-act="sub-remove" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" title="Remove this section" aria-label="Remove this section">${BIN}</button></div></td></tr>`).join("") || `<tr><td colspan="7" class="muted">No sections yet. Add the first one below.</td></tr>`}
     </tbody></table></div>
-    <div class="ot-add"><input id="wf-sub-label" placeholder="New stage, for example Site visit"><input id="wf-sub-days" type="number" min="0" max="365" value="14" aria-label="Days allowed" style="width:90px"><button class="iconact ok" data-wf-act="sub-add" data-wf="${esc(f.id)}" title="Add the stage" aria-label="Add the stage">${TICK}</button></div>`;
+    <div class="ot-add"><input id="wf-sub-label" placeholder="New section, for example Site visit"><input id="wf-sub-days" type="number" min="0" max="365" value="14" aria-label="Days allowed" style="width:90px"><button class="iconact ok" data-wf-act="sub-add" data-wf="${esc(f.id)}" title="Add the section" aria-label="Add the section">${TICK}</button></div>`;
   }
-  if (stage === 4) return `<h3>Review and approval</h3>
+  if (stage === 5) return `<h3>Review and approval</h3>
     <h4 class="wf-h">Decision: approval</h4>
     ${flag("approve", "MWF verifies and approves the report before the donor sees the data")}
     <p class="muted">When the partner has completed every stage, MWF reviews the data. Before that the donor only hears that a phase changed.</p>
@@ -98,7 +105,7 @@ export function workflowsPage(v: View): string {
   // Rule (DECISIONS 134): a workflow has its own icon, a target until one is chosen. It no longer follows an item or an outcome type.
   const iconOfWorkflow = (fid: string): string => fws.find((x) => x.id === fid)?.icon || "bullseye";
   const f = fws.find((x) => x.id === sel.id) ?? fws[0];
-  const stage = Math.min(5, Math.max(1, sel.stage));
+  const stage = Math.min(6, Math.max(1, sel.stage));
 
   const list = `<div class="card"><h3 class="wf-h">Workflows <span class="muted">(${fws.length})</span></h3><div class="wlist">${fws.map((x) => `<button class="wbtn${x.id === f?.id ? " on" : ""}" data-wf-select="${esc(x.id)}">${iconHtml(iconOfWorkflow(x.id), x.name, "lg") || `<span class="ico ico-lg"></span>`}<span><b>${esc(x.name)}</b><small>${itemsOf(x.id).length} item${itemsOf(x.id).length === 1 ? "" : "s"}</small></span></button>`).join("") || `<div class="empty">No workflows yet.</div>`}</div>
     <div class="actions"><input id="newfw" placeholder="New workflow name"><button data-action="add-framework">Add</button></div>
@@ -129,7 +136,7 @@ export function workflowsPage(v: View): string {
           <button class="iconact" data-action="dup-framework" data-id="${esc(f.id)}" title="Copy this workflow" aria-label="Copy this workflow"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 15V6a1 1 0 0 1 1-1h9"/></svg></button>
           <button class="iconact" data-action="remove-framework" data-id="${esc(f.id)}" title="Remove this workflow" aria-label="Remove this workflow">${BIN}</button></div>
           <p class="wf-sentence">Items assigned to this workflow follow these set rules.</p></div>
-        <section class="card"><h3 class="wf-h">The flow</h3><div class="wf-flowwrap">${flowChart(f, type, stage)}</div>
+        <section class="card"><h3 class="wf-h">The flow</h3><div class="wf-flowwrap">${flowChart(f, type, stage)}</div><p class="wf-legend muted"><svg viewBox="0 0 16 12" width="16" height="12" aria-hidden="true"><rect x="1" y="1" width="14" height="10" rx="2" class="fc-node"/></svg> a stage <svg viewBox="0 0 16 14" width="16" height="14" aria-hidden="true"><path d="M8 1 15 7 8 13 1 7z" class="fc-node"/></svg> a process</p>
           <div class="wf-rules${stage === 1 ? "" : " one"}"><div class="wf-rule">${stagePanel(f, type, stage, v)}</div>${stage === 1 ? sim : ""}</div></section>
       </div></div>
     ${iconsCard}${iconModal(f)}`;

@@ -45,6 +45,8 @@ export const INSTALMENT_LABELS: Record<InstalmentRule, string> = {
 // The settings that decide the flow of an order. Before decision 59 these were held inside each category (the "legacy" shape, still read and migrated).
 export interface Framework {
   assign?: "auto" | "suggest"; // how a released work order is handed to a partner (DECISIONS 137). Absent: the outcome type's setting, else suggest
+  confirmDays?: number; // days a partner has to confirm (approve or reject) an assigned batch (DECISIONS 139). Absent: 3
+  confirmTell?: string; // what the donor is told when the partner has confirmed
   reassign?: boolean; // a person may move a work order from one partner to another (DECISIONS 138). Absent: yes
   urgent?: boolean; // an urgent gift jumps to high priority (DECISIONS 138). Absent: yes
   approve?: boolean; // MWF approves a report before the donor sees the data (DECISIONS 138). Absent: yes
@@ -342,7 +344,7 @@ export const isCurrentCategory = (x: unknown): x is Category => {
 export const isFrameworkTemplate = (x: unknown): x is FrameworkTemplate => {
   const f = x as FrameworkTemplate | null;
   return !!f && typeof f.id === "string" && f.id !== "" && typeof f.name === "string" && typeof f.unit === "string" && typeof f.reportType === "string" && typeof f.cycle === "string" && f.cycle in CYCLE_LABELS
-    && Number.isInteger(f.unitsPerBeneficiary) && f.unitsPerBeneficiary >= 1 && (f.instalment === undefined || f.instalment === "per_period" || f.instalment === "share_of_whole") && (f.icon === undefined || typeof f.icon === "string") && (f.assign === undefined || f.assign === "auto" || f.assign === "suggest") && [f.reassign, f.urgent, f.approve].every((b) => b === undefined || typeof b === "boolean")
+    && Number.isInteger(f.unitsPerBeneficiary) && f.unitsPerBeneficiary >= 1 && (f.instalment === undefined || f.instalment === "per_period" || f.instalment === "share_of_whole") && (f.icon === undefined || typeof f.icon === "string") && (f.assign === undefined || f.assign === "auto" || f.assign === "suggest") && (f.confirmDays === undefined || (Number.isInteger(f.confirmDays) && f.confirmDays >= 0 && f.confirmDays <= 60)) && (f.confirmTell === undefined || typeof f.confirmTell === "string") && [f.reassign, f.urgent, f.approve].every((b) => b === undefined || typeof b === "boolean")
     && (f.stages === undefined || (Array.isArray(f.stages) && f.stages.length <= 20 && f.stages.every((t) => !!t && typeof t.id === "string" && typeof t.label === "string" && Number.isInteger(t.days) && t.days >= 0 && t.days <= 365 && Array.isArray(t.needs) && t.needs.every((n) => typeof n === "string") && typeof t.photo === "boolean" && typeof t.canPause === "boolean" && typeof t.tell === "string")))
     && (f.tasks === undefined || (Array.isArray(f.tasks) && f.tasks.length <= 30 && f.tasks.every((t) => !!t && typeof t.id === "string" && typeof t.label === "string" && Number.isInteger(t.afterMonths) && t.afterMonths >= 0 && t.afterMonths <= 120 && typeof t.photo === "boolean")))
 ;

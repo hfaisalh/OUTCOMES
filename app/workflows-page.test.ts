@@ -25,7 +25,7 @@ describe("the Workflows page", () => {
     for (const n of ["Orphan sponsorship", "Student sponsorship", "Water pump", "House build", "Livelihood", "Activity"]) expect(html).toContain(`<b>${n}</b>`);
     expect(html).toContain("<small>1 item</small>"); // Orphan sponsorship has one item
     expect(html).toContain("Items assigned to this workflow follow these set rules.");
-    for (const n of [1, 2, 3, 4, 5]) expect(html).toContain(`data-wf-stage="${n}"`); // the flow chart has a step for each stage
+    for (const n of [1, 2, 3, 4, 5, 6]) expect(html).toContain(`data-wf-stage="${n}"`); // the flow chart has a step for each stage
     expect(html).toContain("2 checks"); // the review step of the chart counts the MEAL checks
     const words = html.replace(/<[^>]*>/g, " ");
     expect(words).not.toMatch(/\bparts?\b/i); // units and shares, never parts or instalments, on this page
@@ -58,19 +58,22 @@ describe("the Workflows page", () => {
     expect(at(2, "orphan-sponsorship")).toContain('<option value="auto" selected>');
     expect(at(2)).toMatch(/data-wf-flag="reassign" data-wf="water-pump" checked/);
     expect(at(2)).toMatch(/data-wf-flag="urgent" data-wf="water-pump" checked/);
-    expect(at(3)).toContain('data-wf-sub="days"');
-    expect(at(3)).toContain("Batch received");
-    expect(at(3)).toContain("Outcome profile allocated");
-    expect(at(3)).toContain("Tell the donor that the phase changed");
-    expect(at(4)).toContain("Decision: approval");
-    expect(at(4)).toMatch(/data-wf-flag="approve" data-wf="water-pump" checked/);
-    expect(at(4)).toContain("Installation update with GPS and photos"); // the checks
-    expect(at(4)).toContain('data-wf-act="task-add"');
-    expect(at(5)).toContain("Decision: reporting protocol");
-    expect(at(5)).toContain("A transactional order");
-    expect(at(5, "orphan-sponsorship")).toContain("A living order");
-    expect(at(3)).not.toContain("wf-pie"); // no pie on this stage
-    expect(at(3)).not.toContain("ID prefix"); // the outcome is set by the item
+    expect(at(3)).toContain("Decision: the partner confirms the batch");
+    expect(at(3)).toContain('data-wf-confirm="days"');
+    expect(at(3)).toContain('data-wf-confirm="tell"');
+    expect(at(4)).toContain("Allocation: the outcome profile");
+    expect(at(4)).toContain('data-wf-sub="days"');
+    expect(at(4)).toContain("Basic details");
+    expect(at(4)).toContain("Tell the donor that it is done");
+    expect(at(5)).toContain("Decision: approval");
+    expect(at(5)).toMatch(/data-wf-flag="approve" data-wf="water-pump" checked/);
+    expect(at(5)).toContain("Installation update with GPS and photos"); // the checks
+    expect(at(5)).toContain('data-wf-act="task-add"');
+    expect(at(6)).toContain("Decision: reporting protocol");
+    expect(at(6)).toContain("A transactional order");
+    expect(at(6, "orphan-sponsorship")).toContain("A living order");
+    expect(at(4)).not.toContain("wf-pie"); // no pie on this stage
+    expect(at(4)).not.toContain("ID prefix"); // the outcome is set by the item
   });
   it("draws one outcome as a pie split into as many slices as units make it", () => {
     const sel = (id: string) => ({ id, stage: 1, parts: 1, allocated: false, pick: "" });
