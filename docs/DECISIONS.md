@@ -376,3 +376,14 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 - Worked out by a pure function (`modules/04b-commitments/stage.ts`) from what is known now. A gift with no workflow is at **Gift** (choose a workflow). A gift whose workflow releases only when fully paid is at **Work order**, funding, until every payment is in ("Funding, 4 of 10 paid"). A manual gift is at Work order. A paused plan is parked at Work order, a cancelled one at Gift. A released gift not yet placed is at **Assignment** (waiting for a partner). A gift placed in an outcome is at **Allocation**. Excluded payments have no stage.
 - Confirmation, Review, Report, Complete and Feedback need the partner side (batch list, outcome profile, approval), so no gift is put there yet. They arrive with Partners.
 - Not built yet: a filter by stage, and stage history.
+
+## 142. Gift status names, and the partner, benefit and beneficiary design (23/11/2026)
+
+- **Gift status names** are short states so they do not overflow the list: Gift, WO created, Assigned, Confirmed, Allocated, Reviewed, Reported, Completed (Feedback unchanged). The **workflow chart keeps the action names**: Work order, Assignment, Confirmation, Allocation, Review, Report, Complete, Feedback. States are for gifts, actions for the workflow.
+- **Design, agreed, not built yet.** Three registers kept apart, with a link between two of them:
+  - **Partner**: who delivers (for example AGHOSH, a pump contractor). Its own profile properties, approval and health score.
+  - **Benefit**: what is delivered. It is always the gift item, so Small Pump and Large Pump stay different benefits. It has a **kind**: person, activity, or build (a tangible output). The kind decides the fields of its beneficiaries.
+  - **Beneficiary**: the specific recipient or output (a child, a Pump ID, a camp, a house). It has its own profile, updated as it moves through its sections of completion. For orphans, every update is kept on the profile and summarised in the periodic report to the donor (for example quarterly), released after MWF approval.
+  - **Partner and benefit link**: which benefits a partner is active for (switched on or off), with its capacity and agreed cost per unit.
+- A work order is assigned to a partner active for its benefit, confirmed, then allocated by the partner to a beneficiary of that benefit (an existing one from its register, or a new one created on allocation). The link between a work order and a beneficiary holds the units and keeps a history. Several donors may share one beneficiary and one donor may fund several. Person-kind beneficiaries are sensitive: role-based access, no donor contacts to partners.
+- "Outcome type" is retired in favour of benefit (kind) and beneficiary (profile). The existing outcome records are the beneficiaries.

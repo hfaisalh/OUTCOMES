@@ -1,8 +1,8 @@
 /**
  * stage.ts
  *
- * What it does: works out which stage of its workflow a gift is in now (DECISIONS 141), from what is known about it: whether it has a workflow, whether it is funded, and whether it
- * has been placed in an outcome. The stages are the titles of the workflow chart: Gift, Work order, Assignment, Confirmation, Allocation, Review, Report, Complete, Feedback.
+ * What it does: works out which stage of its workflow a gift is in now (DECISIONS 141, 142), from what is known about it: whether it has a workflow, whether it is funded, and whether it
+ * has been placed in an outcome. The stages follow the workflow chart, named as states for the gift list: Gift, WO created, Assigned, Confirmed, Allocated, Reviewed, Reported, Completed, Feedback.
  * Who calls it: the Gifts list and window (app/gifts-page.ts). Depends on: nothing. Pure functions: no database, no screen, so they can be ported to Apex.
  *
  * Rules:
@@ -15,8 +15,9 @@
 
 export type GiftStage = "gift" | "work-order" | "assignment" | "confirmation" | "allocation" | "review" | "report" | "complete" | "feedback";
 
+// Rule (DECISIONS 142): the gift list uses short state names, so they do not overflow. The workflow chart uses the action names (Work order, Assignment, Confirmation, Allocation, Review, Report, Complete, Feedback).
 export const STAGE_TITLES: Record<GiftStage, string> = {
-  gift: "Gift", "work-order": "Work order", assignment: "Assignment", confirmation: "Confirmation", allocation: "Allocation", review: "Review", report: "Report", complete: "Complete", feedback: "Feedback",
+  gift: "Gift", "work-order": "WO created", assignment: "Assigned", confirmation: "Confirmed", allocation: "Allocated", review: "Reviewed", report: "Reported", complete: "Completed", feedback: "Feedback",
 };
 
 export interface StageInput {

@@ -92,12 +92,12 @@ describe("giftsPage", () => {
     const mk = (frameworkId: string, over: Partial<WorkOrder> = {}) => [1, 2, 3, 4].map((n) => sub(n, { instalmentCount: "12", frameworkId, ...over }));
     const list = giftListHtml(view({ workOrders: mk("sponsorship-shared-parts"), frameworks: fws }));
     expect(list).toContain("<th>Stage</th>");
-    expect(list).toMatch(/<span class="pill stage st-(assignment|allocation)" title="[^"]*">(Assignment|Allocation)<\/span>/);
+    expect(list).toMatch(/<span class="pill stage st-(assignment|allocation)" title="[^"]*">(Assigned|Allocated)<\/span>/);
     const detail = giftDetailHtml(view({ workOrders: mk("sponsorship-shared-parts"), frameworks: fws }), "S9");
     expect(detail).toContain("<span>Stage</span>");
     // a gift whose workflow releases only when fully paid is funding at Work order
     const pump = giftListHtml(view({ workOrders: mk("delivered-once"), frameworks: fws.map((f) => (f.id === "delivered-once" ? { ...f, instalment: "share_of_whole" as const } : f)) }));
-    expect(pump).toContain('class="pill stage st-work-order" title="Funding, 4 of 12 paid">Work order</span>');
+    expect(pump).toContain('class="pill stage st-work-order" title="Funding, 4 of 12 paid">WO created</span>');
     // an item with no workflow is still at Gift
     expect(giftListHtml(view())).toContain('class="pill stage st-gift" title="Choose a workflow for its item">Gift</span>');
   });

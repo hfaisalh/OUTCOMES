@@ -11,8 +11,8 @@ const base: StageInput = { kind: "recurring", hasWorkflow: true, holdUntilPaid: 
 const at = (over: Partial<StageInput>) => giftStage({ ...base, ...over });
 
 describe("which stage a gift is in", () => {
-  it("has the titles of the workflow chart", () => {
-    expect(Object.values(STAGE_TITLES)).toEqual(["Gift", "Work order", "Assignment", "Confirmation", "Allocation", "Review", "Report", "Complete", "Feedback"]);
+  it("has short state names for the gift list", () => {
+    expect(Object.values(STAGE_TITLES)).toEqual(["Gift", "WO created", "Assigned", "Confirmed", "Allocated", "Reviewed", "Reported", "Completed", "Feedback"]);
   });
   it("is at Gift with nothing to move it on when its item has no workflow, and has no stage when excluded", () => {
     expect(at({ hasWorkflow: false })).toEqual({ stage: "gift", note: "Choose a workflow for its item" });
