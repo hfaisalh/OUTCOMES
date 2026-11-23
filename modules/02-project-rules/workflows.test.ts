@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { isFrameworkTemplate, type FrameworkTemplate } from "./categories";
 import { starterOutcomeTypes } from "../05-outcomes/outcome-types";
-import { assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, setUnitRule, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, suggestWorkflowFor } from "./workflows";
+import { addStage, assignOf, moveStage, removeStage, setAssign, setStage, totalDays, assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, setUnitRule, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, suggestWorkflowFor } from "./workflows";
 
 const fw = (over: Partial<FrameworkTemplate> = {}): FrameworkTemplate => ({ id: "w", name: "Orphan sponsorship", unit: "orphan", cycle: "quarterly", reportType: "Quarterly orphan update", instalment: "per_period", unitsPerBeneficiary: 3, ...over });
 const ok = (r: { frameworks: FrameworkTemplate[] } | { error: string }): FrameworkTemplate[] => { if ("error" in r) throw new Error(r.error); return r.frameworks; };
@@ -108,5 +108,42 @@ describe("items in workflows (DECISIONS 131)", () => {
     expect(ok2(setUnitRule([fw()], "w", 4, true))).toMatchObject({ instalment: "share_of_whole", unitsPerBeneficiary: 1 });
     expect(setUnitRule([fw()], "w", 0, false)).toHaveProperty("error");
     expect(setUnitRule([fw()], "w", 101, false)).toHaveProperty("error");
+  });
+});
+
+describe("assigned for implementation (DECISIONS 137)", () => {
+  const stages = (f: FrameworkTemplate[]) => f[0]?.stages?.map((x) => x.id);
+  it("adds, changes, moves and removes the partner's stages, and adds up the days", () => {
+    let f = [fw()];
+    f = ok(addStage(f, "w", "Site visit", 14));
+    f = ok(addStage(f, "w", "Installed", 30));
+    expect(stages(f)).toEqual(["site-visit", "installed"]);
+    expect(totalDays(f[0]!)).toBe(44);
+    f = ok(setStage(f, "w", "installed", { needs: "Location, GPS , ,Photo of site", photo: true, canPause: false, tell: "Your gift has been assigned a location.", days: 20 }));
+    expect(f[0]?.stages?.[1]).toMatchObject({ needs: ["Location", "GPS", "Photo of site"], photo: true, canPause: false, days: 20 });
+    f = ok(moveStage(f, "w", "installed", -1));
+    expect(stages(f)).toEqual(["installed", "site-visit"]);
+    expect(stages(ok(moveStage(f, "w", "installed", -1)))).toEqual(["installed", "site-visit"]); // the first cannot go up
+    f = ok(removeStage(ok(removeStage(f, "w", "installed")), "w", "site-visit"));
+    expect(f[0]?.stages).toBeUndefined();
+    expect(isFrameworkTemplate(fw({ stages: [{ id: "a", label: "A", days: 3, needs: [], photo: false, canPause: true, tell: "" }] }))).toBe(true);
+    expect(isFrameworkTemplate(fw({ stages: [{ id: "a", label: "A", days: -1, needs: [], photo: false, canPause: true, tell: "" }] }))).toBe(false);
+  });
+  it("refuses a stage with no name, bad days or one that is not there", () => {
+    expect(addStage([fw()], "w", " ", 3)).toHaveProperty("error");
+    expect(addStage([fw()], "w", "Visit", 400)).toHaveProperty("error");
+    expect(addStage([fw()], "nope", "Visit", 3)).toHaveProperty("error");
+    expect(setStage([fw()], "w", "none", { days: 2 })).toHaveProperty("error");
+  });
+  it("hands over by the workflow's own setting, else the type's, else by suggestion; the starting workflows carry stages", () => {
+    const types = starterOutcomeTypes();
+    expect(assignOf(fw(), undefined)).toBe("suggest");
+    expect(assignOf(fw(), { ...types[0]!, assign: "auto" })).toBe("auto");
+    expect(assignOf(fw({ assign: "suggest" }), { ...types[0]!, assign: "auto" })).toBe("suggest");
+    expect(ok(setAssign([fw()], "w", "auto"))[0]?.assign).toBe("auto");
+    const start = addStarterWorkflows([], types).frameworks;
+    expect(start.find((x) => x.id === "orphan-sponsorship")?.assign).toBe("auto");
+    expect(start.find((x) => x.id === "water-pump")?.assign).toBe("suggest");
+    expect(start.every((x) => (x.stages ?? []).length === 3 && isFrameworkTemplate(x))).toBe(true);
   });
 });

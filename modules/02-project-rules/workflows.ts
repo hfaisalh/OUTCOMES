@@ -15,7 +15,7 @@
  * - Starting workflows are only added when missing, by id or by name, so nothing a person built is replaced.
  */
 
-import type { Changed, Cycle, FrameworkTemplate, InstalmentRule, Setup, WorkflowTask } from "./categories.js";
+import type { Changed, Cycle, FrameworkTemplate, ImplStage, InstalmentRule, Setup, WorkflowTask } from "./categories.js";
 import { CYCLE_LABELS, resolveFrameworkId } from "./categories.js";
 import { typeForFramework, type OutcomeType } from "../05-outcomes/outcome-types.js";
 
@@ -99,6 +99,58 @@ export const removeTask = (frameworks: FrameworkTemplate[], id: string, tid: str
     return left.length ? { ...f, tasks: left } : rest;
   });
 
+// ---- Assigned for implementation (DECISIONS 137) ----
+// Rule: how a released work order is handed to a partner: the workflow's own setting, else the outcome type's old setting, else suggested to a person.
+export const assignOf = (fw: FrameworkTemplate, type: OutcomeType | undefined): "auto" | "suggest" => fw.assign ?? type?.assign ?? "suggest";
+
+export const setAssign = (frameworks: FrameworkTemplate[], id: string, assign: "auto" | "suggest"): Edited => editWf(frameworks, id, (f) => ({ ...f, assign }));
+
+const stageId = (label: string, taken: string[]): string => taskId(label, taken);
+const asNeeds = (text: string): string[] => text.split(/[,\n]/).map((x) => x.trim().slice(0, 60)).filter((x) => x !== "").slice(0, 20);
+
+// Rule: an implementation stage has a name and a number of days allowed (0 to 365), counted from the stage before. At most 20 stages.
+export const addStage = (frameworks: FrameworkTemplate[], id: string, label: string, days: number): Edited =>
+  editWf(frameworks, id, (f) => {
+    const l = label.trim();
+    if (l.length < 2) return "Give the stage a name.";
+    if (!Number.isInteger(days) || days < 0 || days > 365) return "The days are a whole number from 0 to 365.";
+    if ((f.stages ?? []).length >= 20) return "A workflow has at most 20 implementation stages.";
+    const stage: ImplStage = { id: stageId(l, (f.stages ?? []).map((x) => x.id)), label: l.slice(0, 60), days, needs: [], photo: false, canPause: true, tell: "" };
+    return { ...f, stages: [...(f.stages ?? []), stage] };
+  });
+
+export const setStage = (frameworks: FrameworkTemplate[], id: string, sid: string, patch: { label?: string; days?: number; needs?: string; photo?: boolean; canPause?: boolean; tell?: string }): Edited =>
+  editWf(frameworks, id, (f) => {
+    const cur = (f.stages ?? []).find((x) => x.id === sid);
+    if (!cur) return "That stage was not found.";
+    if (patch.label !== undefined && patch.label.trim().length < 2) return "Give the stage a name.";
+    if (patch.days !== undefined && (!Number.isInteger(patch.days) || patch.days < 0 || patch.days > 365)) return "The days are a whole number from 0 to 365.";
+    const next: ImplStage = { ...cur, ...(patch.label !== undefined ? { label: patch.label.trim().slice(0, 60) } : {}), ...(patch.days !== undefined ? { days: patch.days } : {}), ...(patch.needs !== undefined ? { needs: asNeeds(patch.needs) } : {}), ...(patch.photo !== undefined ? { photo: patch.photo } : {}), ...(patch.canPause !== undefined ? { canPause: patch.canPause } : {}), ...(patch.tell !== undefined ? { tell: patch.tell.slice(0, 200) } : {}) };
+    return { ...f, stages: (f.stages ?? []).map((x) => (x.id === sid ? next : x)) };
+  });
+
+export const removeStage = (frameworks: FrameworkTemplate[], id: string, sid: string): Edited =>
+  editWf(frameworks, id, (f) => {
+    const left = (f.stages ?? []).filter((x) => x.id !== sid);
+    const { stages: _s, ...rest } = f;
+    return left.length ? { ...f, stages: left } : rest;
+  });
+
+// Rule: a stage moves one place up (-1) or down (1). The first cannot go up and the last cannot go down.
+export const moveStage = (frameworks: FrameworkTemplate[], id: string, sid: string, by: -1 | 1): Edited =>
+  editWf(frameworks, id, (f) => {
+    const list = [...(f.stages ?? [])];
+    const i = list.findIndex((x) => x.id === sid);
+    if (i < 0) return "That stage was not found.";
+    const j = i + by;
+    if (j < 0 || j >= list.length) return { ...f };
+    [list[i], list[j]] = [list[j] as ImplStage, list[i] as ImplStage];
+    return { ...f, stages: list };
+  });
+
+// The days a whole implementation is allowed: the stages added up.
+export const totalDays = (fw: FrameworkTemplate): number => (fw.stages ?? []).reduce((n, x) => n + x.days, 0);
+
 // ---- Starting workflows ----
 interface Starter { id: string; name: string; unit: string; units: number; rule: InstalmentRule; cycle: Cycle; report: string; typeId: string; tasks: [string, number, boolean][]; words: RegExp }
 
@@ -124,7 +176,14 @@ export function extraStarterTypes(): OutcomeType[] {
 
 // The icon each starting workflow begins with. Any workflow can be given another.
 const STARTER_ICONS: Record<string, string> = { "orphan-sponsorship": "orphan", "student-sponsorship": "student", "water-pump": "pump", "house-build": "house", "livelihood-start": "rickshaw", activity: "medical" };
+// The implementation stages a starting workflow begins with. A person changes them to match how the partners work.
+const startStages = (): ImplStage[] => [
+  { id: "accepted", label: "Accepted by the partner", days: 7, needs: [], photo: false, canPause: true, tell: "" },
+  { id: "in-delivery", label: "In delivery", days: 30, needs: ["Location", "Beneficiaries"], photo: false, canPause: true, tell: "Your gift has been assigned a location and beneficiaries." },
+  { id: "delivered", label: "Delivered and verified", days: 14, needs: [], photo: true, canPause: false, tell: "Your gift has been delivered." },
+];
 const mkWorkflow = (s: Starter): FrameworkTemplate => ({
+  assign: s.typeId === "orphan" || s.typeId === "student" ? "auto" : "suggest", stages: startStages(),
   id: s.id, ...(STARTER_ICONS[s.id] ? { icon: STARTER_ICONS[s.id] } : {}), name: s.name, unit: s.unit, cycle: s.cycle, reportType: s.report, instalment: s.rule, unitsPerBeneficiary: s.units,
   tasks: s.tasks.reduce<WorkflowTask[]>((all, [label, afterMonths, photo]) => [...all, { id: taskId(label, all.map((t) => t.id)), label, afterMonths, photo }], []),
 });

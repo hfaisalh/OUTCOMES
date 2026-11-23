@@ -44,6 +44,8 @@ export const INSTALMENT_LABELS: Record<InstalmentRule, string> = {
 
 // The settings that decide the flow of an order. Before decision 59 these were held inside each category (the "legacy" shape, still read and migrated).
 export interface Framework {
+  assign?: "auto" | "suggest"; // how a released work order is handed to a partner (DECISIONS 137). Absent: the outcome type's setting, else suggest
+  stages?: ImplStage[]; // the implementation stages, in order (DECISIONS 137)
   icon?: string; // the workflow's own icon from the icon library, a target when none is chosen (DECISIONS 134)
   unit: string; // what one thing delivered is, for example "child", "pump", "animal"
   cycle: Cycle;
@@ -61,6 +63,10 @@ export interface FrameworkTemplate extends Framework {
 
 // A task of a workflow: a check or an update due some months after the outcome is delivered or started, optionally asking for photos.
 export interface WorkflowTask { id: string; label: string; afterMonths: number; photo: boolean }
+
+// A stage of the partner's implementation, set on the workflow (DECISIONS 137): its name, the days allowed from the one before, what the partner must supply, whether photos are
+// asked for, whether the clock may be paused, and what the donor is told when it is finished.
+export interface ImplStage { id: string; label: string; days: number; needs: string[]; photo: boolean; canPause: boolean; tell: string }
 
 export interface Category {
   id: string; // stable, saved with the map. Made from the name when added
@@ -333,7 +339,8 @@ export const isCurrentCategory = (x: unknown): x is Category => {
 export const isFrameworkTemplate = (x: unknown): x is FrameworkTemplate => {
   const f = x as FrameworkTemplate | null;
   return !!f && typeof f.id === "string" && f.id !== "" && typeof f.name === "string" && typeof f.unit === "string" && typeof f.reportType === "string" && typeof f.cycle === "string" && f.cycle in CYCLE_LABELS
-    && Number.isInteger(f.unitsPerBeneficiary) && f.unitsPerBeneficiary >= 1 && (f.instalment === undefined || f.instalment === "per_period" || f.instalment === "share_of_whole") && (f.icon === undefined || typeof f.icon === "string")
+    && Number.isInteger(f.unitsPerBeneficiary) && f.unitsPerBeneficiary >= 1 && (f.instalment === undefined || f.instalment === "per_period" || f.instalment === "share_of_whole") && (f.icon === undefined || typeof f.icon === "string") && (f.assign === undefined || f.assign === "auto" || f.assign === "suggest")
+    && (f.stages === undefined || (Array.isArray(f.stages) && f.stages.length <= 20 && f.stages.every((t) => !!t && typeof t.id === "string" && typeof t.label === "string" && Number.isInteger(t.days) && t.days >= 0 && t.days <= 365 && Array.isArray(t.needs) && t.needs.every((n) => typeof n === "string") && typeof t.photo === "boolean" && typeof t.canPause === "boolean" && typeof t.tell === "string")))
     && (f.tasks === undefined || (Array.isArray(f.tasks) && f.tasks.length <= 30 && f.tasks.every((t) => !!t && typeof t.id === "string" && typeof t.label === "string" && Number.isInteger(t.afterMonths) && t.afterMonths >= 0 && t.afterMonths <= 120 && typeof t.photo === "boolean")))
 ;
 };

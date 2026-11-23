@@ -335,3 +335,12 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 - The chart shows rules only, never inputs: no number of units, no donor, no kind of outcome. Step 1 reads "Gift into work order units & shares". Each step carries its rule icon, and clicking a step opens that stage's rules below.
 - When release waits for full payment, step 3 becomes a decision "Fully paid?" with Yes to the next step and No to "Held as Funding", which returns on the next payment.
 - The diagram-design plugin itself could not be installed from here (the plugin commands only run in an interactive Claude Code session), so its method was read from its public repository and applied. Install it with the two commands if you want it available for other diagrams.
+
+## 137. Three stages: work orders, assigned for implementation, report (23/11/2026)
+
+- The workflow has three stages, not six. **1 Work orders**: the gift into units and the outcome into shares, and when units are released (the number and the fully paid tick). **2 Assigned for implementation**: how a released work order is handed to a partner, and the partner's stages. **3 Updates and report**: the tasks and the donor report. A gift goes from paid straight to assigned for implementation, mostly automatically once stage 1 is set.
+- The outcome is set by the item, so there is no outcome stage and no allocation step. Which child or which site is decided later, by the partner side.
+- The partner's implementation is configured here, on the workflow, because every partner follows the same flow locked into the gift. Partner profiles and the work order batch list only display it. Each stage has a name, the days allowed from the stage before, what the partner supplies, whether a photo is asked for, whether the clock may be paused, and what the donor is told when it is finished (for example that the gift has been assigned a location and beneficiaries). Items that need different stages go in a different workflow.
+- The handoff setting (automatic or suggested) is now on the workflow (`assign`), falling back to the old outcome type setting. The outcome type and partner field editing are not on this page any more. They return when stage 5 details are configured, per stage.
+- A partner may hold outcomes it has already set up, waiting for work orders to be placed into them. That is a Partners feature, not built yet.
+- Not built yet: the gift's current stage on the Gifts list, partner health score from the days allowed, pausing the clock, and sending the donor message.

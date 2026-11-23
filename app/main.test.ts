@@ -189,41 +189,50 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     expect(shell.innerHTML).toContain('class="wf-sentence"');
     expect(shell.innerHTML).toContain("follow these set rules");
     expect(shell.innerHTML).toContain('class="fc"'); // the flow chart
-    for (const n of [1, 2, 3, 4, 5, 6]) expect(shell.innerHTML).toContain(`data-wf-stage="${n}"`);
+    for (const n of [1, 2, 3]) expect(shell.innerHTML).toContain(`data-wf-stage="${n}"`); // work orders, assigned for implementation, report
     expect(shell.innerHTML).toContain("data-wf-toggle");
     expect(shell.innerHTML).toContain("Switch an item on");
     expect(shell.innerHTML).toContain('data-icon-item='); // item icons
     expect(shell.innerHTML).not.toContain("Category (reporting)"); // no category here
     expect(shell.innerHTML).not.toContain("What one delivery is");
   });
-  it("shows the rules of the stage that is clicked: how a unit supports, the outcome type, when it is released, assignment, delivering, and the tasks", () => {
+  it("shows the rules of the stage that is clicked: work orders, assigned for implementation with its stages, and the report", () => {
     stageClick("1");
-    expect(shell.innerHTML).toContain("Outcome unit allocation");
+    expect(shell.innerHTML).toContain("Work orders: gift into units and shares");
     expect(shell.innerHTML).toContain("Units in one outcome");
-    expect(shell.innerHTML).not.toContain("What a payment buys");
     stageClick("2");
-    expect(shell.innerHTML).toContain('data-wf-type="sponsorship-shared-parts"');
-    expect(shell.innerHTML).toContain("Add type");
+    expect(shell.innerHTML).toContain("Implementation stages");
+    expect(shell.innerHTML).toContain('data-wf-act="sub-add"');
     stageClick("3");
-    expect(shell.innerHTML).toContain("When it is released");
-    stageClick("4");
-    expect(shell.innerHTML).toContain("Assigned to a partner");
-    stageClick("5");
-    expect(shell.innerHTML).toContain("The partner does the work");
-    stageClick("6");
     expect(shell.innerHTML).toContain("Updates and the donor report");
     expect(shell.innerHTML).toContain('data-wf-act="task-add"');
   });
-  it("adds the standard workflows with their tasks and outcome types, once", () => {
+  it("adds, changes, moves and removes the partner's implementation stages, and sets how the handoff happens (DECISIONS 137)", () => {
+    click({ page: "workflows" }, "data-page");
+    click({ action: "add-starters" }, "data-action");
+    click({ wfSelect: "water-pump" }, "data-wf-select");
+    stageClick("2");
+    expect(shell.innerHTML).toContain("Accepted by the partner");
+    fire("change", { target: { id: "", dataset: { wfAssign: "water-pump" }, value: "auto", checked: false } });
+    expect(shell.innerHTML).toContain("Assigned for implementation, automatic");
+    fire("change", { target: { id: "", dataset: { wfSub: "days", wf: "water-pump", sub: "accepted" }, value: "3", checked: false } });
+    expect(shell.innerHTML).toContain("3 days");
+    fire("change", { target: { id: "", dataset: { wfSub: "tell", wf: "water-pump", sub: "accepted" }, value: "Your gift has been accepted.", checked: false } });
+    expect(shell.innerHTML).toContain("Your gift has been accepted.");
+    click({ wfAct: "sub-down", wf: "water-pump", sub: "accepted" }, "data-wf-act");
+    expect(shell.innerHTML.indexOf('data-sub="in-delivery"')).toBeLessThan(shell.innerHTML.indexOf('data-sub="accepted"'));
+    click({ wfAct: "sub-remove", wf: "water-pump", sub: "accepted" }, "data-wf-act");
+    expect(shell.innerHTML).not.toContain('data-sub="accepted"');
+  });
+  it("adds the standard workflows with their tasks and stages, once", () => {
     click({ page: "workflows" }, "data-page");
     click({ action: "add-starters" }, "data-action");
     for (const n of ["Orphan sponsorship", "Student sponsorship", "Water pump", "House build", "Activity"]) expect(shell.innerHTML).toContain(n);
     click({ wfSelect: "orphan-sponsorship" }, "data-wf-select");
-    stageClick("6");
+    stageClick("3");
     expect(shell.innerHTML).toContain("3 month basic check");
     stageClick("2");
-    expect(shell.innerHTML).toContain('<option value="orphan" selected>Orphan</option>'); // linked to its outcome type
-    expect(shell.innerHTML).toContain("ID prefix");
+    expect(shell.innerHTML).toContain("Delivered and verified");
     click({ action: "add-starters" }, "data-action");
     expect(shell.innerHTML).toContain("already there");
   });

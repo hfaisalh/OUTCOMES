@@ -8,11 +8,10 @@
  */
 
 import { CYCLE_LABELS, type Cycle, type FrameworkTemplate } from "../modules/02-project-rules/categories";
-import { outcomeName, unitModeOf } from "../modules/02-project-rules/workflows";
+import { assignOf, outcomeName, totalDays, unitModeOf } from "../modules/02-project-rules/workflows";
 import { typeForFramework, type OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { flowChart } from "./workflow-flowchart";
 import { ICONS, iconHtml, itemIcon } from "./icons";
-import { outcomeTypeEditor } from "./outcome-types-card";
 import { esc, type View } from "./pages";
 
 const TICK = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
@@ -35,26 +34,26 @@ export function unitPie(slots: number): string {
 
 function stagePanel(f: FrameworkTemplate, type: OutcomeType | undefined, stage: number, v: View): string {
   const t = `data-tplid="${esc(f.id)}"`;
-  const used = Object.fromEntries((v.outcomeTypes ?? []).map((x) => [x.id, (v.outcomes ?? []).filter((o) => o.outcomeTypeId === x.id).length]));
-  const needType = `<p class="muted">Choose an outcome type for this workflow in stage 2 first.</p>`;
   if (stage === 1) {
     const full = unitModeOf(f) === "once";
-    return `<h3>Outcome unit allocation</h3>
+    return `<h3>Work orders: gift into units and shares</h3>
     <label class="wf-field"><span>Units in one outcome</span><input type="number" min="1" max="100" step="1" data-wf-shares="${esc(f.id)}" value="${f.unitsPerBeneficiary}"${full ? " disabled" : ""}></label>
     <label class="ot-check"><input type="checkbox" data-wf-full="${esc(f.id)}"${full ? " checked" : ""}> Release only when fully paid</label>
-    <p class="muted">How units are allocated to one outcome in this workflow. With 1, a unit is a whole outcome. With more, the outcome is made of that many units.</p>`;
+    <p class="muted">How units are allocated to one outcome in this workflow. With 1, a unit is a whole outcome. With more, the outcome is made of that many units. This is mostly automatic once set: a paid gift becomes work order units, and they are released to be assigned for implementation.</p>`;
   }
-  if (stage === 2) return `<h3>What the gift becomes</h3>
-    <label class="wf-field"><span>Outcome type</span><select data-wf-type="${esc(f.id)}"><option value="">No outcome type yet</option>${(v.outcomeTypes ?? []).map((x) => `<option value="${esc(x.id)}"${type?.id === x.id ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>
-    ${type ? outcomeTypeEditor(type, [], used, { assign: false, frameworks: false, remove: false }) : `<p class="muted">An outcome is the specific thing a gift becomes: an orphan, a pump, a house. Choose a type, or add a new one below.</p>`}
-    <div class="ot-add"><input id="newot" placeholder="A new outcome type, for example Rickshaw"><button data-ot-act="add">Add type</button></div>`;
-  if (stage === 3) return `<h3>When it is released</h3>${f.instalment === "share_of_whole"
-    ? `<p>The unit funds one whole ${esc(outcomeName(f, type))}. The gift <b>waits as Funding</b> until it is fully paid, and only then can it go to a partner. A one-off payment in full is released at once.</p>`
-    : `<p>The unit supports month by month, so the gift is <b>released each month</b> as it is paid. Nothing waits.</p>`}
-    <p class="muted">If payments stop before the end, the gift stays parked as Paused or Cancelled. Nothing is cancelled or released by the system itself.</p>`;
-  if (stage === 4) return `<h3>Assigned to a partner</h3>${type ? `<label class="wf-field"><span>Assigned</span><select data-ot="assign" data-type-id="${esc(type.id)}"><option value="auto"${type.assign === "auto" ? " selected" : ""}>Automatically, when a partner has capacity</option><option value="suggest"${type.assign === "suggest" ? " selected" : ""}>Only suggested to a person</option></select></label>` : needType}
-    <p class="muted">Priority when several are waiting: a donor's directed project or partner, then a deadline, then an urgent flag, then the oldest paid first. A partner only gets what it delivers and is approved for. Each partner sets its capacity on its own profile.</p>`;
-  if (stage === 5) return `<h3>The partner does the work</h3>${type ? `<p>Needed before a partner takes it: <b>${type.fields.filter((x) => x.required).map((x) => esc(x.label)).join(", ") || "nothing"}</b>.</p><p class="muted">The partner fills in the rest (${esc(type.fields.filter((x) => !x.required).map((x) => x.label).slice(0, 5).join(", "))}) as the work happens. Change which fields are needed first in stage 2.</p>` : needType}`;
+  if (stage === 2) {
+    const how = assignOf(f, type);
+    const stages = f.stages ?? [];
+    return `<h3>Assigned for implementation</h3>
+    <label class="wf-field"><span>A released work order is handed to a partner</span><select data-wf-assign="${esc(f.id)}"><option value="auto"${how === "auto" ? " selected" : ""}>Automatically, when a partner has capacity</option><option value="suggest"${how === "suggest" ? " selected" : ""}>Only suggested to a person</option></select></label>
+    <p class="muted">Priority when several are waiting: a donor's directed project or partner, then a deadline, then an urgent flag, then the oldest paid first. A partner may hold outcomes it has already set up, waiting for work orders to be placed into them. Each partner sets its capacity on its own profile.</p>
+    <h4 class="wf-h">Implementation stages <span class="muted">(${stages.length}, ${totalDays(f)} days in all)</span></h4>
+    <p class="muted">Every partner follows these stages. Each has the days allowed from the stage before, so delays can be seen. When a stage is finished the donor can be told something, for example that their gift has been assigned a location and a number of beneficiaries.</p>
+    <div class="tablewrap"><table class="wf-tasks"><thead><tr><th>Stage</th><th class="num">Days</th><th>The partner supplies (separate with commas)</th><th class="c">Photo</th><th class="c">Can pause</th><th>Tell the donor</th><th class="actcol"></th></tr></thead><tbody>
+      ${stages.map((k, i) => `<tr><td><input data-wf-sub="label" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" value="${esc(k.label)}"></td><td class="num"><input type="number" min="0" max="365" data-wf-sub="days" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" value="${k.days}"></td><td><input data-wf-sub="needs" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" value="${esc(k.needs.join(", "))}" placeholder="Location, Beneficiaries"></td><td class="c"><input type="checkbox" data-wf-sub="photo" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}"${k.photo ? " checked" : ""} aria-label="Asks for a photo"></td><td class="c"><input type="checkbox" data-wf-sub="pause" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}"${k.canPause ? " checked" : ""} aria-label="The clock can be paused"></td><td><input data-wf-sub="tell" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" value="${esc(k.tell)}" placeholder="Nothing"></td><td class="actcol"><div class="actbox"><button class="iconact" data-wf-act="sub-up" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}"${i === 0 ? " disabled" : ""} title="Move up" aria-label="Move up">&uarr;</button><button class="iconact" data-wf-act="sub-down" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}"${i === stages.length - 1 ? " disabled" : ""} title="Move down" aria-label="Move down">&darr;</button><button class="iconact" data-wf-act="sub-remove" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" title="Remove this stage" aria-label="Remove this stage">${BIN}</button></div></td></tr>`).join("") || `<tr><td colspan="7" class="muted">No stages yet. Add the first one below.</td></tr>`}
+    </tbody></table></div>
+    <div class="ot-add"><input id="wf-sub-label" placeholder="New stage, for example Site visit"><input id="wf-sub-days" type="number" min="0" max="365" value="14" aria-label="Days allowed" style="width:90px"><button class="iconact ok" data-wf-act="sub-add" data-wf="${esc(f.id)}" title="Add the stage" aria-label="Add the stage">${TICK}</button></div>`;
+  }
   return `<h3>Updates and the donor report</h3>
     <div class="wf-two"><label class="wf-field"><span>The report the donor gets</span><input data-tpl="reportType" ${t} value="${esc(f.reportType)}" placeholder="Quarterly update"></label>
     <label class="wf-field"><span>How often the donor hears back</span><select data-tpl="cycle" ${t}>${(Object.keys(CYCLE_LABELS) as Cycle[]).map((y) => `<option value="${y}"${y === f.cycle ? " selected" : ""}>${esc(CYCLE_LABELS[y])}</option>`).join("")}</select></label></div>
@@ -82,7 +81,7 @@ export function workflowsPage(v: View): string {
   // Rule (DECISIONS 134): a workflow has its own icon, a target until one is chosen. It no longer follows an item or an outcome type.
   const iconOfWorkflow = (fid: string): string => fws.find((x) => x.id === fid)?.icon || "bullseye";
   const f = fws.find((x) => x.id === sel.id) ?? fws[0];
-  const stage = Math.min(6, Math.max(1, sel.stage));
+  const stage = Math.min(3, Math.max(1, sel.stage));
 
   const list = `<div class="card"><h3 class="wf-h">Workflows <span class="muted">(${fws.length})</span></h3><div class="wlist">${fws.map((x) => `<button class="wbtn${x.id === f?.id ? " on" : ""}" data-wf-select="${esc(x.id)}">${iconHtml(iconOfWorkflow(x.id), x.name, "lg") || `<span class="ico ico-lg"></span>`}<span><b>${esc(x.name)}</b><small>${itemsOf(x.id).length} item${itemsOf(x.id).length === 1 ? "" : "s"}</small></span></button>`).join("") || `<div class="empty">No workflows yet.</div>`}</div>
     <div class="actions"><input id="newfw" placeholder="New workflow name"><button data-action="add-framework">Add</button></div>
@@ -114,7 +113,7 @@ export function workflowsPage(v: View): string {
           <button class="iconact" data-action="remove-framework" data-id="${esc(f.id)}" title="Remove this workflow" aria-label="Remove this workflow">${BIN}</button></div>
           <p class="wf-sentence">Items assigned to this workflow follow these set rules.</p></div>
         <section class="card"><h3 class="wf-h">The flow</h3><div class="wf-flowwrap">${flowChart(f, type, stage)}</div>
-          <div class="wf-rules"><div class="wf-rule">${stagePanel(f, type, stage, v)}</div>${sim}</div></section>
+          <div class="wf-rules${stage === 1 ? "" : " one"}"><div class="wf-rule">${stagePanel(f, type, stage, v)}</div>${stage === 1 ? sim : ""}</div></section>
       </div></div>
     ${iconsCard}${iconModal(f)}`;
 }

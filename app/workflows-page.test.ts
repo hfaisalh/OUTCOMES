@@ -36,7 +36,7 @@ describe("the Workflows page", () => {
   it("asks how a unit supports an outcome, with three answers worded by the outcome, and the number of units for a share", () => {
     const at = (id: string) => workflowsPage(view({ workflowSel: { id, stage: 1, parts: 1, allocated: false, pick: "" } }));
     const orphan = at("orphan-sponsorship");
-    expect(orphan).toContain("<h3>Outcome unit allocation</h3>");
+    expect(orphan).toContain("<h3>Work orders: gift into units and shares</h3>");
     expect(orphan).toContain('data-wf-shares="orphan-sponsorship" value="3"'); // units that make one orphan
     expect(orphan).toContain("data-wf-shares");
     expect(orphan).not.toContain("<select data-wf-mode"); // no dropdown any more
@@ -49,15 +49,20 @@ describe("the Workflows page", () => {
     expect(pump.replace(/<[^>]*>/g, " ").match(/PUMP/g)).toBeNull(); // generic wording: no kind of outcome named in the rule
   });
   it("shows the rules of the chosen stage", () => {
-    const at = (stage: number) => workflowsPage(view({ workflowSel: { id: "water-pump", stage, parts: 1, allocated: false, pick: "" } }));
-    expect(at(2)).toContain('<option value="water-pump" selected>Water pump</option>');
-    expect(at(2)).toContain("ID prefix");
-    expect(at(3)).toContain("<b>waits as Funding</b>");
-    expect(workflowsPage(view({ workflowSel: { id: "orphan-sponsorship", stage: 3, parts: 1, allocated: false, pick: "" } }))).toContain("<b>released each month</b>");
-    expect(at(4)).toContain('data-ot="assign"');
-    expect(at(5)).toContain("Needed before a partner takes it: <b>Location</b>");
-    expect(at(6)).toContain("Installation update with GPS and photos");
-    expect(at(6)).toContain('data-wf-act="task-add"');
+    const at = (stage: number, id = "water-pump") => workflowsPage(view({ workflowSel: { id, stage, parts: 1, allocated: false, pick: "" } }));
+    expect(at(1)).toContain("Release only when fully paid");
+    expect(at(1)).toContain("wf-rule"); // the pie sits beside the work order rules
+    expect(at(2)).toContain("Assigned for implementation");
+    expect(at(2)).toContain('data-wf-assign="water-pump"');
+    expect(at(2)).toContain('<option value="suggest" selected>'); // a pump is handed over by suggestion
+    expect(at(2, "orphan-sponsorship")).toContain('<option value="auto" selected>');
+    expect(at(2)).toContain('data-wf-sub="days"');
+    expect(at(2)).toContain("Delivered and verified");
+    expect(at(2)).toContain("Tell the donor");
+    expect(at(2)).not.toContain("wf-pie"); // no pie on this stage
+    expect(at(3)).toContain("Installation update with GPS and photos");
+    expect(at(3)).toContain('data-wf-act="task-add"');
+    expect(at(2)).not.toContain("ID prefix"); // the outcome is set by the item, so there is no outcome stage
   });
   it("draws one outcome as a pie split into as many slices as units make it", () => {
     const sel = (id: string) => ({ id, stage: 1, parts: 1, allocated: false, pick: "" });

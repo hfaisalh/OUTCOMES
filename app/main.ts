@@ -36,7 +36,7 @@ import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { dataFeedPage, dataFilesPage } from "./data-page";
 import { unitPie, workflowsPage } from "./workflows-page";
-import { addStarterWorkflows, addTask, assignToWorkflow, linkStarterTypes, removeTask, removeWorkflow, setTask, setUnitRule, suggestWorkflowFor, unassignItem } from "../modules/02-project-rules/workflows";
+import { addStarterWorkflows, addTask, assignToWorkflow, linkStarterTypes, removeTask, removeWorkflow, setTask, setUnitRule, addStage, setStage, removeStage, moveStage, setAssign, suggestWorkflowFor, unassignItem } from "../modules/02-project-rules/workflows";
 import { createMapping } from "./mapping-controller";
 import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { ensureRefs } from "../modules/05-outcomes/refs";
@@ -1403,11 +1403,17 @@ document.addEventListener("click", (e) => {
   const act = t.closest?.("[data-wf-act]") as HTMLElement | null;
   if (!act) return;
   const id = act.dataset.wf ?? "";
-  const set = (r: { frameworks: FrameworkTemplate[] } | { error: string }) => { if ("error" in r) { state.message = r.error; draw(); } else { state.frameworks = r.frameworks; state.message = ""; afterConfig(false); } };
+  const set = (r: { frameworks: FrameworkTemplate[] } | { error: string }) => { if ("error" in r) { state.message = r.error; draw(); } else { state.frameworks = r.frameworks; state.message = ""; afterConfig(false); draw(); } };
   if (act.dataset.wfAct === "task-add") {
     const val = (i: string) => (document.getElementById(i) as HTMLInputElement | null);
     set(addTask(state.frameworks, id, val("wf-task-label")?.value ?? "", Number(val("wf-task-after")?.value ?? "0"), val("wf-task-photo")?.checked === true));
   } else if (act.dataset.wfAct === "task-remove") set(removeTask(state.frameworks, id, act.dataset.task ?? ""));
+  else if (act.dataset.wfAct === "sub-add") {
+    const val = (i: string) => (document.getElementById(i) as HTMLInputElement | null);
+    set(addStage(state.frameworks, id, val("wf-sub-label")?.value ?? "", Number(val("wf-sub-days")?.value ?? "14")));
+  } else if (act.dataset.wfAct === "sub-remove") set(removeStage(state.frameworks, id, act.dataset.sub ?? ""));
+  else if (act.dataset.wfAct === "sub-up") set(moveStage(state.frameworks, id, act.dataset.sub ?? "", -1));
+  else if (act.dataset.wfAct === "sub-down") set(moveStage(state.frameworks, id, act.dataset.sub ?? "", 1));
 });
 document.addEventListener("change", (e) => {
   const t = e.target as HTMLInputElement | HTMLSelectElement;
@@ -1423,7 +1429,7 @@ document.addEventListener("change", (e) => {
     const full = t.dataset.wfFull !== undefined ? (t as HTMLInputElement).checked : f?.instalment === "share_of_whole";
     const units = t.dataset.wfShares !== undefined ? Number(t.value) : Math.max(1, f?.unitsPerBeneficiary ?? 1);
     const r = setUnitRule(state.frameworks, id, units, full);
-    if ("error" in r) { state.message = r.error; draw(); } else { state.frameworks = r.frameworks; afterConfig(false); }
+    if ("error" in r) { state.message = r.error; draw(); } else { state.frameworks = r.frameworks; afterConfig(false); draw(); }
     return;
   }
   // The outcome type of a workflow: a type belongs to at most one workflow, so choosing it takes it from the other (DECISIONS 103, 130).
@@ -1432,6 +1438,20 @@ document.addEventListener("change", (e) => {
     const current = state.outcomeTypes.find((x) => x.frameworkIds.includes(fid));
     if (t.value === "" && current) void outcomeChange({ action: "ot-framework", typeId: current.id, frameworkId: fid, on: false });
     else if (t.value !== "") void outcomeChange({ action: "ot-framework", typeId: t.value, frameworkId: fid, on: true });
+    return;
+  }
+  // Assigned for implementation (DECISIONS 137): how the handoff happens, and the partner's stages.
+  if (t.dataset?.wfAssign !== undefined) {
+    const r = setAssign(state.frameworks, t.dataset.wfAssign, t.value === "auto" ? "auto" : "suggest");
+    if ("error" in r) { state.message = r.error; draw(); } else { state.frameworks = r.frameworks; afterConfig(false); draw(); }
+    return;
+  }
+  const sub = t.dataset?.wfSub;
+  if (sub !== undefined) {
+    const fid = t.dataset.wf ?? "", sid = t.dataset.sub ?? "";
+    const checked = (t as HTMLInputElement).checked;
+    const r = setStage(state.frameworks, fid, sid, sub === "label" ? { label: t.value } : sub === "days" ? { days: Number(t.value) } : sub === "needs" ? { needs: t.value } : sub === "tell" ? { tell: t.value } : sub === "photo" ? { photo: checked } : { canPause: checked });
+    if ("error" in r) { state.message = r.error; draw(); } else { state.frameworks = r.frameworks; afterConfig(false); draw(); }
     return;
   }
   const task = t.dataset?.wfTask;
