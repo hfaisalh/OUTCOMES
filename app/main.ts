@@ -35,7 +35,7 @@ import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { dataFeedPage, dataFilesPage } from "./data-page";
-import { workflowsPage } from "./workflows-page";
+import { unitPie, workflowsPage } from "./workflows-page";
 import { addStarterWorkflows, addTask, assignToWorkflow, linkStarterTypes, removeTask, removeWorkflow, setTask, setUnitRule, suggestWorkflowFor, unassignItem } from "../modules/02-project-rules/workflows";
 import { createMapping } from "./mapping-controller";
 import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from "../modules/05-outcomes/outcome-types";
@@ -916,6 +916,16 @@ document.addEventListener("toggle", (e) => {
   if (slot && open && slot.innerHTML === "") slot.innerHTML = listBlock(view(), `a:${id}`);
 }, true);
 document.addEventListener("input", onFilterInput);
+// Rule (DECISIONS 133): the pie follows the units number on every keystroke. Only the pie is redrawn, so the field keeps focus. The number is saved when the field is left.
+document.addEventListener("input", (e) => {
+  const t = e.target as HTMLInputElement | null;
+  if (t?.dataset?.wfShares === undefined) return;
+  const n = Math.floor(Number(t.value));
+  if (!(n >= 1 && n <= 100)) return;
+  const pie = document.getElementById?.("wf-pie"); const note = document.getElementById?.("wf-pie-note");
+  if (pie) pie.innerHTML = unitPie(n);
+  if (note) note.textContent = n === 1 ? "1 unit: a whole outcome." : `${n} units make one outcome.`;
+});
 
 document.addEventListener("change", (e) => {
   const el = e.target as HTMLInputElement;
@@ -1369,30 +1379,9 @@ function moveItem(itemId: string, workflowId: string): void {
   afterConfig(); // in the demo the sample feed is read again, so gifts of the item are routed
   draw();
 }
-document.addEventListener("dragstart", (e) => {
-  const c = (e.target as HTMLElement | null)?.closest?.("[data-wf-item]") as HTMLElement | null;
-  if (c && e.dataTransfer) { e.dataTransfer.setData("text/plain", `wfitem|${c.dataset.wfItem}`); e.dataTransfer.effectAllowed = "move"; }
-});
-document.addEventListener("dragover", (e) => {
-  const z = (e.target as HTMLElement | null)?.closest?.("[data-wf-drop]") as HTMLElement | null;
-  if (z) { e.preventDefault(); z.classList.add("over"); }
-});
-document.addEventListener("dragleave", (e) => (e.target as HTMLElement | null)?.closest?.("[data-wf-drop]")?.classList.remove("over"));
-document.addEventListener("drop", (e) => {
-  const z = (e.target as HTMLElement | null)?.closest?.("[data-wf-drop]") as HTMLElement | null;
-  const text = (e as DragEvent).dataTransfer?.getData("text/plain") ?? "";
-  if (!z || !text.startsWith("wfitem|")) return;
-  e.preventDefault();
-  document.querySelectorAll?.("[data-wf-drop].over").forEach((x) => x.classList.remove("over"));
-  moveItem(text.slice(7), z.dataset.wfDrop ?? "");
-});
 document.addEventListener("click", (e) => {
   const t = e.target as HTMLElement;
-  // Items are put in a workflow by dragging, or by tapping the item and then the workflow (DECISIONS 131).
-  const chip = t.closest?.("[data-wf-item]") as HTMLElement | null;
-  if (chip) { state.workflowSel = { ...state.workflowSel, pick: state.workflowSel.pick === chip.dataset.wfItem ? "" : chip.dataset.wfItem ?? "" }; return draw(); }
-  const target = t.closest?.("[data-wf-drop]") as HTMLElement | null;
-  if (target && state.workflowSel.pick) { moveItem(state.workflowSel.pick, target.dataset.wfDrop ?? ""); state.workflowSel = { ...state.workflowSel, pick: "" }; return; }
+  // Items are put in a workflow with the switch on the Items list (DECISIONS 133), handled on change.
   const pick = t.closest?.("[data-wf-select]") as HTMLElement | null;
   if (pick) { state.workflowSel = { ...state.workflowSel, id: pick.dataset.wfSelect ?? "", stage: 1 }; return draw(); }
   const stage = t.closest?.("[data-wf-stage]") as HTMLElement | null;
@@ -1413,6 +1402,7 @@ document.addEventListener("change", (e) => {
   // An unrouted gift: choose a workflow for its item, and the item moves into it (DECISIONS 131).
   if (t.dataset?.assignWf !== undefined) { if (t.value !== "") moveItem(t.dataset.assignWf, t.value); return; }
   // How a unit supports an outcome (DECISIONS 131).
+  if (t.dataset?.wfToggle !== undefined) { moveItem(t.dataset.wfToggle, (t as HTMLInputElement).checked ? (t.dataset.wf ?? "") : ""); return; }
   if (t.dataset?.wfShares !== undefined || t.dataset?.wfFull !== undefined) {
     const id = (t.dataset.wfShares ?? t.dataset.wfFull) as string;
     const f = state.frameworks.find((x) => x.id === id);

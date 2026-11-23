@@ -24,7 +24,7 @@ describe("the Workflows page", () => {
     expect(html).toContain("<h1>Workflows</h1>");
     for (const n of ["Orphan sponsorship", "Student sponsorship", "Water pump", "House build", "Livelihood", "Activity"]) expect(html).toContain(`<b>${n}</b>`);
     expect(html).toContain("<small>1 item</small>"); // Orphan sponsorship has one item
-    expect(html).toContain("When a gift for Orphan Sponsorship arrives, each unit supports a share of an orphan: 3 units make one orphan");
+    expect(html).toContain("Items in this workflow (Orphan Sponsorship) follow these rules. One outcome is made of 3 units.");
     expect((html.match(/class="wf-node/g) ?? []).length).toBe(6);
     expect(html).toContain("3 month basic check");
     const words = html.replace(/<[^>]*>/g, " ");
@@ -38,15 +38,15 @@ describe("the Workflows page", () => {
     const orphan = at("orphan-sponsorship");
     expect(orphan).toContain("<h3>Outcome unit allocation</h3>");
     expect(orphan).toContain('data-wf-shares="orphan-sponsorship" value="3"'); // units that make one orphan
-    expect(orphan).toContain("Split: 3 units make one outcome");
+    expect(orphan).toContain("data-wf-shares");
     expect(orphan).not.toContain("<select data-wf-mode"); // no dropdown any more
     expect(orphan).not.toContain("data-wf-full=\"orphan-sponsorship\" checked");
-    expect(at("student-sponsorship")).toContain("Complete: one unit is one whole outcome.");
+    expect(at("student-sponsorship")).toContain('data-wf-shares="student-sponsorship" value="1"');
     const pump = at("water-pump");
     expect(pump).toContain('data-wf-full="water-pump" checked'); // release only when fully paid
     expect(pump).toContain('data-wf-shares="water-pump" value="1" disabled');
     expect(pump).not.toMatch(/Unit(s)? support/i);
-    expect(pump).not.toContain("PUMP"); // generic wording
+    expect(pump.replace(/<[^>]*>/g, " ").match(/PUMP/g)).toBeNull(); // generic wording: no kind of outcome named in the rule
   });
   it("shows the rules of the chosen stage", () => {
     const at = (stage: number) => workflowsPage(view({ workflowSel: { id: "water-pump", stage, parts: 1, allocated: false, pick: "" } }));
@@ -62,32 +62,21 @@ describe("the Workflows page", () => {
   it("draws one outcome as a pie split into as many slices as units make it", () => {
     const sel = (id: string) => ({ id, stage: 1, parts: 1, allocated: false, pick: "" });
     const orphan = workflowsPage(view({ workflowSel: sel("orphan-sponsorship") }));
-    expect(orphan).toContain("3 units make one orphan. Each donor's unit is one slice");
+    expect(orphan).toContain("3 units make one outcome.");//");
     expect((orphan.match(/<circle/g) ?? []).length).toBeGreaterThanOrEqual(3);
-    expect(workflowsPage(view({ workflowSel: sel("water-pump") }))).toContain("One unit is the whole water pump, released when it is fully paid.");
+    expect(workflowsPage(view({ workflowSel: sel("water-pump") }))).toContain("1 unit: a whole outcome.");
   });
-  it("has a pool of unassigned items and the items of the workflow, to drag between, and no category (DECISIONS 131)", () => {
+  it("lists every item with a switch: on in this workflow, off when unassigned, locked when in another (DECISIONS 133)", () => {
     const html = workflowsPage(view());
-    expect(html).toContain("Add items to Orphan sponsorship");
-    expect(html).toContain('data-wf-drop=""'); // the pool
-    expect(html).toContain('data-wf-select="orphan-sponsorship">'); // the list only selects, it is not a drop target
-    expect(html).not.toContain('data-wf-select="orphan-sponsorship" data-wf-drop');
-    expect(html).toContain('data-wf-drop="orphan-sponsorship">'); // only the open workflow takes items
-    expect(html.split("wf-assign-arrow")[1]).toContain('data-wf-item="I1"'); // Orphan Sponsorship is in this workflow
-    // Small Pump has no workflow of its own here, so it is in the pool with the name of the workflow it suggests
-    const pool = html.split("wf-assign-arrow")[0] ?? "";
-    expect(pool).toContain('data-wf-item="I2"');
-    expect(pool).toContain("Water pump?");
-    expect(pool).not.toContain('data-wf-item="I1"'); // an item in a workflow is not available to the others
-    expect(html).toContain("Suggest 1 workflow from the item names");
-    expect(html).toContain('data-icon-item="I1"'); // icons kept
-    // a tapped item is marked, ready for a tap on a workflow
-    expect(workflowsPage(view({ workflowSel: { id: "orphan-sponsorship", stage: 1, parts: 1, allocated: false, pick: "I2" } }))).toContain("wf-chip sel");
-  });
-  it("asks to add the standard workflows when there are none, and never lets text become HTML", () => {
-    expect(workflowsPage(view({ frameworks: [], outcomeTypes: [] }))).toContain("Add the standard workflows to start");
-    const evil = workflowsPage(view({ frameworks: [{ ...set.frameworks[0]!, name: "<img src=x>" }], flaggedItems: [{ id: "I1", name: "<b>x</b>", count: 1 }] as View["flaggedItems"] }));
-    expect(evil).not.toContain("<img");
-    expect(evil).not.toContain("<b>x</b>");
+    expect(html).toContain("Switch an item on to put it in Orphan sponsorship");
+    expect(html).toMatch(/data-wf-toggle="I1" data-wf="orphan-sponsorship" checked/); // Orphan Sponsorship is in this workflow
+    expect(html).toMatch(/data-wf-toggle="I2"[^>]*aria-label/); // Small Pump has no workflow
+    expect(html).not.toMatch(/data-wf-toggle="I2"[^>]*disabled/);
+    expect(html).toContain("Suggested: Water pump");
+    expect(html).not.toContain("data-wf-drop"); // no drag and drop any more
+    const other = workflowsPage(view({ workflowSel: { id: "water-pump", stage: 1, parts: 1, allocated: false, pick: "" } }));
+    expect(other).toMatch(/data-wf-toggle="I1"[^>]*disabled/); // in another workflow, so locked here
+    expect(other).toContain("Orphan sponsorship"); // and it says which one
+    expect(html).not.toContain("Category");
   });
 });

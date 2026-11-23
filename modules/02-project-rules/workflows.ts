@@ -69,17 +69,16 @@ const lower = (s: string): string => s.charAt(0).toLowerCase() + s.slice(1);
 
 // Rule: the workflow in one plain sentence, so it can be checked without reading the fields.
 export function workflowSentence(fw: FrameworkTemplate, type: OutcomeType | undefined, itemNames: string[]): string {
-  const items = itemNames.length ? (itemNames.length > 2 ? `${itemNames.slice(0, 2).join(", ")} and ${itemNames.length - 2} more` : itemNames.join(" and ")) : "an item that uses this workflow";
-  const name = outcomeName(fw, type);
+  const items = itemNames.length ? (itemNames.length > 2 ? `${itemNames.slice(0, 2).join(", ")} and ${itemNames.length - 2} more` : itemNames.join(" and ")) : "no items yet";
   const mode = unitModeOf(fw);
-  const supports = mode === "share"
-    ? `each unit supports a share of ${article(name)} ${name}: ${plural(fw.unitsPerBeneficiary, "unit")} make one ${name}, so several donors can share one.`
-    : mode === "whole" ? `each unit supports a whole ${name}, month by month.`
-    : mode === "once" ? `a unit funds one whole ${name}, released when it is fully paid.`
-    : "it is not yet set how a unit supports an outcome.";
-  const outcome = type ? `${type.source === "pick_existing" ? `It picks an existing ${lower(type.name)}` : `It creates a new ${lower(type.name)}`}${mode === "once" ? ", once fully paid," : ","} and is assigned to a partner ${type.assign === "auto" ? "automatically when the partner has capacity" : "by suggestion for a person to confirm"}.` : "It has no outcome type yet, so a gift cannot become an outcome.";
-  const tasks = (fw.tasks ?? []).length ? ` After that ${plural((fw.tasks ?? []).length, "follow-up task")} ${(fw.tasks ?? []).length === 1 ? "is" : "are"} due, and the donor gets ${fw.reportType ? `a ${lower(fw.reportType)}` : "a report"}.` : ` The donor gets ${fw.reportType ? `a ${lower(fw.reportType)}` : "a report"}.`;
-  return `When a gift for ${items} arrives, ${supports} ${outcome}${tasks}`;
+  // Rule (DECISIONS 133): the sentence uses general terms (outcome, unit) and never the name of a kind of outcome, and says nothing about donors.
+  const units = mode === undefined ? "How units are allocated to an outcome is not set yet."
+    : mode === "once" ? "One unit is one whole outcome, released when it is fully paid."
+    : fw.unitsPerBeneficiary === 1 ? "One unit is one whole outcome."
+    : `One outcome is made of ${fw.unitsPerBeneficiary} units.`;
+  const outcome = type ? `${type.source === "pick_existing" ? "It picks an existing" : "It creates a new"} ${lower(type.name)}${mode === "once" ? " once fully paid" : ""}, assigned to a partner ${type.assign === "auto" ? "automatically when the partner has capacity" : "by suggestion for a person to confirm"}.` : "It has no outcome type yet, so a gift cannot become an outcome.";
+  const tasks = (fw.tasks ?? []).length ? ` ${plural((fw.tasks ?? []).length, "follow-up task")} ${(fw.tasks ?? []).length === 1 ? "is" : "are"} then due, and a ${fw.reportType ? lower(fw.reportType) : "report"} is sent.` : ` A ${fw.reportType ? lower(fw.reportType) : "report"} is sent.`;
+  return `Items in this workflow (${items}) follow these rules. ${units} ${outcome}${tasks}`;
 }
 
 export interface StageChip { tone: "auto" | "wait" | "person" | "plain"; text: string }
@@ -87,11 +86,10 @@ export interface StageChip { tone: "auto" | "wait" | "person" | "plain"; text: s
 // Rule: the short badges on each stage of the flow, worked out from the workflow and its outcome type.
 export function stageChips(fw: FrameworkTemplate, type: OutcomeType | undefined): Record<number, StageChip[]> {
   const mode = unitModeOf(fw);
-  const name = outcomeName(fw, type);
   const wait = mode === "once";
   const tasks = fw.tasks ?? [];
   return {
-    1: mode ? [{ tone: "plain", text: unitModeLabels(name)[mode] }, ...(mode === "share" ? [{ tone: "plain" as const, text: `${plural(fw.unitsPerBeneficiary, "unit")} make one ${name}` }] : [])] : [{ tone: "wait", text: "Not set" }],
+    1: mode ? [{ tone: "plain", text: mode === "once" ? "1 unit, released when fully paid" : fw.unitsPerBeneficiary === 1 ? "1 unit is 1 outcome" : `${fw.unitsPerBeneficiary} units make 1 outcome` }] : [{ tone: "wait", text: "Not set" }],
     2: [{ tone: type ? "auto" : "wait", text: type ? type.name : "No type yet" }, ...(type ? [{ tone: "plain" as const, text: type.source === "pick_existing" ? "Picks existing" : "Creates a draft" }] : [])],
     3: [{ tone: wait ? "wait" : "auto", text: wait ? "Waits for full payment" : "Released each month" }],
     4: [{ tone: type?.assign === "auto" ? "auto" : "person", text: type?.assign === "auto" ? "Automatic" : "Suggested" }],

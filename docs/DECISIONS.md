@@ -307,3 +307,10 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 - One pie shows a single outcome split into that many slices, and follows the number. It replaces the sample gift.
 - Items are assigned in a box at the bottom of the page: Unassigned on the left, the open workflow on the right. The workflow list only selects. Nothing else on the page is a drop target.
 - Crowdfunding (many donors to one outcome) is covered by the split number. Units of different donors landing on one outcome is an allocation rule and belongs to the allocation build, not Workflows.
+
+## 133. Workflows: general wording, numbered live pie, one Items list with switches (23/11/2026)
+
+- The workflow sentence and badges use general terms (outcome, unit) and never name a kind of outcome (pump, orphan) or a donor. Whether donors share an outcome is not a property of the workflow. The sentence now starts "Items in this workflow (...) follow these rules."
+- The pie is drawn as equal numbered slices (one per unit, numbers up to 16 units) and redraws on every keystroke in the units field. Only the pie is redrawn, so typing is not interrupted. The number is saved when the field is left.
+- Items are one list with an on and off switch per item for the open workflow. An item in another workflow shows that workflow's name and its switch is locked: switch it off there first. The Item icons list and the assign box are merged into this list. Drag and drop is removed here (supersedes 131 and 132 on this point).
+- Still to do: a flow diagram that follows one unit through the stages as the rules change.

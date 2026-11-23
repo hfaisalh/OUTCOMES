@@ -18,19 +18,19 @@ describe("the plain sentence", () => {
   it("says what a payment buys, what the gift becomes, and how it is assigned, for a monthly sponsorship", () => {
     const type = { ...types[0]!, frameworkIds: ["w"] };
     const sentence = workflowSentence(fw({ tasks: [{ id: "a", label: "3 month check", afterMonths: 3, photo: false }, { id: "b", label: "6 month update", afterMonths: 6, photo: true }] }), type, ["Orphan Sponsorship"]);
-    expect(sentence).toContain("When a gift for Orphan Sponsorship arrives");
-    expect(sentence).toContain("each unit supports a share of an orphan: 3 units make one orphan, so several donors can share one.");
+    expect(sentence).toContain("Items in this workflow (Orphan Sponsorship) follow these rules.");
+    expect(sentence).toContain("One outcome is made of 3 units.");
     expect(sentence).toContain("It picks an existing orphan");
     expect(sentence).toContain("automatically when the partner has capacity");
-    expect(sentence).toContain("2 follow-up tasks are due, and the donor gets a quarterly orphan update");
+    expect(sentence).toContain("2 follow-up tasks are then due, and a quarterly orphan update is sent.");
   });
   it("says a pump is paid up to one whole and released when fully paid, and that a type is missing when there is none", () => {
     const pump = { ...types[1]!, frameworkIds: ["w"] };
     const s = workflowSentence(fw({ unit: "pump", unitsPerBeneficiary: 1, instalment: "share_of_whole", reportType: "Handover report" }), pump, ["Small Pump", "Large Pump", "Water Tanker"]);
-    expect(s).toContain("When a gift for Small Pump, Large Pump and 1 more arrives");
-    expect(s).toContain("a unit funds one whole water pump, released when it is fully paid.");
-    expect(s).toContain("It creates a new water pump, once fully paid, and is assigned to a partner by suggestion");
-    expect(workflowSentence(fw({ instalment: undefined }), undefined, [])).toContain("it is not yet set how a unit supports an outcome.");
+    expect(s).toContain("Items in this workflow (Small Pump, Large Pump and 1 more) follow these rules.");
+    expect(s).toContain("One unit is one whole outcome, released when it is fully paid.");
+    expect(s).toContain("It creates a new water pump once fully paid, assigned to a partner by suggestion");
+    expect(workflowSentence(fw({ instalment: undefined }), undefined, [])).toContain("How units are allocated to an outcome is not set yet.");
     expect(workflowSentence(fw(), undefined, [])).toContain("It has no outcome type yet");
   });
 });
@@ -40,7 +40,7 @@ describe("the stages", () => {
     expect(STAGES.map((s) => s.title)).toEqual(["Gift paid", "Outcome", "Released", "Assigned", "Delivering", "Updates and report"]);
     const type = { ...starterOutcomeTypes()[1]!, frameworkIds: ["w"] };
     const chips = stageChips(fw({ instalment: "share_of_whole", unitsPerBeneficiary: 1, unit: "pump" }), type);
-    expect(chips[1]?.map((c) => c.text)).toEqual(["A whole water pump, once paid in full"]);
+    expect(chips[1]?.map((c) => c.text)).toEqual(["1 unit, released when fully paid"]);
     expect(chips[2]?.map((c) => c.text)).toEqual(["Water pump", "Creates a draft"]);
     expect(chips[3]).toEqual([{ tone: "wait", text: "Waits for full payment" }]);
     expect(chips[4]).toEqual([{ tone: "person", text: "Suggested" }]);

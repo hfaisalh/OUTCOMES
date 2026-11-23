@@ -40,40 +40,31 @@ describe("the shell", () => {
     expect(shell.innerHTML).not.toContain("All categories"); // no category on the list (DECISIONS 131)
   });
 
-  it("shows the items with no workflow in a pool on the Workflows page", () => {
+  const toggle = (item: string, wf: string, on: boolean) => fire("change", { target: { id: "", dataset: { wfToggle: item, wf }, checked: on, value: "" } });
+
+  it("lists every item with a switch on the Workflows page, off for items with no workflow", () => {
     click({ page: "workflows" }, "data-page");
-    expect(shell.innerHTML).toContain("Add items to");
-    expect(shell.innerHTML).toContain('data-wf-item="I14"');
-    expect(shell.innerHTML).toContain('data-wf-drop=""'); // the pool takes an item back out of a workflow
+    expect(shell.innerHTML).toContain('data-wf-toggle="I14"');
+    expect(shell.innerHTML).not.toMatch(/data-wf-toggle="I14"[^>]*checked/);
   });
 
-  it("drags an item onto a workflow and its gifts are routed", () => {
-    fire("drop", { target: el({ wfDrop: "sponsorship-shared-parts" }, ["data-wf-drop"]), preventDefault() {}, dataTransfer: { getData: () => "wfitem|I14" } });
+  it("switches an item on for a workflow and its gifts are routed", () => {
+    toggle("I14", "sponsorship-shared-parts", true);
     click({ page: "work-orders" }, "data-page");
     expect(shell.innerHTML).not.toContain('data-assign-wf="I14"');
     expect(shell.innerHTML).toContain("Animal Sacrifice");
     click({ page: "workflows" }, "data-page");
-    expect(shell.innerHTML.split("wf-assign-arrow")[1] ?? "").toContain('data-wf-item="I14"'); // it is in that workflow now, no longer in the pool
+    expect(shell.innerHTML).toMatch(/data-wf-toggle="I14"[^>]*checked/);
   });
 
-  it("puts an item in only one workflow: placing it in another takes it out of the first (DECISIONS 131)", () => {
-    fire("drop", { target: el({ wfDrop: "delivered-once" }, ["data-wf-drop"]), preventDefault() {}, dataTransfer: { getData: () => "wfitem|I14" } });
+  it("locks an item that is in another workflow, and frees it when it is switched off there (DECISIONS 133)", () => {
+    toggle("I14", "delivered-once", true);
     click({ wfSelect: "sponsorship-shared-parts" }, "data-wf-select");
-    const inFirst = shell.innerHTML.split("wf-assign-arrow")[1] ?? "";
-    expect(inFirst).not.toContain('data-wf-item="I14"');
+    expect(shell.innerHTML).toMatch(/data-wf-toggle="I14"[^>]*disabled/); // in the other workflow, so locked here
     click({ wfSelect: "delivered-once" }, "data-wf-select");
-    expect(shell.innerHTML.split("wf-assign-arrow")[1] ?? "").toContain('data-wf-item="I14"');
-  });
-
-  it("taps an item then a workflow (the touch path), and an item can be taken out again", () => {
-    click({ wfItem: "I11" }, "data-wf-item");
-    expect(shell.innerHTML).toContain("wf-chip sel");
-    click({ wfDrop: "delivered-once" }, "data-wf-drop");
-    click({ page: "work-orders" }, "data-page");
-    expect(shell.innerHTML).not.toContain('data-assign-wf="I11"');
-    click({ page: "workflows" }, "data-page");
-    fire("drop", { target: el({ wfDrop: "" }, ["data-wf-drop"]), preventDefault() {}, dataTransfer: { getData: () => "wfitem|I11" } });
-    expect(shell.innerHTML.split("wf-assign-arrow")[0] ?? "").toContain('data-wf-item="I11"'); // back in the pool, available again
+    toggle("I14", "delivered-once", false);
+    click({ wfSelect: "sponsorship-shared-parts" }, "data-wf-select");
+    expect(shell.innerHTML).not.toMatch(/data-wf-toggle="I14"[^>]*disabled/);
   });
 
   it("chooses a workflow for an unrouted gift from the list", () => {
@@ -181,10 +172,10 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     click({ wfSelect: "sponsorship-shared-parts" }, "data-wf-select");
     expect(shell.innerHTML).toContain("Sponsorship: shared parts");
     expect(shell.innerHTML).toContain('class="wf-sentence"');
-    expect(shell.innerHTML).toContain("When a gift for");
+    expect(shell.innerHTML).toContain("follow these rules");
     for (const title of ["Gift paid", "Outcome", "Released", "Assigned", "Delivering", "Updates and report"]) expect(shell.innerHTML).toContain(`<b>${title}</b>`);
-    expect(shell.innerHTML).toContain("Add items to");
-    expect(shell.innerHTML).toContain("wf-assign-arrow");
+    expect(shell.innerHTML).toContain("data-wf-toggle");
+    expect(shell.innerHTML).toContain("Switch an item on");
     expect(shell.innerHTML).toContain('data-icon-item='); // item icons
     expect(shell.innerHTML).not.toContain("Category (reporting)"); // no category here
     expect(shell.innerHTML).not.toContain("What one delivery is");
