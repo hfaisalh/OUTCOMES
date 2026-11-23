@@ -123,7 +123,7 @@ describe("setup and organisations", () => {
     const cookie = await signIn(d);
     await handleWorkOrders(as(cookie), d);
     const made = (await d.store.getConfig("mwf"))?.giftProjects ?? [];
-    expect(made).toEqual([{ id: "dadyal-orphan-complex", name: "Dadyal Orphan Complex", crmNames: [], partnerIds: [], auto: true }]);
+    expect(made).toEqual([{ id: "dadyal-orphan-complex", name: "Dadyal Orphan Complex", crmName: "Dadyal Orphan Complex", crmNames: [], partnerIds: [], auto: true }]);
     await handleWorkOrders(as(cookie), d); // reading again adds nothing
     expect((await d.store.getConfig("mwf"))?.giftProjects).toHaveLength(1);
   });

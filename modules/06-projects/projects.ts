@@ -807,7 +807,8 @@ export function suggestions(commitments: Commitment[], outcomes: Outcome[], fw: 
 export interface GiftProject {
   id: string;
   name: string;
-  crmNames: string[]; // other names the CRM uses for it
+  crmName?: string; // the CRM's own project name, fixed once set: the project's hard link to the CRM, kept as the CRM spells it. "" means not linked to a CRM project. Absent: an older project, matched by its name (DECISIONS 159). `name` is the name shown in OUTCOMES.
+  crmNames: string[]; // older: other CRM names it also answers to. Kept so nothing breaks, no longer edited
   partnerIds: string[]; // the partners that deliver it. Any of them can take a gift for it. The order is the priority order: the first takes work until it is full, then the next (DECISIONS 154)
   levels?: ClusterLevel[]; // the levels of its clusters, for example Region, then Classroom (DECISIONS 158)
   clusters?: Cluster[]; // the groups of beneficiaries inside it
@@ -819,21 +820,25 @@ export interface GiftProject {
 // Used when a gift names a project that has no partner yet: the gift waits for a person, instead of being treated as general.
 export const NO_PARTNER = "__no_partner__";
 
+// Rule (DECISIONS 159): the CRM names a project answers to. Its CRM name once it has one, else (an older project) its own name, plus any older extra names. A project with no CRM link answers to none.
+export const crmMatchNames = (g: GiftProject): string[] => (g.crmName === undefined ? [g.name, ...g.crmNames] : g.crmName !== "" ? [g.crmName, ...g.crmNames] : [...g.crmNames]);
+
 export function saveGiftProject(gps: GiftProject[], partners: Project[], raw: Record<string, unknown>, id: string): Changed<GiftProject[]> {
   const name = text(raw["name"], 100);
   if (name === "") return { value: gps, error: "Give the project a name." };
   const existing = id !== "" ? gps.find((g) => g.id === id) : undefined;
   if (id !== "" && !existing) return { value: gps, error: "That project was not found." };
   if (gps.some((g) => g.id !== id && same(g.name, name))) return { value: gps, error: `There is already a project called "${name}".` };
-  const crmNames = [...new Set((Array.isArray(raw["crmNames"]) ? raw["crmNames"] : []).map((x) => text(x, 100)).filter((x) => x !== "" && !same(x, name)))].slice(0, 50);
-  // A CRM name goes to one project only, so a name taken here is taken off the others.
-  const taken = new Set(crmNames.map((x) => x.toLowerCase()));
+  // Rule (DECISIONS 159): the CRM name is fixed once set. An older project takes its own name as its CRM name the first time it is saved. A new one may be linked to a CRM name, once, if no other project has it.
+  const asked = text(raw["crmName"], 100);
+  let crmName = existing?.crmName !== undefined && existing.crmName !== "" ? existing.crmName : existing && existing.crmName === undefined ? existing.name : asked;
+  if (crmName !== "" && gps.some((g) => g.id !== id && crmMatchNames(g).some((x) => same(x, crmName)))) return { value: gps, error: `"${crmName}" already belongs to another project.` };
+  if (existing && existing.crmName === "" && asked === "") crmName = "";
   const partnerIds = [...new Set((Array.isArray(raw["partnerIds"]) ? raw["partnerIds"] : []).filter((x): x is string => typeof x === "string" && partners.some((p) => p.id === x)))];
   const notes = text(raw["notes"], 1000);
   const itemIds = [...new Set((Array.isArray(raw["itemIds"]) ? raw["itemIds"] : []).filter((x): x is string => typeof x === "string" && x !== "").map((x) => x.slice(0, 100)))].slice(0, 1000);
-  const gp: GiftProject = { id: existing?.id ?? uniqueId(name, new Set(gps.map((g) => g.id))), name, crmNames, partnerIds, ...(itemIds.length ? { itemIds } : {}), ...(existing?.levels ? { levels: existing.levels } : {}), ...(existing?.clusters ? { clusters: existing.clusters } : {}), ...(notes !== "" ? { notes } : {}) }; // saving the details keeps its clusters
-  const others = gps.filter((g) => g.id !== gp.id).map((g) => ({ ...g, crmNames: g.crmNames.filter((x) => !taken.has(x.toLowerCase())) }));
-  return { value: existing ? gps.map((g) => (g.id === gp.id ? gp : others.find((o) => o.id === g.id) as GiftProject)) : [...others, gp] };
+  const gp: GiftProject = { id: existing?.id ?? uniqueId(name, new Set(gps.map((g) => g.id))), name, crmName, crmNames: existing?.crmNames ?? [], partnerIds, ...(itemIds.length ? { itemIds } : {}), ...(existing?.levels ? { levels: existing.levels } : {}), ...(existing?.clusters ? { clusters: existing.clusters } : {}), ...(notes !== "" ? { notes } : {}) }; // saving the details keeps its clusters
+  return { value: existing ? gps.map((g) => (g.id === gp.id ? gp : g)) : [...gps, gp] };
 }
 
 // Rule (DECISIONS 154): does a project offer an item? A project with no items listed offers any.
@@ -866,7 +871,7 @@ export const isGeneralProjectName = (name: string): boolean => { const n = clean
  * no vendor yet, so its gifts wait for a person, and it offers any benefit until a person limits it. Excluded payments are left out. Nothing that exists is changed.
  */
 export function autoCreateProjects(gps: GiftProject[], workOrders: { projectName?: string; status: string }[]): { projects: GiftProject[]; added: string[] } {
-  const known = new Set(gps.flatMap((g) => [g.name, ...g.crmNames]).map((x) => clean(x).toLowerCase()));
+  const known = new Set(gps.flatMap(crmMatchNames).map((x) => clean(x).toLowerCase()));
   const taken = new Set(gps.map((g) => g.id));
   const added: string[] = [];
   const out = [...gps];
@@ -876,7 +881,7 @@ export function autoCreateProjects(gps: GiftProject[], workOrders: { projectName
     const id = uniqueId(name, taken);
     taken.add(id);
     known.add(name.toLowerCase());
-    out.push({ id, name: name.slice(0, 100), crmNames: [], partnerIds: [], auto: true });
+    out.push({ id, name: name.slice(0, 100), crmName: name.slice(0, 100), crmNames: [], partnerIds: [], auto: true });
     added.push(name);
   }
   return { projects: out, added };
@@ -892,7 +897,7 @@ export const removeGiftProject = (gps: GiftProject[], id: string): GiftProject[]
 export function partnersForGift(gps: GiftProject[], partners: Project[], crmName: string): Project[] {
   const n = clean(crmName);
   if (n === "") return [];
-  const hit = gps.filter((g) => same(g.name, n) || g.crmNames.some((x) => same(x, n)));
+  const hit = gps.filter((g) => crmMatchNames(g).some((x) => same(x, n)));
   if (hit.length > 0) {
     const ids = new Set(hit.flatMap((g) => g.partnerIds));
     const found = partners.filter((p) => ids.has(p.id));
@@ -923,7 +928,7 @@ export function crmNamesOf(workOrders: { projectName?: string; status: string }[
     if (n !== "" && !isGeneralProjectName(n) && w.status !== "excluded") count.set(n, (count.get(n) ?? 0) + 1);
   }
   return [...count.entries()].map(([name, gifts]): CrmName => {
-    const own = gps.find((g) => same(g.name, name) || g.crmNames.some((x) => same(x, name)));
+    const own = gps.find((g) => crmMatchNames(g).some((x) => same(x, name)));
     return { name, gifts, giftProjectId: own?.id ?? "", suggestion: own ? "" : (gps.find((g) => words(g.name).some((w) => words(name).includes(w)))?.id ?? "") };
   }).sort((a, b) => b.gifts - a.gifts || a.name.localeCompare(b.name));
 }

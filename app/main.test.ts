@@ -300,7 +300,8 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     click({ pj: "create-now", name: "Hope for Palestine", items: "I1,I2" }, "[data-pj]");
     expect(shell.innerHTML).toContain('data-pj="open" data-id="hope-for-palestine"');
     expect(shell.innerHTML).toMatch(/Hope for Palestine<\/b><\/td>[\s\S]*?I1, I2/); // the benefits offered, by id where the item is not in the list
-    expect(shell.innerHTML).toContain("No vendor"); // vendors are added afterwards
+    expect(shell.innerHTML).toContain("No partner"); // partners are added afterwards
+    expect(shell.innerHTML).toContain('fixed">Hope for Palestine</span>'); // tied to the CRM name
   });
   it("has no Categories page in the menu any more", () => {
     click({ menu: "settings" }, "data-menu");

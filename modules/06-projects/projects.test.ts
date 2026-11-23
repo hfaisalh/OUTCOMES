@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Allocation } from "../05-outcomes/outcomes";
 import type { Commitment } from "../04b-commitments/commitments";
-import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, autoCreateProjects, isGeneralProjectName, noProjectCount, projectOffers, projectVendors, itemsSeenWith, capacityFor, eligiblePartners, samplePartnerProfile, SAMPLE_PARTNER_REFERENCE, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, removePartner, rollupOf, setNodeField, type Node, type Project } from "./projects";
+import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, autoCreateProjects, isGeneralProjectName, noProjectCount, crmMatchNames, projectOffers, projectVendors, itemsSeenWith, capacityFor, eligiblePartners, samplePartnerProfile, SAMPLE_PARTNER_REFERENCE, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, removePartner, rollupOf, setNodeField, type Node, type Project } from "./projects";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -190,15 +190,35 @@ describe("projects: what a donor chooses, and the partners that deliver it (DECI
   };
   const gp = (over: Partial<GiftProject> = {}): GiftProject => ({ id: "aghosh", name: "Aghosh", crmNames: [], partnerIds: ["aghosh-orphan-homes"], ...over });
 
-  it("saves a project with its CRM names and partners, refuses an empty or repeated name, and keeps a CRM name in one project only", () => {
+  it("saves a project with its partners, refuses an empty or repeated name, and ties it to a CRM name that no other project has (DECISIONS 159)", () => {
     const ps = partners();
-    const first = saveGiftProject([], ps, { name: "Aghosh", crmNames: ["Aghosh Lahore", "Aghosh"], partnerIds: ["aghosh-orphan-homes", "nope"] }, "");
-    expect(first.value[0]).toEqual({ id: "aghosh", name: "Aghosh", crmNames: ["Aghosh Lahore"], partnerIds: ["aghosh-orphan-homes"] }); // its own name is not repeated, an unknown partner is dropped
+    const first = saveGiftProject([], ps, { name: "Aghosh Homes", crmName: "Aghosh", partnerIds: ["aghosh-orphan-homes", "nope"] }, "");
+    expect(first.value[0]).toEqual({ id: "aghosh-homes", name: "Aghosh Homes", crmName: "Aghosh", crmNames: [], partnerIds: ["aghosh-orphan-homes"] }); // an unknown partner is dropped
     expect(saveGiftProject([], ps, { name: " " }, "").error).toContain("name");
-    expect(saveGiftProject(first.value, ps, { name: "aghosh" }, "").error).toContain("already");
-    const second = saveGiftProject(first.value, ps, { name: "Dadyal", crmNames: ["Aghosh Lahore"], partnerIds: [] }, "");
-    expect(second.value.find((g) => g.id === "aghosh")?.crmNames).toEqual([]); // taken off the first
+    expect(saveGiftProject(first.value, ps, { name: "aghosh homes" }, "").error).toContain("already");
+    expect(saveGiftProject(first.value, ps, { name: "Another", crmName: "AGHOSH" }, "").error).toBe('"AGHOSH" already belongs to another project.'); // one CRM name, one project
     expect(saveGiftProject(first.value, ps, { name: "X" }, "nope").error).toContain("not found");
+    expect(saveGiftProject([], ps, { name: "Mine" }, "").value[0]?.crmName).toBe(""); // a project made only in OUTCOMES is not linked
+  });
+  it("keeps the CRM name fixed once set, lets the shown name change, and ties an older project to its own name at its first save", () => {
+    const ps = partners();
+    const first = saveGiftProject([], ps, { name: "Aghosh Homes", crmName: "Aghosh" }, "").value;
+    const renamed = saveGiftProject(first, ps, { name: "Aghosh Orphan Homes", crmName: "Something else" }, "aghosh-homes").value[0]!;
+    expect(renamed).toMatchObject({ name: "Aghosh Orphan Homes", crmName: "Aghosh" }); // the asked CRM name is ignored
+    const older: GiftProject[] = [{ id: "hope", name: "Hope for Palestine", crmNames: ["Hope 2"], partnerIds: [] }];
+    expect(saveGiftProject(older, ps, { name: "Hope" }, "hope").value[0]).toMatchObject({ name: "Hope", crmName: "Hope for Palestine", crmNames: ["Hope 2"] });
+    const unlinked = saveGiftProject([], ps, { name: "Mine" }, "").value;
+    expect(saveGiftProject(unlinked, ps, { name: "Mine", crmName: "Dadyal Orphan Complex" }, "mine").value[0]?.crmName).toBe("Dadyal Orphan Complex"); // it can be linked once
+  });
+  it("matches a gift by the CRM name, not by the name shown, and an unlinked project matches none (DECISIONS 159)", () => {
+    const ps = partners();
+    const gps: GiftProject[] = [{ id: "a", name: "Aghosh Homes", crmName: "Aghosh", crmNames: [], partnerIds: ["aghosh-orphan-homes"] }, { id: "m", name: "Dadyal", crmName: "", crmNames: [], partnerIds: ["dadyal-orphan-complex"] }];
+    expect(partnersForGift(gps, ps, "aghosh").map((p) => p.id)).toEqual(["aghosh-orphan-homes"]);
+    expect(partnersForGift(gps, ps, "Aghosh Homes")).toEqual([]); // the name shown is not the CRM's
+    expect(partnersForGift(gps, ps, "Dadyal")).toEqual([]); // not linked, so a gift never matches it
+    expect(crmMatchNames(gps[0]!)).toEqual(["Aghosh"]);
+    expect(crmMatchNames(gps[1]!)).toEqual([]);
+    expect(crmMatchNames({ id: "o", name: "Old", crmNames: ["Older"], partnerIds: [] })).toEqual(["Old", "Older"]);
   });
   it("sends a gift to every partner of the project it names, by the project's name or any of its CRM names", () => {
     const ps = partners();
@@ -316,8 +336,8 @@ describe("projects made automatically from the project a gift carries (DECISIONS
     const r = autoCreateProjects([], [w("Dadyal Orphan Complex"), w("dadyal  orphan complex"), w("Aghosh"), w("Where Needed Most"), w(undefined), w("Excluded only", "excluded")]);
     expect(r.added).toEqual(["Dadyal Orphan Complex", "Aghosh"]);
     expect(r.projects).toEqual([
-      { id: "dadyal-orphan-complex", name: "Dadyal Orphan Complex", crmNames: [], partnerIds: [], auto: true },
-      { id: "aghosh", name: "Aghosh", crmNames: [], partnerIds: [], auto: true },
+      { id: "dadyal-orphan-complex", name: "Dadyal Orphan Complex", crmName: "Dadyal Orphan Complex", crmNames: [], partnerIds: [], auto: true },
+      { id: "aghosh", name: "Aghosh", crmName: "Aghosh", crmNames: [], partnerIds: [], auto: true },
     ]);
     expect(projectOffers(r.projects[0]!, "ANY")).toBe(true);
   });

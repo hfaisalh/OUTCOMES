@@ -1322,7 +1322,7 @@ function renderProjectWindow(error = "", draft?: Record<string, unknown>): void 
     document.body.appendChild(root);
   }
   const existing = state.giftProjects.find((g) => g.id === w.id);
-  const names = crmNamesOf(state.workOrders, state.giftProjects).map((n) => ({ name: n.name, gifts: n.gifts }));
+  const names = crmNamesOf(state.workOrders, state.giftProjects).filter((n) => n.giftProjectId === "").map((n) => ({ name: n.name, gifts: n.gifts })); // the CRM names no project has yet, to link a new project to
   root.innerHTML = projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })) }, error, w.tab ?? "details");
   syncClusterParent();
 }
@@ -1351,7 +1351,7 @@ document.addEventListener("click", (e) => {
   // A new project from a CRM name: the form opens with that name filled in and ticked.
   if (what === "from-name") { state.projectWin = { open: true, id: "" }; return renderProjectWindow("", { name: el.dataset.name ?? "", partnerIds: [], itemIds: (el.dataset.items ?? "").split(",").filter((x) => x !== "") }); }
   // Create the project at once from a CRM name, offering the benefits seen on its gifts. Vendors are added afterwards.
-  if (what === "create-now") return void outcomeChange({ action: "save-gift-project", giftProjectId: "", profile: { name: el.dataset.name ?? "", crmNames: [], partnerIds: [], itemIds: (el.dataset.items ?? "").split(",").filter((x) => x !== "") } });
+  if (what === "create-now") return void outcomeChange({ action: "save-gift-project", giftProjectId: "", profile: { name: el.dataset.name ?? "", crmName: el.dataset.name ?? "", partnerIds: [], itemIds: (el.dataset.items ?? "").split(",").filter((x) => x !== "") } });
   // A vendor moves up or down in the priority order: the row moves in the form, and the order is read back from the form when it is saved.
   if (what === "vup" || what === "vdown") {
     const row = el.closest(".pf-vendor") as HTMLElement | null;
