@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Allocation } from "../05-outcomes/outcomes";
 import type { Commitment } from "../04b-commitments/commitments";
-import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, projectOffers, projectVendors, itemsSeenWith, capacityFor, eligiblePartners, samplePartnerProfile, SAMPLE_PARTNER_REFERENCE, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, removePartner, rollupOf, setNodeField, type Node, type Project } from "./projects";
+import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, autoCreateProjects, isGeneralProjectName, projectOffers, projectVendors, itemsSeenWith, capacityFor, eligiblePartners, samplePartnerProfile, SAMPLE_PARTNER_REFERENCE, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, removePartner, rollupOf, setNodeField, type Node, type Project } from "./projects";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -259,6 +259,36 @@ describe("projects: what a donor chooses, and the partners that deliver it (DECI
     expect(setPlace(placed.value, projects, nodes, bare[0]!.id, "").value[0]).not.toHaveProperty("nodeId");
     expect(setPlace(bare, projects, nodes, "nope", "x").error).toContain("not found");
     expect(setGroup(bare, projects, nodes, bare[0]!.id, "class", "x").error).toContain("place first");
+  });
+});
+
+describe("projects made automatically from the project a gift carries (DECISIONS 155)", () => {
+  const w = (projectName: string | undefined, status = "ready") => ({ projectName, status });
+  it("says which names are general: blank and Where Needed Most, in any case", () => {
+    for (const n of ["", "  ", "Where Needed Most", " where  needed most "]) expect(isGeneralProjectName(n)).toBe(true);
+    for (const n of ["Dadyal Orphan Complex", "Where Most Needed"]) expect(isGeneralProjectName(n)).toBe(false);
+  });
+  it("creates a project for each name a gift carries that no project answers to, once, with no vendor, offering any benefit, and marked automatic", () => {
+    const r = autoCreateProjects([], [w("Dadyal Orphan Complex"), w("dadyal  orphan complex"), w("Aghosh"), w("Where Needed Most"), w(undefined), w("Excluded only", "excluded")]);
+    expect(r.added).toEqual(["Dadyal Orphan Complex", "Aghosh"]);
+    expect(r.projects).toEqual([
+      { id: "dadyal-orphan-complex", name: "Dadyal Orphan Complex", crmNames: [], partnerIds: [], auto: true },
+      { id: "aghosh", name: "Aghosh", crmNames: [], partnerIds: [], auto: true },
+    ]);
+    expect(projectOffers(r.projects[0]!, "ANY")).toBe(true);
+  });
+  it("leaves alone a name that a project already answers to, by name or by another CRM name, and changes nothing that exists", () => {
+    const mine: GiftProject[] = [{ id: "agh", name: "Aghosh", crmNames: ["Aghosh Lahore"], partnerIds: ["p"], itemIds: ["I1"] }];
+    const r = autoCreateProjects(mine, [w("aghosh"), w("Aghosh Lahore"), w("Hope")]);
+    expect(r.added).toEqual(["Hope"]);
+    expect(r.projects[0]).toBe(mine[0]); // untouched
+    expect(autoCreateProjects(r.projects, [w("Hope"), w("Aghosh")]).added).toEqual([]); // a second time adds nothing
+  });
+  it("gives a project its own id when the name would collide, and a person's save takes the automatic mark off", () => {
+    const r = autoCreateProjects([{ id: "hope", name: "Something else", crmNames: [], partnerIds: [] }], [w("Hope")]);
+    expect(r.projects[1]?.id).toBe("hope-2");
+    const saved = saveGiftProject(r.projects, [], { name: "Hope", itemIds: ["I1"] }, "hope-2");
+    expect(saved.value.find((g) => g.id === "hope-2")?.auto).toBeUndefined();
   });
 });
 

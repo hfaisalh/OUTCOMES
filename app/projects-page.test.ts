@@ -46,6 +46,10 @@ describe("projectsPage", () => {
     expect(html).toContain("Orphan Sponsorship, Small Pump"); // the benefits offered
     expect(html).toContain('data-pj="create-now" data-name="Hope for Palestine" data-items="I2,I1"');
   });
+  it("marks a project made automatically, until a person saves it (DECISIONS 155)", () => {
+    const html = projectsPage(base({ giftProjects: [{ id: "a", name: "Dadyal", crmNames: [], partnerIds: [], auto: true }, { id: "b", name: "Aghosh", crmNames: [], partnerIds: [] }] as never }));
+    expect((html.match(/>automatic</g) ?? []).length).toBe(1);
+  });
   it("says so when no gift carries a project name, and never trusts a name as HTML", () => {
     expect(projectsPage(base())).toContain("No gifts carry a project name yet");
     const html = projectsPage(base({ giftProjects: [{ id: "x", name: "<img src=x onerror=alert(1)>", crmNames: [], partnerIds: [] }] }));

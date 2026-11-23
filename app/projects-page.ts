@@ -23,7 +23,7 @@ export function projectsPage(v: View): string {
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="actions"><button class="primary" data-pj="new">New project</button></div>`;
 
-  const rows = gps.map((g) => `<tr class="rowlink" data-pj="open" data-id="${esc(g.id)}" tabindex="0"><td><b>${esc(g.name)}</b></td><td>${g.crmNames.length ? esc(g.crmNames.join(", ")) : '<span class="muted">Only its own name</span>'}</td>
+  const rows = gps.map((g) => `<tr class="rowlink" data-pj="open" data-id="${esc(g.id)}" tabindex="0"><td><b>${esc(g.name)}</b>${g.auto ? ' <span class="pill review" title="Made automatically from the project name on a gift. Open it to set its benefits and vendors. Saving it makes it yours.">automatic</span>' : ""}</td><td>${g.crmNames.length ? esc(g.crmNames.join(", ")) : '<span class="muted">Only its own name</span>'}</td>
       <td>${(g.itemIds ?? []).length ? esc((g.itemIds ?? []).map(itemName).join(", ")) : '<span class="muted">Any benefit</span>'}</td><td>${g.partnerIds.length ? g.partnerIds.map((id, n) => `${g.partnerIds.length > 1 ? `${n + 1}. ` : ""}${esc(partnerName(id))}`).join("<br>") : '<span class="pill review">No vendor</span>'}</td><td>${giftsOf(g.id)}</td></tr>`).join("");
   const table = gps.length
     ? `<div class="card"><div class="twrap"><table class="ptable"><thead><tr><th>Project</th><th>Other CRM names</th><th>Benefits offered</th><th>Vendors, in order</th><th>Gifts</th></tr></thead><tbody>${rows}</tbody></table></div>

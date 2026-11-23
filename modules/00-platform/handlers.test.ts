@@ -116,6 +116,18 @@ describe("setup and organisations", () => {
     expect(orders.filter((o) => o.status === "unrouted")).toHaveLength(3);
   });
 
+  it("creates a project for each project name the gifts carry, once, and leaves general gifts alone (DECISIONS 155)", async () => {
+    await d.store.putConfig("mwf", { ...defaultConfig() });
+    const wo = (key: string, projectName: string | undefined) => ({ key, lineId: key, projectName, status: "ready", itemId: "I1", itemName: "Item", subscriptionId: "", instalmentCount: "", paidDate: "2026-11-01" }) as never;
+    await d.store.saveWorkOrders("mwf", [wo("a", "Dadyal Orphan Complex"), wo("b", "dadyal orphan complex"), wo("c", "Where Needed Most"), wo("d", undefined)]);
+    const cookie = await signIn(d);
+    await handleWorkOrders(as(cookie), d);
+    const made = (await d.store.getConfig("mwf"))?.giftProjects ?? [];
+    expect(made).toEqual([{ id: "dadyal-orphan-complex", name: "Dadyal Orphan Complex", crmNames: [], partnerIds: [], auto: true }]);
+    await handleWorkOrders(as(cookie), d); // reading again adds nothing
+    expect((await d.store.getConfig("mwf"))?.giftProjects).toHaveLength(1);
+  });
+
   it("keeps the CRM setting out of what the page receives", async () => {
     await d.store.putConfig("mwf", { ...defaultConfig(), crm: { kind: "api", baseUrl: "https://crm.example.org", tokenEnv: "SECRET_NAME" } });
     const r = await handleConfig(as(await signIn(d)), d);

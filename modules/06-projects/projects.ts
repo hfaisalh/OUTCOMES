@@ -798,6 +798,7 @@ export interface GiftProject {
   name: string;
   crmNames: string[]; // other names the CRM uses for it
   partnerIds: string[]; // the partners that deliver it. Any of them can take a gift for it. The order is the priority order: the first takes work until it is full, then the next (DECISIONS 154)
+  auto?: true; // made automatically from the project name a gift carried, and not changed by a person since (DECISIONS 155)
   itemIds?: string[]; // the benefits (gift items) it offers. Absent or empty means any item (DECISIONS 154)
   notes?: string;
 }
@@ -840,6 +841,31 @@ export function projectVendors(gp: GiftProject, partners: Project[], itemId: str
 export function itemsSeenWith(workOrders: { projectName?: string; itemId: string; status: string }[], crmName: string): string[] {
   const n = clean(crmName).toLowerCase();
   return [...new Set(workOrders.filter((w) => w.status !== "excluded" && clean(w.projectName ?? "").toLowerCase() === n && w.itemId !== "").map((w) => w.itemId))];
+}
+
+// Rule (DECISIONS 66, 155): a gift is general when its CRM project is blank or "Where Needed Most". Any other name is the donor's choice.
+export const isGeneralProjectName = (name: string): boolean => { const n = clean(name).toLowerCase(); return n === "" || n === "where needed most"; };
+
+/**
+ * Rule (DECISIONS 155): a gift that carries a project creates that project automatically, the way an item appears when its first gift comes in. Every CRM project name on the work
+ * orders that is not general, and that no project already answers to (by its name or one of its CRM names, ignoring capitals), becomes a project named as the CRM names it. It has
+ * no vendor yet, so its gifts wait for a person, and it offers any benefit until a person limits it. Excluded payments are left out. Nothing that exists is changed.
+ */
+export function autoCreateProjects(gps: GiftProject[], workOrders: { projectName?: string; status: string }[]): { projects: GiftProject[]; added: string[] } {
+  const known = new Set(gps.flatMap((g) => [g.name, ...g.crmNames]).map((x) => clean(x).toLowerCase()));
+  const taken = new Set(gps.map((g) => g.id));
+  const added: string[] = [];
+  const out = [...gps];
+  for (const w of workOrders) {
+    const name = clean(w.projectName ?? "");
+    if (w.status === "excluded" || isGeneralProjectName(name) || known.has(name.toLowerCase())) continue;
+    const id = uniqueId(name, taken);
+    taken.add(id);
+    known.add(name.toLowerCase());
+    out.push({ id, name: name.slice(0, 100), crmNames: [], partnerIds: [], auto: true });
+    added.push(name);
+  }
+  return { projects: out, added };
 }
 
 export const removeGiftProject = (gps: GiftProject[], id: string): GiftProject[] => gps.filter((g) => g.id !== id);

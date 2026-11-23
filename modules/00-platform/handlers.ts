@@ -33,6 +33,7 @@ import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
 import { backfillFrameworks, deriveParts, reapplyFrameworks, rerouteUnrouted, runPickup } from "./pickup.js";
 import { defaultConfig, setupOf, type OrgConfig, type Store } from "./store.js";
 import { setItemKind } from "../02-project-rules/benefits.js";
+import { autoCreateProjects } from "../06-projects/projects.js";
 import { applyKindAction, type SavedFeatures } from "../02-project-rules/kind-features.js";
 
 export interface HttpRequest {
@@ -171,6 +172,9 @@ export async function handleWorkOrders(req: HttpRequest, d: Deps): Promise<HttpR
   const config = await d.store.getConfig(org);
   const parted = config ? deriveParts(listed, config) : [];
   if (parted.length > 0) await d.store.saveWorkOrders(org, parted);
+  // Rule (DECISIONS 155): a gift that carries a project creates that project. Done here too, so gifts that arrived before this rule get theirs.
+  const made = config ? autoCreateProjects(config.giftProjects ?? [], listed) : undefined;
+  if (config && made && made.added.length > 0) await d.store.putConfig(org, { ...config, giftProjects: made.projects });
   const byKey = new Map(parted.map((w) => [w.key, w]));
   const workOrders = parted.length > 0 ? listed.map((w) => byKey.get(w.key) ?? w) : listed;
   return json(200, { workOrders, review, run });

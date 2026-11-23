@@ -11,7 +11,7 @@
  */
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
-import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, clearLegacy, placeInNode, placeInPartner, samplePartnerProfile, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
+import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, autoCreateProjects, clearLegacy, placeInNode, placeInPartner, samplePartnerProfile, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
 import { setCovers, setLooked, setParts, setPeriods } from "../modules/04b-commitments/catch-up";
 import { markCustomAmounts, setManual } from "../modules/04b-commitments/parts";
 import { giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts-page";
@@ -130,6 +130,7 @@ function refresh(): void {
   const rerouted = new Map(plan.rerouted.map((w) => [w.key, w]));
   state.workOrders = [...state.workOrders.map((w) => rerouted.get(w.key) ?? w), ...plan.created];
   deriveDemoParts();
+  state.giftProjects = autoCreateProjects(state.giftProjects, state.workOrders).projects; // a gift that carries a project creates it (DECISIONS 155)
   state.review = plan.review;
   state.message = `Refreshed from the CRM: ${plan.created.length} new, ${plan.rerouted.length} routed, ${plan.review.length} to review.`;
 }

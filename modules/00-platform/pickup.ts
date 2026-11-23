@@ -19,6 +19,7 @@ import { auditFeed, auditRecord } from "../01f-batch-audit/audit.js";
 import { planWorkOrders, type ReviewItem, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import { frameworkByItem } from "../02-project-rules/categories.js";
 import { markCustomAmounts } from "../04b-commitments/parts.js";
+import { autoCreateProjects } from "../06-projects/projects.js";
 import { setupOf, type OrgConfig, type RunInfo, type Store } from "./store.js";
 
 export interface PickupDeps {
@@ -137,8 +138,12 @@ export async function runPickup(org: string, deps: PickupDeps): Promise<RunInfo>
     run.unchanged = plan.unchanged.length;
     await store.putReview(org, mergeReview(await store.getReview(org), plan.review, new Set(feed.lines.map((l) => l.lineId))));
 
-    // Report back: only work orders whose status the CRM has not heard yet.
+    // Rule (DECISIONS 155): a gift that carries a project creates that project, the way an item appears with its first gift.
     const all = await store.listWorkOrders(org);
+    const made = autoCreateProjects(config.giftProjects ?? [], all);
+    if (made.added.length > 0) await store.putConfig(org, { ...config, giftProjects: made.projects });
+
+    // Report back: only work orders whose status the CRM has not heard yet.
     const due = all.filter((w) => REPORTABLE.includes(w.status) && run.reported[w.key] !== w.status);
     const back = buildReportBack(due.map((w) => ({ workOrder: w, reportUrl: deps.reportUrlFor?.(w) ?? "" })), nowIso);
     run.issues.push(...back.problems);
