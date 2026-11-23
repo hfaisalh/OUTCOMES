@@ -300,3 +300,10 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 - Items are added to a workflow by drag and drop (tap also works). An item is in one workflow only, so once attached it is gone from the Unassigned pool and from every other workflow. A workflow that still holds items cannot be removed.
 - Categories are hidden for now. Behind the scenes each workflow has an automatic category (`wf-` plus its id) so routing keeps working. The category filter is removed from the gifts list and from the drag and drop display.
 - Reason: Faisal found "what a payment buys", parts and instalments confusing, and wants workflows only.
+
+## 132. Workflows: Outcome unit allocation, one pie, assign at the bottom (23/11/2026)
+
+- Supersedes the dropdown of decision 131. The workflow has one section, **Outcome unit allocation**: a number (units in one outcome: 1 is complete, 2 or more is split between donors) and a tick (release only when fully paid, which makes one unit one whole outcome). The wording is generic: it never names the outcome in the rule.
+- One pie shows a single outcome split into that many slices, and follows the number. It replaces the sample gift.
+- Items are assigned in a box at the bottom of the page: Unassigned on the left, the open workflow on the right. The workflow list only selects. Nothing else on the page is a drop target.
+- Crowdfunding (many donors to one outcome) is covered by the split number. Units of different donors landing on one outcome is an allocation rule and belongs to the allocation build, not Workflows.

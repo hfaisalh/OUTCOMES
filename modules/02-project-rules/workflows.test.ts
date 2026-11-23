@@ -139,4 +139,11 @@ describe("items in workflows (DECISIONS 131)", () => {
     const r = setUnitMode([fw()], "w", "whole");
     expect("frameworks" in r && r.frameworks[0]?.unitsPerBeneficiary).toBe(1);
   });
+  it("sets the unit rule from a number and a tick (DECISIONS 132)", () => {
+    const ok2 = (r: ReturnType<typeof setUnitRule>) => ("frameworks" in r ? r.frameworks[0] : undefined);
+    expect(ok2(setUnitRule([fw()], "w", 4, false))).toMatchObject({ instalment: "per_period", unitsPerBeneficiary: 4 });
+    expect(ok2(setUnitRule([fw()], "w", 4, true))).toMatchObject({ instalment: "share_of_whole", unitsPerBeneficiary: 1 });
+    expect(setUnitRule([fw()], "w", 0, false)).toHaveProperty("error");
+    expect(setUnitRule([fw()], "w", 101, false)).toHaveProperty("error");
+  });
 });

@@ -55,6 +55,15 @@ export function setUnitMode(frameworks: FrameworkTemplate[], id: string, mode: U
   });
 }
 
+// Rule (DECISIONS 132): the unit rule is a number and a tick. The number is how many units make one outcome (1 is complete, 2 or more is split between donors).
+// The tick holds the outcome back until it is fully paid, and then the outcome is one whole unit.
+export function setUnitRule(frameworks: FrameworkTemplate[], id: string, units: number, fullyPaid: boolean): Edited {
+  return editWf(frameworks, id, (f) => {
+    if (!Number.isInteger(units) || units < 1 || units > 100) return "Units in one outcome are a whole number from 1 to 100.";
+    return { ...f, instalment: fullyPaid ? "share_of_whole" : "per_period", unitsPerBeneficiary: fullyPaid ? 1 : units };
+  });
+}
+
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
 const lower = (s: string): string => s.charAt(0).toLowerCase() + s.slice(1);
 

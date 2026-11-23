@@ -36,7 +36,7 @@ import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
 import { dataFeedPage, dataFilesPage } from "./data-page";
 import { workflowsPage } from "./workflows-page";
-import { addStarterWorkflows, addTask, assignToWorkflow, linkStarterTypes, removeTask, removeWorkflow, setTask, setUnitMode, suggestWorkflowFor, unassignItem } from "../modules/02-project-rules/workflows";
+import { addStarterWorkflows, addTask, assignToWorkflow, linkStarterTypes, removeTask, removeWorkflow, setTask, setUnitRule, suggestWorkflowFor, unassignItem } from "../modules/02-project-rules/workflows";
 import { createMapping } from "./mapping-controller";
 import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { ensureRefs } from "../modules/05-outcomes/refs";
@@ -1413,14 +1413,12 @@ document.addEventListener("change", (e) => {
   // An unrouted gift: choose a workflow for its item, and the item moves into it (DECISIONS 131).
   if (t.dataset?.assignWf !== undefined) { if (t.value !== "") moveItem(t.dataset.assignWf, t.value); return; }
   // How a unit supports an outcome (DECISIONS 131).
-  if (t.dataset?.wfMode !== undefined) {
-    const f = state.frameworks.find((x) => x.id === t.dataset.wfMode);
-    const r = setUnitMode(state.frameworks, t.dataset.wfMode, t.value as "share" | "whole" | "once", f && f.unitsPerBeneficiary > 1 ? f.unitsPerBeneficiary : 3);
-    if ("error" in r) { state.message = r.error; draw(); } else { state.frameworks = r.frameworks; afterConfig(false); }
-    return;
-  }
-  if (t.dataset?.wfShares !== undefined) {
-    const r = setUnitMode(state.frameworks, t.dataset.wfShares, "share", Number(t.value));
+  if (t.dataset?.wfShares !== undefined || t.dataset?.wfFull !== undefined) {
+    const id = (t.dataset.wfShares ?? t.dataset.wfFull) as string;
+    const f = state.frameworks.find((x) => x.id === id);
+    const full = t.dataset.wfFull !== undefined ? (t as HTMLInputElement).checked : f?.instalment === "share_of_whole";
+    const units = t.dataset.wfShares !== undefined ? Number(t.value) : Math.max(1, f?.unitsPerBeneficiary ?? 1);
+    const r = setUnitRule(state.frameworks, id, units, full);
     if ("error" in r) { state.message = r.error; draw(); } else { state.frameworks = r.frameworks; afterConfig(false); }
     return;
   }

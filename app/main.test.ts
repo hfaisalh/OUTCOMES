@@ -42,7 +42,7 @@ describe("the shell", () => {
 
   it("shows the items with no workflow in a pool on the Workflows page", () => {
     click({ page: "workflows" }, "data-page");
-    expect(shell.innerHTML).toContain("Unassigned items");
+    expect(shell.innerHTML).toContain("Add items to");
     expect(shell.innerHTML).toContain('data-wf-item="I14"');
     expect(shell.innerHTML).toContain('data-wf-drop=""'); // the pool takes an item back out of a workflow
   });
@@ -53,16 +53,16 @@ describe("the shell", () => {
     expect(shell.innerHTML).not.toContain('data-assign-wf="I14"');
     expect(shell.innerHTML).toContain("Animal Sacrifice");
     click({ page: "workflows" }, "data-page");
-    expect(shell.innerHTML).toMatch(/data-wf-drop="sponsorship-shared-parts"[^>]*>[\s\S]*data-wf-item="I14"/); // it is in that workflow now, no longer in the pool
+    expect(shell.innerHTML.split("wf-assign-arrow")[1] ?? "").toContain('data-wf-item="I14"'); // it is in that workflow now, no longer in the pool
   });
 
   it("puts an item in only one workflow: placing it in another takes it out of the first (DECISIONS 131)", () => {
     fire("drop", { target: el({ wfDrop: "delivered-once" }, ["data-wf-drop"]), preventDefault() {}, dataTransfer: { getData: () => "wfitem|I14" } });
     click({ wfSelect: "sponsorship-shared-parts" }, "data-wf-select");
-    const inFirst = shell.innerHTML.split('Items in this workflow')[1]?.split("</div>")[0] ?? "";
+    const inFirst = shell.innerHTML.split("wf-assign-arrow")[1] ?? "";
     expect(inFirst).not.toContain('data-wf-item="I14"');
     click({ wfSelect: "delivered-once" }, "data-wf-select");
-    expect(shell.innerHTML.split("Items in this workflow")[1]?.split("</div>")[0] ?? "").toContain('data-wf-item="I14"');
+    expect(shell.innerHTML.split("wf-assign-arrow")[1] ?? "").toContain('data-wf-item="I14"');
   });
 
   it("taps an item then a workflow (the touch path), and an item can be taken out again", () => {
@@ -73,7 +73,7 @@ describe("the shell", () => {
     expect(shell.innerHTML).not.toContain('data-assign-wf="I11"');
     click({ page: "workflows" }, "data-page");
     fire("drop", { target: el({ wfDrop: "" }, ["data-wf-drop"]), preventDefault() {}, dataTransfer: { getData: () => "wfitem|I11" } });
-    expect(shell.innerHTML.split("Unassigned items")[1]?.split("</section>")[0] ?? "").toContain('data-wf-item="I11"'); // back in the pool, available again
+    expect(shell.innerHTML.split("wf-assign-arrow")[0] ?? "").toContain('data-wf-item="I11"'); // back in the pool, available again
   });
 
   it("chooses a workflow for an unrouted gift from the list", () => {
@@ -83,9 +83,9 @@ describe("the shell", () => {
 
   it("changes a setting of a workflow on the Workflows page", () => {
     click({ page: "workflows" }, "data-page");
-    fire("change", { target: { id: "", dataset: { wfMode: "sponsorship-shared-parts" }, value: "once" } });
+    fire("change", { target: { id: "", dataset: { wfFull: "sponsorship-shared-parts" }, checked: true, value: "" } });
     click({ wfSelect: "sponsorship-shared-parts" }, "data-wf-select");
-    expect(shell.innerHTML).toContain('<option value="once" selected>');
+    expect(shell.innerHTML).toContain('data-wf-full="sponsorship-shared-parts" checked');
   });
 });
 
@@ -183,15 +183,16 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     expect(shell.innerHTML).toContain('class="wf-sentence"');
     expect(shell.innerHTML).toContain("When a gift for");
     for (const title of ["Gift paid", "Outcome", "Released", "Assigned", "Delivering", "Updates and report"]) expect(shell.innerHTML).toContain(`<b>${title}</b>`);
-    expect(shell.innerHTML).toContain("Try a sample gift");
-    expect(shell.innerHTML).toContain("Items in this workflow");
+    expect(shell.innerHTML).toContain("Add items to");
+    expect(shell.innerHTML).toContain("wf-assign-arrow");
     expect(shell.innerHTML).toContain('data-icon-item='); // item icons
     expect(shell.innerHTML).not.toContain("Category (reporting)"); // no category here
     expect(shell.innerHTML).not.toContain("What one delivery is");
   });
   it("shows the rules of the stage that is clicked: how a unit supports, the outcome type, when it is released, assignment, delivering, and the tasks", () => {
     stageClick("1");
-    expect(shell.innerHTML).toContain("A unit supports");
+    expect(shell.innerHTML).toContain("Outcome unit allocation");
+    expect(shell.innerHTML).toContain("Units in one outcome");
     expect(shell.innerHTML).not.toContain("What a payment buys");
     stageClick("2");
     expect(shell.innerHTML).toContain('data-wf-type="sponsorship-shared-parts"');
