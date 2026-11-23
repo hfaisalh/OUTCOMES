@@ -8,50 +8,10 @@
 import { describe, expect, it } from "vitest";
 import { isFrameworkTemplate, type FrameworkTemplate } from "./categories";
 import { starterOutcomeTypes } from "../05-outcomes/outcome-types";
-import { assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, setUnitRule, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, stageChips, STAGES, suggestWorkflowFor, unitJourney } from "./workflows";
+import { assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, setUnitRule, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, suggestWorkflowFor } from "./workflows";
 
 const fw = (over: Partial<FrameworkTemplate> = {}): FrameworkTemplate => ({ id: "w", name: "Orphan sponsorship", unit: "orphan", cycle: "quarterly", reportType: "Quarterly orphan update", instalment: "per_period", unitsPerBeneficiary: 3, ...over });
 const ok = (r: { frameworks: FrameworkTemplate[] } | { error: string }): FrameworkTemplate[] => { if ("error" in r) throw new Error(r.error); return r.frameworks; };
-
-describe("the unit's journey (DECISIONS 135)", () => {
-  const types = starterOutcomeTypes();
-  const texts = (f: FrameworkTemplate, t?: (typeof types)[number]) => unitJourney(f, t).map((x) => x.text);
-  it("follows one unit through the steps, and says which steps a rule decides", () => {
-    const j = unitJourney(fw({ tasks: [{ id: "a", label: "3 month check", afterMonths: 3, photo: false }, { id: "b", label: "6 month update", afterMonths: 6, photo: true }] }), { ...types[0]!, frameworkIds: ["w"] });
-    expect(j.map((x) => x.key)).toEqual(["gift", "split", "hold", "outcome", "assign", "deliver", "report"]);
-    expect(j.filter((x) => x.rule).map((x) => x.key)).toEqual(["split", "hold", "assign", "report"]);
-    expect(j[1]?.text).toBe("Gift split into units, 3 make 1 outcome");
-    expect(j[2]?.text).toBe("Released as each payment arrives");
-    expect(j[6]?.text).toBe("2 tasks, then quarterly orphan update");
-  });
-  it("changes with the rules: a whole outcome, held until fully paid, assigned automatically or by suggestion", () => {
-    const pump = texts(fw({ unitsPerBeneficiary: 1, instalment: "share_of_whole" }), { ...types[1]!, frameworkIds: ["w"] });
-    expect(pump[1]).toBe("1 unit is 1 outcome");
-    expect(pump[2]).toBe("Held until fully paid");
-    expect(pump[4]).toBe("Assigned to a partner by suggestion");
-    expect(texts(fw(), { ...types[0]!, frameworkIds: ["w"] })[4]).toBe("Assigned to a partner automatically");
-    expect(texts(fw({ instalment: undefined }))[1]).toBe("Units not set");
-  });
-  it("never names a kind of outcome or a donor", () => {
-    const all = texts(fw({ unit: "pump" }), { ...types[1]!, frameworkIds: ["w"] }).join(" ");
-    expect(all).not.toMatch(/pump|donor/i);
-  });
-});
-
-describe("the stages", () => {
-  it("has six stages, and badges that follow the workflow", () => {
-    expect(STAGES.map((s) => s.title)).toEqual(["Gift paid", "Outcome", "Released", "Assigned", "Delivering", "Updates and report"]);
-    const type = { ...starterOutcomeTypes()[1]!, frameworkIds: ["w"] };
-    const chips = stageChips(fw({ instalment: "share_of_whole", unitsPerBeneficiary: 1, unit: "pump" }), type);
-    expect(chips[1]?.map((c) => c.text)).toEqual(["1 unit, released when fully paid"]);
-    expect(chips[2]?.map((c) => c.text)).toEqual(["Water pump", "Creates a draft"]);
-    expect(chips[3]).toEqual([{ tone: "wait", text: "Waits for full payment" }]);
-    expect(chips[4]).toEqual([{ tone: "person", text: "Suggested" }]);
-    expect(chips[5]?.[1]?.text).toBe("1 needed first");
-    expect(stageChips(fw(), undefined)[2]).toEqual([{ tone: "wait", text: "No type yet" }]);
-    expect(stageChips(fw(), undefined)[3]).toEqual([{ tone: "auto", text: "Released each month" }]);
-  });
-});
 
 describe("tasks", () => {
   it("adds, changes and removes tasks, in the order they are due", () => {

@@ -25,8 +25,8 @@ describe("the Workflows page", () => {
     for (const n of ["Orphan sponsorship", "Student sponsorship", "Water pump", "House build", "Livelihood", "Activity"]) expect(html).toContain(`<b>${n}</b>`);
     expect(html).toContain("<small>1 item</small>"); // Orphan sponsorship has one item
     expect(html).toContain("Items assigned to this workflow follow these set rules.");
-    expect((html.match(/class="wf-node/g) ?? []).length).toBe(6);
-    expect(html).toContain("3 month basic check");
+    expect((html.match(/class="fc-step"/g) ?? []).length).toBe(6); // the flow chart has a step for each stage
+    expect(html).toContain("2 tasks,"); // the last step of the chart counts the tasks
     const words = html.replace(/<[^>]*>/g, " ");
     expect(words).not.toMatch(/\bparts?\b/i); // units and shares, never parts or instalments, on this page
     expect(words).not.toMatch(/instalment/i);
@@ -87,11 +87,11 @@ describe("the Workflows page", () => {
     expect(plain).toMatch(/data-wf-iconopen="x"[\s\S]{0,160}title="Transactional"/);
     expect(plain).toContain('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/>'); // a target
   });
-  it("shows the unit's journey with rule icons, and opens an icon library popup to choose from (DECISIONS 135)", () => {
+  it("shows the flow chart with rule icons, and opens an icon library popup to choose from (DECISIONS 135)", () => {
     const html = workflowsPage(view());
-    expect(html).toContain("wf-journey");
-    expect(html).toContain("Gift split into units, 3 make 1 outcome");
-    expect(html).toContain('title="Rule: units in one outcome"');
+    expect(html).toContain('class="fc"');
+    expect(html).toContain("order units &amp; shares");
+    expect(html).toContain("Rule: gift into work order units and shares");
     expect(html).toContain('data-wf-iconopen="orphan-sponsorship"'); // the icon itself opens the library
     expect(html).not.toContain("wf-modal"); // closed until it is clicked
     expect(html).not.toContain('data-tpl="icon"'); // no dropdown any more

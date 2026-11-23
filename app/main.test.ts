@@ -188,7 +188,8 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     expect(shell.innerHTML).toContain("Sponsorship: shared parts");
     expect(shell.innerHTML).toContain('class="wf-sentence"');
     expect(shell.innerHTML).toContain("follow these set rules");
-    for (const title of ["Gift paid", "Outcome", "Released", "Assigned", "Delivering", "Updates and report"]) expect(shell.innerHTML).toContain(`<b>${title}</b>`);
+    expect(shell.innerHTML).toContain('class="fc"'); // the flow chart
+    for (const n of [1, 2, 3, 4, 5, 6]) expect(shell.innerHTML).toContain(`data-wf-stage="${n}"`);
     expect(shell.innerHTML).toContain("data-wf-toggle");
     expect(shell.innerHTML).toContain("Switch an item on");
     expect(shell.innerHTML).toContain('data-icon-item='); // item icons

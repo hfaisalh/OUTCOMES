@@ -328,3 +328,10 @@ A note on 64 (20 Nov 2026): a work order keeps the framework it was routed under
 - The line under the workflow name is only "Items assigned to this workflow follow these set rules." The details are in the flow, not in a sentence.
 - The flow now has a strip that follows one unit: gift paid, split into units, held until fully paid or released as each payment arrives, joins an outcome, assigned to a partner, partner delivers, tasks and report. It changes as the rules change. Steps decided by a rule carry a rule icon (split, hold or release, assign, report), and so does each of the six stage boxes. The words are general and never name a kind of outcome or a donor.
 - Gift unit configuration is complete with the split number and the fully paid tick. What a unit is, and monthly or once, stay settled in Gifts. Whether one donor may hold several slices of one outcome is an allocation rule.
+
+## 136. The flow chart (23/11/2026)
+
+- The flow is one chart, drawn with the diagram-design method (shape carries the type: ovals for start and end, rectangles for steps, one diamond for the decision; right-angle connectors, every branch labelled, one accent). It replaces the unit strip and the six stage boxes of 135.
+- The chart shows rules only, never inputs: no number of units, no donor, no kind of outcome. Step 1 reads "Gift into work order units & shares". Each step carries its rule icon, and clicking a step opens that stage's rules below.
+- When release waits for full payment, step 3 becomes a decision "Fully paid?" with Yes to the next step and No to "Held as Funding", which returns on the next payment.
+- The diagram-design plugin itself could not be installed from here (the plugin commands only run in an interactive Claude Code session), so its method was read from its public repository and applied. Install it with the two commands if you want it available for other diagrams.

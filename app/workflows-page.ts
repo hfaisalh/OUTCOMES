@@ -8,24 +8,13 @@
  */
 
 import { CYCLE_LABELS, type Cycle, type FrameworkTemplate } from "../modules/02-project-rules/categories";
-import { outcomeName, STAGES, stageChips, unitJourney, unitModeOf } from "../modules/02-project-rules/workflows";
+import { outcomeName, unitModeOf } from "../modules/02-project-rules/workflows";
 import { typeForFramework, type OutcomeType } from "../modules/05-outcomes/outcome-types";
+import { flowChart } from "./workflow-flowchart";
 import { ICONS, iconHtml, itemIcon } from "./icons";
 import { outcomeTypeEditor } from "./outcome-types-card";
 import { esc, type View } from "./pages";
 
-// Small line icons for the rules, shown on the stages and the unit's journey so it is clear which rule acts where.
-const RI = (d: string): string => `<svg class="ri" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
-const RULE_ICON: Record<string, [string, string]> = {
-  split: [RI('<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v8.5l6 6"/><path d="M12 12l-6 6"/>'), "Rule: units in one outcome"],
-  hold: [RI('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'), "Rule: release only when fully paid"],
-  release: [RI('<path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>'), "Rule: released as each payment arrives"],
-  outcome: [RI('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/>'), "The outcome is set by the item"],
-  assign: [RI('<path d="M13 3 5 13h6l-1 8 8-10h-6z"/>'), "Rule: how it is assigned to a partner"],
-  deliver: [RI('<path d="M9 4h6v3H9zM6 6h12v15H6z"/><path d="M9 13l2 2 4-4"/>'), "Rule: what the partner supplies"],
-  report: [RI('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>'), "Rule: tasks and the donor report"],
-};
-const ARROW = `<div class="wf-arrow" aria-hidden="true">&rarr;</div>`;
 const TICK = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
 const BIN = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>`;
 
@@ -112,11 +101,7 @@ export function workflowsPage(v: View): string {
 
   const iconModal = (w: FrameworkTemplate): string => (sel.iconPick !== undefined ? iconPopup(w.id, sel.iconPick) : "");
   const type = typeForFramework(types, f.id);
-  const chips = stageChips(f, type);
   const slots = Math.max(1, f.unitsPerBeneficiary);
-  const stageRule = (n: number): string => { const k = n === 1 ? "split" : n === 2 ? "outcome" : n === 3 ? (unitModeOf(f) === "once" ? "hold" : "release") : n === 4 ? "assign" : n === 5 ? "deliver" : "report"; const r = RULE_ICON[k] as [string, string]; return `<span class="wf-rule-ico" title="${esc(r[1])}">${r[0]}</span>`; };
-  const journey = `<div class="wf-journey" aria-label="What happens to one unit"><span class="wf-jlabel">One unit</span>${unitJourney(f, type).map((st, i) => { const k = st.key === "hold" && unitModeOf(f) !== "once" ? "release" : st.key; const r = RULE_ICON[k]; return `${i ? ARROW : ""}<span class="wf-step${st.rule ? " rule" : ""}">${st.rule && r ? `<span class="wf-rule-ico" title="${esc(r[1])}">${r[0]}</span>` : ""}${esc(st.text)}</span>`; }).join("")}</div>`;
-  const flow = STAGES.map((s, i) => `${i ? ARROW : ""}<button class="wf-node${s.n === stage ? " on" : ""}" data-wf-stage="${s.n}">${stageRule(s.n)}<span class="n">Stage ${s.n}</span><b>${esc(s.title)}</b>${(chips[s.n] ?? []).map((c) => `<span class="chip ${c.tone}">${esc(c.text)}</span>`).join("")}</button>`).join("");
   const sim = `<div class="wf-rule"><h3>One outcome</h3><div class="upies" id="wf-pie">${unitPie(slots)}</div>
     <p class="muted" id="wf-pie-note">${slots === 1 ? "1 unit: a whole outcome." : `${slots} units make one outcome.`}</p></div>`;
 
@@ -128,7 +113,7 @@ export function workflowsPage(v: View): string {
           <button class="iconact" data-action="dup-framework" data-id="${esc(f.id)}" title="Copy this workflow" aria-label="Copy this workflow"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 15V6a1 1 0 0 1 1-1h9"/></svg></button>
           <button class="iconact" data-action="remove-framework" data-id="${esc(f.id)}" title="Remove this workflow" aria-label="Remove this workflow">${BIN}</button></div>
           <p class="wf-sentence">Items assigned to this workflow follow these set rules.</p></div>
-        <section class="card"><h3 class="wf-h">The flow</h3>${journey}<div class="wf-flow">${flow}</div>
+        <section class="card"><h3 class="wf-h">The flow</h3><div class="wf-flowwrap">${flowChart(f, type, stage)}</div>
           <div class="wf-rules"><div class="wf-rule">${stagePanel(f, type, stage, v)}</div>${sim}</div></section>
       </div></div>
     ${iconsCard}${iconModal(f)}`;

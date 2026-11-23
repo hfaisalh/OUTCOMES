@@ -21,14 +21,6 @@ import { typeForFramework, type OutcomeType } from "../05-outcomes/outcome-types
 
 export type { WorkflowTask };
 
-export const STAGES: { n: number; title: string; hint: string }[] = [
-  { n: 1, title: "Gift paid", hint: "What a payment buys" },
-  { n: 2, title: "Outcome", hint: "What the gift becomes" },
-  { n: 3, title: "Released", hint: "When it can go on" },
-  { n: 4, title: "Assigned", hint: "To a partner" },
-  { n: 5, title: "Delivering", hint: "The partner does the work" },
-  { n: 6, title: "Updates and report", hint: "What the donor hears" },
-];
 
 // How a unit supports an outcome (DECISIONS 131). A unit is what a gift counts as, already set on the Gifts side, so this says nothing about instalments.
 // share: several units together support one outcome (3 units support one orphan). whole: one unit supports one whole outcome, month by month. once: one unit funds one
@@ -66,42 +58,6 @@ export function setUnitRule(frameworks: FrameworkTemplate[], id: string, units: 
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
 const lower = (s: string): string => s.charAt(0).toLowerCase() + s.slice(1);
-
-// Rule (DECISIONS 135): what happens to one unit on its way through the workflow, as steps. Each step says which rule (if any) decides it, so the diagram can show the
-// rule icon beside it. The words are general (outcome, unit) and never name a kind of outcome or a donor.
-export interface JourneyStep { key: "gift" | "split" | "hold" | "outcome" | "assign" | "deliver" | "report"; text: string; rule: boolean }
-export function unitJourney(fw: FrameworkTemplate, type: OutcomeType | undefined): JourneyStep[] {
-  const mode = unitModeOf(fw);
-  const n = fw.unitsPerBeneficiary;
-  const split = mode === undefined ? "Units not set" : mode === "once" ? "1 unit is 1 outcome" : n === 1 ? "1 unit is 1 outcome" : `Gift split into units, ${n} make 1 outcome`;
-  const tasks = (fw.tasks ?? []).length;
-  return [
-    { key: "gift", text: "Gift paid", rule: false },
-    { key: "split", text: split, rule: true },
-    { key: "hold", text: mode === "once" ? "Held until fully paid" : "Released as each payment arrives", rule: true },
-    { key: "outcome", text: "Joins an outcome", rule: false },
-    { key: "assign", text: type?.assign === "auto" ? "Assigned to a partner automatically" : "Assigned to a partner by suggestion", rule: true },
-    { key: "deliver", text: "Partner delivers", rule: false },
-    { key: "report", text: tasks ? `${plural(tasks, "task")}, then ${fw.reportType ? lower(fw.reportType) : "a report"}` : (fw.reportType ? fw.reportType : "A report"), rule: true },
-  ];
-}
-
-export interface StageChip { tone: "auto" | "wait" | "person" | "plain"; text: string }
-
-// Rule: the short badges on each stage of the flow, worked out from the workflow and its outcome type.
-export function stageChips(fw: FrameworkTemplate, type: OutcomeType | undefined): Record<number, StageChip[]> {
-  const mode = unitModeOf(fw);
-  const wait = mode === "once";
-  const tasks = fw.tasks ?? [];
-  return {
-    1: mode ? [{ tone: "plain", text: mode === "once" ? "1 unit, released when fully paid" : fw.unitsPerBeneficiary === 1 ? "1 unit is 1 outcome" : `${fw.unitsPerBeneficiary} units make 1 outcome` }] : [{ tone: "wait", text: "Not set" }],
-    2: [{ tone: type ? "auto" : "wait", text: type ? type.name : "No type yet" }, ...(type ? [{ tone: "plain" as const, text: type.source === "pick_existing" ? "Picks existing" : "Creates a draft" }] : [])],
-    3: [{ tone: wait ? "wait" : "auto", text: wait ? "Waits for full payment" : "Released each month" }],
-    4: [{ tone: type?.assign === "auto" ? "auto" : "person", text: type?.assign === "auto" ? "Automatic" : "Suggested" }],
-    5: [{ tone: "person", text: "Partner works it" }, ...(type ? [{ tone: "plain" as const, text: `${type.fields.filter((f) => f.required).length} needed first` }] : [])],
-    6: tasks.length ? tasks.slice(0, 3).map((t) => ({ tone: "wait" as const, text: t.label })) : [{ tone: "plain", text: fw.reportType || "A report" }, { tone: "plain", text: CYCLE_LABELS[fw.cycle] }],
-  };
-}
 
 // ---- Tasks ----
 const taskId = (label: string, taken: string[]): string => {
