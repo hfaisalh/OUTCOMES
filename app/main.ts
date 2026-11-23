@@ -42,13 +42,27 @@ import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from ".
 import { ensureRefs } from "../modules/05-outcomes/refs";
 import { checkingHtml, signinHtml } from "./signin-page";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
-import { landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
+import { isPageId, landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
 import { outcomesPage, listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, type Filter, type View } from "./pages";
+
+// Rule: the page being looked at is kept in the address (#workflows), so a reload comes back to it instead of the first page. Only known pages are used.
+function pageFromAddress(): PageId {
+  try {
+    const id = typeof location !== "undefined" ? location.hash.replace(/^#/, "") : "";
+    if (isPageId(id)) return id;
+  } catch { /* no address to read, for example in a test */ }
+  return "work-orders";
+}
+function keepPageInAddress(page: PageId): void {
+  try {
+    if (typeof location !== "undefined" && typeof history !== "undefined" && location.hash !== `#${page}`) history.replaceState(null, "", `#${page}`);
+  } catch { /* the address cannot be changed here, the page still works */ }
+}
 
 const state = {
   live: (): boolean => state.me !== null,
   roleId: "admin",
-  page: "work-orders" as PageId,
+  page: pageFromAddress(),
   feedRows: demoFeedRows() as FeedRow[],
   workOrders: [] as WorkOrder[],
   review: [] as ReviewItem[],
@@ -484,6 +498,7 @@ function draw(): void {
   const role = DEMO_ROLES.find((r) => r.id === state.roleId);
   // Rule: if the current page is not allowed for this role, go to the first allowed page.
   if (!menu.some((m) => m.id === state.page)) state.page = landingPage(permissions()) ?? state.page;
+  keepPageInAddress(state.page);
   const v = view();
   const body = menu.length === 0
     ? `<h1>No access</h1><p class="sub">Your CRM role has no OUTCOMES permission. In the live product you would not have been shown the OUTCOMES button.</p>`

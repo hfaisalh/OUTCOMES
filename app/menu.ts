@@ -24,6 +24,10 @@ export const PERMISSIONS = {
 
 export type PageId = "workflows" | "data-feed" | "data-files" | "work-orders" | "attention" | "outcomes" | "projects" | "partners" | "beneficiaries" | "allocation" | "audit" | "categories" | "dashboard" | "sources" | "settings";
 
+// Rule: the pages a link or a reload may open. Anything else (a mistyped or old address) is ignored and the usual first page is used.
+export const PAGE_IDS: readonly PageId[] = ["workflows", "data-feed", "data-files", "work-orders", "attention", "outcomes", "projects", "partners", "beneficiaries", "allocation", "audit", "categories", "dashboard", "sources", "settings"];
+export const isPageId = (x: string): x is PageId => (PAGE_IDS as readonly string[]).includes(x);
+
 export interface MenuItem {
   id: PageId;
   label: string;

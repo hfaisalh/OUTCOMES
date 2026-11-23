@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { landingPage, menuEntries, PERMISSIONS as P, visibleMenu } from "./menu";
+import { isPageId, landingPage, PAGE_IDS, menuEntries, PERMISSIONS as P, visibleMenu } from "./menu";
 
 describe("visibleMenu", () => {
   it("shows nothing without the access permission, even with others", () => {
@@ -43,5 +43,15 @@ describe("visibleMenu", () => {
     expect(menuEntries([P.access, P.viewWorkOrders]).find((e) => e.id === "data")?.pages.map((p) => p.id)).toEqual(["audit"]);
     expect(menuEntries([P.access, P.mapFrameworks]).map((e) => e.id)).toEqual(["setup"]);
     expect(menuEntries([P.access, P.dashboards]).map((e) => e.id)).toEqual(["dashboard"]);
+  });
+});
+
+describe("pages kept across a reload", () => {
+  it("accepts only known page ids from the address", () => {
+    expect(isPageId("workflows")).toBe(true);
+    expect(isPageId("work-orders")).toBe(true);
+    expect(isPageId("nope")).toBe(false);
+    expect(isPageId("")).toBe(false);
+    expect(PAGE_IDS.length).toBe(new Set(PAGE_IDS).size);
   });
 });
