@@ -8,6 +8,7 @@
  */
 
 import { KINDS, kindOf } from "../modules/02-project-rules/benefits";
+import { itemReadiness, readySummary } from "../modules/06-projects/readiness";
 import { featuresOf, isCustomised, ON_END, PROP_LABELS, RECEIVERS, type SavedFeatures } from "../modules/02-project-rules/kind-features";
 import { FIELD_KINDS } from "../modules/05-outcomes/outcome-types";
 import { resolveFrameworkId } from "../modules/02-project-rules/categories";
@@ -20,10 +21,18 @@ export function benefitsPage(v: View): string {
   const fws = v.frameworks ?? [];
   const setup = { categories: v.categories, itemMap: v.itemCategories, frameworks: fws, itemFramework: v.itemFramework ?? {} };
   const workflowOf = (id: string): string => fws.find((f) => f.id === resolveFrameworkId(setup, id))?.name ?? "";
-  const rows = items.map((i) => {
+  // Rule (DECISIONS 156): each item is checked to be connected end to end. Custom Amount items are left for later.
+  const customIds = new Set((v.workOrders ?? []).filter((w) => w.customAmount === true).map((w) => w.itemId));
+  const ready = itemReadiness({ items, workflowOf: (id) => resolveFrameworkId(setup, id), typeOf: (id, name) => kindOf(kinds, id, name).kind, customItemIds: customIds, partners: v.projects ?? [], giftProjects: v.giftProjects ?? [], today: v.today ?? "2026-01-01" });
+  const sum = readySummary(ready);
+  const rows = items.map((i, n) => {
+    const r = ready[n]!;
     const k = kindOf(kinds, i.id, i.name);
     const options = `<option value=""${k.chosen ? "" : " selected"}>${k.kind ? `Suggested: ${esc(KINDS.find((x) => x.id === k.kind)?.label ?? "")}` : "Choose a type"}</option>${KINDS.map((x) => `<option value="${x.id}"${k.chosen && k.kind === x.id ? " selected" : ""}>${esc(x.label)}</option>`).join("")}`;
-    return `<tr><td class="c">${iconHtml(itemIcon(i.id, i.name, v.itemIcons ?? {}), i.name)}</td><td>${esc(i.name)}</td><td><select data-kind-item="${esc(i.id)}" aria-label="Type of ${esc(i.name)}">${options}</select>${k.chosen || !k.kind ? "" : ` <span class="muted" title="Suggested from the name. Choose it to keep it.">suggested</span>`}</td><td class="muted">${esc(workflowOf(i.id)) || "No workflow"}</td></tr>`;
+    return `<tr><td class="c">${iconHtml(itemIcon(i.id, i.name, v.itemIcons ?? {}), i.name)}</td><td>${esc(i.name)}</td><td><select data-kind-item="${esc(i.id)}" aria-label="Type of ${esc(i.name)}">${options}</select>${k.chosen || !k.kind ? "" : ` <span class="muted" title="Suggested from the name. Choose it to keep it.">suggested</span>`}</td><td class="muted">${esc(workflowOf(i.id)) || "No workflow"}</td>
+      <td title="${esc(r.projects.join(", "))}">${r.projects.length ? `${r.projects.length} project${r.projects.length === 1 ? "" : "s"}` : r.openProjects ? `<span class="muted">${r.openProjects} open</span>` : "\u2013"}</td>
+      <td title="${esc(r.partners.join(", "))}">${r.partners.length ? `${r.partners.length} partner${r.partners.length === 1 ? "" : "s"}` : "\u2013"}</td>
+      <td>${r.custom ? `<span class="muted" title="Custom amounts are dealt with separately, later">custom, later</span>` : r.ready ? `<span class="pill ok" title="Connected: workflow, type and a partner">Ready</span>` : `<span class="pill review" title="${esc(r.missing.join(", "))}">${esc(r.missing.join(", "))}</span>`}</td></tr>`;
   });
   const saved = (v.kindFeatures ?? {}) as SavedFeatures;
   const sel = KINDS.find((k) => k.id === v.kindSel) ?? KINDS[0]!;
@@ -53,7 +62,7 @@ export function benefitsPage(v: View): string {
   return `<h1>Benefits</h1><p class="sub">What each gift item delivers. A benefit is the item itself, and its type says what the beneficiary is, which decides the fields and evidence of its profile.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <section class="card"><h2>Items <span class="muted">(${items.length})</span></h2>
-      <p class="muted">${chosen} chosen, ${items.length - chosen - none} suggested, ${none} to choose. The type is set once and flows through the work order. Change it here if a suggestion is wrong.</p>
-      <div class="tablewrap"><table class="subtable"><thead><tr><th class="c"></th><th>Item (benefit)</th><th>Type</th><th>Workflow</th></tr></thead><tbody>${rows.join("") || `<tr><td colspan="4" class="muted">No items yet. They appear when gifts arrive from the CRM.</td></tr>`}</tbody></table></div></section>
+      <p class="muted">${chosen} chosen, ${items.length - chosen - none} suggested, ${none} to choose. <b>${sum.ready} of ${sum.checked}</b> items are connected end to end (workflow, type and a partner that can take them)${sum.custom ? `, and ${sum.custom} custom amount item${sum.custom === 1 ? "" : "s"} left for later` : ""}. The type is set once and flows through the work order. Change it here if a suggestion is wrong.</p>
+      <div class="tablewrap"><table class="subtable"><thead><tr><th class="c"></th><th>Item (benefit)</th><th>Type</th><th>Workflow</th><th>Projects</th><th>Partners</th><th>Connected</th></tr></thead><tbody>${rows.join("") || `<tr><td colspan="7" class="muted">No items yet. They appear when gifts arrive from the CRM.</td></tr>`}</tbody></table></div></section>
     <div class="wf-layout">${kindList}${kindDetail}</div>`;
 }

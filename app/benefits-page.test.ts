@@ -72,6 +72,24 @@ describe("the Benefits page", () => {
     expect(html).toContain('data-kf-act="reset"');
     expect(html).toContain(", changed"); // the list says so
   });
+  it("shows, for each item, the projects that offer it, the partners that can take it, and whether it is connected end to end (DECISIONS 156)", () => {
+    const partner = { id: "p", name: "Aghosh", status: "active", ddStatus: "approved", aliases: [], levels: [], types: [], itemIds: ["I1"] };
+    const fw = { id: "w", name: "Transactional", unit: "", cycle: "on_delivery", reportType: "", unitsPerBeneficiary: 1 } as never;
+    const html = benefitsPage(view({ frameworks: [fw], itemFramework: { I1: "w", I2: "w" }, projects: [partner] as never, today: "2026-11-23", giftProjects: [{ id: "d", name: "Dadyal", crmNames: [], partnerIds: ["p"], itemIds: ["I1"] }] as never }));
+    expect(html).toContain("<th>Projects</th><th>Partners</th><th>Connected</th>");
+    expect(html).toContain('title="Dadyal">1 project</td>');
+    expect(html).toContain('title="Aghosh">1 partner</td>');
+    expect(html).toContain('<span class="pill ok" title="Connected: workflow, type and a partner">Ready</span>'); // Small Pump has all three
+    expect(html).toMatch(/title="No partner can take it">No partner can take it<\/span>/); // Orphan Sponsorship: Aghosh delivers only the pump
+    expect(html).toContain("No workflow, No type, No partner can take it"); // Mystery Gift: nothing connected
+    expect(html).toContain("1 of 3</b> items are connected end to end");
+  });
+  it("leaves Custom Amount items for later", () => {
+    const html = benefitsPage(view({ flaggedItems: [{ id: "C1", name: "Custom Amount", count: 3 }] as never, workOrders: [{ key: "k", itemId: "C1", customAmount: true, status: "ready" }] as never }));
+    expect(html).toContain("custom, later");
+    expect(html).toContain("1 custom amount item left for later");
+    expect(html).not.toContain(">Ready<");
+  });
   it("shows the workflow of each item", () => {
     const html = benefitsPage(view({ frameworks: [{ id: "w", name: "Transactional", unit: "", cycle: "on_delivery", reportType: "", unitsPerBeneficiary: 1 }], itemFramework: { I1: "w" } }));
     expect(html).toContain("Transactional");
