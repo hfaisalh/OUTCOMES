@@ -56,6 +56,10 @@ export interface PartnerContact {
 // only: OUTCOMES does not manage money. Both are optional.
 export interface BenefitTerms { capacity?: number; costPerUnit?: number }
 
+// Rule (DECISIONS 151): how money is sent to a partner, from the VerifiAid risk page. Kept only as information here: OUTCOMES does not manage money.
+export type FundingMethod = "banking" | "intermediary" | "cash";
+export const FUNDING_METHODS: { id: FundingMethod | ""; label: string }[] = [{ id: "", label: "Not set" }, { id: "banking", label: "Regulated banking" }, { id: "intermediary", label: "Through an intermediary" }, { id: "cash", label: "Cash or direct" }];
+
 export interface Project {
   id: string;
   name: string; // the name shown, the working name
@@ -67,6 +71,13 @@ export interface Project {
   established?: string; // YYYY-MM-DD
   partnershipStart?: string;
   contacts?: PartnerContact[];
+  registrationNumber?: string; // its registration number, for example a charity or NGO number (from the VerifiAid fields, DECISIONS 151)
+  legalStatus?: string; // for example Registered charity, NGO, Company
+  sectors?: string; // what it works in, for example Education, Health, WASH
+  fundingMethod?: FundingMethod; // how money is sent to it. Absent: not set
+  fundingNote?: string;
+  safeguardingLead?: string; // who handles safeguarding concerns, and how to reach them
+  safeguardingContact?: string;
   countries?: string;
   regions?: string;
   itemIds?: string[]; // CRM item ids it can deliver. Empty or absent means any item
@@ -421,6 +432,9 @@ export function samplePartnerProfile(items: { id: string; name: string }[], toda
     ],
     itemIds: picked.map((i) => i.id), terms, capacity: "40", capacityNote: "Invented partner for trying the system",
     reportVia: "Email", reportContact: "Sample Coordinator", language: "English",
+    registrationNumber: "SAMPLE-REG-0001", legalStatus: "Registered charity (invented)", sectors: "Education, Child care", fundingMethod: "banking", fundingNote: "Invented",
+    safeguardingLead: "Sample Safeguarding Lead", safeguardingContact: "safeguarding@example.org",
+    documents: [{ title: "Registration certificate", url: "https://example.org/sample/registration" }, { title: "Safeguarding policy", url: "https://example.org/sample/safeguarding" }, { title: "Partner MOU", url: "https://example.org/sample/mou" }],
     ddReference: "DD-SAMPLE-001", ddStatus: "approved", ddReview: `${year + 1}-12-31`,
     notes: "An invented sample partner. Nothing about it is real. Remove it when real partners are added.",
   };
@@ -455,6 +469,7 @@ export function savePartner(s: ProjectState, raw: Record<string, unknown>, id: s
   const established = dateOrEmpty(raw["established"]);
   const partnershipStart = dateOrEmpty(raw["partnershipStart"]);
   if (ddReview === undefined || established === undefined || partnershipStart === undefined) return { value: s, error: "A date must be written as year, month, day, for example 2026-03-31." };
+  const fundingMethod = (FUNDING_METHODS.find((m) => m.id === raw["fundingMethod"])?.id ?? "") as FundingMethod | "";
   const capText = text(raw["capacity"], 10);
   const cap = capText === "" ? undefined : Number(capText);
   if (cap !== undefined && (!Number.isInteger(cap) || cap < 0 || cap > 100000)) return { value: s, error: "Capacity is a whole number of jobs, or leave it empty." };
@@ -476,9 +491,9 @@ export function savePartner(s: ProjectState, raw: Record<string, unknown>, id: s
   }
   const customIn = (raw["custom"] ?? {}) as Record<string, unknown>;
   const custom = Object.fromEntries(s.partnerFields.map((f) => [f, text(customIn[f], 300)]).filter(([, v]) => v !== ""));
-  const optional = { officialName: text(raw["officialName"], 150), reference: text(raw["reference"], 60), parent: text(raw["parent"], 150), established, partnershipStart, countries: text(raw["countries"], 200), regions: text(raw["regions"], 300), capacityNote: text(raw["capacityNote"], 200), reportVia: text(raw["reportVia"], 100), reportContact: text(raw["reportContact"], 150), language: text(raw["language"], 60), media: text(raw["media"], 400), ddReference: text(raw["ddReference"], 100), notes: text(raw["notes"], 1000) };
-  const { officialName: _o, reference: _r, parent: _pa, established: _e, partnershipStart: _ps, countries: _c, regions: _re, capacityNote: _cn, reportVia: _rv, reportContact: _rc, language: _l, media: _m, ddReference: _dr, notes: _n, capacity: _cap, contacts: _ct, documents: _d, itemIds: _i, benefitTerms: _bt, custom: _cu, ...base } = draft;
-  const saved: Project = { ...base, ...Object.fromEntries(Object.entries(optional).filter(([, v]) => v !== "")), ...(cap !== undefined ? { capacity: cap } : {}), ...(contacts.length ? { contacts } : {}), ...(documents.length ? { documents } : {}), ...(itemIds.length ? { itemIds } : {}), ...(Object.keys(benefitTerms).length ? { benefitTerms } : {}), ...(Object.keys(custom).length ? { custom } : {}) };
+  const optional = { officialName: text(raw["officialName"], 150), reference: text(raw["reference"], 60), parent: text(raw["parent"], 150), established, partnershipStart, countries: text(raw["countries"], 200), regions: text(raw["regions"], 300), capacityNote: text(raw["capacityNote"], 200), registrationNumber: text(raw["registrationNumber"], 60), legalStatus: text(raw["legalStatus"], 80), sectors: text(raw["sectors"], 200), fundingNote: text(raw["fundingNote"], 200), safeguardingLead: text(raw["safeguardingLead"], 100), safeguardingContact: text(raw["safeguardingContact"], 150), reportVia: text(raw["reportVia"], 100), reportContact: text(raw["reportContact"], 150), language: text(raw["language"], 60), media: text(raw["media"], 400), ddReference: text(raw["ddReference"], 100), notes: text(raw["notes"], 1000) };
+  const { officialName: _o, reference: _r, parent: _pa, established: _e, partnershipStart: _ps, countries: _c, regions: _re, capacityNote: _cn, registrationNumber: _rn, legalStatus: _ls, sectors: _se, fundingNote: _fn, safeguardingLead: _sl, safeguardingContact: _sc, fundingMethod: _fm, reportVia: _rv, reportContact: _rc, language: _l, media: _m, ddReference: _dr, notes: _n, capacity: _cap, contacts: _ct, documents: _d, itemIds: _i, benefitTerms: _bt, custom: _cu, ...base } = draft;
+  const saved: Project = { ...base, ...Object.fromEntries(Object.entries(optional).filter(([, v]) => v !== "")), ...(cap !== undefined ? { capacity: cap } : {}), ...(fundingMethod !== "" ? { fundingMethod } : {}), ...(contacts.length ? { contacts } : {}), ...(documents.length ? { documents } : {}), ...(itemIds.length ? { itemIds } : {}), ...(Object.keys(benefitTerms).length ? { benefitTerms } : {}), ...(Object.keys(custom).length ? { custom } : {}) };
   // A new partner may start with the levels and types of another.
   const source = existing ? undefined : s.projects.find((p) => p.id === copyFrom);
   const withStructure: Project = source ? { ...saved, levels: source.levels.map((l) => ({ ...l })), types: source.types.map((t) => ({ ...t })) } : saved;

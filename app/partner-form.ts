@@ -7,7 +7,7 @@
  * Who calls it: app/main.ts. Depends on: Module 6 (statuses and due diligence results) and esc from pages.ts. The HTML builder is pure. The reader needs a page.
  */
 
-import { DUE_DILIGENCE, PARTNER_STATUSES, type Project } from "../modules/06-projects/projects";
+import { DUE_DILIGENCE, FUNDING_METHODS, PARTNER_STATUSES, type Project } from "../modules/06-projects/projects";
 import { esc } from "./pages";
 
 export interface FormContext {
@@ -17,6 +17,9 @@ export interface FormContext {
   others: { id: string; name: string }[]; // partners that have a structure to copy
 }
 
+// Document titles suggested when a link is added, from the VerifiAid checklist (DECISIONS 151). Any title can still be typed.
+export const SUGGESTED_DOCS = ["Registration certificate", "Charity or NGO legal status", "Board or trustee list", "Conflict of interest policy", "Latest audited accounts", "Bank account details", "Safeguarding policy", "HR and staff policy", "Previous project reports", "Partner MOU", "Project proposal", "Strategic plan", "Annual report", "Organisation chart", "Insurance certificates", "Previous audit report"];
+
 const input = (id: string, label: string, value = "", type = "text", extra = "") => `<label class="pf-field"><span>${esc(label)}</span><input id="${id}" type="${type}" value="${esc(value)}" ${extra} /></label>`;
 const area = (id: string, label: string, value = "") => `<label class="pf-field wide"><span>${esc(label)}</span><textarea id="${id}" rows="2">${esc(value)}</textarea></label>`;
 const select = (id: string, label: string, options: { id: string; label: string }[], value: string) => `<label class="pf-field"><span>${esc(label)}</span><select id="${id}">${options.map((o) => `<option value="${esc(o.id)}"${o.id === value ? " selected" : ""}>${esc(o.label)}</option>`).join("")}</select></label>`;
@@ -24,7 +27,7 @@ const select = (id: string, label: string, options: { id: string; label: string 
 const contactRow = (c: { name?: string; position?: string; phone?: string; mobile?: string; email?: string; handles?: string } = {}) => `<div class="pf-row pf-contact">
   <input data-f="name" placeholder="Name" value="${esc(c.name ?? "")}" /><input data-f="position" placeholder="Position" value="${esc(c.position ?? "")}" /><input data-f="phone" placeholder="Phone" value="${esc(c.phone ?? "")}" />
   <input data-f="mobile" placeholder="Mobile" value="${esc(c.mobile ?? "")}" /><input data-f="email" placeholder="Email" value="${esc(c.email ?? "")}" /><input data-f="handles" placeholder="Deals with, for example updates" value="${esc(c.handles ?? "")}" /></div>`;
-const docRow = (d: { title?: string; url?: string } = {}) => `<div class="pf-row pf-doc"><input data-f="title" placeholder="Document, for example Agreement" value="${esc(d.title ?? "")}" /><input data-f="url" placeholder="Link to the document" value="${esc(d.url ?? "")}" /></div>`;
+const docRow = (d: { title?: string; url?: string } = {}) => `<div class="pf-row pf-doc"><input data-f="title" list="pf-doctitles" placeholder="Document, for example Agreement" value="${esc(d.title ?? "")}" /><input data-f="url" placeholder="Link to the document" value="${esc(d.url ?? "")}" /></div>`;
 export const NEW_CONTACT_ROW = contactRow();
 export const NEW_DOC_ROW = docRow();
 
@@ -44,6 +47,11 @@ export function partnerProfileHtml(p: Partial<Project>, id: string, ctx: FormCon
         ${select("pf-status", "Status", PARTNER_STATUSES, p.status ?? "pending")}${input("pf-reference", "Partner reference", p.reference ?? "")}
         ${input("pf-parent", "Part of a larger organisation", p.parent ?? "")}${input("pf-established", "Date established", p.established ?? "", "date")}${input("pf-partnershipStart", "Partnership started", p.partnershipStart ?? "", "date")}
       </div></section>
+      <section><h3>Legal and funding</h3><div class="pf-grid">
+        ${input("pf-registrationNumber", "Registration number", p.registrationNumber ?? "")}${input("pf-legalStatus", "Legal status", p.legalStatus ?? "", "text", 'placeholder="For example Registered charity, NGO, Company"')}${input("pf-sectors", "What they work in", p.sectors ?? "", "text", 'placeholder="For example Education, Health, WASH"')}
+        ${select("pf-fundingMethod", "How money is sent to them", FUNDING_METHODS, p.fundingMethod ?? "")}${input("pf-fundingNote", "Funding note", p.fundingNote ?? "")}</div>
+        <p class="muted">Only for information: OUTCOMES does not manage money. Bank details stay in your finance system, with a link under Documents if needed.</p></section>
+      <section><h3>Safeguarding</h3><div class="pf-grid">${input("pf-safeguardingLead", "Safeguarding lead", p.safeguardingLead ?? "")}${input("pf-safeguardingContact", "How to reach them", p.safeguardingContact ?? "")}</div></section>
       <section><h3>Contacts</h3><div id="pf-contacts">${contacts.map(contactRow).join("")}</div><button data-pf="add-contact">Add a contact</button></section>
       <section><h3>Where they work</h3><div class="pf-grid">${input("pf-countries", "Countries of operation", p.countries ?? "")}${input("pf-regions", "Regions and cities", p.regions ?? "")}</div>
         <p class="muted">Branches and their addresses are part of the structure, which you build on the partner's page.</p></section>
@@ -54,7 +62,7 @@ export function partnerProfileHtml(p: Partial<Project>, id: string, ctx: FormCon
       <section><h3>How they report</h3><div class="pf-grid">${input("pf-reportVia", "How they send updates", p.reportVia ?? "")}${input("pf-reportContact", "Who to chase", p.reportContact ?? "")}${input("pf-language", "Language", p.language ?? "")}</div>${area("pf-media", "Media capacity: cameras, video, trained staff", p.media ?? "")}</section>
       <section><h3>Due diligence</h3><p class="muted">Done in your separate tool. Only the result is kept here. A partner can be active only while it is approved and in date.</p>
         <div class="pf-grid">${input("pf-ddReference", "Reference in that tool", p.ddReference ?? "")}${select("pf-ddStatus", "Result", DUE_DILIGENCE, p.ddStatus ?? "none")}${input("pf-ddReview", "Review due", p.ddReview ?? "", "date")}</div></section>
-      <section><h3>Notes and documents</h3>${area("pf-notes", "Notes", p.notes ?? "")}<div id="pf-docs">${docs.map(docRow).join("")}</div><button data-pf="add-doc">Add a document link</button></section>
+      <section><h3>Notes and documents</h3>${area("pf-notes", "Notes", p.notes ?? "")}<div id="pf-docs">${docs.map(docRow).join("")}</div><datalist id="pf-doctitles">${SUGGESTED_DOCS.map((d) => `<option value="${esc(d)}"></option>`).join("")}</datalist><button data-pf="add-doc">Add a document link</button></section>
       <section><h3>Extra fields</h3>${ctx.fields.length ? `<div class="pf-grid">${ctx.fields.map((f) => `<label class="pf-field"><span>${esc(f)} <button class="linkbtn" data-pf="remove-field" data-name="${esc(f)}" title="Remove this field from every partner">remove</button></span><input data-custom="${esc(f)}" value="${esc(p.custom?.[f] ?? "")}" /></label>`).join("")}</div>` : `<p class="muted">None yet. Add any field you want on every partner.</p>`}
         <div class="actions"><input id="pf-newfield" placeholder="Name of a new field" /><button data-pf="add-field">Add field</button></div></section>
       ${id ? "" : `<section><h3>Structure</h3><label class="pf-field"><span>Start the structure from</span><select id="pf-copy"><option value="">Nothing, I will build it</option>${ctx.others.map((o) => `<option value="${esc(o.id)}">A copy of ${esc(o.name)}</option>`).join("")}</select></label></section>`}
@@ -69,6 +77,6 @@ export function readPartnerForm(root: ParentNode): Record<string, unknown> {
   const rows = (sel: string) => [...root.querySelectorAll(sel)].map((r) => Object.fromEntries([...r.querySelectorAll("[data-f]")].map((i) => [(i as HTMLElement).dataset.f as string, (i as HTMLInputElement).value])));
   const type = val("pf-type") === "__new__" ? val("pf-newtype") : val("pf-type");
   const out: Record<string, unknown> = { type, terms: Object.fromEntries([...root.querySelectorAll(".pf-item:checked")].map((i) => { const id = (i as HTMLInputElement).value; const q = (c: string) => (root.querySelector(`.${c}[data-item="${id.replace(/"/g, "\\\"")}"]`) as HTMLInputElement | null)?.value ?? ""; return [id, { capacity: q("pf-cap"), costPerUnit: q("pf-cost") }]; })), contacts: rows(".pf-contact"), documents: rows(".pf-doc"), itemIds: [...root.querySelectorAll(".pf-item:checked")].map((i) => (i as HTMLInputElement).value), custom: Object.fromEntries([...root.querySelectorAll("[data-custom]")].map((i) => [(i as HTMLElement).dataset.custom as string, (i as HTMLInputElement).value])) };
-  for (const k of ["name", "officialName", "status", "reference", "parent", "established", "partnershipStart", "countries", "regions", "capacity", "capacityNote", "reportVia", "reportContact", "language", "media", "ddReference", "ddStatus", "ddReview", "notes"]) out[k] = val(`pf-${k}`);
+  for (const k of ["name", "officialName", "status", "reference", "parent", "established", "partnershipStart", "countries", "regions", "capacity", "capacityNote", "registrationNumber", "legalStatus", "sectors", "fundingMethod", "fundingNote", "safeguardingLead", "safeguardingContact", "reportVia", "reportContact", "language", "media", "ddReference", "ddStatus", "ddReview", "notes"]) out[k] = val(`pf-${k}`);
   return out;
 }

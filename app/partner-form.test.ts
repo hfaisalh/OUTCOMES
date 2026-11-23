@@ -53,4 +53,14 @@ describe("partnerProfileHtml", () => {
     expect(html).toContain('class="pf-cost" data-item="I2"');
     expect(html).toContain("capacity of 0 stops new work orders");
   });
+  it("asks for the legal, funding and safeguarding details, and suggests the usual document titles (DECISIONS 151)", () => {
+    const html = partnerProfileHtml({ registrationNumber: "REG-1", fundingMethod: "banking", safeguardingLead: "A. Lead" } as never, "p1", { types: [], items: [], fields: [], others: [] } as never);
+    for (const w of ["Legal and funding", "Safeguarding", "Registration number", "How money is sent to them"]) expect(html).toContain(w);
+    expect(html).toContain('value="REG-1"');
+    expect(html).toContain('<option value="banking" selected>Regulated banking</option>');
+    expect(html).toContain('value="A. Lead"');
+    expect(html).toContain('list="pf-doctitles"');
+    expect(html).toContain('<option value="Safeguarding policy">');
+    expect(html).toContain("does not manage money");
+  });
 });

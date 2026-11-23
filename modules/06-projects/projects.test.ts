@@ -282,6 +282,15 @@ describe("the partner profile (DECISIONS 69)", () => {
     expect(r.value.projects[0]?.contacts).toHaveLength(1); // the empty contact is dropped
     expect(r.value.projects[0]?.documents).toHaveLength(1);
   });
+  it("keeps the legal, funding and safeguarding details from the VerifiAid fields, and ignores a funding method that is not known (DECISIONS 151)", () => {
+    const r = save(empty(), { name: "SDO", type: "Contractor", registrationNumber: " 1234567 ", legalStatus: "NGO", sectors: "WASH, Health", fundingMethod: "intermediary", fundingNote: "Via a licensed agent", safeguardingLead: "A. Lead", safeguardingContact: "lead@example.org" });
+    expect(r.error).toBeUndefined();
+    expect(r.value.projects[0]).toMatchObject({ registrationNumber: "1234567", legalStatus: "NGO", sectors: "WASH, Health", fundingMethod: "intermediary", fundingNote: "Via a licensed agent", safeguardingLead: "A. Lead", safeguardingContact: "lead@example.org" });
+    const none = save(empty(), { name: "Y", type: "Contractor", fundingMethod: "bitcoin" }).value.projects[0]!;
+    expect(none.fundingMethod).toBeUndefined(); // not one of the three, so not kept
+    expect("registrationNumber" in none).toBe(false); // nothing typed, nothing kept
+    expect(save(r.value, { name: "SDO", type: "Contractor", fundingMethod: "" }, "sdo").value.projects[0]!.fundingMethod).toBeUndefined(); // can be cleared
+  });
   it("keeps a capacity and an agreed cost per unit for each benefit it delivers, only for the ones it delivers (DECISIONS 149)", () => {
     const r = save(empty(), { name: "SDO", type: "Contractor", capacity: "40", itemIds: ["PUMP", "TENT"], terms: { PUMP: { capacity: "6", costPerUnit: "950.50" }, TENT: { capacity: "", costPerUnit: "" }, OTHER: { capacity: "9", costPerUnit: "1" } } });
     expect(r.error).toBeUndefined();
@@ -319,6 +328,8 @@ describe("the partner profile (DECISIONS 69)", () => {
     expect(isActivePartner(p, "2026-11-23")).toBe(true);
     expect(p.itemIds).toEqual(["I2", "I1"]); // the first two by name
     expect(p.benefitTerms).toEqual({ I2: { capacity: 20, costPerUnit: 120 }, I1: { capacity: 10, costPerUnit: 950 } });
+    expect(p).toMatchObject({ registrationNumber: "SAMPLE-REG-0001", sectors: "Education, Child care", fundingMethod: "banking", safeguardingLead: "Sample Safeguarding Lead" });
+    expect(p.documents).toHaveLength(3);
     expect(p.contacts).toHaveLength(2);
     expect(JSON.stringify(p)).not.toMatch(/@(?!example\.org)/); // only example.org addresses
     expect(p.notes).toContain("invented");
