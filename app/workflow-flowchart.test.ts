@@ -41,7 +41,8 @@ describe("the flow chart", () => {
     expect(flowChart(fw({ instalment: "share_of_whole", unitsPerBeneficiary: 1, stages }), undefined, 1).match(/ L[^"]*Z"/g)?.length).toBe(4); // and fully paid
     expect(svg).toContain("Reject: reassign");
     expect(svg).toContain("Reject: back to the partner");
-    expect((svg.match(/<title>Approved<\/title>/g) ?? []).length).toBe(2); // a tick on each approved arrow, not a word that a box could cover
+    expect((svg.match(/<title>Approved<\/title>/g) ?? []).length).toBe(2); // a green circled tick on each approved arrow, not a word that a box could cover
+    expect((svg.match(/<title>Rejected<\/title>/g) ?? []).length).toBe(2); // a red circled cross on each rejected return
     expect(svg).not.toContain(">Approve<");
     expect(svg).not.toContain('rx="20"'); // no ovals any more
   });

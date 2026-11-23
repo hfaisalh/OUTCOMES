@@ -27,6 +27,9 @@ const RULE_PATHS: Record<string, [string, string]> = {
 const W = 104, SW = 96, H = 56, GAP = 28, Y = 52, X0 = 8;
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+// A small circled tick (approved, green) or circled cross (rejected, red), drawn on an arrow.
+const badge = (cx: number, cy: number, ok: boolean): string => `<g transform="translate(${cx} ${cy})" class="fc-badge ${ok ? "ok" : "no"}"><title>${ok ? "Approved" : "Rejected"}</title><circle r="8.5"/>${ok ? '<path d="M-4 0.5 L-1.2 3.3 L4 -2.6"/>' : '<path d="M-3.2 -3.2 L3.2 3.2 M3.2 -3.2 L-3.2 3.2"/>'}</g>`;
+
 // Text in the middle of a box, one line per bar-separated part.
 const lines = (text: string, x: number, y: number): string => text.split("|").map((t, i, all) => `<text x="${x}" y="${y + (i - (all.length - 1) / 2) * 13}" text-anchor="middle" class="fc-t">${esc(t)}</text>`).join("");
 const ruleIcon = (key: string, x: number, y: number): string => { const r = RULE_PATHS[key]; return r ? `<g transform="translate(${x} ${y}) scale(.62)" class="fc-ri"><title>${esc(r[1])}</title>${r[0]}</g>` : ""; };
@@ -54,7 +57,7 @@ export function flowChart(fw: FrameworkTemplate, type: OutcomeType | undefined, 
   let x = X0;
   let prevRight: number | null = null;
   const open = (n: number): string => (n === stage ? " on" : "");
-  const link = (to: number, label = ""): void => { if (prevRight !== null) edges.push(`<path d="M${prevRight} ${mid} H${to}" class="fc-edge" marker-end="url(#fc-arrow)"/>${label === "Approve" ? `<g transform="translate(${(prevRight + to) / 2 - 6} ${mid - 22}) scale(.5)" class="fc-ri fc-ok"><title>Approved</title><path d="M5 12.5l4.5 4.5L19 7.5"/></g>` : label ? `<text x="${(prevRight + to) / 2}" y="${mid - 8}" text-anchor="middle" class="fc-lbl">${esc(label)}</text>` : ""}`); };
+  const link = (to: number, label = ""): void => { if (prevRight !== null) edges.push(`<path d="M${prevRight} ${mid} H${to}" class="fc-edge" marker-end="url(#fc-arrow)"/>${label === "Approve" ? badge((prevRight + to) / 2, mid, true) : label ? `<text x="${(prevRight + to) / 2}" y="${mid - 8}" text-anchor="middle" class="fc-lbl">${esc(label)}</text>` : ""}`); };
   const place = (w: number, draw: (cx: number) => string, label = ""): number => { link(x, label); const c = x + w / 2; parts.push(draw(c)); prevRight = x + w; x += w + GAP; return c; };
   const step = (n: number, aria: string, inner: string): string => `<g data-wf-stage="${n}" class="fc-step" role="button" tabindex="0" aria-label="${esc(aria)}">${inner}</g>`;
   const rect = (n: number, c: number, text: string, icon: string, focal = false): string => step(n, text.replace("|", " "), `<rect x="${c - W / 2}" y="${Y}" width="${W}" height="${H}" rx="6" class="fc-node${focal ? " focal" : ""}${open(n)}"/>${icon ? ruleIcon(icon, c - W / 2 + 4, Y + 3) : ""}${lines(text, c, mid + (icon ? 6 : 0))}`);
@@ -93,12 +96,12 @@ export function flowChart(fw: FrameworkTemplate, type: OutcomeType | undefined, 
   const width = x - GAP + X0;
   // Rejected branches go back, under the row: a rejected confirm to assignment, a rejected review to allocation.
   const ly = Y + H + 30;
-  const back = (from: number, to: number, label: string): string => `<path d="M${from} ${Y + H + 6} V${ly} H${to} V${Y + H + 6}" class="fc-edge dashed" marker-end="url(#fc-arrow)"/><text x="${(from + to) / 2}" y="${ly + 14}" text-anchor="middle" class="fc-lbl">${esc(label)}</text>`;
+  const back = (from: number, to: number, label: string): string => `<path d="M${from} ${Y + H + 6} V${ly} H${to} V${Y + H + 6}" class="fc-edge dashed" marker-end="url(#fc-arrow)"/>${badge((from + to) / 2, ly, false)}<text x="${(from + to) / 2}" y="${ly + 20}" text-anchor="middle" class="fc-lbl">${esc(label)}</text>`;
   let extra = back(confirmX, assignX, "Reject: reassign") + back(reviewX, allocX, "Reject: back to the partner");
   if (once) {
     const hy = ly + 24;
     extra += `<path d="M${holdX} ${Y + H + 6} V${hy}" class="fc-edge" marker-end="url(#fc-arrow)"/><text x="${holdX + 8}" y="${Y + H + 24}" class="fc-lbl">No</text><rect x="${holdX - W / 2}" y="${hy}" width="${W}" height="34" rx="6" class="fc-node muted"/>${lines("Held as Funding", holdX, hy + 17)}`;
   }
-  const height = (once ? ly + 24 + 34 : ly + 22) + 8;
+  const height = (once ? ly + 24 + 34 : ly + 28) + 8;
   return `<svg class="fc" viewBox="0 0 ${width} ${height}" width="${width}" role="img" aria-label="The flow of this workflow"><defs><marker id="fc-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" class="fc-head"/></marker></defs>${edges.join("")}${parts.join("")}${extra}</svg>`;
 }
