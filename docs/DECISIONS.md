@@ -477,3 +477,16 @@ Addendum to 152 (Faisal, 23/11/2026):
 - **Roles exist at every level**, so they can follow the hierarchy: a **project role** (school principal) and **cluster roles** (classroom teacher), and later a beneficiary role (case worker per child). The list of roles is configurable per level.
 - **A role can hold several people** (two caretakers). They are **chosen from a given list**: the partner's contacts, with a person added from the same place when missing.
 - **A project is created two ways.** Manually in OUTCOMES at any time (this already exists as New project), and from a CRM project name that appears on gifts. Today that second way is a list of "Names the CRM uses" where a person puts each name into a project. It is not yet automatic. To add: create a project from an unmatched name in one click, and an option to create them automatically as items are. The name comes from the project field on the gift line, not from the item, so the benefits a project offers can be pre-filled from the items seen with that name on gifts.
+
+## 153. Custom donations to a project accumulate in a project fund, spent on items (23/11/2026)
+
+Design agreed with Faisal, not built yet.
+
+- A **custom donation** reaches OUTCOMES with its project from the CRM transaction (for example a custom amount through the Dadyal Orphan Complex page). It is a directed gift, and it is assigned to that project. It is **parked in the project's fund** and goes no further. The gift's stage reads Gift, with the note "In the project fund".
+- The fund is a **derived figure for reference**: the value of the project's custom gifts minus what has been spent on items. OUTCOMES does not manage money. The accounting stays in Salesforce and QuickBooks.
+- **Spending the fund:** a person chooses **items that are already configured** and a **quantity of each** (bricks, land, sponsorship). The fund is converted into quantity of those items. That automatically creates the **work orders** of those items, with **units already worked out from each item's own settings** (its bundle and the Work order decision of its workflow). Nothing is unitised by hand. The work orders are released at once, since the money is in, and then go through Assignment to one of the project's vendors, active for the item and with capacity, and on through Confirmation, Allocation and the rest of the workflow.
+- **One fund can be spent on several items over time.** What is not spent stays parked. A person cannot spend more than is available. Each work order keeps which custom gifts funded it, so it can be traced.
+- **Cost of the spend:** quantity times the item's catalogue price when the CRM has one, otherwise the person types the cost. It is for reference, and it reduces the available amount.
+- Custom donations that name a project that is not matched yet **wait for a person to match it** and are not treated as general (Faisal, 23/11/2026). Only gifts with no project, or Where Needed Most, are general.
+- Supersedes the "Custom donations go to" setting that was proposed: there is no default benefit, and the choice is made when the fund is spent.
+- To build with the Projects register: a **Fund** section on a project (the available amount, the parked gifts, and a Spend on items action that makes the work orders).
