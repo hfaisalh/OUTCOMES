@@ -103,6 +103,12 @@ export const removeTask = (frameworks: FrameworkTemplate[], id: string, tid: str
 // Rule: how a released work order is handed to a partner: the workflow's own setting, else the outcome type's old setting, else suggested to a person.
 export const assignOf = (fw: FrameworkTemplate, type: OutcomeType | undefined): "auto" | "suggest" => fw.assign ?? type?.assign ?? "suggest";
 
+// Rule (DECISIONS 138): three yes or no decisions, each yes unless a person turns it off. A person may reassign a work order from one partner to another. An urgent gift jumps to
+// high priority. MWF approves a report before the donor sees the data (until then the donor only hears that a phase changed).
+export type WorkflowFlag = "reassign" | "urgent" | "approve";
+export const flagOf = (fw: FrameworkTemplate, flag: WorkflowFlag): boolean => fw[flag] ?? true;
+export const setFlag = (frameworks: FrameworkTemplate[], id: string, flag: WorkflowFlag, on: boolean): Edited => editWf(frameworks, id, (f) => ({ ...f, [flag]: on }));
+
 export const setAssign = (frameworks: FrameworkTemplate[], id: string, assign: "auto" | "suggest"): Edited => editWf(frameworks, id, (f) => ({ ...f, assign }));
 
 const stageId = (label: string, taken: string[]): string => taskId(label, taken);
@@ -178,9 +184,10 @@ export function extraStarterTypes(): OutcomeType[] {
 const STARTER_ICONS: Record<string, string> = { "orphan-sponsorship": "orphan", "student-sponsorship": "student", "water-pump": "pump", "house-build": "house", "livelihood-start": "rickshaw", activity: "medical" };
 // The implementation stages a starting workflow begins with. A person changes them to match how the partners work.
 const startStages = (): ImplStage[] => [
-  { id: "accepted", label: "Accepted by the partner", days: 7, needs: [], photo: false, canPause: true, tell: "" },
-  { id: "in-delivery", label: "In delivery", days: 30, needs: ["Location", "Beneficiaries"], photo: false, canPause: true, tell: "Your gift has been assigned a location and beneficiaries." },
-  { id: "delivered", label: "Delivered and verified", days: 14, needs: [], photo: true, canPause: false, tell: "Your gift has been delivered." },
+  { id: "received", label: "Batch received", days: 3, needs: [], photo: false, canPause: false, tell: "Your gift has been received by a partner." },
+  { id: "allocated", label: "Outcome profile allocated", days: 7, needs: [], photo: false, canPause: true, tell: "Your gift has been given an outcome profile." },
+  { id: "in-delivery", label: "In delivery", days: 30, needs: ["Location", "Beneficiaries"], photo: false, canPause: true, tell: "Your gift is being delivered." },
+  { id: "delivered", label: "Delivered", days: 14, needs: [], photo: true, canPause: false, tell: "Your gift has been delivered. The report follows once it is approved." },
 ];
 const mkWorkflow = (s: Starter): FrameworkTemplate => ({
   assign: s.typeId === "orphan" || s.typeId === "student" ? "auto" : "suggest", stages: startStages(),

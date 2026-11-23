@@ -196,43 +196,56 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     expect(shell.innerHTML).not.toContain("Category (reporting)"); // no category here
     expect(shell.innerHTML).not.toContain("What one delivery is");
   });
-  it("shows the rules of the stage that is clicked: work orders, assigned for implementation with its stages, and the report", () => {
+  it("shows the rules of the stage that is clicked, with its decisions (DECISIONS 138)", () => {
     stageClick("1");
     expect(shell.innerHTML).toContain("Work orders: gift into units and shares");
-    expect(shell.innerHTML).toContain("Units in one outcome");
     stageClick("2");
-    expect(shell.innerHTML).toContain("Implementation stages");
-    expect(shell.innerHTML).toContain('data-wf-act="sub-add"');
+    expect(shell.innerHTML).toContain("Decision: assignment for implementation");
     stageClick("3");
-    expect(shell.innerHTML).toContain("Updates and the donor report");
+    expect(shell.innerHTML).toContain('data-wf-act="sub-add"');
+    stageClick("4");
+    expect(shell.innerHTML).toContain("Decision: approval");
     expect(shell.innerHTML).toContain('data-wf-act="task-add"');
+    stageClick("5");
+    expect(shell.innerHTML).toContain("Decision: reporting protocol");
   });
-  it("adds, changes, moves and removes the partner's implementation stages, and sets how the handoff happens (DECISIONS 137)", () => {
+  it("turns the assignment and approval decisions on and off", () => {
     click({ page: "workflows" }, "data-page");
     click({ action: "add-starters" }, "data-action");
     click({ wfSelect: "water-pump" }, "data-wf-select");
     stageClick("2");
-    expect(shell.innerHTML).toContain("Accepted by the partner");
+    fire("change", { target: { id: "", dataset: { wfFlag: "urgent", wf: "water-pump" }, checked: false, value: "" } });
+    expect(shell.innerHTML).not.toMatch(/data-wf-flag="urgent" data-wf="water-pump" checked/);
+    stageClick("4");
+    fire("change", { target: { id: "", dataset: { wfFlag: "approve", wf: "water-pump" }, checked: false, value: "" } });
+    expect(shell.innerHTML).toContain("no approval");
+  });
+  it("adds, changes, moves and removes the partner's stages, and sets how the assignment happens (DECISIONS 137, 138)", () => {
+    click({ page: "workflows" }, "data-page");
+    click({ action: "add-starters" }, "data-action");
+    click({ wfSelect: "water-pump" }, "data-wf-select");
+    stageClick("3");
+    expect(shell.innerHTML).toContain("Batch received");
     fire("change", { target: { id: "", dataset: { wfAssign: "water-pump" }, value: "auto", checked: false } });
-    expect(shell.innerHTML).toContain("Assigned for implementation, automatic");
-    fire("change", { target: { id: "", dataset: { wfSub: "days", wf: "water-pump", sub: "accepted" }, value: "3", checked: false } });
-    expect(shell.innerHTML).toContain("3 days");
-    fire("change", { target: { id: "", dataset: { wfSub: "tell", wf: "water-pump", sub: "accepted" }, value: "Your gift has been accepted.", checked: false } });
+    expect(shell.innerHTML).toContain("automatically");
+    fire("change", { target: { id: "", dataset: { wfSub: "days", wf: "water-pump", sub: "received" }, value: "5", checked: false } });
+    expect(shell.innerHTML).toContain("5 days");
+    fire("change", { target: { id: "", dataset: { wfSub: "tell", wf: "water-pump", sub: "received" }, value: "Your gift has been accepted.", checked: false } });
     expect(shell.innerHTML).toContain("Your gift has been accepted.");
-    click({ wfAct: "sub-down", wf: "water-pump", sub: "accepted" }, "data-wf-act");
-    expect(shell.innerHTML.indexOf('data-sub="in-delivery"')).toBeLessThan(shell.innerHTML.indexOf('data-sub="accepted"'));
-    click({ wfAct: "sub-remove", wf: "water-pump", sub: "accepted" }, "data-wf-act");
-    expect(shell.innerHTML).not.toContain('data-sub="accepted"');
+    click({ wfAct: "sub-down", wf: "water-pump", sub: "received" }, "data-wf-act");
+    expect(shell.innerHTML.indexOf('data-sub="allocated"')).toBeLessThan(shell.innerHTML.indexOf('data-sub="received"'));
+    click({ wfAct: "sub-remove", wf: "water-pump", sub: "received" }, "data-wf-act");
+    expect(shell.innerHTML).not.toContain('data-sub="received"');
   });
   it("adds the standard workflows with their tasks and stages, once", () => {
     click({ page: "workflows" }, "data-page");
     click({ action: "add-starters" }, "data-action");
     for (const n of ["Orphan sponsorship", "Student sponsorship", "Water pump", "House build", "Activity"]) expect(shell.innerHTML).toContain(n);
     click({ wfSelect: "orphan-sponsorship" }, "data-wf-select");
+    stageClick("4");
+    expect(shell.innerHTML).toContain("3 month basic check"); // a MEAL check
     stageClick("3");
-    expect(shell.innerHTML).toContain("3 month basic check");
-    stageClick("2");
-    expect(shell.innerHTML).toContain("Delivered and verified");
+    expect(shell.innerHTML).toContain("Outcome profile allocated");
     click({ action: "add-starters" }, "data-action");
     expect(shell.innerHTML).toContain("already there");
   });

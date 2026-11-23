@@ -8,7 +8,7 @@
  */
 
 import { CYCLE_LABELS, type Cycle, type FrameworkTemplate } from "../modules/02-project-rules/categories";
-import { assignOf, outcomeName, totalDays, unitModeOf } from "../modules/02-project-rules/workflows";
+import { assignOf, flagOf, outcomeName, totalDays, unitModeOf } from "../modules/02-project-rules/workflows";
 import { typeForFramework, type OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { flowChart } from "./workflow-flowchart";
 import { ICONS, iconHtml, itemIcon } from "./icons";
@@ -41,27 +41,44 @@ function stagePanel(f: FrameworkTemplate, type: OutcomeType | undefined, stage: 
     <label class="ot-check"><input type="checkbox" data-wf-full="${esc(f.id)}"${full ? " checked" : ""}> Release only when fully paid</label>
     <p class="muted">How units are allocated to one outcome in this workflow. With 1, a unit is a whole outcome. With more, the outcome is made of that many units. This is mostly automatic once set: a paid gift becomes work order units, and they are released to be assigned for implementation.</p>`;
   }
+  const tasksTable = `<table class="wf-tasks"><thead><tr><th>Check for the partner or caseworker</th><th class="num">Due after (months)</th><th>Photo</th><th class="actcol"></th></tr></thead><tbody>
+      ${(f.tasks ?? []).map((k) => `<tr><td><input data-wf-task="label" data-wf="${esc(f.id)}" data-task="${esc(k.id)}" value="${esc(k.label)}"></td><td class="num"><input type="number" min="0" max="120" data-wf-task="after" data-wf="${esc(f.id)}" data-task="${esc(k.id)}" value="${k.afterMonths}"></td><td class="c"><input type="checkbox" data-wf-task="photo" data-wf="${esc(f.id)}" data-task="${esc(k.id)}"${k.photo ? " checked" : ""} aria-label="Asks for a photo"></td><td class="actcol"><div class="actbox"><button class="iconact" data-wf-act="task-remove" data-wf="${esc(f.id)}" data-task="${esc(k.id)}" title="Remove this check" aria-label="Remove this check">${BIN}</button></div></td></tr>`).join("") || `<tr><td colspan="4" class="muted">No checks yet.</td></tr>`}
+    </tbody></table>
+    <div class="ot-add"><input id="wf-task-label" placeholder="New check, for example 3 month basic check"><input id="wf-task-after" type="number" min="0" max="120" value="3" aria-label="Due after months" style="width:90px"><label class="ot-check"><input type="checkbox" id="wf-task-photo"> photo</label><button class="iconact ok" data-wf-act="task-add" data-wf="${esc(f.id)}" title="Add the check" aria-label="Add the check">${TICK}</button></div>`;
+  const flag = (k: "reassign" | "urgent" | "approve", text: string): string => `<label class="ot-check"><input type="checkbox" data-wf-flag="${k}" data-wf="${esc(f.id)}"${flagOf(f, k) ? " checked" : ""}> ${text}</label>`;
   if (stage === 2) {
     const how = assignOf(f, type);
+    return `<h3>Assignment</h3>
+    <h4 class="wf-h">Decision: assignment for implementation</h4>
+    <label class="wf-field"><span>A released work order is assigned to a partner</span><select data-wf-assign="${esc(f.id)}"><option value="auto"${how === "auto" ? " selected" : ""}>Automatically, to a partner with capacity</option><option value="suggest"${how === "suggest" ? " selected" : ""}>By a person, dragging it to a partner</option></select></label>
+    ${flag("reassign", "A person can move a work order from one partner to another")}
+    ${flag("urgent", "An urgent gift jumps to high priority")}
+    <p class="muted">Only partners approved for the item are considered. The work order lands in the partner's waiting list as a batch. Priority when several are waiting: urgent first, then a donor's directed project or partner, then a deadline, then the oldest first. Each partner sets its capacity on its own profile.</p>`;
+  }
+  if (stage === 3) {
     const stages = f.stages ?? [];
-    return `<h3>Assigned for implementation</h3>
-    <label class="wf-field"><span>A released work order is handed to a partner</span><select data-wf-assign="${esc(f.id)}"><option value="auto"${how === "auto" ? " selected" : ""}>Automatically, when a partner has capacity</option><option value="suggest"${how === "suggest" ? " selected" : ""}>Only suggested to a person</option></select></label>
-    <p class="muted">Priority when several are waiting: a donor's directed project or partner, then a deadline, then an urgent flag, then the oldest paid first. A partner may hold outcomes it has already set up, waiting for work orders to be placed into them. Each partner sets its capacity on its own profile.</p>
-    <h4 class="wf-h">Implementation stages <span class="muted">(${stages.length}, ${totalDays(f)} days in all)</span></h4>
-    <p class="muted">Every partner follows these stages. Each has the days allowed from the stage before, so delays can be seen. When a stage is finished the donor can be told something, for example that their gift has been assigned a location and a number of beneficiaries.</p>
-    <div class="tablewrap"><table class="wf-tasks"><thead><tr><th>Stage</th><th class="num">Days</th><th>The partner supplies (separate with commas)</th><th class="c">Photo</th><th class="c">Can pause</th><th>Tell the donor</th><th class="actcol"></th></tr></thead><tbody>
+    return `<h3>Partner stages</h3>
+    <p class="muted">The partner works through these, in order: confirming it received the batch, giving each work order a specific outcome profile, then completing the profile's data in phases. Each stage has the days allowed from the one before, so delays can be seen. Until MWF approves the report, the donor is only told that a phase has changed, never shown the data.</p>
+    <h4 class="wf-h">Stages <span class="muted">(${stages.length}, ${totalDays(f)} days in all)</span></h4>
+    <div class="tablewrap"><table class="wf-tasks"><thead><tr><th>Stage</th><th class="num">Days</th><th>The partner supplies (separate with commas)</th><th class="c">Photo</th><th class="c">Can pause</th><th>Tell the donor that the phase changed</th><th class="actcol"></th></tr></thead><tbody>
       ${stages.map((k, i) => `<tr><td><input data-wf-sub="label" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" value="${esc(k.label)}"></td><td class="num"><input type="number" min="0" max="365" data-wf-sub="days" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" value="${k.days}"></td><td><input data-wf-sub="needs" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" value="${esc(k.needs.join(", "))}" placeholder="Location, Beneficiaries"></td><td class="c"><input type="checkbox" data-wf-sub="photo" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}"${k.photo ? " checked" : ""} aria-label="Asks for a photo"></td><td class="c"><input type="checkbox" data-wf-sub="pause" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}"${k.canPause ? " checked" : ""} aria-label="The clock can be paused"></td><td><input data-wf-sub="tell" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" value="${esc(k.tell)}" placeholder="Nothing"></td><td class="actcol"><div class="actbox"><button class="iconact" data-wf-act="sub-up" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}"${i === 0 ? " disabled" : ""} title="Move up" aria-label="Move up">&uarr;</button><button class="iconact" data-wf-act="sub-down" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}"${i === stages.length - 1 ? " disabled" : ""} title="Move down" aria-label="Move down">&darr;</button><button class="iconact" data-wf-act="sub-remove" data-wf="${esc(f.id)}" data-sub="${esc(k.id)}" title="Remove this stage" aria-label="Remove this stage">${BIN}</button></div></td></tr>`).join("") || `<tr><td colspan="7" class="muted">No stages yet. Add the first one below.</td></tr>`}
     </tbody></table></div>
     <div class="ot-add"><input id="wf-sub-label" placeholder="New stage, for example Site visit"><input id="wf-sub-days" type="number" min="0" max="365" value="14" aria-label="Days allowed" style="width:90px"><button class="iconact ok" data-wf-act="sub-add" data-wf="${esc(f.id)}" title="Add the stage" aria-label="Add the stage">${TICK}</button></div>`;
   }
-  return `<h3>Updates and the donor report</h3>
+  if (stage === 4) return `<h3>Review and approval</h3>
+    <h4 class="wf-h">Decision: approval</h4>
+    ${flag("approve", "MWF verifies and approves the report before the donor sees the data")}
+    <p class="muted">When the partner has completed every stage, MWF reviews the data. Before that the donor only hears that a phase changed.</p>
+    <h4 class="wf-h">Monitoring and evaluation (MEAL) checks</h4>
+    ${tasksTable}
+    <p class="muted">Checks say what will be asked and when, to keep the quality of delivery up. They are not created yet: that comes with the Updates page.</p>`;
+  const living = unitModeOf(f) !== "once";
+  return `<h3>Report and complete</h3>
+    <h4 class="wf-h">Decision: reporting protocol</h4>
+    <p class="muted">${living ? "A living order: it is not finished by one delivery. The donor hears back on the cycle below for as long as it runs, and it ends when the support ends." : "A transactional order: once it is complete the donor gets one completion report, and the order is closed."}</p>
     <div class="wf-two"><label class="wf-field"><span>The report the donor gets</span><input data-tpl="reportType" ${t} value="${esc(f.reportType)}" placeholder="Quarterly update"></label>
     <label class="wf-field"><span>How often the donor hears back</span><select data-tpl="cycle" ${t}>${(Object.keys(CYCLE_LABELS) as Cycle[]).map((y) => `<option value="${y}"${y === f.cycle ? " selected" : ""}>${esc(CYCLE_LABELS[y])}</option>`).join("")}</select></label></div>
-    <table class="wf-tasks"><thead><tr><th>Task for the partner or caseworker</th><th class="num">Due after (months)</th><th>Photo</th><th class="actcol"></th></tr></thead><tbody>
-      ${(f.tasks ?? []).map((k) => `<tr><td><input data-wf-task="label" data-wf="${esc(f.id)}" data-task="${esc(k.id)}" value="${esc(k.label)}"></td><td class="num"><input type="number" min="0" max="120" data-wf-task="after" data-wf="${esc(f.id)}" data-task="${esc(k.id)}" value="${k.afterMonths}"></td><td class="c"><input type="checkbox" data-wf-task="photo" data-wf="${esc(f.id)}" data-task="${esc(k.id)}"${k.photo ? " checked" : ""} aria-label="Asks for a photo"></td><td class="actcol"><div class="actbox"><button class="iconact" data-wf-act="task-remove" data-wf="${esc(f.id)}" data-task="${esc(k.id)}" title="Remove this task" aria-label="Remove this task">${BIN}</button></div></td></tr>`).join("") || `<tr><td colspan="4" class="muted">No tasks yet.</td></tr>`}
-    </tbody></table>
-    <div class="ot-add"><input id="wf-task-label" placeholder="New task, for example 3 month basic check"><input id="wf-task-after" type="number" min="0" max="120" value="3" aria-label="Due after months" style="width:90px"><label class="ot-check"><input type="checkbox" id="wf-task-photo"> photo</label><button class="iconact ok" data-wf-act="task-add" data-wf="${esc(f.id)}" title="Add the task" aria-label="Add the task">${TICK}</button></div>
-    <p class="muted">Tasks say what will be asked and when. They are not created yet: that comes with the Updates page.</p>`;
+    <p class="muted">Feedback from the donor after the order is complete comes later.</p>`;
 }
 
 // Rule (DECISIONS 135): the icon library as a popup of pictures. A click chooses, OK keeps it, Cancel leaves the icon as it was.
@@ -81,7 +98,7 @@ export function workflowsPage(v: View): string {
   // Rule (DECISIONS 134): a workflow has its own icon, a target until one is chosen. It no longer follows an item or an outcome type.
   const iconOfWorkflow = (fid: string): string => fws.find((x) => x.id === fid)?.icon || "bullseye";
   const f = fws.find((x) => x.id === sel.id) ?? fws[0];
-  const stage = Math.min(3, Math.max(1, sel.stage));
+  const stage = Math.min(5, Math.max(1, sel.stage));
 
   const list = `<div class="card"><h3 class="wf-h">Workflows <span class="muted">(${fws.length})</span></h3><div class="wlist">${fws.map((x) => `<button class="wbtn${x.id === f?.id ? " on" : ""}" data-wf-select="${esc(x.id)}">${iconHtml(iconOfWorkflow(x.id), x.name, "lg") || `<span class="ico ico-lg"></span>`}<span><b>${esc(x.name)}</b><small>${itemsOf(x.id).length} item${itemsOf(x.id).length === 1 ? "" : "s"}</small></span></button>`).join("") || `<div class="empty">No workflows yet.</div>`}</div>
     <div class="actions"><input id="newfw" placeholder="New workflow name"><button data-action="add-framework">Add</button></div>

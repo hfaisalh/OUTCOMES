@@ -9,7 +9,7 @@
  */
 
 import type { FrameworkTemplate } from "../modules/02-project-rules/categories";
-import { assignOf, unitModeOf } from "../modules/02-project-rules/workflows";
+import { assignOf, flagOf, unitModeOf } from "../modules/02-project-rules/workflows";
 import type { OutcomeType } from "../modules/05-outcomes/outcome-types";
 
 // Rule icons as line paths (24 by 24), the same set as the stage boxes use.
@@ -19,6 +19,7 @@ const RULE_PATHS: Record<string, [string, string]> = {
   hold: ['<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', "Rule: release only when fully paid"],
   release: ['<path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>', "Rule: released as each payment arrives"],
   assign: ['<path d="M13 3 5 13h6l-1 8 8-10h-6z"/>', "Rule: how it is assigned to a partner"],
+  approve: ['<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>', "Rule: MWF approves before the donor sees the data"],
   deliver: ['<path d="M9 4h6v3H9zM6 6h12v15H6z"/><path d="M9 13l2 2 4-4"/>', "Rule: what the partner supplies"],
   report: ['<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>', "Rule: tasks and the donor report"],
 };
@@ -37,8 +38,9 @@ const wrap = (label: string, max = 15): string => {
   return out.slice(0, 2).map((x, i, all) => (i === all.length - 1 && out.length > 2 ? x.slice(0, max - 1) + "\u2026" : x.slice(0, max))).join("|");
 };
 
-// Rule (DECISIONS 137): the chart has three clickable parts, the stages of the workflow. 1 Work orders (gift into units and shares, and when they are released), 2 Assigned for
-// implementation (the handoff rule and the partner's stages, each with its days), 3 Updates and report. A gift goes straight from paid to assigned for implementation.
+// Rule (DECISIONS 138): the chart has five clickable stages. 1 Work orders (gift into units and shares, and when they are released). 2 Assignment (how a work order is assigned to a
+// partner). 3 Partner stages, a group the partner works through (receiving, allocation, implementation), each with its days. 4 Review and approval (MEAL checks, and MWF approves the
+// report). 5 Report and complete (living orders report on a cycle, transactional ones once, then close). The start is the Gift, not a payment, since payments may still be coming.
 export function flowChart(fw: FrameworkTemplate, type: OutcomeType | undefined, stage: number): string {
   const once = unitModeOf(fw) === "once";
   const stages = fw.stages ?? [];
@@ -52,16 +54,18 @@ export function flowChart(fw: FrameworkTemplate, type: OutcomeType | undefined, 
   const place = (w: number, draw: (cx: number) => string, label = ""): number => { link(x, label); const c = x + w / 2; parts.push(draw(c)); prevRight = x + w; x += w + GAP; return c; };
   const open = (n: number): string => (n === stage ? " on" : "");
 
-  place(W, (c) => `<rect x="${c - W / 2}" y="${Y + 8}" width="${W}" height="${H - 16}" rx="20" class="fc-node"/>${lines("Gift paid", c, mid)}`);
+  place(W, (c) => `<rect x="${c - W / 2}" y="${Y + 8}" width="${W}" height="${H - 16}" rx="20" class="fc-node"/>${lines("Gift", c, mid)}`);
   // Stage 1: work orders. A decision only when release waits for full payment.
   let holdX = 0;
   place(W, (c) => `<g data-wf-stage="1" class="fc-step" role="button" tabindex="0" aria-label="Stage 1: work orders"><rect x="${c - W / 2}" y="${Y}" width="${W}" height="${H}" rx="6" class="fc-node${once ? "" : " focal"}${open(1)}"/>${ruleIcon("split", c - W / 2 + 4, Y + 3)}${lines("Gift into work|order units & shares", c, mid + 6)}</g>`);
   if (once) holdX = place(W, (c) => `<g data-wf-stage="1" class="fc-step" role="button" tabindex="0" aria-label="Stage 1: release only when fully paid"><path d="M${c} ${Y - 4} L${c + W / 2} ${mid} L${c} ${Y + H + 4} L${c - W / 2} ${mid} Z" class="fc-node focal${open(1)}"/>${ruleIcon("hold", c - 8, Y - 20)}${lines("Fully paid?", c, mid)}</g>`);
-  // Stage 2: assigned for implementation, a labelled group holding the partner's stages.
-  const how = assignOf(fw, type) === "auto" ? "automatic" : "by suggestion";
+  // Stage 2: assignment to a partner.
+  const how = assignOf(fw, type) === "auto" ? "automatically" : "by a person";
+  place(W, (c) => `<g data-wf-stage="2" class="fc-step" role="button" tabindex="0" aria-label="Stage 2: assignment"><rect x="${c - W / 2}" y="${Y}" width="${W}" height="${H}" rx="6" class="fc-node${open(2)}"/>${ruleIcon("assign", c - W / 2 + 4, Y + 3)}${lines(`Assigned|${how}`, c, mid + 6)}</g>`, once ? "Yes" : "");
+  // Stage 3: the partner's stages, a labelled group.
   const groupLeft = x - 10;
-  link(x, once ? "Yes" : "");
-  const shown = stages.length ? stages : [{ id: "-", label: "Assigned for implementation", days: 0, needs: [], photo: false, canPause: true, tell: "" }];
+  link(x);
+  const shown = stages.length ? stages : [{ id: "-", label: "Partner stages", days: 0, needs: [], photo: false, canPause: true, tell: "" }];
   const boxes: string[] = [];
   let gx = x;
   let gPrev: number | null = null;
@@ -69,17 +73,18 @@ export function flowChart(fw: FrameworkTemplate, type: OutcomeType | undefined, 
     const c = gx + SW / 2;
     if (gPrev !== null) boxes.push(`<path d="M${gPrev} ${mid} H${gx}" class="fc-edge" marker-end="url(#fc-arrow)"/>`);
     const sub = stages.length ? `${st.days} day${st.days === 1 ? "" : "s"}` : "";
-    boxes.push(`<g data-wf-stage="2" class="fc-step" role="button" tabindex="0" aria-label="Stage 2: ${esc(st.label)}"><title>${esc(st.label)}${st.tell ? `. Tells the donor: ${esc(st.tell)}` : ""}</title><rect x="${gx}" y="${Y}" width="${SW}" height="${H}" rx="6" class="fc-node${open(2)}"/>${lines(sub ? `${wrap(st.label, 14)}|${sub}` : wrap(st.label, 14), c, mid)}${st.tell ? `<circle cx="${gx + SW - 9}" cy="${Y + 9}" r="3.5" class="fc-dot"><title>Tells the donor</title></circle>` : ""}</g>`);
+    boxes.push(`<g data-wf-stage="3" class="fc-step" role="button" tabindex="0" aria-label="Stage 3: ${esc(st.label)}"><title>${esc(st.label)}${st.tell ? `. Tells the donor: ${esc(st.tell)}` : ""}</title><rect x="${gx}" y="${Y}" width="${SW}" height="${H}" rx="6" class="fc-node${open(3)}"/>${lines(sub ? `${wrap(st.label, 14)}|${sub}` : wrap(st.label, 14), c, mid)}${st.tell ? `<circle cx="${gx + SW - 9}" cy="${Y + 9}" r="3.5" class="fc-dot"><title>Tells the donor</title></circle>` : ""}</g>`);
     gPrev = gx + SW;
     gx += SW + (i < shown.length - 1 ? 22 : 0);
   });
   const groupRight = gx + SW + 10;
-  parts.push(`<rect x="${groupLeft}" y="${Y - 30}" width="${groupRight - groupLeft}" height="${H + 44}" rx="10" class="fc-group"/><g data-wf-stage="2" class="fc-step">${ruleIcon("assign", groupLeft + 8, Y - 27)}<text x="${groupLeft + 30}" y="${Y - 14}" class="fc-lbl strong">Assigned for implementation, ${how}</text></g>`);
+  parts.push(`<rect x="${groupLeft}" y="${Y - 30}" width="${groupRight - groupLeft}" height="${H + 44}" rx="10" class="fc-group"/><g data-wf-stage="3" class="fc-step">${ruleIcon("deliver", groupLeft + 8, Y - 27)}<text x="${groupLeft + 30}" y="${Y - 14}" class="fc-lbl strong">Partner stages</text></g>`);
   parts.push(...boxes);
   prevRight = groupRight - 10; x = groupRight + GAP - 10 + 10;
-  // Stage 3: updates and report.
-  place(W, (c) => `<g data-wf-stage="3" class="fc-step" role="button" tabindex="0" aria-label="Stage 3: updates and report"><rect x="${c - W / 2}" y="${Y}" width="${W}" height="${H}" rx="6" class="fc-node${open(3)}"/>${ruleIcon("report", c - W / 2 + 4, Y + 3)}${lines(tasks ? `${tasks} task${tasks === 1 ? "" : "s"},|then report` : "Report", c, mid + 6)}</g>`);
-  place(W, (c) => `<rect x="${c - W / 2}" y="${Y + 8}" width="${W}" height="${H - 16}" rx="20" class="fc-node"/>${lines("Outcome|delivered", c, mid)}`);
+  // Stage 4: review and approval, with the MEAL checks. Stage 5: the report, and the order is complete.
+  place(W, (c) => `<g data-wf-stage="4" class="fc-step" role="button" tabindex="0" aria-label="Stage 4: review and approval"><rect x="${c - W / 2}" y="${Y}" width="${W}" height="${H}" rx="6" class="fc-node${open(4)}"/>${ruleIcon("approve", c - W / 2 + 4, Y + 3)}${lines(tasks ? `Review, ${tasks} check${tasks === 1 ? "" : "s"}|${flagOf(fw, "approve") ? "MWF approves" : "no approval"}` : `Review|${flagOf(fw, "approve") ? "MWF approves" : "no approval"}`, c, mid + 6)}</g>`);
+  place(W, (c) => `<g data-wf-stage="5" class="fc-step" role="button" tabindex="0" aria-label="Stage 5: report and complete"><rect x="${c - W / 2}" y="${Y}" width="${W}" height="${H}" rx="6" class="fc-node${open(5)}"/>${ruleIcon("report", c - W / 2 + 4, Y + 3)}${lines(once ? "One report,|then closed" : "Reports on|a cycle", c, mid + 6)}</g>`);
+  place(W, (c) => `<rect x="${c - W / 2}" y="${Y + 8}" width="${W}" height="${H - 16}" rx="20" class="fc-node"/>${lines(once ? "Order|complete" : "Order|ends", c, mid)}`);
   const width = x - GAP + X0;
   // The decision's other branch: not fully paid, so the units wait as Funding and are checked again on the next payment.
   let extra = "";
