@@ -7,6 +7,7 @@
  */
 
 import type { GiftProject, Project } from "../modules/06-projects/projects";
+import { clustersTabHtml } from "./clusters-tab";
 import { esc } from "./pages";
 
 export interface ProjectFormContext {
@@ -15,7 +16,7 @@ export interface ProjectFormContext {
   items?: { id: string; name: string }[]; // the benefits (gift items) a project can offer
 }
 
-export function projectFormHtml(g: Partial<GiftProject>, id: string, ctx: ProjectFormContext, error = ""): string {
+export function projectFormHtml(g: Partial<GiftProject>, id: string, ctx: ProjectFormContext, error = "", tab: "details" | "clusters" = "details"): string {
   const names = new Set((g.crmNames ?? []).map((x) => x.toLowerCase()));
   const known = new Set(ctx.crmNames.map((n) => n.name.toLowerCase()));
   const extra = (g.crmNames ?? []).filter((n) => !known.has(n.toLowerCase()));
@@ -26,7 +27,8 @@ export function projectFormHtml(g: Partial<GiftProject>, id: string, ctx: Projec
   const tick = (n: string, gifts?: number) => `<label class="tick"><input type="checkbox" class="pr-name" value="${esc(n)}"${names.has(n.toLowerCase()) ? " checked" : ""} /> ${esc(n)}${gifts === undefined ? "" : ` <span class="muted">(${gifts})</span>`}</label>`;
   return `<div class="pf-overlay" role="dialog" aria-modal="true" aria-label="Project"><div class="pf-box">
     <header><h2>${id ? esc(g.name ?? "Project") : "New project"}</h2><button data-pj="cancel" aria-label="Close">Close</button></header>
-    <div class="pf-body">
+    ${id ? `<nav class="pf-tabs" role="tablist"><button type="button" role="tab" class="${tab === "details" ? "on" : ""}" data-pj="tab" data-tab="details">Details</button><button type="button" role="tab" class="${tab === "clusters" ? "on" : ""}" data-pj="tab" data-tab="clusters">Clusters${(g.clusters ?? []).length ? ` <span class="muted">(${(g.clusters ?? []).length})</span>` : ""}</button></nav>` : ""}
+    ${id && tab === "clusters" ? clustersTabHtml({ levels: g.levels ?? [], clusters: g.clusters ?? [] }, error) : `<div class="pf-body">
       <section><div class="pf-grid"><label class="pf-field"><span>Project name</span><input id="pr-name" value="${esc(g.name ?? "")}" placeholder="For example Aghosh" required /></label></div></section>
       <section><h3>CRM names</h3><p class="muted">The name above always counts. Tick other names the CRM uses for this project. A name can be in one project only.</p>
         <div class="pf-items">${ctx.crmNames.length ? ctx.crmNames.map((n) => tick(n.name, n.gifts)).join("") : '<span class="muted">No gifts carry a project name yet.</span>'}${extra.map((n) => tick(n)).join("")}</div>
@@ -36,8 +38,8 @@ export function projectFormHtml(g: Partial<GiftProject>, id: string, ctx: Projec
       <section><h3>Vendors</h3><p class="muted">Tick the partners that deliver this project. They take work in the order shown: the first until it is full, then the next. Use the arrows to change the order. With none ticked, its gifts wait for a person to decide.</p>
         <div class="pf-vendors" id="pr-vendors">${ordered.length ? ordered.map((p) => `<div class="pf-vendor"><label class="tick"><input type="checkbox" class="pr-partner" value="${esc(p.id)}"${partners.has(p.id) ? " checked" : ""} /> ${esc(p.name)}</label><span class="pf-vbtns"><button type="button" data-pj="vup" aria-label="Move up" title="Move up">&uarr;</button><button type="button" data-pj="vdown" aria-label="Move down" title="Move down">&darr;</button></span></div>`).join("") : '<span class="muted">No partners yet. Add them on the Partners page.</span>'}</div></section>
       <section><label class="pf-field wide"><span>Notes</span><textarea id="pr-notes" rows="2">${esc(g.notes ?? "")}</textarea></label></section>
-    </div>
-    <footer><span id="pr-error" class="pf-error" role="alert">${esc(error)}</span>${id ? '<button data-pj="remove" title="Remove this project. Gifts that carried its CRM names then have no project">Remove project</button>' : ""}<button data-pj="cancel">Cancel</button><button class="primary" data-pj="save">Save project</button></footer>
+    </div>`}
+    ${id && tab === "clusters" ? '<footer><button data-pj="cancel">Close</button></footer>' : `    <footer><span id="pr-error" class="pf-error" role="alert">${esc(error)}</span>${id ? '<button data-pj="remove" title="Remove this project. Gifts that carried its CRM names then have no project">Remove project</button>' : ""}<button data-pj="cancel">Cancel</button><button class="primary" data-pj="save">Save project</button></footer>`}
   </div></div>`;
 }
 

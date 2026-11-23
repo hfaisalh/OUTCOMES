@@ -262,6 +262,47 @@ describe("projects: what a donor chooses, and the partners that deliver it (DECI
   });
 });
 
+describe("clusters in a project (DECISIONS 158)", () => {
+  const st = (gps: GiftProject[]): ProjectState => ({ projects: [], nodes: [], outcomes: [], partnerTypes: [], partnerFields: [], giftProjects: gps });
+  const proj = (): GiftProject => ({ id: "dadyal", name: "Dadyal Orphan Complex", crmNames: [], partnerIds: [] });
+  const run = (s: ProjectState, body: Record<string, unknown>) => applyProjectAction(s, [], { giftProjectId: "dadyal", ...body }, "2026-11-23");
+  it("adds levels and clusters to a project, and keeps them off projects it does not name", () => {
+    let s = st([proj(), { id: "other", name: "Other", crmNames: [], partnerIds: [] }]);
+    s = run(s, { action: "cluster-level-add", name: "Block" })!.state;
+    s = run(s, { action: "cluster-level-add", name: "Classroom" })!.state;
+    s = run(s, { action: "cluster-add", name: "Block A", levelId: "block" })!.state;
+    s = run(s, { action: "cluster-add", name: "5A", levelId: "classroom", parentId: "block-block-a", capacity: "30" })!.state;
+    const gp = s.giftProjects[0]!;
+    expect(gp.levels?.map((l) => l.id)).toEqual(["block", "classroom"]);
+    expect(gp.clusters?.map((c) => c.name)).toEqual(["Block A", "5A"]);
+    expect(s.giftProjects[1]?.clusters).toBeUndefined(); // the other project is untouched
+  });
+  it("refuses with the reason, leaving the project as it was, and refuses an unknown project", () => {
+    const s = st([proj()]);
+    const bad = run(s, { action: "cluster-add", name: "Block A", levelId: "block" })!;
+    expect(bad.error).toBe("Choose a level.");
+    expect(bad.state).toBe(s);
+    expect(applyProjectAction(s, [], { action: "cluster-level-add", name: "Block", giftProjectId: "nope" }, "2026-11-23")!.error).toBe("That project was not found.");
+  });
+  it("takes the levels and clusters off the project when the last one is removed", () => {
+    let s = st([proj()]);
+    s = run(s, { action: "cluster-level-add", name: "Block" })!.state;
+    s = run(s, { action: "cluster-add", name: "Block A", levelId: "block" })!.state;
+    s = run(s, { action: "cluster-remove", clusterId: "block-block-a" })!.state;
+    s = run(s, { action: "cluster-level-remove", levelId: "block" })!.state;
+    expect(s.giftProjects[0]?.levels).toBeUndefined();
+    expect(s.giftProjects[0]?.clusters).toBeUndefined();
+  });
+  it("keeps the clusters when the project's details are saved", () => {
+    let s = st([proj()]);
+    s = run(s, { action: "cluster-level-add", name: "Block" })!.state;
+    s = run(s, { action: "cluster-add", name: "Block A", levelId: "block" })!.state;
+    const saved = saveGiftProject(s.giftProjects, [], { name: "Dadyal Orphan Complex", notes: "Edited" }, "dadyal");
+    expect(saved.error).toBeUndefined();
+    expect(saved.value[0]).toMatchObject({ notes: "Edited", levels: [{ id: "block" }], clusters: [{ name: "Block A" }] });
+  });
+});
+
 describe("projects made automatically from the project a gift carries (DECISIONS 155)", () => {
   const w = (projectName: string | undefined, status = "ready") => ({ projectName, status });
   it("counts the gifts that have no project, which are for their own items and not a general fund (DECISIONS 157)", () => {

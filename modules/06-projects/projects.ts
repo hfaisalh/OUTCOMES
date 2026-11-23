@@ -20,6 +20,7 @@
 import { slugify, type FrameworkTemplate } from "../02-project-rules/categories.js";
 import { addOutcomes, autoAllocate, capacityOf, DEFAULT_GRACE_DAYS, fillOf, inGrace, asksForPlace, pickOutcome, releaseDue, takesCapacity, type AllocOptions, type Allocation, type Outcome, type Policy } from "../05-outcomes/outcomes.js";
 import type { Commitment } from "../04b-commitments/commitments.js";
+import { applyClusterAction, type Cluster, type ClusterLevel } from "./clusters.js";
 
 export interface Level {
   id: string;
@@ -511,7 +512,7 @@ export interface ProjectState {
   giftProjects: GiftProject[]; // the projects donors choose, and the partners that deliver them (DECISIONS 76)
 }
 
-export const PROJECT_ACTIONS = ["remove-partner", "set-place", "set-group", "set-ref", "assign-refs", "save-gift-project", "remove-gift-project", "assign-crm-name", "save-partner", "add-partner-type", "add-partner-field", "remove-partner-field", "add-level", "move-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "set-field", "add-beneficiaries"];
+export const PROJECT_ACTIONS = ["cluster-level-add", "cluster-level-rename", "cluster-level-remove", "cluster-add", "cluster-set", "cluster-remove", "remove-partner", "set-place", "set-group", "set-ref", "assign-refs", "save-gift-project", "remove-gift-project", "assign-crm-name", "save-partner", "add-partner-type", "add-partner-field", "remove-partner-field", "add-level", "move-level", "remove-level", "add-type", "remove-type", "add-node", "remove-node", "set-field", "add-beneficiaries"];
 export const MAX_RECORDS = 5000;
 
 /**
@@ -548,6 +549,16 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
   const strings = (k: string): string[] => (Array.isArray(body[k]) ? (body[k] as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 50) : []);
   const done = (state: ProjectState, warning?: string) => ({ state, ...(warning ? { warning } : {}) });
   const fail = (error: string) => ({ state: s, error });
+  // Clusters of a project (DECISIONS 158): the same pure rule for the server and the demo. Nothing is placed in a cluster yet, so none holds beneficiaries.
+  if (action.startsWith("cluster-")) {
+    const id = str("giftProjectId");
+    const gp = s.giftProjects.find((g) => g.id === id);
+    if (!gp) return fail("That project was not found.");
+    const r = applyClusterAction({ levels: gp.levels ?? [], clusters: gp.clusters ?? [] }, body);
+    if (r === null) return undefined;
+    if ("error" in r) return fail(r.error);
+    return done({ ...s, giftProjects: s.giftProjects.map((g) => (g.id === id ? { ...g, ...(r.value.levels.length ? { levels: r.value.levels } : { levels: undefined }), ...(r.value.clusters.length ? { clusters: r.value.clusters } : { clusters: undefined }) } : g)) });
+  }
   switch (action) {
     case "remove-partner": {
       const r = removePartner(s, str("projectId"), body["withBeneficiaries"] === true, allocatedIds);
@@ -798,6 +809,8 @@ export interface GiftProject {
   name: string;
   crmNames: string[]; // other names the CRM uses for it
   partnerIds: string[]; // the partners that deliver it. Any of them can take a gift for it. The order is the priority order: the first takes work until it is full, then the next (DECISIONS 154)
+  levels?: ClusterLevel[]; // the levels of its clusters, for example Region, then Classroom (DECISIONS 158)
+  clusters?: Cluster[]; // the groups of beneficiaries inside it
   auto?: true; // made automatically from the project name a gift carried, and not changed by a person since (DECISIONS 155)
   itemIds?: string[]; // the benefits (gift items) it offers. Absent or empty means any item (DECISIONS 154)
   notes?: string;
@@ -818,7 +831,7 @@ export function saveGiftProject(gps: GiftProject[], partners: Project[], raw: Re
   const partnerIds = [...new Set((Array.isArray(raw["partnerIds"]) ? raw["partnerIds"] : []).filter((x): x is string => typeof x === "string" && partners.some((p) => p.id === x)))];
   const notes = text(raw["notes"], 1000);
   const itemIds = [...new Set((Array.isArray(raw["itemIds"]) ? raw["itemIds"] : []).filter((x): x is string => typeof x === "string" && x !== "").map((x) => x.slice(0, 100)))].slice(0, 1000);
-  const gp: GiftProject = { id: existing?.id ?? uniqueId(name, new Set(gps.map((g) => g.id))), name, crmNames, partnerIds, ...(itemIds.length ? { itemIds } : {}), ...(notes !== "" ? { notes } : {}) };
+  const gp: GiftProject = { id: existing?.id ?? uniqueId(name, new Set(gps.map((g) => g.id))), name, crmNames, partnerIds, ...(itemIds.length ? { itemIds } : {}), ...(existing?.levels ? { levels: existing.levels } : {}), ...(existing?.clusters ? { clusters: existing.clusters } : {}), ...(notes !== "" ? { notes } : {}) }; // saving the details keeps its clusters
   const others = gps.filter((g) => g.id !== gp.id).map((g) => ({ ...g, crmNames: g.crmNames.filter((x) => !taken.has(x.toLowerCase())) }));
   return { value: existing ? gps.map((g) => (g.id === gp.id ? gp : others.find((o) => o.id === g.id) as GiftProject)) : [...others, gp] };
 }

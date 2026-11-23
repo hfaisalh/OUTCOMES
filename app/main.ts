@@ -85,7 +85,7 @@ const state = {
   nodes: [] as Node[],
   giftProjects: [] as GiftProject[], // the projects donors choose, and the partners that deliver them (DECISIONS 76)
   benFilter: { ...NO_BEN_FILTER } as BenFilter, // the filters on the Beneficiaries page
-  projectWin: { open: false, id: "" }, // the project form
+  projectWin: { open: false, id: "" } as { open: boolean; id: string; tab?: "details" | "clusters" }, // the project form and the tab it shows
   giftWin: { key: "", log: false }, // the gift details window (DECISIONS 78): the key of the gift it shows, "" when closed
   partnerWin: { open: false, id: "", tab: "profile" as PartnerTab, draft: null as Record<string, unknown> | null }, // the partner window (DECISIONS 70)
   workflowSel: { id: "", stage: 1, parts: 1, allocated: false, pick: "" } as NonNullable<View["workflowSel"]>, // the workflow and stage the Workflows page shows, and its sample gift (DECISIONS 130)
@@ -1323,7 +1323,19 @@ function renderProjectWindow(error = "", draft?: Record<string, unknown>): void 
   }
   const existing = state.giftProjects.find((g) => g.id === w.id);
   const names = crmNamesOf(state.workOrders, state.giftProjects).map((n) => ({ name: n.name, gifts: n.gifts }));
-  root.innerHTML = projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })) }, error);
+  root.innerHTML = projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })) }, error, w.tab ?? "details");
+  syncClusterParent();
+}
+// In the Clusters tab, "Inside which cluster" lists only clusters of the level above the chosen level, and is unavailable for the first level.
+function syncClusterParent(): void {
+  const lvl = document.getElementById("cl-level") as HTMLSelectElement | null;
+  const par = document.getElementById("cl-parent") as HTMLSelectElement | null;
+  if (!lvl || !par) return;
+  const above = lvl.selectedOptions[0]?.dataset.parent ?? "";
+  let first = "";
+  for (const o of [...par.options]) { const show = above !== "" && o.dataset.level === above; o.hidden = !show; o.disabled = !show; if (show && first === "") first = o.value; }
+  par.disabled = above === "";
+  par.value = above === "" ? "" : first;
 }
 function closeProjectWindow(): void {
   state.projectWin = { open: false, id: "" };
@@ -1347,6 +1359,7 @@ document.addEventListener("click", (e) => {
     if (row && sib) (what === "vup" ? sib.before(row) : sib.after(row));
     return;
   }
+  if (what === "tab") { state.projectWin = { ...state.projectWin, tab: el.dataset.tab === "clusters" ? "clusters" : "details" }; return renderProjectWindow(); }
   if (what === "cancel") return closeProjectWindow();
   const root = document.getElementById("project-root");
   if (!root) return;
@@ -1567,4 +1580,30 @@ document.addEventListener("change", (e) => {
   t.value = "";
   document.getElementById("pf-benempty")?.setAttribute("hidden", "");
   (body.lastElementChild?.querySelector(".pf-cap") as HTMLInputElement | null)?.focus();
+});
+
+// The Clusters tab of the project window (DECISIONS 158): each button or field is one request on the project's levels or clusters, applied on the server when live and in the browser in the demo.
+const clusterRequest = (body: Record<string, unknown>): void => void outcomeChange({ ...body, giftProjectId: state.projectWin.id }).then(() => renderProjectWindow(lastError));
+document.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest?.("[data-cl]") as HTMLElement | null;
+  if (!b || !state.projectWin.open) return;
+  const val = (i: string) => (document.getElementById(i) as HTMLInputElement | null)?.value ?? "";
+  switch (b.dataset.cl) {
+    case "level-add": return clusterRequest({ action: "cluster-level-add", name: val("cl-newlevel") });
+    case "level-rm": return clusterRequest({ action: "cluster-level-remove", levelId: b.dataset.id ?? "" });
+    case "cluster-add": return clusterRequest({ action: "cluster-add", name: val("cl-name"), levelId: val("cl-level"), parentId: val("cl-parent"), place: val("cl-place"), capacity: val("cl-capacity") });
+    case "cluster-rm": return clusterRequest({ action: "cluster-remove", clusterId: b.dataset.id ?? "" });
+  }
+});
+document.addEventListener("change", (e) => {
+  const t = e.target as HTMLInputElement | HTMLSelectElement | null;
+  if (t?.id === "cl-level") return syncClusterParent();
+  const what = t?.dataset?.cl;
+  if (!t || what === undefined || !state.projectWin.open) return;
+  const id = t.dataset.id ?? "";
+  if (what === "level-name") clusterRequest({ action: "cluster-level-rename", levelId: id, name: t.value });
+  else if (what === "name") clusterRequest({ action: "cluster-set", clusterId: id, name: t.value });
+  else if (what === "place") clusterRequest({ action: "cluster-set", clusterId: id, place: t.value });
+  else if (what === "capacity") clusterRequest({ action: "cluster-set", clusterId: id, capacity: t.value });
+  else if (what === "status") clusterRequest({ action: "cluster-set", clusterId: id, status: t.value });
 });
