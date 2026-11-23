@@ -403,6 +403,29 @@ export function partnerAccepts(projects: Project[], projectId: string | undefine
   return isActivePartner(p, today) && ((p.itemIds ?? []).length === 0 || (p.itemIds ?? []).includes(itemId));
 }
 
+/**
+ * An invented partner to try the system with (Faisal, 23/11/2026): an active, approved orphan care institute with made-up contacts, active for up to two of the given items with its own capacity
+ * and cost per unit. It is returned as the profile a person would type, so it is saved by the usual `save-partner` rule. Nothing about it is real, and the notes say so.
+ */
+export const SAMPLE_PARTNER_REFERENCE = "SAMPLE-001";
+export function samplePartnerProfile(items: { id: string; name: string }[], today: string): Record<string, unknown> {
+  const year = Number(today.slice(0, 4)) || 2026;
+  const picked = [...items].sort((a, b) => a.name.localeCompare(b.name)).slice(0, 2);
+  const terms = Object.fromEntries(picked.map((i, n) => [i.id, { capacity: String(n === 0 ? 20 : 10), costPerUnit: String(n === 0 ? 120 : 950) }]));
+  return {
+    name: "Sample Orphan Care Trust", officialName: "Sample Orphan Care Trust (invented)", type: "Institute", status: "active", reference: SAMPLE_PARTNER_REFERENCE,
+    established: "2012-04-01", partnershipStart: `${year - 1}-01-15`, countries: "Examplestan", regions: "North District",
+    contacts: [
+      { name: "Sample Director", position: "Director", phone: "+000 000 0000", mobile: "+000 000 0001", email: "director@example.org", handles: "Agreements and approvals" },
+      { name: "Sample Coordinator", position: "Programme coordinator", phone: "", mobile: "+000 000 0002", email: "updates@example.org", handles: "Updates and batches" },
+    ],
+    itemIds: picked.map((i) => i.id), terms, capacity: "40", capacityNote: "Invented partner for trying the system",
+    reportVia: "Email", reportContact: "Sample Coordinator", language: "English",
+    ddReference: "DD-SAMPLE-001", ddStatus: "approved", ddReview: `${year + 1}-12-31`,
+    notes: "An invented sample partner. Nothing about it is real. Remove it when real partners are added.",
+  };
+}
+
 // Rule (DECISIONS 149): the capacity a partner has for an item is the one set for that item, else its overall capacity, else none is set (undefined).
 export const capacityFor = (p: Project, itemId: string): number | undefined => p.benefitTerms?.[itemId]?.capacity ?? p.capacity;
 

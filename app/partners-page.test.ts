@@ -64,4 +64,10 @@ describe("partnersPage", () => {
     expect(html).toContain("Aghosh</td>");
     expect(partnersPage(base({ projects, nodes, outcomes }))).toContain('<span class="muted">None</span>');
   });
+  it("offers to add an invented sample partner until there is one", () => {
+    expect(partnersPage(base())).toContain('data-pf="sample"');
+    expect(partnersPage(base())).toContain("Add a sample partner");
+    const withSample = partnersPage(base({ projects: [{ id: "s", name: "Sample Orphan Care Trust", reference: "SAMPLE-001", aliases: [], levels: [], types: [] }] as never }));
+    expect(withSample).not.toContain('data-pf="sample"');
+  });
 });

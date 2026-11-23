@@ -9,7 +9,7 @@
 
 import { allocatable } from "../modules/04b-commitments/commitments";
 import { perPeriodRule } from "../modules/05-outcomes/outcomes";
-import { allocOptions, DUE_DILIGENCE, isActivePartner, PARTNER_STATUSES, rollupOf } from "../modules/06-projects/projects";
+import { allocOptions, DUE_DILIGENCE, isActivePartner, PARTNER_STATUSES, rollupOf, SAMPLE_PARTNER_REFERENCE } from "../modules/06-projects/projects";
 import { esc, type View } from "./pages";
 
 const meter = (used: number, places: number) => `<span class="meter" aria-hidden="true"><i style="width:${places > 0 ? Math.min(Math.round((used / places) * 100), 100) : 0}%"></i></span>`;
@@ -26,7 +26,7 @@ export function partnersPage(v: View): string {
   const head = `<h1>Partners</h1>
     <p class="sub">A partner is whoever implements the job of a gift: an institute, a contractor, another charity or any type you add. Click a partner to open its profile and structure. The projects a partner delivers are set on the Projects page, and its beneficiaries are on the Beneficiaries page.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
-    <div class="actions"><button class="primary" data-pf="new">New partner</button></div>`;
+    <div class="actions"><button class="primary" data-pf="new">New partner</button>${partners.some((p) => p.reference === SAMPLE_PARTNER_REFERENCE) ? "" : `<button data-pf="sample" title="Adds an invented partner, active and approved, to try the system with. Nothing about it is real, and it can be removed.">Add a sample partner</button>`}</div>`;
 
   const rows = partners.map((p) => {
     const r = roll.byProject.get(p.id) ?? { places: 0, used: 0, beneficiaries: 0 };

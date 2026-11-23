@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Allocation } from "../05-outcomes/outcomes";
 import type { Commitment } from "../04b-commitments/commitments";
-import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, capacityFor, eligiblePartners, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, removePartner, rollupOf, setNodeField, type Node, type Project } from "./projects";
+import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, capacityFor, eligiblePartners, samplePartnerProfile, SAMPLE_PARTNER_REFERENCE, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, removePartner, rollupOf, setNodeField, type Node, type Project } from "./projects";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -309,6 +309,23 @@ describe("the partner profile (DECISIONS 69)", () => {
     expect(eligiblePartners(partners, "PUMP", "2026-11-20").map((p) => p.id)).toEqual(["any", "pumps", "busy"]);
     expect(eligiblePartners(partners, "TENT", "2026-11-20").map((p) => p.id)).toEqual(["any", "tents"]);
     expect(eligiblePartners(partners, "NOTHING", "2026-11-20").map((p) => p.id)).toEqual(["any"]);
+  });
+  it("makes an invented sample partner that saves as active and approved, is active for two items, and says nothing about it is real", () => {
+    const items = [{ id: "I3", name: "Tent" }, { id: "I1", name: "Small Pump" }, { id: "I2", name: "Orphan Sponsorship" }];
+    const r = save(empty(), samplePartnerProfile(items, "2026-11-23"));
+    expect(r.error).toBeUndefined();
+    const p = r.value.projects[0]!;
+    expect(p).toMatchObject({ name: "Sample Orphan Care Trust", type: "Institute", status: "active", ddStatus: "approved", reference: SAMPLE_PARTNER_REFERENCE, capacity: 40 });
+    expect(isActivePartner(p, "2026-11-23")).toBe(true);
+    expect(p.itemIds).toEqual(["I2", "I1"]); // the first two by name
+    expect(p.benefitTerms).toEqual({ I2: { capacity: 20, costPerUnit: 120 }, I1: { capacity: 10, costPerUnit: 950 } });
+    expect(p.contacts).toHaveLength(2);
+    expect(JSON.stringify(p)).not.toMatch(/@(?!example\.org)/); // only example.org addresses
+    expect(p.notes).toContain("invented");
+    expect(eligiblePartners(r.value.projects, "I1", "2026-11-23")).toHaveLength(1);
+    expect(eligiblePartners(r.value.projects, "I3", "2026-11-23")).toHaveLength(0); // it delivers only its two items
+    expect(save(r.value, samplePartnerProfile(items, "2026-11-23")).error).toContain("already"); // not twice
+    expect(save(empty(), samplePartnerProfile([], "2026-11-23")).error).toBeUndefined(); // with no items it delivers any
   });
   it("makes a partner active only while its due diligence is approved and in date", () => {
     expect(save(empty(), { name: "X", type: "T", status: "active" }).error).toContain("due diligence is approved");

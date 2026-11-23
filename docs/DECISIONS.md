@@ -447,3 +447,8 @@ Agreed with Faisal. More is added as data comes in (eligibility, access by field
 - **Who an item can be assigned to** is one pure rule, `eligiblePartners`, for the Assignment decision: the partner is active, its due diligence is approved and in date, it delivers the item (a partner with no items listed delivers any), and its capacity for the item is not 0. The Assignment process will use it when built.
 - In the code a partner is still called a Project (from before partners were named). That is renamed when clusters are built, so that "project" belongs only to the CRM project.
 - Not built yet: using the capacity to count what a partner holds, the partner's waiting list of batches, confirmation (approve or reject), the partner health score, and the partner sign-in.
+
+## 150. An invented sample partner to try the system with (23/11/2026)
+
+- The Partners page has an **Add a sample partner** button, shown until a sample partner exists. It adds "Sample Orphan Care Trust": an invented institute, active with due diligence approved (reviewed a year ahead), with two invented contacts (example.org addresses only), overall capacity 40, and active for the first two items by name, each with its own capacity and cost per unit. The notes on it say nothing about it is real, and it can be removed like any partner.
+- It is saved through the normal partner rule, so it is a partner like any other. It works in the demo and on the live database. The real partner profile and due diligence document Faisal shared earlier are not copied into the project: the repository keeps invented sample data only (project rules).

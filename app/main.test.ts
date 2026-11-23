@@ -288,6 +288,13 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     expect(shell.innerHTML).toContain('data-field-id="handover-date"'); // back to the starting features
     expect(shell.innerHTML).not.toContain('data-kf-act="reset"');
   });
+  it("adds an invented sample partner from the Partners page, once (DECISIONS 149)", () => {
+    click({ page: "partners" }, "data-page");
+    expect(shell.innerHTML).toContain("Add a sample partner");
+    click({ pf: "sample" }, "[data-pf]"); // the exact selector, since "data-pf-tab" also contains "data-pf"
+    expect(shell.innerHTML).toContain("Sample Orphan Care Trust");
+    expect(shell.innerHTML).not.toContain("Add a sample partner");
+  });
   it("has no Categories page in the menu any more", () => {
     click({ menu: "settings" }, "data-menu");
     expect(shell.innerHTML).not.toContain('data-page="categories"');

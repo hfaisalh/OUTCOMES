@@ -11,7 +11,7 @@
  */
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
-import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, clearLegacy, placeInNode, placeInPartner, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
+import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, clearLegacy, placeInNode, placeInPartner, samplePartnerProfile, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
 import { setCovers, setLooked, setParts, setPeriods } from "../modules/04b-commitments/catch-up";
 import { markCustomAmounts, setManual } from "../modules/04b-commitments/parts";
 import { giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts-page";
@@ -1240,6 +1240,7 @@ document.addEventListener("click", (e) => {
   if (!el) return;
   const what = el.dataset.pf;
   if (what === "new") return openPartnerWindow("");
+  if (what === "sample") return void outcomeChange({ action: "save-partner", projectId: "", copyFrom: "", profile: samplePartnerProfile(view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), new Date().toISOString().slice(0, 10)) });
   if (what === "open" || what === "edit") return openPartnerWindow(el.dataset.id ?? "");
   if (what === "cancel") return closePartnerWindow();
   const root = document.getElementById("modal-root") as HTMLElement | null;
