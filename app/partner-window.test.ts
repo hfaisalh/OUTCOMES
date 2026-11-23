@@ -49,6 +49,7 @@ describe("partnerWindowHtml", () => {
   it("shows the levels with where each sits, the types with what groups them, and the places and groups with what each adds up to", () => {
     const { projects, nodes, outcomes, id } = built();
     const html = partnerWindowHtml(base({ projects, nodes, outcomes }), id, "structure", ctx, {});
+    expect(html).toContain("now set up on the <b>project</b>"); // clusters moved to the project, and this says where to find them
     for (const w of ["<th>Level</th>", "<th>Sits</th>", "Under Branch", "Top, a place", "<th>Belongs to</th>", "<th>Grouped by</th>", "Class, House", "Places and groups", "Branch 1", "Class 5A", "Rose House", "Location: Lahore", "0 of 9"]) expect(html).toContain(w);
     expect(html).toContain("A child can be in a class and a house at the same time");
     for (const a of ["add-level", "add-type", "add-node"]) expect(html).toContain(`data-action="${a}"`);
