@@ -7,20 +7,23 @@
  * Who calls it: app/pages.ts (categoriesPage). Depends on: modules/05-outcomes/outcome-types.ts. Pure: it takes types and returns HTML.
  */
 
-import { FIELD_KINDS, type OutcomeType } from "../modules/05-outcomes/outcome-types";
+import { FIELD_KINDS, PROP_LABELS, propsOf, RECEIVERS, type OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { ICONS, iconHtml } from "./icons";
 import type { FrameworkTemplate } from "../modules/02-project-rules/categories";
 
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-export function outcomeTypeEditor(t: OutcomeType, frameworks: FrameworkTemplate[], used: Record<string, number>, show: { assign?: boolean; frameworks?: boolean; remove?: boolean; rules?: boolean } = {}): string {
+export function outcomeTypeEditor(t: OutcomeType, frameworks: FrameworkTemplate[], used: Record<string, number>, show: { assign?: boolean; frameworks?: boolean; remove?: boolean; rules?: boolean; kind?: boolean } = {}): string {
   const kindName = (id: string) => FIELD_KINDS.find((k) => k.id === id)?.label ?? id;
-  const o = { assign: true, frameworks: true, remove: true, rules: true, ...show };
+  const o = { assign: true, frameworks: true, remove: true, rules: true, kind: false, ...show };
   return `<div class="ot" data-ot-type="${esc(t.id)}">
     <div class="ot-head">${iconHtml(t.icon ?? "", t.name, "lg")}<input class="ot-name" data-ot="rename" data-type-id="${esc(t.id)}" value="${esc(t.name)}" aria-label="Type name">
       <label class="ot-prefix">Icon <select data-ot="icon" data-type-id="${esc(t.id)}" aria-label="Icon"><option value=""${!t.icon ? " selected" : ""}>None</option>${ICONS.map((x) => `<option value="${x.id}"${t.icon === x.id ? " selected" : ""}>${esc(x.label)}</option>`).join("")}</select></label> <label class="ot-prefix">ID prefix <input data-ot="prefix" data-type-id="${esc(t.id)}" value="${esc(t.prefix ?? "")}" maxlength="5" size="6" aria-label="ID prefix"></label><span class="muted">${esc(t.prefix ?? "")}-0001, ${esc(t.prefix ?? "")}-0002 ...</span>
       <span class="muted">${used[t.id] ?? 0} outcome${(used[t.id] ?? 0) === 1 ? "" : "s"} use it</span>
       ${o.remove ? `<button data-ot-act="remove" data-type-id="${esc(t.id)}"${(used[t.id] ?? 0) > 0 ? " disabled" : ""} title="${(used[t.id] ?? 0) > 0 ? "Outcomes use this type" : "Remove this type"}">Remove</button>` : ""}</div>
+    ${o.kind ? `<label class="wf-field"><span>What this kind is</span><textarea data-ot="blurb" data-type-id="${esc(t.id)}" rows="3" aria-label="What this kind is">${esc(t.blurb ?? "")}</textarea></label>
+    <div class="ot-props"><span class="muted">Properties</span>${PROP_LABELS.map((p) => `<label class="ot-check" title="${esc(p.hint)}"><input type="checkbox" data-ot="prop" data-prop="${p.id}" data-type-id="${esc(t.id)}"${propsOf(t)[p.id] ? " checked" : ""}> ${esc(p.label)}</label>`).join("")}
+      <label class="ot-check">Who receives <select data-ot="prop" data-prop="receiver" data-type-id="${esc(t.id)}" aria-label="Who receives">${RECEIVERS.map((r) => `<option value="${r.id}"${propsOf(t).receiver === r.id ? " selected" : ""}>${esc(r.label)}</option>`).join("")}</select></label></div>` : ""}
     <div class="ot-rules">
       ${o.rules ? `<label>A gift gets its outcome by <select data-ot="source" data-type-id="${esc(t.id)}"><option value="pick_existing"${t.source === "pick_existing" ? " selected" : ""}>Picking one that exists (for example an orphan)</option><option value="create_new"${t.source === "create_new" ? " selected" : ""}>Creating a new draft (for example a pump)</option></select></label>` : ""}
       ${o.assign ? `<label>Assigned to a partner <select data-ot="assign" data-type-id="${esc(t.id)}"><option value="auto"${t.assign === "auto" ? " selected" : ""}>Automatically, when it has capacity</option><option value="suggest"${t.assign === "suggest" ? " selected" : ""}>Only suggested to a person</option></select></label>` : ""}

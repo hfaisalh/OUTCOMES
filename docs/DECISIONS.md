@@ -414,3 +414,11 @@ Agreed after a sector review (humanitarian sectors, UK charitable purposes, Isla
 - The same item can be given free or lent. The terms (gift or loan, with a repayment schedule, and a write-off with a reason if it cannot be repaid) are decided per recipient at allocation, not by the donor's gift, and not by two benefits or two workflows. A benefit would carry a setting "can be lent". Nothing of this is built.
 - **Parked for later**, with where the ledger lives and donor intent for repayments. First the ordinary donation path is managed: a donor gives to an item, and the gift flows to a beneficiary.
 
+
+## 146. Kinds are configured on the Benefits page, as outcome types (23/11/2026)
+
+- A **kind of benefit is an outcome type**, so staff can add, rename, copy and remove kinds and set their properties without code. The Benefits page has the list of kinds, the chosen kind's editor, and the items. The six standard kinds (Person(s), Activity, Build, Distribution, Programme, Waqf) are a starting set, added with one button ("Add the standard kinds"), never replacing anything. A kind that items use can still be changed, and a removed kind is ignored when an item pointed at it.
+- A kind has a name, an icon, an ID prefix for its beneficiaries, a description (what it is, what is counted, the proof of delivery, examples), **properties** (needs a location, holds sensitive data, eligibility check, on behalf of, and who receives: a person, a group or household, an institution) and its **profile fields** (each with a type, whether it is needed first, and whether it goes in the donor report). The editor is the outcome type editor, reused.
+- The benefit itself is only a tag: an item points at a kind (`itemKinds`). It has no settings of its own.
+- No longer on a kind: the link to a workflow, and automatic or suggested assignment. Assignment is a decision of the workflow (138). The old outcome types (Orphan, Water pump, and so on) are still there as kinds until a person removes them, and a type that outcomes use cannot be removed.
+- Still to do: sections in the workflow's Allocation panel to pick their fields from the kinds (replacing the free-text list), the kind shown on the Gifts list, partners and benefits, clusters, and the beneficiary register.

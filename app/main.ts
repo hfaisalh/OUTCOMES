@@ -89,6 +89,7 @@ const state = {
   partnerWin: { open: false, id: "", tab: "profile" as PartnerTab, draft: null as Record<string, unknown> | null }, // the partner window (DECISIONS 70)
   workflowSel: { id: "", stage: 1, parts: 1, allocated: false, pick: "" } as NonNullable<View["workflowSel"]>, // the workflow and stage the Workflows page shows, and its sample gift (DECISIONS 130)
   itemIcons: {} as Record<string, string>, // the icon chosen for an item (DECISIONS 107)
+  kindSel: "", // the kind the Benefits page shows (DECISIONS 146)
   itemKinds: {} as Record<string, string>, // the kind of benefit chosen for an item (DECISIONS 143)
   idCounters: {} as Record<string, number>, // the last number used for each ID prefix (DECISIONS 105)
   outcomeTypes: starterOutcomeTypes() as OutcomeType[], // the kinds of outcome and their profile fields (DECISIONS 103)
@@ -211,7 +212,7 @@ function view(): View {
   const flaggedItems = [...items.values()];
   return {
     workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
-    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
+    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindSel: state.kindSel, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
 }
@@ -276,7 +277,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "approve-release": { const due = releaseApprovals(state.allocations, commitments, state.frameworks, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy).find((x) => x.commitmentKey === str("commitmentKey")); if (!due) error = "That place is not due for release."; else state.allocations = releaseAllocation(state.allocations, due.commitmentKey); break; }
         case "release": state.allocations = releaseAllocation(state.allocations, str("commitmentKey")); break;
         case "item-icon": { const icon = str("icon"); const next = { ...state.itemIcons }; if (icon === "") delete next[str("itemId")]; else next[str("itemId")] = icon; state.itemIcons = next; break; }
-        case "item-kind": { const r = setItemKind(state.itemKinds, str("itemId"), str("kind")); if ("error" in r) error = r.error; else state.itemKinds = r.value; break; }
+        case "item-kind": { const r = setItemKind(state.itemKinds, str("itemId"), str("kind"), state.outcomeTypes.map((x) => x.id)); if ("error" in r) error = r.error; else state.itemKinds = r.value; break; }
         default: {
           // Projects (DECISIONS 65): the same pure rule the server uses.
           const r = applyProjectAction({ projects: state.projects, nodes: state.nodes, outcomes: state.outcomes, partnerTypes: state.partnerTypes, partnerFields: state.partnerFields, giftProjects: state.giftProjects }, state.frameworks, body, new Date().toISOString().slice(0, 10), new Set(state.allocations.map((x) => x.outcomeId)));
@@ -1359,6 +1360,7 @@ document.addEventListener("click", (e) => {
   const val = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value ?? "";
   switch (b.dataset.otAct) {
     case "add": return void outcomeChange({ action: "ot-add", name: val("newot") });
+    case "kinds-starters": return void outcomeChange({ action: "ot-kinds-starters" });
     case "remove": return void outcomeChange({ action: "ot-remove", typeId });
     case "up": return void outcomeChange({ action: "ot-field-move", typeId, fieldId, by: -1 });
     case "down": return void outcomeChange({ action: "ot-field-move", typeId, fieldId, by: 1 });
@@ -1375,6 +1377,8 @@ document.addEventListener("change", (e) => {
   if (what === "icon") void outcomeChange({ action: "ot-icon", typeId, icon: t.value });
   else if (what === "rename") void outcomeChange({ action: "ot-rename", typeId, name: t.value });
   else if (what === "prefix") void outcomeChange({ action: "ot-prefix", typeId, prefix: t.value });
+  else if (what === "blurb") void outcomeChange({ action: "ot-blurb", typeId, blurb: t.value });
+  else if (what === "prop") void outcomeChange({ action: "ot-prop", typeId, prop: t.dataset["prop"] ?? "", value: t.dataset["prop"] === "receiver" ? t.value : (t as HTMLInputElement).checked });
   else if (what === "source") void outcomeChange({ action: "ot-source", typeId, source: t.value });
   else if (what === "assign") void outcomeChange({ action: "ot-assign", typeId, assign: t.value });
   else if (what === "framework") void outcomeChange({ action: "ot-framework", typeId, frameworkId: t.dataset["frameworkId"] ?? "", on: (t as HTMLInputElement).checked });
@@ -1418,6 +1422,8 @@ document.addEventListener("click", (e) => {
     afterConfig(false);
     return draw();
   }
+  const kindPick = t.closest?.("[data-kind-select]") as HTMLElement | null;
+  if (kindPick) { state.kindSel = kindPick.dataset.kindSelect ?? ""; return draw(); }
   const pick = t.closest?.("[data-wf-select]") as HTMLElement | null;
   if (pick) { state.workflowSel = { ...state.workflowSel, id: pick.dataset.wfSelect ?? "", stage: 1 }; return draw(); }
   const stage = t.closest?.("[data-wf-stage]") as HTMLElement | null;

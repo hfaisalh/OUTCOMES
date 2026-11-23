@@ -262,13 +262,20 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     click({ action: "add-starters" }, "data-action");
     expect(shell.innerHTML).toContain("already there");
   });
-  it("sets the kind of benefit of an item on the Benefits page (DECISIONS 143)", () => {
+  it("adds the standard kinds on the Benefits page, sets the kind of an item, and a kind's properties (DECISIONS 143, 146)", () => {
     click({ page: "benefits" }, "data-page");
     expect(shell.innerHTML).toContain("<h1>Benefits</h1>");
+    click({ otAct: "kinds-starters" }, "data-ot-act");
+    expect(shell.innerHTML).toContain('data-kind-select="build"');
+    expect(shell.innerHTML).not.toContain('data-ot-act="kinds-starters"');
     fire("change", { target: { id: "", dataset: { kindItem: "MWF-ORP-001" }, value: "distribution", checked: false } });
     expect(shell.innerHTML).toContain('<option value="distribution" selected>Distribution</option>');
     fire("change", { target: { id: "", dataset: { kindItem: "MWF-ORP-001" }, value: "", checked: false } });
     expect(shell.innerHTML).not.toContain('<option value="distribution" selected>Distribution</option>');
+    click({ kindSelect: "build" }, "data-kind-select");
+    expect(shell.innerHTML).toContain("<h2>Build</h2>");
+    fire("change", { target: { id: "", dataset: { ot: "prop", prop: "sensitive", typeId: "build" }, checked: true, value: "" } });
+    expect(shell.innerHTML).toMatch(/data-prop="sensitive" data-type-id="build" checked/);
   });
   it("has no Categories page in the menu any more", () => {
     click({ menu: "settings" }, "data-menu");
