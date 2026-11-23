@@ -490,3 +490,13 @@ Design agreed with Faisal, not built yet.
 - Custom donations that name a project that is not matched yet **wait for a person to match it** and are not treated as general (Faisal, 23/11/2026). Only gifts with no project, or Where Needed Most, are general.
 - Supersedes the "Custom donations go to" setting that was proposed: there is no default benefit, and the choice is made when the fund is spent.
 - To build with the Projects register: a **Fund** section on a project (the available amount, the parked gifts, and a Spend on items action that makes the work orders).
+
+## 154. The Projects register: benefits offered, vendors in priority order, one-click create (23/11/2026)
+
+First step of the build order in 152 and 153.
+
+- The Projects page was already there (decisions 66 and 76). It now shows, for each project, its name, the other CRM names it answers to, the **benefits it offers**, its **vendors in priority order**, and its gift count. A project with no vendor says so, and its gifts wait for a person.
+- **Benefits offered** (`itemIds` on the project): tick the gift items the project offers. None ticked offers any. A gift for a benefit the project does not offer is an exception, so it goes to Unallocated for a person to decide. Rule: `projectOffers`.
+- **Vendors in priority order:** the order of the partners on the project is the order they take work: the first until it is full, then the next. The form has arrows to change the order. Rule: `projectVendors` gives the vendors a work order of an item can go to, in the project's order, only those that are eligible (active, approved, delivering the item, capacity not 0) and only if the project offers the item. The Assignment process will use it.
+- **Create project in one click** beside each CRM name that is in no project. It makes the project at once, named after the CRM name, offering the benefits seen with that name on gifts (`itemsSeenWith`), and with no vendor yet. The earlier "New project from this name" opens the form instead. The CRM name matches its project from then on.
+- Not built yet: a setting to create projects automatically as names arrive, project roles, the project fund (153), clusters and their roles, the beneficiary count, and using the vendor order in Assignment. A project's name matching a gift's CRM name that is not in any project still does not hold the gift: the rule that a named but unmatched project waits for a person is to be wired in with Assignment.

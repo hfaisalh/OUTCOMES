@@ -26,8 +26,9 @@ describe("projectsPage", () => {
     const gps = [{ id: "aghosh", name: "Aghosh", crmNames: ["Aghosh Lahore"], partnerIds: ["aghosh-orphan-homes", "dadyal-orphan-complex"] }, { id: "empty", name: "Orphan Care Complex", crmNames: [], partnerIds: [] }];
     const html = projectsPage(base({ projects: partners, giftProjects: gps, workOrders: [wo("Aghosh"), wo("Aghosh"), wo("Aghosh Lahore")] }));
     expect(html).toContain('data-pj="open" data-id="aghosh"');
-    for (const w of ["Aghosh Lahore", "Aghosh Orphan Homes, Dadyal Orphan Complex", "<td>3</td>", "No partner"]) expect(html).toContain(w);
-    expect(html).toContain("A project with no partner makes its gifts wait");
+    for (const w of ["Aghosh Lahore", "1. Aghosh Orphan Homes<br>2. Dadyal Orphan Complex", "<td>3</td>", "No vendor"]) expect(html).toContain(w); // vendors in their priority order
+    expect(html).toContain("Any benefit"); // no benefits listed offers any
+    expect(html).toContain("A project with no vendor makes its gifts wait");
   });
   it("lists the names the CRM uses, lets each be put in a project, and suggests one that shares a word", () => {
     const gps = [{ id: "aghosh", name: "Aghosh Orphan Homes", crmNames: [], partnerIds: [] }];
@@ -38,6 +39,12 @@ describe("projectsPage", () => {
     expect(html).toContain('data-action="assign-crm" data-name="Aghosh Girls Home" data-project="aghosh"');
     expect(html).toContain("Use 1 suggestion");
     expect(html).toContain('data-pj="from-name" data-name="Hope for Palestine"'); // a name with no project and no suggestion can start one
+  });
+  it("shows the benefits a project offers by name, and offers one-click Create project beside a name with no project, carrying the items seen on its gifts (DECISIONS 154)", () => {
+    const gps = [{ id: "aghosh", name: "Aghosh", crmNames: [], partnerIds: [], itemIds: ["I1", "I2"] }];
+    const html = projectsPage(base({ giftProjects: gps, flaggedItems: [{ id: "I1", name: "Orphan Sponsorship", count: 1 }, { id: "I2", name: "Small Pump", count: 1 }] as never, workOrders: ["I2", "I2", "I1"].map((itemId, n) => ({ key: `k${n}`, projectName: "Hope for Palestine", itemId, status: "ready", subscriptionId: "", instalmentCount: "", paidDate: "" })) as never }));
+    expect(html).toContain("Orphan Sponsorship, Small Pump"); // the benefits offered
+    expect(html).toContain('data-pj="create-now" data-name="Hope for Palestine" data-items="I2,I1"');
   });
   it("says so when no gift carries a project name, and never trusts a name as HTML", () => {
     expect(projectsPage(base())).toContain("No gifts carry a project name yet");

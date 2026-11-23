@@ -1309,7 +1309,7 @@ function renderProjectWindow(error = "", draft?: Record<string, unknown>): void 
   }
   const existing = state.giftProjects.find((g) => g.id === w.id);
   const names = crmNamesOf(state.workOrders, state.giftProjects).map((n) => ({ name: n.name, gifts: n.gifts }));
-  root.innerHTML = projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects }, error);
+  root.innerHTML = projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })) }, error);
 }
 function closeProjectWindow(): void {
   state.projectWin = { open: false, id: "" };
@@ -1323,7 +1323,16 @@ document.addEventListener("click", (e) => {
   if (what === "new") { state.projectWin = { open: true, id: "" }; return renderProjectWindow(); }
   if (what === "open") { state.projectWin = { open: true, id: el.dataset.id ?? "" }; return renderProjectWindow(); }
   // A new project from a CRM name: the form opens with that name filled in and ticked.
-  if (what === "from-name") { state.projectWin = { open: true, id: "" }; return renderProjectWindow("", { name: el.dataset.name ?? "", partnerIds: [] }); }
+  if (what === "from-name") { state.projectWin = { open: true, id: "" }; return renderProjectWindow("", { name: el.dataset.name ?? "", partnerIds: [], itemIds: (el.dataset.items ?? "").split(",").filter((x) => x !== "") }); }
+  // Create the project at once from a CRM name, offering the benefits seen on its gifts. Vendors are added afterwards.
+  if (what === "create-now") return void outcomeChange({ action: "save-gift-project", giftProjectId: "", profile: { name: el.dataset.name ?? "", crmNames: [], partnerIds: [], itemIds: (el.dataset.items ?? "").split(",").filter((x) => x !== "") } });
+  // A vendor moves up or down in the priority order: the row moves in the form, and the order is read back from the form when it is saved.
+  if (what === "vup" || what === "vdown") {
+    const row = el.closest(".pf-vendor") as HTMLElement | null;
+    const sib = what === "vup" ? row?.previousElementSibling : row?.nextElementSibling;
+    if (row && sib) (what === "vup" ? sib.before(row) : sib.after(row));
+    return;
+  }
   if (what === "cancel") return closeProjectWindow();
   const root = document.getElementById("project-root");
   if (!root) return;

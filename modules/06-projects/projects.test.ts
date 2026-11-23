@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Allocation } from "../05-outcomes/outcomes";
 import type { Commitment } from "../04b-commitments/commitments";
-import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, capacityFor, eligiblePartners, samplePartnerProfile, SAMPLE_PARTNER_REFERENCE, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, removePartner, rollupOf, setNodeField, type Node, type Project } from "./projects";
+import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, assignRefs, setRef, adoptLegacy, clearLegacy, placeInPartner, applyProjectAction, levelTree, levelsBelow, moveLevel, isActivePartner, partnerAccepts, savePartner, projectOffers, projectVendors, itemsSeenWith, capacityFor, eligiblePartners, samplePartnerProfile, SAMPLE_PARTNER_REFERENCE, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, removePartner, rollupOf, setNodeField, type Node, type Project } from "./projects";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -259,6 +259,36 @@ describe("projects: what a donor chooses, and the partners that deliver it (DECI
     expect(setPlace(placed.value, projects, nodes, bare[0]!.id, "").value[0]).not.toHaveProperty("nodeId");
     expect(setPlace(bare, projects, nodes, "nope", "x").error).toContain("not found");
     expect(setGroup(bare, projects, nodes, bare[0]!.id, "class", "x").error).toContain("place first");
+  });
+});
+
+describe("projects: benefits offered, vendors in order (DECISIONS 154)", () => {
+  const ok = (id: string, over: Partial<Project> = {}): Project => ({ id, name: id, status: "active", ddStatus: "approved", aliases: [], levels: [], types: [], ...over });
+  const gp = (over: Partial<GiftProject> = {}): GiftProject => ({ id: "dadyal", name: "Dadyal Orphan Complex", crmNames: [], partnerIds: ["main", "backup", "full", "paused"], ...over });
+  const partners = [ok("main", { itemIds: ["SPONSOR", "BRICKS"] }), ok("backup"), ok("full", { benefitTerms: { SPONSOR: { capacity: 0 } } }), ok("paused", { status: "on_hold" }), ok("outsider")];
+  it("keeps the benefits a project offers, and an empty list offers any", () => {
+    const r = saveGiftProject([], partners, { name: "Dadyal Orphan Complex", partnerIds: ["backup", "main"], itemIds: ["SPONSOR", "SPONSOR", "BRICKS", ""] }, "");
+    expect(r.error).toBeUndefined();
+    expect(r.value[0]).toMatchObject({ partnerIds: ["backup", "main"], itemIds: ["SPONSOR", "BRICKS"] }); // the order of vendors is kept
+    expect(projectOffers(r.value[0]!, "SPONSOR")).toBe(true);
+    expect(projectOffers(r.value[0]!, "TENT")).toBe(false);
+    const none = saveGiftProject([], partners, { name: "Open project" }, "").value[0]!;
+    expect("itemIds" in none).toBe(false);
+    expect(projectOffers(none, "ANYTHING")).toBe(true);
+  });
+  it("gives the vendors an item can go to, in the project's order, only those that are eligible", () => {
+    const names = (g: GiftProject, item: string) => projectVendors(g, partners, item, "2026-11-23").map((p) => p.id);
+    expect(names(gp(), "SPONSOR")).toEqual(["main", "backup"]); // full has capacity 0 for it, paused is not active
+    expect(names(gp(), "BRICKS")).toEqual(["main", "backup", "full"]); // full only stopped SPONSOR
+    expect(names(gp({ partnerIds: ["backup", "main"] }), "SPONSOR")).toEqual(["backup", "main"]); // the project's own order wins
+    expect(names(gp(), "TENT")).toEqual(["backup", "full"]); // main delivers only its two items
+    expect(names(gp({ itemIds: ["SPONSOR"] }), "BRICKS")).toEqual([]); // the project does not offer it, so it is an exception
+    expect(names(gp({ partnerIds: [] }), "SPONSOR")).toEqual([]); // no vendor
+    expect(names(gp({ partnerIds: ["outsider"] }), "SPONSOR")).toEqual(["outsider"]);
+  });
+  it("lists the items seen with a CRM project name, once each, ignoring case and excluded payments", () => {
+    const w = (projectName: string | undefined, itemId: string, status = "ready") => ({ projectName, itemId, status });
+    expect(itemsSeenWith([w("Dadyal Orphan Complex", "A"), w(" dadyal  orphan complex ", "B"), w("Dadyal Orphan Complex", "A"), w("Dadyal Orphan Complex", "C", "excluded"), w("Other", "D"), w(undefined, "E")], "Dadyal Orphan Complex")).toEqual(["A", "B"]);
   });
 });
 

@@ -797,7 +797,8 @@ export interface GiftProject {
   id: string;
   name: string;
   crmNames: string[]; // other names the CRM uses for it
-  partnerIds: string[]; // the partners that deliver it. Any of them can take a gift for it
+  partnerIds: string[]; // the partners that deliver it. Any of them can take a gift for it. The order is the priority order: the first takes work until it is full, then the next (DECISIONS 154)
+  itemIds?: string[]; // the benefits (gift items) it offers. Absent or empty means any item (DECISIONS 154)
   notes?: string;
 }
 
@@ -815,9 +816,30 @@ export function saveGiftProject(gps: GiftProject[], partners: Project[], raw: Re
   const taken = new Set(crmNames.map((x) => x.toLowerCase()));
   const partnerIds = [...new Set((Array.isArray(raw["partnerIds"]) ? raw["partnerIds"] : []).filter((x): x is string => typeof x === "string" && partners.some((p) => p.id === x)))];
   const notes = text(raw["notes"], 1000);
-  const gp: GiftProject = { id: existing?.id ?? uniqueId(name, new Set(gps.map((g) => g.id))), name, crmNames, partnerIds, ...(notes !== "" ? { notes } : {}) };
+  const itemIds = [...new Set((Array.isArray(raw["itemIds"]) ? raw["itemIds"] : []).filter((x): x is string => typeof x === "string" && x !== "").map((x) => x.slice(0, 100)))].slice(0, 1000);
+  const gp: GiftProject = { id: existing?.id ?? uniqueId(name, new Set(gps.map((g) => g.id))), name, crmNames, partnerIds, ...(itemIds.length ? { itemIds } : {}), ...(notes !== "" ? { notes } : {}) };
   const others = gps.filter((g) => g.id !== gp.id).map((g) => ({ ...g, crmNames: g.crmNames.filter((x) => !taken.has(x.toLowerCase())) }));
   return { value: existing ? gps.map((g) => (g.id === gp.id ? gp : others.find((o) => o.id === g.id) as GiftProject)) : [...others, gp] };
+}
+
+// Rule (DECISIONS 154): does a project offer an item? A project with no items listed offers any.
+export const projectOffers = (gp: GiftProject, itemId: string): boolean => (gp.itemIds ?? []).length === 0 || (gp.itemIds ?? []).includes(itemId);
+
+/**
+ * Rule (DECISIONS 154): the vendors a project's work order can go to, for the Assignment decision, in the project's priority order. The project must offer the item. A vendor
+ * must be active with its due diligence approved and in date, deliver the item, and not have its capacity for the item set to 0. Returns none when the project does not offer the item,
+ * so the work order becomes an exception for a person to decide.
+ */
+export function projectVendors(gp: GiftProject, partners: Project[], itemId: string, today: string): Project[] {
+  if (!projectOffers(gp, itemId)) return [];
+  const eligible = eligiblePartners(partners, itemId, today);
+  return gp.partnerIds.map((id) => eligible.find((p) => p.id === id)).filter((p): p is Project => p !== undefined);
+}
+
+// The items seen with a CRM project name on gifts, to start the list of benefits a new project offers. Excluded payments are left out.
+export function itemsSeenWith(workOrders: { projectName?: string; itemId: string; status: string }[], crmName: string): string[] {
+  const n = clean(crmName).toLowerCase();
+  return [...new Set(workOrders.filter((w) => w.status !== "excluded" && clean(w.projectName ?? "").toLowerCase() === n && w.itemId !== "").map((w) => w.itemId))];
 }
 
 export const removeGiftProject = (gps: GiftProject[], id: string): GiftProject[] => gps.filter((g) => g.id !== id);
