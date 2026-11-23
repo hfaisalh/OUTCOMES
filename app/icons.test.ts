@@ -11,7 +11,7 @@ import { ICON_IDS, ICONS, iconHtml, itemIcon, suggestIcon } from "./icons";
 describe("icons", () => {
   it("has twenty distinct icons, each with a label and shapes", () => {
     expect(ICONS).toHaveLength(20);
-    expect(new Set(ICON_IDS).size).toBe(14);
+    expect(new Set(ICON_IDS).size).toBe(20);
     for (const i of ICONS) expect(i.paths.length).toBeGreaterThan(20);
   });
   it("suggests the icon from the item's name, most specific first", () => {
