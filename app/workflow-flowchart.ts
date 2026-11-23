@@ -54,7 +54,7 @@ export function flowChart(fw: FrameworkTemplate, type: OutcomeType | undefined, 
   let x = X0;
   let prevRight: number | null = null;
   const open = (n: number): string => (n === stage ? " on" : "");
-  const link = (to: number, label = ""): void => { if (prevRight !== null) edges.push(`<path d="M${prevRight} ${mid} H${to}" class="fc-edge" marker-end="url(#fc-arrow)"/>${label ? `<text x="${(prevRight + to) / 2}" y="${mid - 8}" text-anchor="middle" class="fc-lbl">${esc(label)}</text>` : ""}`); };
+  const link = (to: number, label = ""): void => { if (prevRight !== null) edges.push(`<path d="M${prevRight} ${mid} H${to}" class="fc-edge" marker-end="url(#fc-arrow)"/>${label === "Approve" ? `<g transform="translate(${(prevRight + to) / 2 - 6} ${mid - 22}) scale(.5)" class="fc-ri fc-ok"><title>Approved</title><path d="M5 12.5l4.5 4.5L19 7.5"/></g>` : label ? `<text x="${(prevRight + to) / 2}" y="${mid - 8}" text-anchor="middle" class="fc-lbl">${esc(label)}</text>` : ""}`); };
   const place = (w: number, draw: (cx: number) => string, label = ""): number => { link(x, label); const c = x + w / 2; parts.push(draw(c)); prevRight = x + w; x += w + GAP; return c; };
   const step = (n: number, aria: string, inner: string): string => `<g data-wf-stage="${n}" class="fc-step" role="button" tabindex="0" aria-label="${esc(aria)}">${inner}</g>`;
   const rect = (n: number, c: number, text: string, icon: string, focal = false): string => step(n, text.replace("|", " "), `<rect x="${c - W / 2}" y="${Y}" width="${W}" height="${H}" rx="6" class="fc-node${focal ? " focal" : ""}${open(n)}"/>${icon ? ruleIcon(icon, c - W / 2 + 4, Y + 3) : ""}${lines(text, c, mid + (icon ? 6 : 0))}`);
