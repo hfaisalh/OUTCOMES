@@ -33,6 +33,7 @@ import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
 import { backfillFrameworks, deriveParts, reapplyFrameworks, rerouteUnrouted, runPickup } from "./pickup.js";
 import { defaultConfig, setupOf, type OrgConfig, type Store } from "./store.js";
 import { setItemKind } from "../02-project-rules/benefits.js";
+import { applyKindAction, type SavedFeatures } from "../02-project-rules/kind-features.js";
 
 export interface HttpRequest {
   method: string;
@@ -359,22 +360,30 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (itemId === "" || itemId.length > 200 || (icon !== "" && !ICON_IDS.includes(icon))) return fail("That icon was not found.");
       const next = { ...(config.itemIcons ?? {}) };
       if (icon === "") delete next[itemId]; else next[itemId] = icon;
-      await d.store.putConfig(org, { ...config, itemIcons: next, itemKinds: config.itemKinds ?? {} });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: next, itemKinds: config.itemKinds ?? {} });
+      await d.store.putConfig(org, { ...config, itemIcons: next, itemKinds: config.itemKinds ?? {}, kindFeatures: config.kindFeatures ?? {} });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: next, itemKinds: config.itemKinds ?? {}, kindFeatures: config.kindFeatures ?? {} });
     }
     // The kind of benefit chosen for an item (DECISIONS 143). An empty kind takes the choice back, so the name's suggestion shows again.
     if (b["action"] === "item-kind") {
       const r = setItemKind(config.itemKinds ?? {}, str("itemId"), str("kind"));
       if ("error" in r) return fail(r.error);
-      await d.store.putConfig(org, { ...config, itemKinds: r.value });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: config.itemIcons ?? {}, itemKinds: r.value });
+      await d.store.putConfig(org, { ...config, itemKinds: r.value, kindFeatures: config.kindFeatures ?? {} });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: config.itemIcons ?? {}, itemKinds: r.value, kindFeatures: config.kindFeatures ?? {} });
+    }
+    // The features of a kind of benefit (DECISIONS 146): the same pure rule the demo uses.
+    if (typeof b["action"] === "string" && b["action"].startsWith("kf-")) {
+      const r = applyKindAction((config.kindFeatures ?? {}) as SavedFeatures, b);
+      if (!r) return fail("That request is not understood.");
+      if ("error" in r) return fail(r.error);
+      await d.store.putConfig(org, { ...config, kindFeatures: r.value });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, kindFeatures: r.value });
     }
     // Outcome types (DECISIONS 103): the same pure rule the demo uses. A type that outcomes already use cannot be removed.
     // The outcome types the starting workflows need, linked to those workflows that exist (DECISIONS 130).
     if (b["action"] === "ot-starters") {
       outcomeTypes = withPrefixes(linkStarterTypes(outcomeTypes, fw.map((f) => f.id)));
       await d.store.putConfig(org, { ...config, outcomeTypes });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {} });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, kindFeatures: config.kindFeatures ?? {} });
     }
     if (typeof b["action"] === "string" && b["action"].startsWith("ot-")) {
       const used = [...new Set(outcomes.map((o) => o.outcomeTypeId ?? "").filter((x) => x !== ""))];
@@ -383,7 +392,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if ("error" in r) return fail(r.error);
       outcomeTypes = r.types;
       await d.store.putConfig(org, { ...config, outcomeTypes });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {} });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, kindFeatures: config.kindFeatures ?? {} });
     }
     switch (b["action"]) {
       case "add": {
@@ -486,5 +495,5 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   } else if (settle()) {
     await d.store.putConfig(org, { ...config, outcomes, allocations, outcomeTypes, idCounters });
   }
-  return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, ...extra });
+  return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, kindFeatures: config.kindFeatures ?? {}, ...extra });
 }

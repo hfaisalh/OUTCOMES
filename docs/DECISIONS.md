@@ -414,3 +414,11 @@ Agreed after a sector review (humanitarian sectors, UK charitable purposes, Isla
 - The same item can be given free or lent. The terms (gift or loan, with a repayment schedule, and a write-off with a reason if it cannot be repaid) are decided per recipient at allocation, not by the donor's gift, and not by two benefits or two workflows. A benefit would carry a setting "can be lent". Nothing of this is built.
 - **Parked for later**, with where the ledger lives and donor intent for repayments. First the ordinary donation path is managed: a donor gives to an item, and the gift flows to a beneficiary.
 
+
+## 146. The features of each kind are managed on the Benefits page (23/11/2026)
+
+- Supersedes an attempt (made kinds free-form outcome types) that was reverted. The **six kinds stay fixed and always present**: Person(s), Activity, Build, Distribution, Programme, Waqf. Each kind has **features**, managed on the Benefits page. The kinds list is on the left, and choosing one shows its features on the right, beside the items list that tags each item with a kind.
+- The features of a kind: a **description** (what it is, what is counted, the proof of delivery, examples), **properties** (needs a location, holds sensitive data, eligibility check, on behalf of, and who receives: a person, a group or household, an institution) and the **profile fields** a beneficiary of that kind holds (a type, whether it is needed first, whether it goes in the donor report; add, change, reorder, remove).
+- Each kind starts with sensible defaults. Only a kind a person has changed is saved (`kindFeatures` in the organisation's settings), and "Reset to the starting features" drops the changes. Kinds that were changed are marked in the list.
+- Features belong to the kind, never to the item or to a workflow. An item is only a tag that points at a kind. Pure rules are in `modules/02-project-rules/kind-features.ts`, applied the same way by the server and the demo (actions `kf-...`).
+- New kinds beyond the six can be added later the same way if wanted. Not built: sections in the workflow's Allocation panel picking their fields from the kinds, the kind on the Gifts list, partners and benefits, clusters, the beneficiary register.

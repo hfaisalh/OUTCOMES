@@ -96,6 +96,7 @@ export interface OutcomesReply {
   idCounters?: Record<string, number>;
   itemIcons?: Record<string, string>;
   itemKinds?: Record<string, string>;
+  kindFeatures?: Record<string, unknown>;
   warning?: string;
   placed?: number;
   removed?: number;

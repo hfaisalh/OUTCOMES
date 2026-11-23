@@ -506,6 +506,20 @@ describe("outcomes (DECISIONS 61)", () => {
     expect(((await post(cookie, { action: "item-kind", itemId: "I9", kind: "" })).body as typeof set).itemKinds).toEqual({}); // taken back
   });
 
+  it("keeps the features of a kind a person changed, and resets them (DECISIONS 146)", async () => {
+    const cookie = await signIn(d);
+    type F = { kindFeatures: Record<string, { props: { sensitive: boolean }; fields: { id: string }[] }> };
+    const set = (await post(cookie, { action: "kf-prop", kind: "build", prop: "sensitive", value: true })).body as F;
+    expect(set.kindFeatures["build"]?.props.sensitive).toBe(true);
+    expect(Object.keys(set.kindFeatures)).toEqual(["build"]); // only the changed kind is saved
+    const added = (await post(cookie, { action: "kf-field-add", kind: "build", label: "Contractor", type: "text" })).body as F;
+    expect(added.kindFeatures["build"]?.fields.map((x) => x.id)).toContain("contractor");
+    expect((await post(cookie, { action: "kf-prop", kind: "microfinance", prop: "location", value: true })).status).toBe(400);
+    expect((await post(cookie, { action: "kf-bogus" })).status).toBe(400);
+    expect(((await handleOutcomes(as(cookie), d)).body as F).kindFeatures["build"]?.props.sensitive).toBe(true); // kept
+    expect(((await post(cookie, { action: "kf-reset", kind: "build" })).body as F).kindFeatures).toEqual({}); // back to the defaults
+  });
+
   it("marks only gifts of the Custom Amount item for manual allocation, never by price, and lets a person mark one by hand (DECISIONS 129)", async () => {
     const cookie = await signIn(d);
     // three normal gifts at different prices of the same item, and one of the Custom Amount item

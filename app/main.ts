@@ -44,6 +44,7 @@ import { ensureRefs } from "../modules/05-outcomes/refs";
 import { checkingHtml, signinHtml } from "./signin-page";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
 import { setItemKind } from "../modules/02-project-rules/benefits";
+import { applyKindAction, type SavedFeatures } from "../modules/02-project-rules/kind-features";
 import { isPageId, landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
 import { outcomesPage, listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, type Filter, type View } from "./pages";
 
@@ -89,6 +90,8 @@ const state = {
   partnerWin: { open: false, id: "", tab: "profile" as PartnerTab, draft: null as Record<string, unknown> | null }, // the partner window (DECISIONS 70)
   workflowSel: { id: "", stage: 1, parts: 1, allocated: false, pick: "" } as NonNullable<View["workflowSel"]>, // the workflow and stage the Workflows page shows, and its sample gift (DECISIONS 130)
   itemIcons: {} as Record<string, string>, // the icon chosen for an item (DECISIONS 107)
+  kindSel: "", // the kind the Benefits page shows (DECISIONS 146)
+  kindFeatures: {} as Record<string, unknown>, // the features of the kinds a person changed (DECISIONS 146)
   itemKinds: {} as Record<string, string>, // the kind of benefit chosen for an item (DECISIONS 143)
   idCounters: {} as Record<string, number>, // the last number used for each ID prefix (DECISIONS 105)
   outcomeTypes: starterOutcomeTypes() as OutcomeType[], // the kinds of outcome and their profile fields (DECISIONS 103)
@@ -211,7 +214,7 @@ function view(): View {
   const flaggedItems = [...items.values()];
   return {
     workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
-    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
+    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
 }
@@ -247,6 +250,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.idCounters = r.idCounters ?? state.idCounters;
       state.itemIcons = r.itemIcons ?? state.itemIcons;
       state.itemKinds = r.itemKinds ?? state.itemKinds;
+      state.kindFeatures = r.kindFeatures ?? state.kindFeatures;
       if (body["action"] === "remove-many") state.message = `Removed ${r.removed ?? 0}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`;
       else if (body["action"] === "adopt-legacy") state.message = `Moved ${(r as unknown as { moved?: number }).moved ?? 0} into the partner.`;
       else if (body["action"] === "clear-legacy") state.message = `Removed ${(r as unknown as { removed?: number }).removed ?? 0} and released ${(r as unknown as { released?: number }).released ?? 0} gifts.`;
@@ -258,8 +262,11 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       const str = (k: string) => String(body[k] ?? "");
       let error: string | undefined;
       // Outcome types (DECISIONS 103): the same pure rule the server uses.
+      const kf = typeof body["action"] === "string" && (body["action"] as string).startsWith("kf-") ? applyKindAction(state.kindFeatures as SavedFeatures, body) : null;
+      if (kf) { if ("error" in kf) error = kf.error; else state.kindFeatures = kf.value; }
       const ot = typeof body["action"] === "string" && (body["action"] as string).startsWith("ot-") ? applyOutcomeTypeAction(state.outcomeTypes, state.frameworks.map((f) => f.id), [...new Set(state.outcomes.map((o) => o.outcomeTypeId ?? "").filter((x) => x !== ""))], body) : null;
-      if (ot) { if ("error" in ot) error = ot.error; else state.outcomeTypes = ot.types; }
+      if (kf) { /* a kind feature request, applied above */ }
+      else if (ot) { if ("error" in ot) error = ot.error; else state.outcomeTypes = ot.types; }
       else switch (body["action"]) {
         case "add": { const r = addOutcomes(state.outcomes, { name: str("name"), count: Number(body["count"] ?? 1), type: str("type"), cohort: str("cohort"), frameworkId: str("frameworkId") }); if (!state.frameworks.some((f) => f.id === str("frameworkId"))) error = "Choose a framework for the outcome."; else if (r.error) error = r.error; else state.outcomes = r.value; break; }
         case "active": state.outcomes = setActive(state.outcomes, str("id"), body["active"] === true); break;
@@ -1387,6 +1394,17 @@ document.addEventListener("change", (e) => {
 document.addEventListener("change", (e) => {
   const t = e.target as HTMLSelectElement;
   if (t.dataset?.iconItem !== undefined) void outcomeChange({ action: "item-icon", itemId: t.dataset.iconItem, icon: t.value });
+  if (t.dataset?.kf !== undefined) {
+    const kind = t.dataset.kind ?? "", fieldId = t.dataset.fieldId ?? "", what = t.dataset.kf;
+    const checked = (t as unknown as HTMLInputElement).checked;
+    if (what === "what") void outcomeChange({ action: "kf-what", kind, what: t.value });
+    else if (what === "prop") void outcomeChange({ action: "kf-prop", kind, prop: t.dataset.prop ?? "", value: t.dataset.prop === "receiver" ? t.value : checked });
+    else if (what === "label") void outcomeChange({ action: "kf-field-set", kind, fieldId, label: t.value });
+    else if (what === "type") void outcomeChange({ action: "kf-field-set", kind, fieldId, type: t.value });
+    else if (what === "required") void outcomeChange({ action: "kf-field-set", kind, fieldId, required: checked });
+    else if (what === "inreport") void outcomeChange({ action: "kf-field-set", kind, fieldId, inReport: checked });
+    else if (what === "options") void outcomeChange({ action: "kf-field-set", kind, fieldId, options: t.value });
+  }
   if (t.dataset?.kindItem !== undefined) void outcomeChange({ action: "item-kind", itemId: t.dataset.kindItem, kind: t.value });
 });
 
@@ -1417,6 +1435,21 @@ document.addEventListener("click", (e) => {
     state.workflowSel = rest;
     afterConfig(false);
     return draw();
+  }
+  const kindPick = t.closest?.("[data-kind-select]") as HTMLElement | null;
+  if (kindPick) { state.kindSel = kindPick.dataset.kindSelect ?? ""; return draw(); }
+  const kfAct = t.closest?.("[data-kf-act]") as HTMLElement | null;
+  if (kfAct) {
+    const kind = kfAct.dataset.kind ?? "", fieldId = kfAct.dataset.fieldId ?? "";
+    const val = (i: string) => (document.getElementById(i) as HTMLInputElement | null)?.value ?? "";
+    switch (kfAct.dataset.kfAct) {
+      case "field-add": return void outcomeChange({ action: "kf-field-add", kind, label: val(`kf-label-${kind}`), type: val(`kf-type-${kind}`) });
+      case "field-remove": return void outcomeChange({ action: "kf-field-remove", kind, fieldId });
+      case "up": return void outcomeChange({ action: "kf-field-move", kind, fieldId, by: -1 });
+      case "down": return void outcomeChange({ action: "kf-field-move", kind, fieldId, by: 1 });
+      case "reset": return void outcomeChange({ action: "kf-reset", kind });
+    }
+    return;
   }
   const pick = t.closest?.("[data-wf-select]") as HTMLElement | null;
   if (pick) { state.workflowSel = { ...state.workflowSel, id: pick.dataset.wfSelect ?? "", stage: 1 }; return draw(); }

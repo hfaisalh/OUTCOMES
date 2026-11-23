@@ -8,6 +8,8 @@
  */
 
 import { KINDS, kindOf } from "../modules/02-project-rules/benefits";
+import { featuresOf, isCustomised, PROP_LABELS, RECEIVERS, type SavedFeatures } from "../modules/02-project-rules/kind-features";
+import { FIELD_KINDS } from "../modules/05-outcomes/outcome-types";
 import { resolveFrameworkId } from "../modules/02-project-rules/categories";
 import { iconHtml, itemIcon } from "./icons";
 import { esc, type View } from "./pages";
@@ -23,6 +25,24 @@ export function benefitsPage(v: View): string {
     const options = `<option value=""${k.chosen ? "" : " selected"}>${k.kind ? `Suggested: ${esc(KINDS.find((x) => x.id === k.kind)?.label ?? "")}` : "Choose a kind"}</option>${KINDS.map((x) => `<option value="${x.id}"${k.chosen && k.kind === x.id ? " selected" : ""}>${esc(x.label)}</option>`).join("")}`;
     return `<tr><td class="c">${iconHtml(itemIcon(i.id, i.name, v.itemIcons ?? {}), i.name)}</td><td>${esc(i.name)}</td><td><select data-kind-item="${esc(i.id)}" aria-label="Kind of ${esc(i.name)}">${options}</select>${k.chosen || !k.kind ? "" : ` <span class="muted" title="Suggested from the name. Choose it to keep it.">suggested</span>`}</td><td class="muted">${esc(workflowOf(i.id)) || "No workflow"}</td></tr>`;
   });
+  const saved = (v.kindFeatures ?? {}) as SavedFeatures;
+  const sel = KINDS.find((k) => k.id === v.kindSel) ?? KINDS[0]!;
+  const counts = (id: string): number => items.filter((i) => kindOf(kinds, i.id, i.name).kind === id).length;
+  const kindList = `<div class="card"><h3 class="wf-h">Kinds <span class="muted">(${KINDS.length})</span></h3><div class="wlist">${KINDS.map((k) => `<button class="wbtn${k.id === sel.id ? " on" : ""}" data-kind-select="${k.id}"><span class="ico ico-lg"></span><span><b>${esc(k.label)}</b><small>${counts(k.id)} item${counts(k.id) === 1 ? "" : "s"}${isCustomised(saved, k.id) ? ", changed" : ""}</small></span></button>`).join("")}</div>
+    <p class="hint muted">Choose a kind to see and change its features. Micro finance is a fund and is dealt with separately.</p></div>`;
+  const ft = featuresOf(saved, sel.id);
+  const fieldRows = ft.fields.map((x, i) => `<tr><td><input data-kf="label" data-kind="${sel.id}" data-field-id="${esc(x.id)}" value="${esc(x.label)}" aria-label="Field name"></td><td><select data-kf="type" data-kind="${sel.id}" data-field-id="${esc(x.id)}" aria-label="Field type">${FIELD_KINDS.map((k) => `<option value="${k.id}"${k.id === x.type ? " selected" : ""}>${esc(k.label)}</option>`).join("")}</select>${x.type === "choice" ? ` <input data-kf="options" data-kind="${sel.id}" data-field-id="${esc(x.id)}" value="${esc((x.options ?? []).join(", "))}" placeholder="Choices, separated by commas" aria-label="Choices">` : ""}</td>
+      <td class="c"><input type="checkbox" data-kf="required" data-kind="${sel.id}" data-field-id="${esc(x.id)}"${x.required ? " checked" : ""} aria-label="Needed first"></td><td class="c"><input type="checkbox" data-kf="inreport" data-kind="${sel.id}" data-field-id="${esc(x.id)}"${x.inReport ? " checked" : ""} aria-label="In the donor report"></td>
+      <td class="actcol"><div class="actbox"><button class="iconact" data-kf-act="up" data-kind="${sel.id}" data-field-id="${esc(x.id)}"${i === 0 ? " disabled" : ""} title="Move up" aria-label="Move up">&uarr;</button><button class="iconact" data-kf-act="down" data-kind="${sel.id}" data-field-id="${esc(x.id)}"${i === ft.fields.length - 1 ? " disabled" : ""} title="Move down" aria-label="Move down">&darr;</button><button class="iconact" data-kf-act="field-remove" data-kind="${sel.id}" data-field-id="${esc(x.id)}" title="Remove this field" aria-label="Remove this field">&times;</button></div></td></tr>`).join("");
+  const kindDetail = `<div class="card"><h2>${esc(sel.label)}</h2>
+    <label class="wf-field"><span>What this kind is</span><textarea data-kf="what" data-kind="${sel.id}" rows="3" aria-label="What this kind is">${esc(ft.what)}</textarea></label>
+    <h4 class="wf-h">Properties</h4>
+    <div class="ot-props">${PROP_LABELS.map((p) => `<label class="ot-check" title="${esc(p.hint)}"><input type="checkbox" data-kf="prop" data-prop="${p.id}" data-kind="${sel.id}"${ft.props[p.id] ? " checked" : ""}> ${esc(p.label)}</label>`).join("")}
+      <label class="ot-check">Who receives <select data-kf="prop" data-prop="receiver" data-kind="${sel.id}" aria-label="Who receives">${RECEIVERS.map((r) => `<option value="${r.id}"${ft.props.receiver === r.id ? " selected" : ""}>${esc(r.label)}</option>`).join("")}</select></label></div>
+    <h4 class="wf-h">Profile fields <span class="muted">(${ft.fields.length})</span></h4>
+    <p class="muted">The data a beneficiary of this kind holds. Needed first is the minimum before a partner takes it. In the report means it goes in the donor report.</p>
+    <div class="tablewrap"><table class="wf-tasks"><thead><tr><th>Field</th><th>Type</th><th class="c">Needed first</th><th class="c">In the report</th><th class="actcol"></th></tr></thead><tbody>${fieldRows || `<tr><td colspan="5" class="muted">No fields yet.</td></tr>`}</tbody></table></div>
+    <div class="ot-add"><input id="kf-label-${sel.id}" placeholder="New field, for example GPS location"><select id="kf-type-${sel.id}" aria-label="Type of the new field">${FIELD_KINDS.map((k) => `<option value="${k.id}">${esc(k.label)}</option>`).join("")}</select><button class="iconact ok" data-kf-act="field-add" data-kind="${sel.id}" title="Add the field" aria-label="Add the field">+</button>${isCustomised(saved, sel.id) ? `<button data-kf-act="reset" data-kind="${sel.id}" title="Go back to the starting features of this kind">Reset to the starting features</button>` : ""}</div></div>`;
   const chosen = items.filter((i) => kindOf(kinds, i.id, i.name).chosen).length;
   const none = items.filter((i) => kindOf(kinds, i.id, i.name).kind === "").length;
   return `<h1>Benefits</h1><p class="sub">What each gift item delivers. A benefit is the item itself, and its kind says what the beneficiary is, which decides the fields and evidence of its profile.</p>
@@ -30,7 +50,5 @@ export function benefitsPage(v: View): string {
     <section class="card"><h2>Items <span class="muted">(${items.length})</span></h2>
       <p class="muted">${chosen} chosen, ${items.length - chosen - none} suggested, ${none} to choose. The kind is set once and flows through the work order. Change it here if a suggestion is wrong.</p>
       <div class="tablewrap"><table class="subtable"><thead><tr><th class="c"></th><th>Item (benefit)</th><th>Kind</th><th>Workflow</th></tr></thead><tbody>${rows.join("") || `<tr><td colspan="4" class="muted">No items yet. They appear when gifts arrive from the CRM.</td></tr>`}</tbody></table></div></section>
-    <section class="card"><h2>The kinds</h2>
-      <div class="tablewrap"><table class="subtable"><thead><tr><th>Kind</th><th>The beneficiary is</th><th>Counted by</th><th>Proof of delivery</th><th>Examples</th></tr></thead><tbody>${KINDS.map((k) => `<tr><td><b>${esc(k.label)}</b></td><td>${esc(k.what)}</td><td>${esc(k.counted)}</td><td>${esc(k.proof)}</td><td class="muted">${esc(k.examples)}</td></tr>`).join("")}</tbody></table></div>
-      <p class="muted">Micro finance is dealt with separately. On behalf of, needing a location, sensitive data and who receives (a person, a group or an institution) are properties of a kind, not kinds.</p></section>`;
+    <div class="wf-layout">${kindList}${kindDetail}</div>`;
 }

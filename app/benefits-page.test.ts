@@ -29,11 +29,39 @@ describe("the Benefits page", () => {
     expect(html).toContain('<option value="activity" selected>Activity</option>');
     expect(html).toContain("1 chosen, 2 suggested, 0 to choose");
   });
-  it("describes each kind, leaves micro finance out, and shows the workflow of each item", () => {
-    const html = benefitsPage(view({ frameworks: [{ id: "w", name: "Transactional", unit: "", cycle: "on_delivery", reportType: "", unitsPerBeneficiary: 1 }], itemFramework: { I1: "w" } }));
+  it("lists the six kinds to choose from, always, with the number of items each has", () => {
+    const html = benefitsPage(view());
     for (const k of ["Person(s)", "Activity", "Build", "Distribution", "Programme", "Waqf"]) expect(html).toContain(`<b>${k}</b>`);
     expect(html).not.toContain("<b>Micro finance</b>");
-    expect(html).toContain("Micro finance is dealt with separately");
+    expect(html).toContain("Micro finance is a fund and is dealt with separately");
+    expect(html).toContain('data-kind-select="waqf"');
+    expect(html).toMatch(/Build<\/b><small>1 item/); // Small Pump
+    expect(html).toContain("<h2>Person(s)</h2>"); // the first one is shown when none is chosen
+  });
+  it("shows the features of the chosen kind: its description, properties and profile fields", () => {
+    const html = benefitsPage(view({ kindSel: "build" }));
+    expect(html).toContain("<h2>Build</h2>");
+    expect(html).toContain('data-kf="what"');
+    expect(html).toMatch(/data-kf="prop" data-prop="location" data-kind="build" checked/); // a build needs a location
+    expect(html).not.toMatch(/data-kf="prop" data-prop="sensitive" data-kind="build" checked/);
+    expect(html).toContain('data-prop="receiver"');
+    expect(html).toContain('value="GPS location"'); // a profile field
+    expect(html).toMatch(/data-kf="required" data-kind="build" data-field-id="location" checked/);
+    expect(html).toContain('data-kf-act="field-add"');
+    expect(html).not.toContain('data-kf-act="reset"'); // nothing changed yet
+    expect(benefitsPage(view({ kindSel: "person" }))).toMatch(/data-kf="prop" data-prop="sensitive" data-kind="person" checked/);
+  });
+  it("shows a kind a person changed, and offers to reset it", () => {
+    const changed = { build: { what: "Mine", props: { location: false, sensitive: true, eligibility: false, onBehalf: false, receiver: "" }, fields: [{ id: "x", label: "Only field", type: "text", required: false, inReport: false }] } };
+    const html = benefitsPage(view({ kindSel: "build", kindFeatures: changed }));
+    expect(html).toContain("Mine");
+    expect(html).toContain('value="Only field"');
+    expect(html).not.toContain('value="GPS location"');
+    expect(html).toContain('data-kf-act="reset"');
+    expect(html).toContain(", changed"); // the list says so
+  });
+  it("shows the workflow of each item", () => {
+    const html = benefitsPage(view({ frameworks: [{ id: "w", name: "Transactional", unit: "", cycle: "on_delivery", reportType: "", unitsPerBeneficiary: 1 }], itemFramework: { I1: "w" } }));
     expect(html).toContain("Transactional");
     expect(html).toContain("No workflow"); // the others
   });

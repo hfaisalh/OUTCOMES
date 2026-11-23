@@ -262,13 +262,25 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     click({ action: "add-starters" }, "data-action");
     expect(shell.innerHTML).toContain("already there");
   });
-  it("sets the kind of benefit of an item on the Benefits page (DECISIONS 143)", () => {
+  it("sets the kind of benefit of an item, and manages the features of a kind (DECISIONS 143, 146)", () => {
     click({ page: "benefits" }, "data-page");
     expect(shell.innerHTML).toContain("<h1>Benefits</h1>");
     fire("change", { target: { id: "", dataset: { kindItem: "MWF-ORP-001" }, value: "distribution", checked: false } });
     expect(shell.innerHTML).toContain('<option value="distribution" selected>Distribution</option>');
     fire("change", { target: { id: "", dataset: { kindItem: "MWF-ORP-001" }, value: "", checked: false } });
     expect(shell.innerHTML).not.toContain('<option value="distribution" selected>Distribution</option>');
+    click({ kindSelect: "build" }, "data-kind-select");
+    expect(shell.innerHTML).toContain("<h2>Build</h2>");
+    fire("change", { target: { id: "", dataset: { kf: "prop", prop: "sensitive", kind: "build" }, checked: true, value: "" } });
+    expect(shell.innerHTML).toMatch(/data-kf="prop" data-prop="sensitive" data-kind="build" checked/);
+    expect(shell.innerHTML).toContain(", changed");
+    fire("change", { target: { id: "", dataset: { kf: "required", kind: "build", fieldId: "gps-location" }, checked: true, value: "" } });
+    expect(shell.innerHTML).toMatch(/data-kf="required" data-kind="build" data-field-id="gps-location" checked/);
+    click({ kfAct: "field-remove", kind: "build", fieldId: "handover-date" }, "data-kf-act");
+    expect(shell.innerHTML).not.toContain('data-field-id="handover-date"');
+    click({ kfAct: "reset", kind: "build" }, "data-kf-act");
+    expect(shell.innerHTML).toContain('data-field-id="handover-date"'); // back to the starting features
+    expect(shell.innerHTML).not.toContain('data-kf-act="reset"');
   });
   it("has no Categories page in the menu any more", () => {
     click({ menu: "settings" }, "data-menu");
