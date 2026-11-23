@@ -25,6 +25,7 @@ const RULE_PATHS: Record<string, [string, string]> = {
 };
 
 const W = 104, SW = 96, H = 56, GAP = 28, Y = 52, X0 = 8;
+const ROOM = 30; // extra length of an arrow that carries an approved tick, so the line runs in and out of it
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 // A small circled tick (approved, green) or circled cross (rejected, red), drawn on an arrow.
@@ -58,7 +59,7 @@ export function flowChart(fw: FrameworkTemplate, type: OutcomeType | undefined, 
   let prevRight: number | null = null;
   const open = (n: number): string => (n === stage ? " on" : "");
   const link = (to: number, label = ""): void => { if (prevRight !== null) edges.push(`<path d="M${prevRight} ${mid} H${to}" class="fc-edge" marker-end="url(#fc-arrow)"/>${label === "Approve" ? badge((prevRight + to) / 2, mid, true) : label ? `<text x="${(prevRight + to) / 2}" y="${mid - 8}" text-anchor="middle" class="fc-lbl">${esc(label)}</text>` : ""}`); };
-  const place = (w: number, draw: (cx: number) => string, label = ""): number => { link(x, label); const c = x + w / 2; parts.push(draw(c)); prevRight = x + w; x += w + GAP; return c; };
+  const place = (w: number, draw: (cx: number) => string, label = ""): number => { if (label === "Approve") x += ROOM; link(x, label); const c = x + w / 2; parts.push(draw(c)); prevRight = x + w; x += w + GAP; return c; };
   const step = (n: number, aria: string, inner: string): string => `<g data-wf-stage="${n}" class="fc-step" role="button" tabindex="0" aria-label="${esc(aria)}">${inner}</g>`;
   const rect = (n: number, c: number, text: string, icon: string, focal = false): string => step(n, text.replace("|", " "), `<rect x="${c - W / 2}" y="${Y}" width="${W}" height="${H}" rx="6" class="fc-node${focal ? " focal" : ""}${open(n)}"/>${icon ? ruleIcon(icon, c - W / 2 + 4, Y + 3) : ""}${lines(text, c, mid + (icon ? 6 : 0))}`);
   const diamond = (n: number, c: number, text: string, icon: string, focal = false): string => step(n, text.replace("|", " "), `<path d="M${c} ${Y - 6} L${c + W / 2 + 6} ${mid} L${c} ${Y + H + 6} L${c - W / 2 - 6} ${mid} Z" class="fc-node${focal ? " focal" : ""}${open(n)}"/>${icon ? ruleIcon(icon, c - 8, Y - 22) : ""}${lines(text, c, mid)}`);
@@ -70,6 +71,7 @@ export function flowChart(fw: FrameworkTemplate, type: OutcomeType | undefined, 
   const assignX = place(W, (c) => diamond(2, c, assignOf(fw, type) === "auto" ? "Assignment|automatic" : "Assignment|by a person", "assign"), once ? "Yes" : "");
   const confirmX = place(W, (c) => diamond(3, c, `Confirm|${confirmDaysOf(fw)} day${confirmDaysOf(fw) === 1 ? "" : "s"}`, "confirm"));
   // Stage 4: allocation, the work order sits in an outcome profile. The profile's sections are drawn inside it.
+  x += ROOM; // room for the approved tick on the arrow into the profile
   const groupLeft = x - 10;
   link(x, "Approve");
   const shown = sections.length ? sections : [{ id: "-", label: "Outcome profile", days: 0, needs: [], photo: false, canPause: true, tell: "" }];
