@@ -585,3 +585,18 @@ Addendum to 162 (Faisal, 24/11/2026): the Clusters tab itself shows **the whole 
 - Two ways an outcome arises: **gift-first** types (house, pump, tent, food drive, mosque) are created by the gift when the work order reaches Allocation, and recipients are attached after. **Beneficiary-first** types (sponsorship, scholarship, Hifz) start as an **open place** made when an approved beneficiary is enrolled in a cluster for a benefit, and gifts fill it.
 - The older list is **removed from the main menu** and sits under Allocation as "Outcome records (older)" until Allocation is rewired onto outcomes in clusters, then it goes. This supersedes the "Outcomes" rename in 163.
 - Next, in order: the **who receives** setting per type (also says gift-first or beneficiary-first), **enrolment** in clusters, **sample data** (dummy clusters and beneficiaries for the sample items), **Assignment**, then **Allocation rewired** onto the open places, and a test run of the sample gifts.
+
+## 166. Each type says who receives and who comes first (Faisal, 24/11/2026)
+
+- **Who receives** now has four answers: **the person themselves** (one beneficiary per outcome, a sponsored child), **a household or family**, **a list of people** (a food drive, a medical camp), and **no one** (a community or an institution, a mosque). The older answers are read as before: group is a household, institution is none.
+- New: **who comes first.** **The beneficiary:** an approved beneficiary is enrolled in a cluster first and waits for sponsors, and a gift fills that open place (sponsorship, scholarship, Hifz). **The gift:** the gift arrives first and creates the outcome, and recipients are enrolled after (house, pump, tent, food drive, mosque).
+- Defaults: Person(s) is beneficiary-first and takes a person. Activity, Distribution and Programme take a list. Build takes a household. Waqf takes no one. All six start gift-first except Person(s). Both are set on the Benefits page, per type.
+
+## 167. Enrolment: a beneficiary in a cluster, for a benefit (Faisal, 24/11/2026)
+
+- An **enrolment** places a beneficiary in a cluster or sub cluster of a project, for one benefit (a gift item), optionally in a **role** the cluster lists (Principal, Warden). It has its own ID (EN-0001) and a status, and ending one keeps the record. One person in orphan care, an education scholarship and Hifz is one beneficiary with three enrolments.
+- **Rules:** the beneficiary must be active, the cluster must belong to the project and be active, and the benefit must be one the project offers. The type decides who it takes (a person, a household, a list, or no one). **Where the beneficiary comes first, a person must have the admission decision Ready**, and a declined one is refused with that reason. A role holder needs no decision and **does not use up a place**.
+- **Capacity** is the total on the **master cluster**, shared by everything inside it. It is checked when enrolling and when moving. The same beneficiary is enrolled once per project, benefit and role while active.
+- **Removal:** a beneficiary with an active enrolment, or a cluster that holds one, cannot be removed.
+- **Where:** a third tab, **Beneficiaries**, on every cluster and sub cluster, with the list of who is enrolled there and below, a move list and an end button on each row, and a form to enrol. The Beneficiaries page has an **Enrolled** column.
+- **Not built yet:** the open places for Allocation, the sample setup, Assignment and the rewired Allocation (see 165).

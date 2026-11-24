@@ -186,3 +186,23 @@ A person or household that receives what a gift delivers. Stored on the organisa
 | `size` | Household: how many people, when the persons are not listed |
 | `notes` | Free text |
 
+## Enrolment (DECISIONS 167)
+A beneficiary placed in a cluster of a project for one benefit. Stored on the organisation's setup as `enrolments` (`records` and a `counter`).
+
+| Field | Meaning |
+|---|---|
+| `id` | Permanent ID, for example EN-0001. Never reused |
+| `beneficiaryId` | The beneficiary, from the register |
+| `giftProjectId` | The project |
+| `clusterId` | The cluster or sub cluster of that project |
+| `itemId` | The benefit: a CRM item |
+| `role` | A role the cluster lists (Principal, Warden), or empty for an ordinary beneficiary. A role holder does not count towards capacity |
+| `status` | Active or ended. An ended enrolment is kept |
+| `since`, `endedOn` | Dates, YYYY-MM-DD |
+
+## Type features: who receives and who comes first (DECISIONS 166)
+| Field | Meaning |
+|---|---|
+| `receiver` | `person` (the person themselves), `household`, `list` (a list of people), `none` (a community or institution), or empty. Older saved values `group` and `institution` read as household and none |
+| `first` | `beneficiary` (enrolled first, waits for a sponsor) or `gift` (the gift creates the outcome, recipients come after) |
+

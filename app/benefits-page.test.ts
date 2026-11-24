@@ -45,6 +45,9 @@ describe("the Benefits page", () => {
     expect(html).toMatch(/data-kf="prop" data-prop="location" data-kind="build" checked/); // a build needs a location
     expect(html).not.toMatch(/data-kf="prop" data-prop="sensitive" data-kind="build" checked/);
     expect(html).toContain('data-prop="receiver"');
+    expect(html).toContain('data-prop="first"');
+    expect(html).toContain('<option value="gift" selected>The gift: it creates the outcome, recipients come after</option>'); // a build: the gift comes first
+    expect(benefitsPage(view({ kindSel: "person" }))).toContain('<option value="beneficiary" selected>The beneficiary: enrolled first, waits for a sponsor</option>'); // a person type: the beneficiary comes first
     expect(html).toContain('value="GPS location"'); // a profile field
     expect(html).toMatch(/data-kf="required" data-kind="build" data-field-id="location" checked/);
     expect(html).toContain('data-kf-act="field-add"');
@@ -64,7 +67,7 @@ describe("the Benefits page", () => {
     expect(benefitsPage(view({ kindSel: "build" }))).toContain('<option value="unallocated" selected>');
   });
   it("shows a kind a person changed, and offers to reset it", () => {
-    const changed = { build: { what: "Mine", props: { location: false, sensitive: true, eligibility: false, onBehalf: false, receiver: "" }, fields: [{ id: "x", label: "Only field", type: "text", required: false, inReport: false }] } };
+    const changed = { build: { what: "Mine", props: { location: false, sensitive: true, eligibility: false, onBehalf: false, receiver: "", first: "gift" }, fields: [{ id: "x", label: "Only field", type: "text", required: false, inReport: false }] } };
     const html = benefitsPage(view({ kindSel: "build", kindFeatures: changed }));
     expect(html).toContain("Mine");
     expect(html).toContain('value="Only field"');

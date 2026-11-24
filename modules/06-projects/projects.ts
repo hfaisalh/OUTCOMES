@@ -542,7 +542,7 @@ export function removePartner(s: ProjectState, projectId: string, withBeneficiar
  * Rule: one place where a request from the screen becomes a change, so the server and the demo behave the same. Returns nothing when the
  * action is not a project action. Text is cut to a sensible length, and the number of places or beneficiaries is capped.
  */
-export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], body: Record<string, unknown>, today = "", allocatedIds: Set<string> = new Set()): { state: ProjectState; warning?: string; error?: string } | undefined {
+export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], body: Record<string, unknown>, today = "", allocatedIds: Set<string> = new Set(), clusterHeld: (giftProjectId: string, clusterId: string) => number = () => 0): { state: ProjectState; warning?: string; error?: string } | undefined {
   const action = typeof body["action"] === "string" ? body["action"] : "";
   if (!PROJECT_ACTIONS.includes(action)) return undefined;
   const str = (k: string, max = 100): string => (typeof body[k] === "string" ? (body[k] as string).slice(0, max) : "");
@@ -554,7 +554,7 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
     const id = str("giftProjectId");
     const gp = s.giftProjects.find((g) => g.id === id);
     if (!gp) return fail("That project was not found.");
-    const r = applyClusterAction(clusterStateOf(gp.levels, gp.clusters), body);
+    const r = applyClusterAction(clusterStateOf(gp.levels, gp.clusters), body, (clusterId) => clusterHeld(id, clusterId));
     if (r === null) return undefined;
     if ("error" in r) return fail(r.error);
     return done({ ...s, giftProjects: s.giftProjects.map((g) => (g.id === id ? { ...g, levels: undefined, ...(r.value.clusters.length ? { clusters: r.value.clusters } : { clusters: undefined }) } : g)) });

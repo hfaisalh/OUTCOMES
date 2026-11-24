@@ -10,6 +10,7 @@
 
 import type { AttentionItem } from "../modules/04-triage/triage";
 import type { BeneficiaryFilter, Register } from "../modules/07-beneficiaries/beneficiaries";
+import type { Enrolments } from "../modules/07-beneficiaries/enrolments";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { partsOf } from "../modules/01c-crm-connector/work-orders";
 import { autoAllocate, fillOf, holdingReport, monthsAround, perPeriodRule, timelineOf, type UnitStatus, type Allocation, type Availability, type Outcome } from "../modules/05-outcomes/outcomes";
@@ -47,6 +48,7 @@ export interface View {
   giftProjects?: GiftProject[]; // the projects donors choose and the partners that deliver them (DECISIONS 76)
   benFilter?: BenFilter; // the filters on the Outcomes list page
   beneficiaries?: Register; // the Beneficiary register (DECISIONS 163)
+  enrolments?: Enrolments; // who is enrolled in which cluster (DECISIONS 167)
   registerFilter?: BeneficiaryFilter; // the filters on the Beneficiaries page
   projects?: Project[]; // the partners (the code still calls a partner a Project) and their structures (DECISIONS 65)
   nodes?: Node[]; // the places in them

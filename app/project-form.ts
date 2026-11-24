@@ -9,12 +9,15 @@
 import type { GiftProject, Project } from "../modules/06-projects/projects";
 import { clustersTabHtml } from "./clusters-tab";
 import { clusterStateOf } from "../modules/06-projects/clusters";
+import type { Beneficiary } from "../modules/07-beneficiaries/beneficiaries";
+import type { Enrolment } from "../modules/07-beneficiaries/enrolments";
 import { esc } from "./pages";
 
 export interface ProjectFormContext {
   crmNames: { name: string; gifts: number }[]; // the names the CRM uses on gifts
   partners: Project[];
   items?: { id: string; name: string }[]; // the benefits (gift items) a project can offer
+  people?: { beneficiaries: Beneficiary[]; enrolments: Enrolment[] }; // the register and the enrolments, for the Beneficiaries tab of a cluster (DECISIONS 167)
 }
 
 export function projectFormHtml(g: Partial<GiftProject>, id: string, ctx: ProjectFormContext, error = "", tab: "details" | "clusters" = "details"): string {
@@ -27,7 +30,7 @@ export function projectFormHtml(g: Partial<GiftProject>, id: string, ctx: Projec
   return `<div class="pf-overlay" role="dialog" aria-modal="true" aria-label="Project"><div class="pf-box">
     <header><h2>${id ? esc(g.name ?? "Project") : "New project"}</h2><button data-pj="cancel" aria-label="Close">Close</button></header>
     ${id ? `<nav class="pf-tabs" role="tablist"><button type="button" role="tab" class="${tab === "details" ? "on" : ""}" data-pj="tab" data-tab="details">Details</button><button type="button" role="tab" class="${tab === "clusters" ? "on" : ""}" data-pj="tab" data-tab="clusters">Clusters${(g.clusters ?? []).length ? ` <span class="muted">(${(g.clusters ?? []).length})</span>` : ""}</button></nav>` : ""}
-    ${id && tab === "clusters" ? clustersTabHtml(clusterStateOf(g.levels, g.clusters), error) : `<div class="pf-body">
+    ${id && tab === "clusters" ? clustersTabHtml(clusterStateOf(g.levels, g.clusters), error, ctx.people ? { projectId: id, items: (g.itemIds ?? []).length > 0 ? (ctx.items ?? []).filter((i) => (g.itemIds ?? []).includes(i.id)) : ctx.items ?? [], beneficiaries: ctx.people.beneficiaries, enrolments: ctx.people.enrolments } : undefined) : `<div class="pf-body">
       <section><div class="pf-grid"><label class="pf-field"><span>Display Name</span><input id="pr-name" value="${esc(g.name ?? "")}" placeholder="For example Aghosh" required /></label>
         ${crmLocked ? `<label class="pf-field"><span>Original Name (fixed)</span><input id="pr-crm-locked" value="${esc(crmLocked)}" readonly aria-readonly="true" title="The CRM's own project name. It cannot be changed, so this project stays tied to it." /></label>`
           : `<label class="pf-field"><span>Original Name</span><select id="pr-crm" aria-label="Original Name"><option value="">Not linked to a CRM project</option>${ctx.crmNames.map((n) => `<option value="${esc(n.name)}">${esc(n.name)} (${n.gifts})</option>`).join("")}</select></label>`}</div>

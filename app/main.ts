@@ -20,6 +20,7 @@ import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
 import { registerPage } from "./register-page";
 import { registerFormHtml } from "./register-form";
+import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf, type Enrolments } from "../modules/07-beneficiaries/enrolments";
 import { applyBeneficiaryAction, emptyRegister, NO_FILTER as NO_REGISTER_FILTER, type Beneficiary, type BeneficiaryFilter, type BeneficiaryKind, type Register } from "../modules/07-beneficiaries/beneficiaries";
 import { projectFormHtml, readProjectForm } from "./project-form";
 import { ICON_SETTINGS } from "./icons";
@@ -92,6 +93,7 @@ const state = {
   giftProjects: [] as GiftProject[], // the projects donors choose, and the partners that deliver them (DECISIONS 76)
   benFilter: { ...NO_BEN_FILTER } as BenFilter, // the filters on the Outcomes list page
   beneficiaries: emptyRegister() as Register, // the Beneficiary register (DECISIONS 163)
+  enrolments: emptyEnrolments() as Enrolments, // who is enrolled in which cluster (DECISIONS 167)
   registerFilter: { ...NO_REGISTER_FILTER } as BeneficiaryFilter, // the filters on the Beneficiaries page
   benWin: { open: false, id: "", kind: "person" as BeneficiaryKind }, // the beneficiary window
   projectWin: { open: false, id: "" } as { open: boolean; id: string; tab?: "details" | "clusters" }, // the project form and the tab it shows
@@ -154,7 +156,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
-    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.itemIcons = o.itemIcons ?? state.itemIcons; }).catch(() => undefined);
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.enrolments = o.enrolments ?? state.enrolments; state.itemIcons = o.itemIcons ?? state.itemIcons; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
     state.message = "";
   } catch (e) {
@@ -223,7 +225,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, registerFilter: state.registerFilter, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, registerFilter: state.registerFilter, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -259,6 +261,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.outcomeTypes = r.outcomeTypes ?? state.outcomeTypes;
       state.idCounters = r.idCounters ?? state.idCounters;
       state.beneficiaries = r.beneficiaries ?? state.beneficiaries;
+      state.enrolments = r.enrolments ?? state.enrolments;
       state.itemIcons = r.itemIcons ?? state.itemIcons;
       state.itemKinds = r.itemKinds ?? state.itemKinds;
       state.kindFeatures = r.kindFeatures ?? state.kindFeatures;
@@ -277,9 +280,13 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       if (kf) { if ("error" in kf) error = kf.error; else state.kindFeatures = kf.value; }
       const ot = typeof body["action"] === "string" && (body["action"] as string).startsWith("ot-") ? applyOutcomeTypeAction(state.outcomeTypes, state.frameworks.map((f) => f.id), [...new Set(state.outcomes.map((o) => o.outcomeTypeId ?? "").filter((x) => x !== ""))], body) : null;
       // The Beneficiary register (DECISIONS 163): the same pure rule the server uses.
-      const bn = typeof body["action"] === "string" && (body["action"] as string).startsWith("ben-") ? applyBeneficiaryAction(state.beneficiaries, body) : null;
+      const bn = typeof body["action"] === "string" && (body["action"] as string).startsWith("ben-") ? applyBeneficiaryAction(state.beneficiaries, body, (id) => heldByBeneficiary(state.enrolments, id)) : null;
       if (bn) { if ("error" in bn) error = bn.error; else state.beneficiaries = bn.value; }
-      if (kf || bn) { /* a kind feature request or a register request, applied above */ }
+      // Enrolments (DECISIONS 167): the same pure rule the server uses. The type of each item says who it takes and who comes first.
+      const names = new Map(view().flaggedItems.map((i) => [i.id, i.name]));
+      const en = typeof body["action"] === "string" && (body["action"] as string).startsWith("enr-") ? applyEnrolmentAction({ beneficiaries: state.beneficiaries, giftProjects: state.giftProjects, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), today: new Date().toISOString().slice(0, 10) }, state.enrolments, body) : null;
+      if (en) { if ("error" in en) error = en.error; else state.enrolments = en.value; }
+      if (kf || bn || en) { /* a kind feature request or a register request, applied above */ }
       else if (ot) { if ("error" in ot) error = ot.error; else state.outcomeTypes = ot.types; }
       else switch (body["action"]) {
         case "add": { const r = addOutcomes(state.outcomes, { name: str("name"), count: Number(body["count"] ?? 1), type: str("type"), cohort: str("cohort"), frameworkId: str("frameworkId") }); if (!state.frameworks.some((f) => f.id === str("frameworkId"))) error = "Choose a framework for the outcome."; else if (r.error) error = r.error; else state.outcomes = r.value; break; }
@@ -300,7 +307,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "item-kind": { const r = setItemKind(state.itemKinds, str("itemId"), str("kind")); if ("error" in r) error = r.error; else state.itemKinds = r.value; break; }
         default: {
           // Projects (DECISIONS 65): the same pure rule the server uses.
-          const r = applyProjectAction({ projects: state.projects, nodes: state.nodes, outcomes: state.outcomes, partnerTypes: state.partnerTypes, partnerFields: state.partnerFields, giftProjects: state.giftProjects }, state.frameworks, body, new Date().toISOString().slice(0, 10), new Set(state.allocations.map((x) => x.outcomeId)));
+          const r = applyProjectAction({ projects: state.projects, nodes: state.nodes, outcomes: state.outcomes, partnerTypes: state.partnerTypes, partnerFields: state.partnerFields, giftProjects: state.giftProjects }, state.frameworks, body, new Date().toISOString().slice(0, 10), new Set(state.allocations.map((x) => x.outcomeId)), (gpId, clusterId) => heldInCluster(state.enrolments, gpId, clusterId));
           if (!r) error = "That request is not understood.";
           else if (r.error) error = r.error;
           else { state.projects = r.state.projects; state.nodes = r.state.nodes; state.outcomes = r.state.outcomes; state.partnerTypes = r.state.partnerTypes; state.partnerFields = r.state.partnerFields; state.giftProjects = r.state.giftProjects; if (r.warning) state.message = r.warning; }
@@ -1337,7 +1344,7 @@ function renderProjectWindow(error = "", draft?: Record<string, unknown>): void 
   }
   const existing = state.giftProjects.find((g) => g.id === w.id);
   const names = crmNamesOf(state.workOrders, state.giftProjects).filter((n) => n.giftProjectId === "").map((n) => ({ name: n.name, gifts: n.gifts })); // the CRM names no project has yet, to link a new project to
-  root.innerHTML = projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })) }, error, w.tab ?? "details");
+  root.innerHTML = projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), people: { beneficiaries: state.beneficiaries.records, enrolments: state.enrolments.records } }, error, w.tab ?? "details");
 }
 function closeProjectWindow(): void {
   clusterUi.node = ""; clusterUi.adding = ""; clusterUi.nodeTab = "details"; // the next project opens on its list of clusters
@@ -1603,7 +1610,9 @@ document.addEventListener("click", (e) => {
     case "sub-open": closedClusters.delete(id); clusterUi.adding = id; return clusterView(); // the folder opens so the new sub cluster shows
     case "sub-cancel": clusterUi.adding = ""; return clusterView();
     case "goto": clusterUi.node = id; clusterUi.adding = ""; clusterUi.nodeTab = "details"; return clusterView(); // "" goes back to the tree
-    case "node-tab": clusterUi.nodeTab = b.dataset.tab === "inside" ? "inside" : "details"; clusterUi.adding = ""; return clusterView();
+    case "enr-add": return clusterRequestThen("Enrolled.", { action: "enr-add", beneficiaryId: val("en-ben"), clusterId: id, itemId: val("en-item"), role: val("en-role") });
+    case "enr-end": return clusterRequestThen("Enrolment ended.", { action: "enr-end", id });
+    case "node-tab": clusterUi.nodeTab = b.dataset.tab === "inside" ? "inside" : b.dataset.tab === "people" ? "people" : "details"; clusterUi.adding = ""; return clusterView();
     case "node-save": return clusterRequestThen("Saved.", { action: "cluster-set", clusterId: id, name: val("cn-name"), label: val("cn-label"), place: val("cn-place"), roles: val("cn-roles"), status: val("cn-status"), ...(document.getElementById("cn-capacity") ? { capacity: val("cn-capacity") } : {}) });
     case "cluster-add": { // Rule: capacity belongs to the master cluster only, so a sub cluster is sent none.
       if (id === "") return clusterRequest({ action: "cluster-add", name: val("cl-tname"), label: val("cl-tlabel"), parentId: "", place: val("cl-tplace"), capacity: val("cl-tcap") });
@@ -1614,6 +1623,12 @@ document.addEventListener("click", (e) => {
     case "cluster-add-b": closedClusters.delete(id); return clusterRequest({ action: "cluster-add", name: val("cl-bname"), label: val("cl-blabel"), parentId: id, place: val("cl-bplace") });
     case "cluster-rm": return clusterRequest({ action: "cluster-remove", clusterId: id });
   }
+});
+// Moving an enrolment to another cluster of the project, from the list on its row.
+document.addEventListener("change", (e) => {
+  const t = e.target as HTMLSelectElement | null;
+  if (t?.dataset?.cl !== "enr-move" || !state.projectWin.open || t.value === "") return;
+  clusterRequestThen("Moved.", { action: "enr-move", id: t.dataset.id ?? "", clusterId: t.value });
 });
 // The search box on a long list hides the rows that do not match. Nothing is saved.
 document.addEventListener("input", (e) => {

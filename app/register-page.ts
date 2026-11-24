@@ -27,9 +27,12 @@ export function registerPage(v: View): string {
   const f: BeneficiaryFilter = v.registerFilter ?? NO_FILTER;
   const shown = filterBeneficiaries(all, f);
   const today = v.today ?? "2026-01-01";
+  // How many active enrolments each record has (DECISIONS 167).
+  const enrolled = new Map<string, number>();
+  for (const e of v.enrolments?.records ?? []) if (e.status === "active") enrolled.set(e.beneficiaryId, (enrolled.get(e.beneficiaryId) ?? 0) + 1);
   const rows = shown.slice(0, MAX_ROWS).map((r) => {
     const d = detail(r, all, today);
-    return `<tr class="rowlink" data-bn="open" data-id="${esc(r.id)}" tabindex="0"><td><span class="refbox">${esc(r.id)}</span></td><td><b>${esc(r.name)}</b></td><td>${esc(KIND_LABEL[r.kind])}</td><td class="num">${esc(d.size)}</td><td>${esc(r.area)}</td><td class="muted">${esc(d.who)}</td><td>${r.kind === "person" ? esc(ELIGIBILITY_LABEL[r.eligibility ?? ""]) : ""}</td><td>${r.status === "active" ? '<span class="pill">Active</span>' : '<span class="pill muted">Inactive</span>'}</td></tr>`;
+    return `<tr class="rowlink" data-bn="open" data-id="${esc(r.id)}" tabindex="0"><td><span class="refbox">${esc(r.id)}</span></td><td><b>${esc(r.name)}</b></td><td>${esc(KIND_LABEL[r.kind])}</td><td class="num">${esc(d.size)}</td><td>${esc(r.area)}</td><td class="muted">${esc(d.who)}</td><td>${r.kind === "person" ? esc(ELIGIBILITY_LABEL[r.eligibility ?? ""]) : ""}</td><td class="num">${enrolled.get(r.id) ?? ""}</td><td>${r.status === "active" ? '<span class="pill">Active</span>' : '<span class="pill muted">Inactive</span>'}</td></tr>`;
   }).join("");
   const filters = `<div class="filters"><select data-regf="kind" aria-label="Kind"><option value="">People and households</option><option value="person"${f.kind === "person" ? " selected" : ""}>People</option><option value="household"${f.kind === "household" ? " selected" : ""}>Households</option></select>
     <select data-regf="status" aria-label="Status"><option value="">Any status</option><option value="active"${f.status === "active" ? " selected" : ""}>Active</option><option value="inactive"${f.status === "inactive" ? " selected" : ""}>Inactive</option></select>
@@ -40,6 +43,6 @@ export function registerPage(v: View): string {
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="actions"><button class="primary" data-bn="new" data-kind="person">New person</button><button data-bn="new" data-kind="household">New household</button></div>
     ${filters}
-    ${all.length === 0 ? '<div class="empty">No beneficiaries yet. Add the first person or household.</div>' : shown.length === 0 ? '<div class="empty">Nothing matches.</div>' : `<div class="tablewrap"><table><thead><tr><th>ID</th><th>Name</th><th>Kind</th><th class="num">Age or size</th><th>Area</th><th>Guardian or members</th><th>Admission</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${all.length === 0 ? '<div class="empty">No beneficiaries yet. Add the first person or household.</div>' : shown.length === 0 ? '<div class="empty">Nothing matches.</div>' : `<div class="tablewrap"><table><thead><tr><th>ID</th><th>Name</th><th>Kind</th><th class="num">Age or size</th><th>Area</th><th>Guardian or members</th><th>Admission</th><th class="num">Enrolled</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="muted">${shown.length} of ${all.length}${shown.length > MAX_ROWS ? `, the first ${MAX_ROWS} shown` : ""}.</p>`}`;
 }

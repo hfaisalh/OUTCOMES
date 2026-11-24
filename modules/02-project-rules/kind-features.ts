@@ -17,8 +17,13 @@ import { FIELD_KINDS, type FieldKind } from "../05-outcomes/outcome-types.js";
 import { cleanPrefix, validPrefix } from "../05-outcomes/refs.js";
 import { KINDS, type BenefitKind } from "./benefits.js";
 
-export type Receiver = "" | "person" | "group" | "institution";
-export interface KindProps { location: boolean; sensitive: boolean; eligibility: boolean; onBehalf: boolean; receiver: Receiver }
+// Rule (DECISIONS 166): who receives what a type delivers. "person": the person themselves, one beneficiary per outcome (a sponsored child). "household": a family. "list": a list of people (a food drive,
+// a medical camp). "none": no one, a community or an institution (a mosque). Older settings said group (now household) and institution (now none).
+export type Receiver = "" | "person" | "household" | "list" | "none";
+// Rule (DECISIONS 166): who comes first. "beneficiary": an approved beneficiary is enrolled in a cluster first and waits for sponsors (an open place), and a gift fills it. "gift": the gift arrives first and
+// creates the outcome, and recipients are attached after.
+export type First = "beneficiary" | "gift";
+export interface KindProps { location: boolean; sensitive: boolean; eligibility: boolean; onBehalf: boolean; receiver: Receiver; first: First }
 export interface KindField { id: string; label: string; type: FieldKind; required: boolean; inReport: boolean; options?: string[] }
 // Rule (DECISIONS 148): what happens when a beneficiary of this type ends (a child leaves, a pump is handed over and closed). "reallocate": the sponsors are offered a new one automatically.
 // "unallocated": the gift becomes Unallocated and a person decides.
@@ -29,28 +34,30 @@ export const ON_END: { id: OnEnd; label: string }[] = [{ id: "reallocate", label
 // first, what happens when a beneficiary ends, and its properties. More is added as data comes in.
 export interface KindFeatures { what: string; prefix: string; duplicateOn: string[]; onEnd: OnEnd; props: KindProps; fields: KindField[] }
 
-export const PROP_LABELS: { id: Exclude<keyof KindProps, "receiver">; label: string; hint: string }[] = [
+export const PROP_LABELS: { id: Exclude<keyof KindProps, "receiver" | "first">; label: string; hint: string }[] = [
   { id: "location", label: "Needs a location", hint: "A place and GPS are part of the proof" },
   { id: "sensitive", label: "Holds sensitive data", hint: "Role-based access, and donor contacts are never shown to a partner" },
   { id: "eligibility", label: "Eligibility check", hint: "For example Zakat: the recipient must be eligible" },
   { id: "onBehalf", label: "On behalf of", hint: "Done in the name of someone, with a tribute or a certificate" },
 ];
-export const RECEIVERS: { id: Receiver; label: string }[] = [{ id: "", label: "Not set" }, { id: "person", label: "A person or a list of people" }, { id: "group", label: "A group or household" }, { id: "institution", label: "An institution" }];
+export const FIRSTS: { id: First; label: string }[] = [{ id: "beneficiary", label: "The beneficiary: enrolled first, waits for a sponsor" }, { id: "gift", label: "The gift: it creates the outcome, recipients come after" }];
+export const normaliseReceiver = (r: string): Receiver => (r === "group" ? "household" : r === "institution" ? "none" : (["", "person", "household", "list", "none"] as string[]).includes(r) ? (r as Receiver) : "");
+export const RECEIVERS: { id: Receiver; label: string }[] = [{ id: "", label: "Not set" }, { id: "person", label: "The person themselves (one beneficiary)" }, { id: "household", label: "A household or family" }, { id: "list", label: "A list of people" }, { id: "none", label: "No one: a community or an institution" }];
 
 const slug = (s: string): string => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "field";
 const uniqueId = (base: string, taken: string[]): string => { const root = slug(base); let id = root; for (let n = 2; taken.includes(id); n++) id = `${root}-${n}`; return id; };
 const f = (label: string, type: FieldKind, required = false, inReport = false): Omit<KindField, "id"> => ({ label, type, required, inReport });
 const withIds = (fields: Omit<KindField, "id">[]): KindField[] => fields.reduce<KindField[]>((all, x) => [...all, { ...x, id: uniqueId(x.label, all.map((y) => y.id)) }], []);
-const props = (over: Partial<KindProps>): KindProps => ({ location: false, sensitive: false, eligibility: false, onBehalf: false, receiver: "", ...over });
+const props = (over: Partial<KindProps>): KindProps => ({ location: false, sensitive: false, eligibility: false, onBehalf: false, receiver: "", first: "gift", ...over });
 
 // The starting features of each kind. Staff change them on the Benefits page.
 const DEFAULTS: Record<BenefitKind, { prefix: string; duplicateOn: string[]; onEnd: OnEnd; props: KindProps; fields: Omit<KindField, "id">[] }> = {
-  person: { prefix: "PRS", duplicateOn: ["Full name", "Date of birth"], onEnd: "reallocate", props: props({ sensitive: true, receiver: "person" }), fields: [f("Full name", "text", true, true), f("Date of birth", "date", true, true), f("Guardian or family", "text"), f("Photo", "photo", false, true), f("Progress notes", "longtext", false, true)] },
-  activity: { prefix: "ACT", duplicateOn: ["Place", "Date"], onEnd: "unallocated", props: props({ location: true, receiver: "group" }), fields: [f("Place", "text", true, true), f("Date", "date", true, true), f("People attending", "number", false, true), f("Photos", "photo", false, true), f("Report", "longtext", false, true)] },
-  build: { prefix: "BLD", duplicateOn: ["Location"], onEnd: "unallocated", props: props({ location: true, receiver: "group" }), fields: [f("Location", "text", true, true), f("GPS location", "gps", false, true), f("People served", "number", false, true), f("Progress photos", "photo", false, true), f("Handover date", "date", false, true)] },
-  distribution: { prefix: "DST", duplicateOn: ["Place", "Date"], onEnd: "unallocated", props: props({ receiver: "group" }), fields: [f("Place", "text", true, true), f("Date", "date", true, true), f("Quantity delivered", "number", true, true), f("Recipients", "number", false, true), f("Photos", "photo", false, true)] },
-  programme: { prefix: "PRG", duplicateOn: ["Place"], onEnd: "unallocated", props: props({ receiver: "group" }), fields: [f("Place", "text", true, true), f("People served this month", "number", true, true), f("Notes", "longtext", false, true)] },
-  waqf: { prefix: "WQF", duplicateOn: ["Asset"], onEnd: "unallocated", props: props({ location: true, receiver: "institution" }), fields: [f("Asset", "text", true, true), f("Location", "text", false, true)] },
+  person: { prefix: "PRS", duplicateOn: ["Full name", "Date of birth"], onEnd: "reallocate", props: props({ sensitive: true, receiver: "person", first: "beneficiary" }), fields: [f("Full name", "text", true, true), f("Date of birth", "date", true, true), f("Guardian or family", "text"), f("Photo", "photo", false, true), f("Progress notes", "longtext", false, true)] },
+  activity: { prefix: "ACT", duplicateOn: ["Place", "Date"], onEnd: "unallocated", props: props({ location: true, receiver: "list" }), fields: [f("Place", "text", true, true), f("Date", "date", true, true), f("People attending", "number", false, true), f("Photos", "photo", false, true), f("Report", "longtext", false, true)] },
+  build: { prefix: "BLD", duplicateOn: ["Location"], onEnd: "unallocated", props: props({ location: true, receiver: "household" }), fields: [f("Location", "text", true, true), f("GPS location", "gps", false, true), f("People served", "number", false, true), f("Progress photos", "photo", false, true), f("Handover date", "date", false, true)] },
+  distribution: { prefix: "DST", duplicateOn: ["Place", "Date"], onEnd: "unallocated", props: props({ receiver: "list" }), fields: [f("Place", "text", true, true), f("Date", "date", true, true), f("Quantity delivered", "number", true, true), f("Recipients", "number", false, true), f("Photos", "photo", false, true)] },
+  programme: { prefix: "PRG", duplicateOn: ["Place"], onEnd: "unallocated", props: props({ receiver: "list" }), fields: [f("Place", "text", true, true), f("People served this month", "number", true, true), f("Notes", "longtext", false, true)] },
+  waqf: { prefix: "WQF", duplicateOn: ["Asset"], onEnd: "unallocated", props: props({ location: true, receiver: "none" }), fields: [f("Asset", "text", true, true), f("Location", "text", false, true)] },
 };
 
 export function defaultFeatures(kind: BenefitKind): KindFeatures {
@@ -64,7 +71,12 @@ export function defaultFeatures(kind: BenefitKind): KindFeatures {
 // Rule: a kind's features are the saved ones if a person changed them, else the defaults.
 export type SavedFeatures = Record<string, KindFeatures>;
 // Settings saved before a feature existed take that feature from the defaults.
-export const featuresOf = (saved: SavedFeatures, kind: BenefitKind): KindFeatures => (saved[kind] ? { ...defaultFeatures(kind), ...saved[kind] } : defaultFeatures(kind));
+// A setting saved before "who comes first" existed takes it from the defaults, and an older "who receives" (group, institution) is read as household or none (DECISIONS 166).
+export const featuresOf = (saved: SavedFeatures, kind: BenefitKind): KindFeatures => {
+  const d = defaultFeatures(kind);
+  const mine = saved[kind];
+  return mine ? { ...d, ...mine, props: { ...d.props, ...mine.props, receiver: normaliseReceiver(mine.props?.receiver ?? "") } } : d;
+};
 export const isCustomised = (saved: SavedFeatures, kind: string): boolean => saved[kind] !== undefined;
 
 type Result = { value: SavedFeatures } | { error: string };
@@ -98,9 +110,10 @@ export const setOnEnd = (saved: SavedFeatures, kind: string, onEnd: string): Res
 
 export const setWhat = (saved: SavedFeatures, kind: string, what: string): Result => change(saved, kind, (c) => ({ ...c, what: what.slice(0, 500) }));
 
-// Rule: a property is a yes or no, or who receives. An unknown property or value is refused.
+// Rule: a property is a yes or no, or who receives, or who comes first. An unknown property or value is refused.
 export function setProp(saved: SavedFeatures, kind: string, prop: string, value: unknown): Result {
   if (prop === "receiver") return RECEIVERS.some((r) => r.id === value) ? change(saved, kind, (c) => ({ ...c, props: { ...c.props, receiver: value as Receiver } })) : { error: "That is not known." };
+  if (prop === "first") return FIRSTS.some((r) => r.id === value) ? change(saved, kind, (c) => ({ ...c, props: { ...c.props, first: value as First } })) : { error: "That is not known." };
   if (!PROP_LABELS.some((p) => p.id === prop) || typeof value !== "boolean") return { error: "That property is not known." };
   return change(saved, kind, (c) => ({ ...c, props: { ...c.props, [prop]: value } }));
 }
@@ -170,7 +183,7 @@ export function applyKindAction(saved: SavedFeatures, body: Record<string, unkno
     case "kf-dup": return setDuplicateField(saved, s("kind"), s("fieldId"), body["on"] === true);
     case "kf-onend": return setOnEnd(saved, s("kind"), s("value"));
     case "kf-what": return setWhat(saved, s("kind"), s("what"));
-    case "kf-prop": return setProp(saved, s("kind"), s("prop"), s("prop") === "receiver" ? s("value") : body["value"]);
+    case "kf-prop": return setProp(saved, s("kind"), s("prop"), s("prop") === "receiver" || s("prop") === "first" ? s("value") : body["value"]);
     case "kf-field-add": return addField(saved, s("kind"), s("label"), s("type"));
     case "kf-field-set": return setField(saved, s("kind"), s("fieldId"), {
       ...(typeof body["label"] === "string" ? { label: s("label") } : {}), ...(typeof body["type"] === "string" ? { type: s("type") } : {}),

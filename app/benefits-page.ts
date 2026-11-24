@@ -9,7 +9,7 @@
 
 import { KINDS, kindOf } from "../modules/02-project-rules/benefits";
 import { itemReadiness, readySummary } from "../modules/06-projects/readiness";
-import { featuresOf, isCustomised, ON_END, PROP_LABELS, RECEIVERS, type SavedFeatures } from "../modules/02-project-rules/kind-features";
+import { featuresOf, FIRSTS, isCustomised, ON_END, PROP_LABELS, RECEIVERS, type SavedFeatures } from "../modules/02-project-rules/kind-features";
 import { FIELD_KINDS } from "../modules/05-outcomes/outcome-types";
 import { resolveFrameworkId } from "../modules/02-project-rules/categories";
 import { iconHtml, itemIcon } from "./icons";
@@ -47,7 +47,8 @@ export function benefitsPage(v: View): string {
     <label class="wf-field"><span>What this type is</span><textarea data-kf="what" data-kind="${sel.id}" rows="3" aria-label="What this type is">${esc(ft.what)}</textarea></label>
     <h4 class="wf-h">Properties</h4>
     <div class="ot-props">${PROP_LABELS.map((p) => `<label class="ot-check" title="${esc(p.hint)}"><input type="checkbox" data-kf="prop" data-prop="${p.id}" data-kind="${sel.id}"${ft.props[p.id] ? " checked" : ""}> ${esc(p.label)}</label>`).join("")}
-      <label class="ot-check">Who receives <select data-kf="prop" data-prop="receiver" data-kind="${sel.id}" aria-label="Who receives">${RECEIVERS.map((r) => `<option value="${r.id}"${ft.props.receiver === r.id ? " selected" : ""}>${esc(r.label)}</option>`).join("")}</select></label></div>
+      <label class="ot-check">Who receives <select data-kf="prop" data-prop="receiver" data-kind="${sel.id}" aria-label="Who receives">${RECEIVERS.map((r) => `<option value="${r.id}"${ft.props.receiver === r.id ? " selected" : ""}>${esc(r.label)}</option>`).join("")}</select></label>
+      <label class="ot-check">Who comes first <select data-kf="prop" data-prop="first" data-kind="${sel.id}" aria-label="Who comes first">${FIRSTS.map((r) => `<option value="${r.id}"${ft.props.first === r.id ? " selected" : ""}>${esc(r.label)}</option>`).join("")}</select></label></div>
     <h4 class="wf-h">Rules for every beneficiary of this type</h4>
     <div class="wf-two"><label class="wf-field"><span>ID prefix</span><input data-kf="prefix" data-kind="${sel.id}" value="${esc(ft.prefix)}" maxlength="5" aria-label="ID prefix"></label>
       <label class="wf-field"><span>When a beneficiary ends</span><select data-kf="onend" data-kind="${sel.id}" aria-label="When a beneficiary ends">${ON_END.map((o) => `<option value="${o.id}"${ft.onEnd === o.id ? " selected" : ""}>${esc(o.label)}</option>`).join("")}</select></label></div>

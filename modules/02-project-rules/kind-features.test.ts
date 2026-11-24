@@ -19,9 +19,16 @@ describe("the features of a kind", () => {
       expect(d.fields.length).toBeGreaterThanOrEqual(2);
       expect(new Set(d.fields.map((x) => x.id)).size).toBe(d.fields.length);
     }
-    expect(defaultFeatures("build").props).toMatchObject({ location: true, sensitive: false, receiver: "group" });
-    expect(defaultFeatures("person").props).toMatchObject({ sensitive: true, receiver: "person" });
+    expect(defaultFeatures("build").props).toMatchObject({ location: true, sensitive: false, receiver: "household", first: "gift" });
+    expect(defaultFeatures("person").props).toMatchObject({ sensitive: true, receiver: "person", first: "beneficiary" });
+    expect(defaultFeatures("distribution").props.receiver).toBe("list");
+    expect(defaultFeatures("waqf").props.receiver).toBe("none"); // a mosque or other asset has no beneficiary
     expect(defaultFeatures("build").fields.map((x) => x.label)).toContain("GPS location");
+  });
+  it("reads an older saved setting: group is a household, institution is none, and who comes first comes from the defaults", () => {
+    const old = { build: { ...defaultFeatures("build"), props: { location: true, sensitive: false, eligibility: false, onBehalf: false, receiver: "group" } }, waqf: { ...defaultFeatures("waqf"), props: { location: true, sensitive: false, eligibility: false, onBehalf: false, receiver: "institution" } } } as unknown as SavedFeatures;
+    expect(featuresOf(old, "build").props).toMatchObject({ receiver: "household", first: "gift" });
+    expect(featuresOf(old, "waqf").props.receiver).toBe("none");
   });
   it("uses the defaults until a person changes a kind, and saves only the kinds that changed", () => {
     expect(featuresOf({}, "build")).toEqual(defaultFeatures("build"));
@@ -35,10 +42,12 @@ describe("the features of a kind", () => {
   it("changes the description, who receives, and the fields: add, change, move and remove", () => {
     let s: SavedFeatures = {};
     s = ok(applyKindAction(s, { action: "kf-what", kind: "build", what: "A made thing." }));
-    s = ok(applyKindAction(s, { action: "kf-prop", kind: "build", prop: "receiver", value: "institution" }));
+    s = ok(applyKindAction(s, { action: "kf-prop", kind: "build", prop: "receiver", value: "none" }));
+    s = ok(applyKindAction(s, { action: "kf-prop", kind: "build", prop: "first", value: "beneficiary" }));
     s = ok(applyKindAction(s, { action: "kf-field-add", kind: "build", label: "Contractor", type: "text" }));
     expect(featuresOf(s, "build").what).toBe("A made thing.");
-    expect(featuresOf(s, "build").props.receiver).toBe("institution");
+    expect(featuresOf(s, "build").props.receiver).toBe("none");
+    expect(featuresOf(s, "build").props.first).toBe("beneficiary");
     const added = featuresOf(s, "build").fields.at(-1)!;
     expect(added).toMatchObject({ id: "contractor", label: "Contractor", type: "text", required: false, inReport: false });
     s = ok(applyKindAction(s, { action: "kf-field-set", kind: "build", fieldId: "contractor", required: true, inReport: true, label: "Main contractor" }));
@@ -63,6 +72,7 @@ describe("the features of a kind", () => {
     expect(setProp({}, "build", "bogus", true)).toHaveProperty("error");
     expect(setProp({}, "build", "location", "yes")).toHaveProperty("error");
     expect(setProp({}, "build", "receiver", "alien")).toHaveProperty("error");
+    expect(setProp({}, "build", "first", "nobody")).toHaveProperty("error");
     expect(applyKindAction({}, { action: "kf-field-add", kind: "build", label: " ", type: "text" })).toHaveProperty("error");
     expect(applyKindAction({}, { action: "kf-field-add", kind: "build", label: "Thing", type: "hologram" })).toHaveProperty("error");
     expect(applyKindAction({}, { action: "kf-field-set", kind: "build", fieldId: "nope", required: true })).toHaveProperty("error");

@@ -19,6 +19,7 @@ import type { Allocation, Outcome } from "../modules/05-outcomes/outcomes";
 import type { OutcomeType } from "../modules/05-outcomes/outcome-types";
 import type { Category, FrameworkTemplate, ItemMap } from "../modules/02-project-rules/categories";
 import type { Register } from "../modules/07-beneficiaries/beneficiaries";
+import type { Enrolments } from "../modules/07-beneficiaries/enrolments";
 
 export interface Me {
   name: string;
@@ -96,6 +97,7 @@ export interface OutcomesReply {
   outcomeTypes?: OutcomeType[];
   idCounters?: Record<string, number>;
   beneficiaries?: Register;
+  enrolments?: Enrolments;
   itemIcons?: Record<string, string>;
   itemKinds?: Record<string, string>;
   kindFeatures?: Record<string, unknown>;

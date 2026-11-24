@@ -6,17 +6,19 @@
  * - The LIST: only the master clusters, one short line each (name, called, place, capacity, how many are inside, status) with a settings button. A row at the bottom adds a cluster.
  * - A CLUSTER (opened with its settings button): a path across the top (Aghosh Home > Block A > Classroom 1), then two tabs. Details: name, called, place, roles, status and, on a master cluster, the
  *   total capacity (a sub cluster shows its even share as a guide). Sub-Clusters: the tree of what is in it, as folders that open and close, with + to add inside and a settings button to open that one in turn.
+ * A third tab, Beneficiaries, enrols people in the cluster (app/cluster-people.ts, DECISIONS 167).
  * Rule (Faisal): capacity is set on the master cluster only, and shared evenly down. Pure: it takes the clusters and returns HTML.
  * Who calls it: app/project-form.ts. Depends on: modules/06-projects/clusters.ts and esc from pages.ts.
  */
 
 import { evenShare, insideCount, pathOf, treeRows, suggestLabel, type Cluster, type ClusterState } from "../modules/06-projects/clusters";
+import { clusterPeopleHtml, peopleCount, type PeopleContext } from "./cluster-people";
 import { ICON_SETTINGS } from "./icons";
 import { esc } from "./pages";
 
 // What is shown, kept for the session so editing does not change it: the folders a person has closed (every folder is open until closed), the cluster a sub cluster is being added to, and the cluster window that is open ("" is the list).
 export const closedClusters = new Set<string>();
-export const clusterUi = { adding: "", node: "", nodeTab: "details" as "details" | "inside", notice: "" };
+export const clusterUi = { adding: "", node: "", nodeTab: "details" as "details" | "inside" | "people", notice: "" };
 
 const SEARCH_FROM = 8; // a search box shows once a list is longer than this
 
@@ -88,21 +90,21 @@ function insideHtml(state: ClusterState, c: Cluster, adding: string): string {
       <button type="button" class="iconact ok" data-cl="cluster-add-b" data-id="${esc(c.id)}" title="Add inside ${esc(c.name)}" aria-label="Add inside ${esc(c.name)}">+</button></div>${labelsList(state)}</section>`;
 }
 
-function clusterHtml(state: ClusterState, c: Cluster): string {
+function clusterHtml(state: ClusterState, c: Cluster, people?: PeopleContext): string {
   const path = pathOf(state, c.id);
   const crumbs = ['<button type="button" class="linkish" data-cl="goto" data-id="">Clusters</button>', ...path.map((p, i) => (i === path.length - 1 ? `<b>${esc(p.name)}</b>` : `<button type="button" class="linkish" data-cl="goto" data-id="${esc(p.id)}">${esc(p.name)}</button>`))].join('<span class="cl-sep" aria-hidden="true"> &rsaquo; </span>');
   const n = insideCount(state, c.id);
   const tab = clusterUi.nodeTab;
   return `<nav class="cl-path" aria-label="Where you are">${crumbs}</nav>
-    <nav class="pf-tabs" role="tablist"><button type="button" role="tab" class="${tab === "details" ? "on" : ""}" data-cl="node-tab" data-tab="details">Details</button><button type="button" role="tab" class="${tab === "inside" ? "on" : ""}" data-cl="node-tab" data-tab="inside">Sub-Clusters <span class="muted">(${n})</span></button></nav>
-    ${tab === "details" ? detailsHtml(state, c) : insideHtml(state, c, clusterUi.adding)}`;
+    <nav class="pf-tabs" role="tablist"><button type="button" role="tab" class="${tab === "details" ? "on" : ""}" data-cl="node-tab" data-tab="details">Details</button><button type="button" role="tab" class="${tab === "inside" ? "on" : ""}" data-cl="node-tab" data-tab="inside">Sub-Clusters <span class="muted">(${n})</span></button>${people ? `<button type="button" role="tab" class="${tab === "people" ? "on" : ""}" data-cl="node-tab" data-tab="people">Beneficiaries <span class="muted">(${peopleCount(state, people, c.id)})</span></button>` : ""}</nav>
+    ${tab === "people" && people ? clusterPeopleHtml(state, c, people) : tab === "inside" ? insideHtml(state, c, clusterUi.adding) : detailsHtml(state, c)}`;
 }
 
-export function clustersTabHtml(state: ClusterState, error = ""): string {
+export function clustersTabHtml(state: ClusterState, error = "", people?: PeopleContext): string {
   const open = clusterUi.node === "" ? undefined : state.clusters.find((c) => c.id === clusterUi.node);
   return `<div class="pf-body">
     ${error ? `<div class="note" role="alert">${esc(error)}</div>` : clusterUi.notice ? `<div class="note ok" role="status">${esc(clusterUi.notice)}</div>` : ""}
-    ${open ? clusterHtml(state, open) : listHtml(state)}
+    ${open ? clusterHtml(state, open, people) : listHtml(state)}
     <p class="muted">Who holds each role, and the beneficiaries enrolled in each cluster, come next.</p>
   </div>`;
 }
