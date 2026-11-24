@@ -300,3 +300,6 @@ select:not([multiple]):focus-visible{outline:2px solid var(--accent);outline-off
 .cl-tree tr.cl-top td{background:var(--card)}.cl-tree tr.cl-top .cl-node b{font-weight:650}
 .cl-tree .cl-addrow td{padding:6px 0}
 .cl-sep{color:var(--muted);padding:0 2px}
+/* The beneficiary window: the list of persons to tick for a household scrolls when long. */
+.rg-members{border:1px solid var(--line);border-radius:10px;padding:8px 12px;max-height:200px;overflow:auto}.rg-members legend{font-size:13px;color:var(--muted);padding:0 4px}
+.rg-member-row{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:14px;color:var(--text,inherit)}.rg-member-row input{width:auto}.rg-same{display:flex;align-items:center;gap:8px}.rg-same input{width:auto}

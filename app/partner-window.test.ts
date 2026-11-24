@@ -71,7 +71,7 @@ describe("partnerWindowHtml", () => {
     expect(html).toContain("Structure (optional)");
     expect(html).not.toContain('data-pf-tab="beneficiaries"');
     expect(html).toContain("Delivers: Aghosh");
-    expect(html).toContain('data-nav="beneficiaries"');
+    expect(html).toContain('data-nav="outcome-list"');
     expect(html).toContain("3 beneficiaries");
     expect(partnerWindowHtml(base({ projects: [p], nodes, outcomes }), id, "profile", ctx, p)).toContain("no project yet");
   });

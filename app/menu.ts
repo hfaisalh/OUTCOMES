@@ -22,10 +22,10 @@ export const PERMISSIONS = {
   approveRelease: "outcomes.approve_release", // a manager may approve releasing a sponsor's place after a missed payment (DECISIONS 74)
 } as const;
 
-export type PageId = "workflows" | "benefits" | "data-feed" | "data-files" | "work-orders" | "attention" | "outcomes" | "projects" | "partners" | "beneficiaries" | "allocation" | "audit" | "categories" | "dashboard" | "sources" | "settings";
+export type PageId = "workflows" | "benefits" | "data-feed" | "data-files" | "work-orders" | "attention" | "outcomes" | "projects" | "partners" | "beneficiaries" | "outcome-list" | "allocation" | "audit" | "categories" | "dashboard" | "sources" | "settings";
 
 // Rule: the pages a link or a reload may open. Anything else (a mistyped or old address) is ignored and the usual first page is used.
-export const PAGE_IDS: readonly PageId[] = ["workflows", "benefits", "data-feed", "data-files", "work-orders", "attention", "outcomes", "projects", "partners", "beneficiaries", "allocation", "audit", "categories", "dashboard", "sources", "settings"];
+export const PAGE_IDS: readonly PageId[] = ["workflows", "benefits", "data-feed", "data-files", "work-orders", "attention", "outcomes", "projects", "partners", "beneficiaries", "outcome-list", "allocation", "audit", "categories", "dashboard", "sources", "settings"];
 export const isPageId = (x: string): x is PageId => (PAGE_IDS as readonly string[]).includes(x);
 
 export interface MenuItem {
@@ -59,6 +59,8 @@ export const MENU: MenuItem[] = [
   { id: "projects", label: "Projects", icon: "▥", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "partners", label: "Partners", icon: "▤", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "beneficiaries", label: "Beneficiaries", icon: "☺", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
+  // Rule (DECISIONS 163): Beneficiaries is the register of people and households. The older list of what gifts are placed on (children, pumps, with capacity) is Outcomes.
+  { id: "outcome-list", label: "Outcomes", icon: "◍", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "allocation", label: "Allocate", icon: "⇄", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "outcomes", label: "Month by month", icon: "◎", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "dashboard", label: "Dashboard", icon: "◔", permission: PERMISSIONS.dashboards, section: "Work" },

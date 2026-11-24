@@ -1,7 +1,7 @@
 /**
  * beneficiaries-page.ts
  *
- * What it does: draws the Beneficiaries page (DECISIONS 76). Everyone who can be sponsored, across all partners, as one table with filters. Each belongs to
+ * What it does: draws the Outcomes list page, once called Beneficiaries (DECISIONS 76, 163). Everyone who can be sponsored, across all partners, as one table with filters. Each belongs to
  * a partner and can be placed in that partner's branch and groups afterwards, with an ID of its own. New beneficiaries are added with a partner, a name,
  * a number and how they are sponsored. Pure: it takes a View and returns HTML.
  * Who calls it: app/main.ts. Depends on: Modules 4b, 5 and 6, and esc and View from pages.ts.
@@ -38,8 +38,8 @@ export function beneficiariesPage(v: View): string {
   const types = [...new Set(all.map((o) => o.type))].filter((t) => t !== "").sort();
   const legacy = all.filter((o) => o.projectId === undefined).length;
 
-  const head = `<h1>Beneficiaries</h1>
-    <p class="sub">Everyone who can be sponsored: children, students, teachers. Each belongs to a partner. Add them with only a name, a number and how they are sponsored, then place them in the partner's branch and groups, and give them an ID, when you are ready.</p>
+  const head = `<h1>Outcomes</h1>
+    <p class="sub">What gifts are placed on, with capacity: children, students, teachers, pumps. (The people and households themselves are on the Beneficiaries page.) Each belongs to a partner. Add them with only a name, a number and how they are sponsored, then place them in the partner's branch and groups, and give them an ID, when you are ready.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}`;
 
   const add = `<div class="card"><h2>Add beneficiaries <span class="muted">(numbered test records)</span></h2>

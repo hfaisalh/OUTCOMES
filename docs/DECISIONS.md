@@ -561,3 +561,12 @@ Addendum to 159 (Faisal, 24/11/2026): the two names are called **Display Name** 
 - A message from an earlier action no longer stays on the screen when only the view changes (opening a folder or a cluster).
 
 Addendum to 162 (Faisal, 24/11/2026): the Clusters tab itself shows **the whole tree**, not only the master clusters. Every cluster is a row, indented by its level and drawn with **hierarchy lines** like a folder list (a vertical line while more follow, a tee for a cluster with more after it, an elbow for the last). Every folder is **open until closed**, with an arrow per folder and **Expand all / Collapse all**. Each row keeps its gear (settings), + (add inside) and remove. The Sub-Clusters tab of a cluster shows the same tree starting from that cluster.
+
+## 163. The Beneficiary register: people and households, separate from outcomes (Faisal, 24/11/2026)
+
+- A **beneficiary** is a recipient: a **person** or a **household** (a group of persons). It is not the thing delivered. A house, a pump, a tent, a food drive, a medical camp, a mosque and a child's sponsorship are **outcomes**, placed in a cluster of a project. A beneficiary is **enrolled** in an outcome (next build). A community outcome such as a mosque has **no beneficiary**. Managers on a cluster are role holders, not beneficiaries.
+- Each record has **one permanent ID** with a kind prefix (PRS-0001, HH-0001), never reused. A child sponsored in orphan care, an education scholarship and Hifz is **one record with three enrolments**.
+- **Duplicate check:** the same name and date of birth is the same person (a household: name and area), refused with the ID it matches. The same name only is a **possible match**, refused until a person ticks that it is a different one.
+- **Privacy:** only a name, date of birth, guardian's name and area are held. Contact details stay in the CRM.
+- **Menu:** **Beneficiaries** is now the register. The older list of what gifts are placed on, with capacity, is renamed **Outcomes** (page `outcome-list`). Allocation is rewired onto outcomes in a later step.
+- Next: the **"who receives"** setting on each type (the person, a household, a list, none), then the **Beneficiaries tab on every cluster** to enrol.

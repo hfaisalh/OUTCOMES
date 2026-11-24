@@ -161,3 +161,21 @@ A cluster is a part of a gift project's distribution: a school, a university, a 
 | `status` | Active or closed |
 | `roles` | The people it needs, for example Principal or Warden. Who holds them comes with the beneficiary register |
 | `levelId` | Older projects only: the level it was in. Read into `label` and then dropped |
+
+## Beneficiary (DECISIONS 163)
+A person or household that receives what a gift delivers. Stored on the organisation's setup as `beneficiaries` (`records` and `counters`).
+
+| Field | Meaning |
+|---|---|
+| `id` | Permanent ID with the kind's prefix: PRS for a person, HH for a household. A number is never reused |
+| `kind` | `person` or `household`. Never changes |
+| `name` | A person's name, or a household's family name. Names are compared ignoring case, punctuation and spaces |
+| `status` | Active or inactive. An enrolled record is made inactive, not removed |
+| `area` | A village or district. Not a full address. Contact details are not kept |
+| `dob` | A person's date of birth, YYYY-MM-DD, or empty. With the name it decides whether two records are the same person |
+| `gender` | Person: female, male, or empty |
+| `guardian` | Person: the parent or guardian's name |
+| `memberIds` | Household: the IDs of the persons in it |
+| `size` | Household: how many people, when the persons are not listed |
+| `notes` | Free text |
+

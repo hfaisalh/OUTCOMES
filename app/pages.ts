@@ -9,6 +9,7 @@
  */
 
 import type { AttentionItem } from "../modules/04-triage/triage";
+import type { BeneficiaryFilter, Register } from "../modules/07-beneficiaries/beneficiaries";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { partsOf } from "../modules/01c-crm-connector/work-orders";
 import { autoAllocate, fillOf, holdingReport, monthsAround, perPeriodRule, timelineOf, type UnitStatus, type Allocation, type Availability, type Outcome } from "../modules/05-outcomes/outcomes";
@@ -44,7 +45,9 @@ export interface View {
   requireRef?: boolean; // place gifts only on beneficiaries that have an ID (DECISIONS 75)
   graceDays?: number; // days a payment may be unpaid before the place may be released (DECISIONS 74)
   giftProjects?: GiftProject[]; // the projects donors choose and the partners that deliver them (DECISIONS 76)
-  benFilter?: BenFilter; // the filters on the Beneficiaries page
+  benFilter?: BenFilter; // the filters on the Outcomes list page
+  beneficiaries?: Register; // the Beneficiary register (DECISIONS 163)
+  registerFilter?: BeneficiaryFilter; // the filters on the Beneficiaries page
   projects?: Project[]; // the partners (the code still calls a partner a Project) and their structures (DECISIONS 65)
   nodes?: Node[]; // the places in them
   openProject?: string; // the project open on the Projects page
