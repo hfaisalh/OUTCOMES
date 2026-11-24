@@ -68,6 +68,36 @@ describe("the duplicate check", () => {
   });
 });
 
+describe("what an admission needs (DECISIONS 164)", () => {
+  const child = { name: "Hira Bibi", dob: "2015-06-01", gender: "female", placeOfBirth: "Mirpur", idNumber: "12345-1234567-1", fatherStatus: "deceased", motherStatus: "living", guardian: "Zainab", guardianRelation: "mother", eligibility: "ready", eligibilityNote: "Father died 2023", partnerId: "al-noor", partnerRef: "AN-77" };
+  it("keeps place of birth, the national ID without spaces, which parent has died, the guardian's relation, the decision and the partner's own ID", () => {
+    const rec = ok(addBeneficiary(emptyRegister(), "person", child)).records[0]!;
+    expect(rec).toMatchObject({ placeOfBirth: "Mirpur", idNumber: "12345-1234567-1", fatherStatus: "deceased", motherStatus: "living", guardianRelation: "mother", eligibility: "ready", eligibilityNote: "Father died 2023", partnerId: "al-noor", partnerRef: "AN-77" });
+    expect(ok(addBeneficiary(emptyRegister(), "person", { name: "Zed", idNumber: " 12345 1234567 1 " })).records[0]?.idNumber).toBe("1234512345671");
+  });
+  it("refuses a bad parent status or decision, and keeps these details off a household", () => {
+    expect(addBeneficiary(emptyRegister(), "person", { name: "Zed", fatherStatus: "missing" })).toHaveProperty("error");
+    expect(addBeneficiary(emptyRegister(), "person", { name: "Zed", eligibility: "maybe" })).toHaveProperty("error");
+    const hh = ok(addBeneficiary(emptyRegister(), "household", { name: "Zed family", idNumber: "999", eligibility: "ready", guardian: "x" })).records[0]!;
+    expect(hh).toMatchObject({ idNumber: "", eligibility: "", guardian: "" });
+  });
+  it("treats the same national ID as the same person, whatever the name or date of birth", () => {
+    const reg = ok(addBeneficiary(emptyRegister(), "person", child));
+    const r = addBeneficiary(reg, "person", { name: "Heera B.", dob: "2014-01-01", idNumber: "12345-1234567-1" });
+    expect("error" in r && r.error).toContain("is already in the register");
+    expect("error" in r && r.error).toContain("ID 12345-1234567-1");
+    expect(addBeneficiary(reg, "person", { name: "Heera B.", dob: "2014-01-01", idNumber: "99999-9999999-9" })).toHaveProperty("value");
+    expect(setBeneficiary(reg, "PRS-0001", { ...child, area: "Dadyal" })).toHaveProperty("value"); // itself is not a duplicate
+  });
+  it("finds records by national ID or partner reference, and by the admission decision", () => {
+    let reg = ok(addBeneficiary(emptyRegister(), "person", child));
+    reg = ok(addBeneficiary(reg, "person", { name: "Sana Ali", eligibility: "declined" }));
+    expect(filterBeneficiaries(reg.records, { ...NO_FILTER, text: "12345-1234567-1" }).map((r) => r.id)).toEqual(["PRS-0001"]);
+    expect(filterBeneficiaries(reg.records, { ...NO_FILTER, text: "an-77" }).map((r) => r.id)).toEqual(["PRS-0001"]);
+    expect(filterBeneficiaries(reg.records, { ...NO_FILTER, eligibility: "declined" }).map((r) => r.id)).toEqual(["PRS-0002"]);
+  });
+});
+
 describe("changing and removing", () => {
   it("changes details and status, keeps the ID and kind, and runs the duplicate check again", () => {
     let reg = ok(addBeneficiary(withAyesha(), "person", { name: "Bilal Raza", dob: "2012-05-05" }));

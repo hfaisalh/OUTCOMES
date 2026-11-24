@@ -175,6 +175,13 @@ A person or household that receives what a gift delivers. Stored on the organisa
 | `dob` | A person's date of birth, YYYY-MM-DD, or empty. With the name it decides whether two records are the same person |
 | `gender` | Person: female, male, or empty |
 | `guardian` | Person: the parent or guardian's name |
+| `guardianRelation` | Person: the guardian's relation to the child (mother, uncle, grandmother) |
+| `placeOfBirth` | Person |
+| `idNumber` | Person: national ID or B-form number, spaces removed. The same number is the same person, whatever the name |
+| `fatherStatus`, `motherStatus` | Person: living, deceased, or empty when not known |
+| `eligibility` | Person: the admission decision: ready (prepare for enrolment), review (needs management consent or further review), declined (cannot offer a place), or empty when not checked |
+| `eligibilityNote` | Person: the reason, in a few words |
+| `partnerId`, `partnerRef` | The partner that gave the record, and that partner's own ID for it |
 | `memberIds` | Household: the IDs of the persons in it |
 | `size` | Household: how many people, when the persons are not listed |
 | `notes` | Free text |

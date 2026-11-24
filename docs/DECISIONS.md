@@ -570,3 +570,11 @@ Addendum to 162 (Faisal, 24/11/2026): the Clusters tab itself shows **the whole 
 - **Privacy:** only a name, date of birth, guardian's name and area are held. Contact details stay in the CRM.
 - **Menu:** **Beneficiaries** is now the register. The older list of what gifts are placed on, with capacity, is renamed **Outcomes** (page `outcome-list`). Allocation is rewired onto outcomes in a later step.
 - Next: the **"who receives"** setting on each type (the person, a household, a list, none), then the **Beneficiaries tab on every cluster** to enrol.
+
+## 164. Admission details on the person, taken from the orphan admission form; the partner portal later holds the lifecycle (Faisal, 24/11/2026)
+
+- Source: MWF's Orphan Admission Application Form (nine pages). Only the **sensible fields** are taken now, so a beneficiary can be created properly and the configuration completed. The profile is enhanced later.
+- A person now also holds: **place of birth, national ID or B-form number, whether the father and the mother are living or deceased, the guardian and the guardian's relation, the admission decision** (Ready, Needs review, Cannot offer a place, from the form's marking indicator) **and its reason**. The **national ID** is the strongest duplicate check: the same number is the same person, whatever the name.
+- Any record may name the **partner that gave it** and **the partner's own ID** for it, since partners keep their own records.
+- **Not held yet:** health and immunisation records, fingerprints, photos, signed declarations, the document checklist, the adverse conditions list, siblings and parents as linked persons, and any contact details (phone, email). Health and abuse flags need a restricted role first.
+- **Direction (Faisal):** the **partner portal becomes the profile lifecycle of the beneficiary**, whatever tool a partner uses for its own records: they share updates and prerequisites there. Contact details stay in the CRM. Screens stay in **English** for now.

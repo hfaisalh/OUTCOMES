@@ -17,10 +17,12 @@ What a person types in the Beneficiaries window: a name, and for a person a date
 - The same name and date of birth is the same person. A household is the same name and area. Names are compared ignoring case, punctuation and extra spaces.
 - The same name with another or missing date of birth is a possible match, saved only after a person ticks that it is a different one.
 - A person who is in a household cannot be removed until taken out. A record that is enrolled cannot be removed (make it inactive). IDs are never reused.
-- Contact details are not held (they stay in the CRM). Child data is sensitive: only a name, date of birth, guardian's name and area are kept.
+- A person also holds what an admission needs (DECISIONS 164): place of birth, national ID or B-form number (the same number is the same person), which parent has died, the guardian and relation, and the admission decision with its reason. A record can name the partner that gave it and the partner's own ID.
+- Contact details are not held (they stay in the CRM). Child data is sensitive, so health records, fingerprints, documents and the adverse conditions list wait for the partner portal and a restricted role.
 
 ## Not built yet
 - Enrolment: placing a beneficiary in an outcome in a cluster (the Beneficiaries tab on a cluster), and the "who receives" setting on each type.
+- The partner portal: partners share updates and prerequisites there, and it becomes the beneficiary's profile lifecycle (DECISIONS 164). Siblings and parents as linked persons.
 - Role based access (for now anyone who can view work orders sees the register), importing a list, merging two records found to be the same.
 
 ## Files

@@ -7,7 +7,7 @@
  * Who calls it: app/main.ts. Depends on: modules/07-beneficiaries/beneficiaries.ts and esc and View from pages.ts.
  */
 
-import { ageOf, filterBeneficiaries, householdCount, KIND_LABEL, NO_FILTER, type Beneficiary, type BeneficiaryFilter } from "../modules/07-beneficiaries/beneficiaries";
+import { ageOf, ELIGIBILITY_LABEL, filterBeneficiaries, householdCount, KIND_LABEL, NO_FILTER, type Beneficiary, type BeneficiaryFilter } from "../modules/07-beneficiaries/beneficiaries";
 import { esc, type View } from "./pages";
 
 const MAX_ROWS = 300;
@@ -29,16 +29,17 @@ export function registerPage(v: View): string {
   const today = v.today ?? "2026-01-01";
   const rows = shown.slice(0, MAX_ROWS).map((r) => {
     const d = detail(r, all, today);
-    return `<tr class="rowlink" data-bn="open" data-id="${esc(r.id)}" tabindex="0"><td><span class="refbox">${esc(r.id)}</span></td><td><b>${esc(r.name)}</b></td><td>${esc(KIND_LABEL[r.kind])}</td><td class="num">${esc(d.size)}</td><td>${esc(r.area)}</td><td class="muted">${esc(d.who)}</td><td>${r.status === "active" ? '<span class="pill">Active</span>' : '<span class="pill muted">Inactive</span>'}</td></tr>`;
+    return `<tr class="rowlink" data-bn="open" data-id="${esc(r.id)}" tabindex="0"><td><span class="refbox">${esc(r.id)}</span></td><td><b>${esc(r.name)}</b></td><td>${esc(KIND_LABEL[r.kind])}</td><td class="num">${esc(d.size)}</td><td>${esc(r.area)}</td><td class="muted">${esc(d.who)}</td><td>${r.kind === "person" ? esc(ELIGIBILITY_LABEL[r.eligibility ?? ""]) : ""}</td><td>${r.status === "active" ? '<span class="pill">Active</span>' : '<span class="pill muted">Inactive</span>'}</td></tr>`;
   }).join("");
   const filters = `<div class="filters"><select data-regf="kind" aria-label="Kind"><option value="">People and households</option><option value="person"${f.kind === "person" ? " selected" : ""}>People</option><option value="household"${f.kind === "household" ? " selected" : ""}>Households</option></select>
     <select data-regf="status" aria-label="Status"><option value="">Any status</option><option value="active"${f.status === "active" ? " selected" : ""}>Active</option><option value="inactive"${f.status === "inactive" ? " selected" : ""}>Inactive</option></select>
-    <input data-regf="text" value="${esc(f.text)}" placeholder="Search name, ID, area or guardian" aria-label="Search" /></div>`;
+    <select data-regf="eligibility" aria-label="Admission decision"><option value="">Any decision</option>${(["ready", "review", "declined"] as const).map((e) => `<option value="${e}"${f.eligibility === e ? " selected" : ""}>${esc(ELIGIBILITY_LABEL[e])}</option>`).join("")}</select>
+    <input data-regf="text" value="${esc(f.text)}" placeholder="Search name, ID, national ID, area or guardian" aria-label="Search" /></div>`;
   return `<h1>Beneficiaries</h1>
     <p class="sub">The people and households that receive what gifts deliver. Each has one permanent ID, and the same person is never entered twice. A house, a pump or a sponsorship is an outcome, not a beneficiary: a beneficiary is enrolled in an outcome in a cluster. Contact details stay in the CRM.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="actions"><button class="primary" data-bn="new" data-kind="person">New person</button><button data-bn="new" data-kind="household">New household</button></div>
     ${filters}
-    ${all.length === 0 ? '<div class="empty">No beneficiaries yet. Add the first person or household.</div>' : shown.length === 0 ? '<div class="empty">Nothing matches.</div>' : `<div class="tablewrap"><table><thead><tr><th>ID</th><th>Name</th><th>Kind</th><th class="num">Age or size</th><th>Area</th><th>Guardian or members</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${all.length === 0 ? '<div class="empty">No beneficiaries yet. Add the first person or household.</div>' : shown.length === 0 ? '<div class="empty">Nothing matches.</div>' : `<div class="tablewrap"><table><thead><tr><th>ID</th><th>Name</th><th>Kind</th><th class="num">Age or size</th><th>Area</th><th>Guardian or members</th><th>Admission</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="muted">${shown.length} of ${all.length}${shown.length > MAX_ROWS ? `, the first ${MAX_ROWS} shown` : ""}.</p>`}`;
 }

@@ -30,6 +30,8 @@ describe("the Beneficiaries page", () => {
     expect(html).toContain('<td class="num">1</td>'); // the household has one person listed
     expect(html).toContain("Ayesha Khan"); // the household's member by name
     expect(html).toContain('data-bn="open" data-id="HH-0001"');
+    expect(html).toContain("<th>Admission</th>");
+    expect(html).toContain("Not checked");
     expect(html).toContain('data-bn="new" data-kind="person"');
     expect(html).toContain('data-bn="new" data-kind="household"');
   });
@@ -49,13 +51,20 @@ describe("the Beneficiaries page", () => {
 });
 
 describe("the beneficiary window", () => {
-  it("asks a person for name, date of birth, gender, guardian, area and notes, and has no status or Remove while new", () => {
+  it("asks a person for the details an admission needs, and has no status or Remove while new", () => {
     const html = registerFormHtml({}, "", "person", []);
-    for (const id of ["rg-name", "rg-dob", "rg-gender", "rg-guardian", "rg-area", "rg-notes"]) expect(html).toContain(`id="${id}"`);
+    for (const id of ["rg-name", "rg-dob", "rg-gender", "rg-pob", "rg-idnumber", "rg-father", "rg-mother", "rg-guardian", "rg-guardianrel", "rg-eligibility", "rg-eligibilitynote", "rg-area", "rg-partner", "rg-partnerref", "rg-notes"]) expect(html).toContain(`id="${id}"`);
     expect(html).toContain("New person");
     expect(html).not.toContain('id="rg-status"');
     expect(html).not.toContain('data-bn="remove"');
-    expect(html).toContain("Contact details are not kept here");
+    expect(html).toContain("Contact details, health records, fingerprints and documents are not kept here");
+  });
+  it("offers the partners a record may come from, and the admission decisions, and shows them selected", () => {
+    const html = registerFormHtml({ partnerId: "al-noor", partnerRef: "AN-77", eligibility: "review", fatherStatus: "deceased" }, "PRS-0001", "person", [], "", [{ id: "al-noor", name: "Al-Noor" }, { id: "other", name: "Other" }]);
+    expect(html).toContain('<option value="al-noor" selected>Al-Noor</option>');
+    expect(html).toContain('id="rg-partnerref" value="AN-77"');
+    expect(html).toContain('<option value="review" selected>Needs review</option>');
+    expect(html).toContain('<option value="deceased" selected>Deceased</option>');
   });
   it("asks a household for a name, a size and the persons in it, ticked from the register", () => {
     const persons = reg().records.filter((r) => r.kind === "person");

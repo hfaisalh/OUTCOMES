@@ -1632,13 +1632,13 @@ function renderBenWindow(error = "", draft?: Partial<Beneficiary>): void {
   if (!root) { root = document.createElement("div"); root.id = "ben-root"; document.body.appendChild(root); }
   const existing = state.beneficiaries.records.find((r) => r.id === w.id);
   const persons = state.beneficiaries.records.filter((r) => r.kind === "person");
-  root.innerHTML = registerFormHtml(draft ?? existing ?? {}, w.id, existing?.kind ?? w.kind, persons, error);
+  root.innerHTML = registerFormHtml(draft ?? existing ?? {}, w.id, existing?.kind ?? w.kind, persons, error, state.projects.map((p) => ({ id: p.id, name: p.name })));
 }
 // What the window holds, as the fields of a request.
 function readBenWindow(): Record<string, unknown> {
   const val = (i: string) => (document.getElementById(i) as HTMLInputElement | null)?.value ?? "";
   return {
-    name: val("rg-name"), dob: val("rg-dob"), gender: val("rg-gender"), guardian: val("rg-guardian"), area: val("rg-area"), notes: val("rg-notes"), size: val("rg-size"),
+    name: val("rg-name"), dob: val("rg-dob"), gender: val("rg-gender"), guardian: val("rg-guardian"), guardianRelation: val("rg-guardianrel"), placeOfBirth: val("rg-pob"), idNumber: val("rg-idnumber"), fatherStatus: val("rg-father"), motherStatus: val("rg-mother"), eligibility: val("rg-eligibility"), eligibilityNote: val("rg-eligibilitynote"), partnerId: val("rg-partner"), partnerRef: val("rg-partnerref"), area: val("rg-area"), notes: val("rg-notes"), size: val("rg-size"),
     memberIds: [...document.querySelectorAll<HTMLInputElement>(".rg-member:checked")].map((c) => c.value),
     allowSimilar: (document.getElementById("rg-different") as HTMLInputElement | null)?.checked === true,
   };
@@ -1655,7 +1655,7 @@ document.addEventListener("click", (e) => {
     const f = readBenWindow();
     const isNew = state.benWin.id === "";
     const status = (document.getElementById("rg-status") as HTMLSelectElement | null)?.value ?? "";
-    const draft: Partial<Beneficiary> = { name: String(f["name"]), dob: String(f["dob"]), gender: f["gender"] as Beneficiary["gender"], guardian: String(f["guardian"]), area: String(f["area"]), notes: String(f["notes"]), memberIds: f["memberIds"] as string[], ...(String(f["size"]) !== "" ? { size: Number(f["size"]) } : {}), ...(status !== "" ? { status: status as Beneficiary["status"] } : {}) };
+    const draft: Partial<Beneficiary> = { name: String(f["name"]), dob: String(f["dob"]), gender: f["gender"] as Beneficiary["gender"], guardian: String(f["guardian"]), guardianRelation: String(f["guardianRelation"]), placeOfBirth: String(f["placeOfBirth"]), idNumber: String(f["idNumber"]), fatherStatus: f["fatherStatus"] as Beneficiary["fatherStatus"], motherStatus: f["motherStatus"] as Beneficiary["motherStatus"], eligibility: f["eligibility"] as Beneficiary["eligibility"], eligibilityNote: String(f["eligibilityNote"]), partnerId: String(f["partnerId"]), partnerRef: String(f["partnerRef"]), area: String(f["area"]), notes: String(f["notes"]), memberIds: f["memberIds"] as string[], ...(String(f["size"]) !== "" ? { size: Number(f["size"]) } : {}), ...(status !== "" ? { status: status as Beneficiary["status"] } : {}) };
     const body = isNew ? { action: "ben-add", kind: state.benWin.kind, ...f } : { action: "ben-set", id: state.benWin.id, status, ...f };
     void outcomeChange(body).then(() => {
       if (lastError !== "") return renderBenWindow(lastError, draft);

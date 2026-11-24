@@ -8,10 +8,13 @@
  * Depends on: nothing. Pure functions: no database, no screen, so the rules can be ported to Salesforce (Apex) or another stack.
  *
  * Rules:
+ * - Rule (DECISIONS 164): a person also carries what an admission needs, taken from the orphan admission form: place of birth, a national ID or B-form number, which parent has died, the guardian's relation, and
+ *   the eligibility decision (ready, needs review, cannot offer a place) with a note. A partner may also give its own ID for the child (partnerId, partnerRef), since partners keep their own records and later
+ *   update this profile through the partner portal. Health, fingerprints, documents and contact details are not held yet (they come with the portal and a restricted role).
  * - Two kinds: a person (a child, a student, a widow, a teacher) and a household (a family, a group of persons living together). Other things people call beneficiaries, such as a pump or a house, are outcomes.
  * - Every record has one permanent ID with its kind's prefix (PRS-0001, HH-0001). A number is never used twice, even after a record is removed (the counter only goes up).
  * - Only a name is required. A person may have a date of birth (a real date), a gender, a guardian and an area. A household may have an area, the persons in it, or just a size when the persons are not listed.
- * - Rule: duplicate check. The same name and the same date of birth is the same person (a household: the same name and area), and is refused with the ID it matches. The same name only is a possible match:
+ * - Rule: duplicate check. The same national ID or B-form number is the same person, whatever the name. Otherwise the same name and the same date of birth is the same person (a household: the same name and area), and is refused with the ID it matches. The same name only is a possible match:
  *   it is refused with a message until a person says it is a different one (allowSimilar). Names are compared ignoring case, punctuation and extra spaces.
  * - Rule: a person who is a member of a household cannot be removed until taken out of it. A record that is enrolled (held > 0) cannot be removed, make it inactive instead.
  * - Contact details are not kept here: they stay in the CRM or with the partner. Child data is sensitive, so only a name, date of birth, guardian's name and area are held.
@@ -21,6 +24,9 @@
 export type BeneficiaryKind = "person" | "household";
 export type BeneficiaryStatus = "active" | "inactive";
 export type Gender = "" | "female" | "male";
+export type ParentStatus = "" | "living" | "deceased";
+export type Eligibility = "" | "ready" | "review" | "declined"; // the admission decision: prepare for enrolment, needs management consent or further review, cannot offer a place
+export const ELIGIBILITY_LABEL: Record<Eligibility, string> = { "": "Not checked", ready: "Ready", review: "Needs review", declined: "Cannot offer a place" };
 
 export interface Beneficiary {
   id: string; // the permanent ID, for example PRS-0001
@@ -32,6 +38,15 @@ export interface Beneficiary {
   dob: string; // person: YYYY-MM-DD, "" when not known
   gender: Gender; // person
   guardian: string; // person: the name of the parent or guardian, "" when none
+  guardianRelation: string; // person: the guardian's relation to the child (mother, uncle, grandmother)
+  placeOfBirth: string; // person
+  idNumber: string; // person: national ID or B-form number. The strongest way to tell two records are the same person
+  fatherStatus: ParentStatus; // person: whether the father is living or deceased, "" when not known
+  motherStatus: ParentStatus; // person: the same for the mother
+  eligibility: Eligibility; // person: the admission decision
+  eligibilityNote: string; // person: why, in a few words
+  partnerId: string; // the partner that gave this record, "" when none
+  partnerRef: string; // the partner's own ID for it, so their records and ours can be matched
   memberIds: string[]; // household: the persons in it
   size?: number; // household: how many people, when the persons are not listed
 }
@@ -70,7 +85,10 @@ export interface Duplicates { exact: Beneficiary[]; similar: Beneficiary[] }
  * Rule: duplicate check. Exact: the same kind, the same name and the same date of birth (a person) or the same area (a household), both known. Similar: the same name but the other detail differs or is missing.
  * `ignoreId` leaves out the record being changed.
  */
-export function findDuplicates(reg: Register, c: { kind: BeneficiaryKind; name: string; dob?: string; area?: string }, ignoreId = ""): Duplicates {
+export function findDuplicates(reg: Register, c: { kind: BeneficiaryKind; name: string; dob?: string; area?: string; idNumber?: string }, ignoreId = ""): Duplicates {
+  const id = clean(c.idNumber).replace(/\s+/g, "").toLowerCase();
+  const sameId = c.kind === "person" && id !== "" ? reg.records.filter((r) => r.kind === "person" && r.id !== ignoreId && (r.idNumber ?? "").toLowerCase() === id) : [];
+  if (sameId.length > 0) return { exact: sameId, similar: [] }; // the same national ID or B-form number is the same person, whatever the name
   const n = normName(c.name);
   const sameName = reg.records.filter((r) => r.kind === c.kind && r.id !== ignoreId && normName(r.name) === n);
   const key = (r: { dob?: string; area?: string }): string => (c.kind === "person" ? clean(r.dob) : normName(clean(r.area)));
@@ -79,9 +97,9 @@ export function findDuplicates(reg: Register, c: { kind: BeneficiaryKind; name: 
   return { exact, similar: sameName.filter((r) => !exact.includes(r)) };
 }
 
-const describe = (r: Beneficiary): string => `${r.name} (${r.id}${r.kind === "person" ? (r.dob ? `, born ${r.dob}` : "") : r.area ? `, ${r.area}` : ""})`;
+const describe = (r: Beneficiary): string => `${r.name} (${r.id}${r.kind === "person" ? (r.dob ? `, born ${r.dob}` : "") + (r.idNumber ? `, ID ${r.idNumber}` : "") : r.area ? `, ${r.area}` : ""})`;
 
-interface Fields { name: unknown; dob?: unknown; gender?: unknown; guardian?: unknown; area?: unknown; notes?: unknown; memberIds?: unknown; size?: unknown }
+interface Fields { name: unknown; dob?: unknown; gender?: unknown; guardian?: unknown; guardianRelation?: unknown; placeOfBirth?: unknown; idNumber?: unknown; fatherStatus?: unknown; motherStatus?: unknown; eligibility?: unknown; eligibilityNote?: unknown; partnerId?: unknown; partnerRef?: unknown; area?: unknown; notes?: unknown; memberIds?: unknown; size?: unknown }
 
 // Checks the fields for a kind and returns the record's details (without ID and status), or an error.
 function readFields(reg: Register, kind: BeneficiaryKind, f: Fields, selfId: string): Omit<Beneficiary, "id" | "kind" | "status"> | { error: string } {
@@ -107,12 +125,23 @@ function readFields(reg: Register, kind: BeneficiaryKind, f: Fields, selfId: str
       size = n;
     }
   }
-  return { name, area: clean(f.area).slice(0, 120), notes: clean(f.notes).slice(0, 500), dob, gender: (kind === "person" ? gender : "") as Gender, guardian: kind === "person" ? clean(f.guardian).slice(0, 80) : "", memberIds, ...(size !== undefined ? { size } : {}) };
+  const status = (v: unknown): ParentStatus | "bad" => { const t = clean(v); return t === "" || t === "living" || t === "deceased" ? (t as ParentStatus) : "bad"; };
+  const father = status(f.fatherStatus);
+  const mother = status(f.motherStatus);
+  if (father === "bad" || mother === "bad") return { error: "A parent is living, deceased, or not known." };
+  const eligibility = clean(f.eligibility);
+  if (eligibility !== "" && eligibility !== "ready" && eligibility !== "review" && eligibility !== "declined") return { error: "The decision is ready, needs review, or cannot offer a place." };
+  const mine = (v: unknown, n: number): string => (kind === "person" ? clean(v).slice(0, n) : "");
+  return {
+    name, area: clean(f.area).slice(0, 120), notes: clean(f.notes).slice(0, 500), dob, gender: (kind === "person" ? gender : "") as Gender, guardian: mine(f.guardian, 80), guardianRelation: mine(f.guardianRelation, 40),
+    placeOfBirth: mine(f.placeOfBirth, 80), idNumber: kind === "person" ? clean(f.idNumber).replace(/\s+/g, "").slice(0, 30) : "", fatherStatus: kind === "person" ? father : "", motherStatus: kind === "person" ? mother : "",
+    eligibility: (kind === "person" ? eligibility : "") as Eligibility, eligibilityNote: mine(f.eligibilityNote, 200), partnerId: clean(f.partnerId).slice(0, 80), partnerRef: clean(f.partnerRef).slice(0, 60), memberIds, ...(size !== undefined ? { size } : {}),
+  };
 }
 
 // Rule: the duplicate check as an error message, or "" when there is no problem.
-function duplicateError(reg: Register, kind: BeneficiaryKind, d: { name: string; dob: string; area: string }, selfId: string, allowSimilar: boolean): string {
-  const found = findDuplicates(reg, { kind, name: d.name, dob: d.dob, area: d.area }, selfId);
+function duplicateError(reg: Register, kind: BeneficiaryKind, d: { name: string; dob: string; area: string; idNumber: string }, selfId: string, allowSimilar: boolean): string {
+  const found = findDuplicates(reg, { kind, name: d.name, dob: d.dob, area: d.area, idNumber: d.idNumber }, selfId);
   if (found.exact.length > 0) return `${describe(found.exact[0] as Beneficiary)} is already in the register.`;
   if (found.similar.length > 0 && !allowSimilar) return `Possible match: ${found.similar.map(describe).join(", ")}. If this is a different ${kind === "person" ? "person" : "household"}, tick that it is not the same and save again.`;
   return "";
@@ -153,14 +182,14 @@ export function removeBeneficiary(reg: Register, id: string, held = 0): Result {
   return { value: { ...reg, records: reg.records.filter((x) => x.id !== id) }, id };
 }
 
-export interface BeneficiaryFilter { kind: "" | BeneficiaryKind; status: "" | BeneficiaryStatus; text: string }
+export interface BeneficiaryFilter { kind: "" | BeneficiaryKind; status: "" | BeneficiaryStatus; text: string; eligibility?: "" | Eligibility }
 export const NO_FILTER: BeneficiaryFilter = { kind: "", status: "", text: "" };
 
-// The records that match a filter: the kind, the status, and a text found in the name, ID, area or guardian. Sorted by name.
+// The records that match a filter: the kind, the status, and a text found in the name, ID, national ID, partner reference, area or guardian, and the eligibility decision. Sorted by name.
 export function filterBeneficiaries(records: Beneficiary[], f: BeneficiaryFilter): Beneficiary[] {
   const t = normName(f.text);
   return records
-    .filter((r) => (f.kind === "" || r.kind === f.kind) && (f.status === "" || r.status === f.status) && (t === "" || normName(`${r.id} ${r.name} ${r.area} ${r.guardian}`).includes(t)))
+    .filter((r) => (f.kind === "" || r.kind === f.kind) && (f.status === "" || r.status === f.status) && (!f.eligibility || (r.eligibility ?? "") === f.eligibility) && (t === "" || normName(`${r.id} ${r.name} ${r.area} ${r.guardian} ${r.idNumber ?? ""} ${r.partnerRef ?? ""}`).includes(t)))
     .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
 }
 
@@ -173,7 +202,7 @@ export const householdCount = (h: Beneficiary): number => (h.memberIds.length > 
  */
 export function applyBeneficiaryAction(reg: Register, body: Record<string, unknown>, held: (id: string) => number = () => 0): Result | null {
   const str = (k: string) => (typeof body[k] === "string" ? (body[k] as string) : "");
-  const fields: Fields = { name: body["name"], dob: body["dob"], gender: body["gender"], guardian: body["guardian"], area: body["area"], notes: body["notes"], memberIds: body["memberIds"], size: body["size"] };
+  const fields: Fields = { name: body["name"], dob: body["dob"], gender: body["gender"], guardian: body["guardian"], guardianRelation: body["guardianRelation"], placeOfBirth: body["placeOfBirth"], idNumber: body["idNumber"], fatherStatus: body["fatherStatus"], motherStatus: body["motherStatus"], eligibility: body["eligibility"], eligibilityNote: body["eligibilityNote"], partnerId: body["partnerId"], partnerRef: body["partnerRef"], area: body["area"], notes: body["notes"], memberIds: body["memberIds"], size: body["size"] };
   const allow = body["allowSimilar"] === true;
   switch (body["action"]) {
     case "ben-add": return addBeneficiary(reg, str("kind") as BeneficiaryKind, fields, allow);
