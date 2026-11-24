@@ -20,7 +20,7 @@ const load = (over: Partial<SampleInput> = {}) => { const r = loadSampleSetup(in
 describe("loading the sample setup", () => {
   it("builds partners, projects with clusters, beneficiaries and enrolments from the items that exist", () => {
     const { value, summary } = load();
-    expect(summary).toMatchObject({ partners: 6, projects: 3, attached: 0, clusters: 16, beneficiaries: 24, enrolments: 18, skipped: [] });
+    expect(summary).toMatchObject({ partners: 6, projects: 3, attached: 0, clusters: 16, beneficiaries: 26, enrolments: 20, skipped: [] });
     expect(value.giftProjects.map((g) => g.name)).toEqual(["Sample Orphan Homes", "Sample Village Projects", "Sample Relief Camps"]);
     expect(value.giftProjects[0]?.itemIds).toEqual(["I10", "I13"]); // the person items
   });
@@ -45,15 +45,19 @@ describe("loading the sample setup", () => {
     expect(activeIn(value.enrolments, { clusters: c }, homes.id, small.id, true)).toHaveLength(2); // full
     expect(value.giftProjects[2]?.clusters?.map((x) => x.name)).toEqual(["Sample Camp 1", "Sample Mosque Site"]);
   });
-  it("fills the capacity of every master cluster that counts places, and of every partner, in total and for each benefit", () => {
+  it("fills the capacity of every master cluster that counts places, and gives each partner the room that fits its benefit (DECISIONS 183)", () => {
     const { value } = load();
     const masters = value.giftProjects.flatMap((g) => g.clusters ?? []).filter((c) => c.parentId === "");
     expect(masters.filter((c) => c.capacity === undefined).map((c) => c.name)).toEqual(["Sample Mosque Site"]); // a community site has no places to count
     expect(value.giftProjects.flatMap((g) => g.clusters ?? []).filter((c) => c.parentId !== "").every((c) => c.capacity === undefined)).toBe(true); // sub clusters share the total
-    for (const p of value.partners) {
-      expect(p.capacity).toBeGreaterThan(0);
-      expect(Object.values(p.benefitTerms ?? {}).every((t) => (t.capacity ?? 0) > 0 && (t.costPerUnit ?? 0) > 0)).toBe(true);
-    }
+    const by = (name: string) => value.partners.find((p) => p.name === name)!;
+    // A sponsorship partner's room is its own children, so it has no typed capacity. The trust has a ceiling of 3 for its first item only.
+    expect(by("Sample Orphan Care Trust").benefitTerms?.["I10"]?.capacity).toBe(3);
+    expect(by("Sample Orphan Care Trust").benefitTerms?.["I13"]?.capacity).toBeUndefined();
+    expect(by("Sample Orphan Care Trust").capacity).toBeUndefined();
+    for (const name of ["Sample Care Partners", "Sample Lapsed Partner"]) { expect(by(name).capacity).toBeUndefined(); expect(Object.values(by(name).benefitTerms ?? {}).every((t) => t.capacity === undefined)).toBe(true); }
+    // Builders and relief are not sponsorship: their capacity is typed, and each item has one.
+    for (const name of ["Sample Builders Foundation", "Sample Relief Team"]) { expect(by(name).capacity).toBeGreaterThan(0); expect(Object.values(by(name).benefitTerms ?? {}).every((t) => (t.capacity ?? 0) > 0 && (t.costPerUnit ?? 0) > 0)).toBe(true); }
   });
   it("covers the beneficiary scenarios: every admission decision, a possible duplicate, an inactive child, one waiting, students, a widow", () => {
     const { value } = load();
@@ -146,20 +150,22 @@ describe("attaching to a real project", () => {
 
 describe("covering every item (DECISIONS 171)", () => {
   const more = [...items, { id: "I20", name: "Zakat General" }, { id: "I21", name: "Ramadan Food Packs" }, { id: "I22", name: "Mystery Item" }];
-  it("makes one general partner that delivers every item with generous room, so any gift has somewhere to go", () => {
+  it("makes one general partner that delivers every item: no ceiling for a sponsorship benefit (its room is its children), generous room for the rest", () => {
     const { value } = load();
     const general = value.partners.find((p) => p.name === "Sample General Partner")!;
     expect(general.itemIds).toEqual(["I10", "I11", "I13", "I14"]);
-    expect(Object.values(general.benefitTerms ?? {}).every((t) => (t.capacity ?? 0) >= 5)).toBe(true);
-    expect(general.benefitTerms?.["I10"]?.capacity).toBe(50); // never under 50
+    expect(general.benefitTerms?.["I10"]?.capacity).toBeUndefined(); // sponsorship: no ceiling
+    expect(general.benefitTerms?.["I13"]?.capacity).toBeUndefined();
+    expect(general.benefitTerms?.["I11"]?.capacity).toBe(50); // a pump: typed room, never under 50
+    expect(general.benefitTerms?.["I14"]?.capacity).toBe(50);
+    expect(general.capacity).toBeUndefined(); // no total ceiling either
   });
-  it("sizes the general partner's room for each item from the real gifts, twice what they need, so it is never the bottleneck", () => {
-    const { value } = load({ demand: { I10: 300, I11: 4 } });
+  it("sizes the general partner's room for a benefit that is not sponsorship from the real gifts, twice what they need", () => {
+    const { value } = load({ demand: { I10: 300, I11: 300, I14: 4 } });
     const general = value.partners.find((p) => p.name === "Sample General Partner")!;
-    expect(general.benefitTerms?.["I10"]?.capacity).toBe(605); // 2 x 300 + 5
-    expect(general.benefitTerms?.["I11"]?.capacity).toBe(50); // little demand: the floor
-    expect(general.benefitTerms?.["I13"]?.capacity).toBe(50); // no demand: the floor
-    expect(general.capacity).toBe(605 + 50 + 50 + 50); // the total is the sum
+    expect(general.benefitTerms?.["I11"]?.capacity).toBe(605); // 2 x 300 + 5
+    expect(general.benefitTerms?.["I14"]?.capacity).toBe(50); // little demand: the floor
+    expect(general.benefitTerms?.["I10"]?.capacity).toBeUndefined(); // sponsorship: its children are its room
   });
   it("leaves one item without a partner on purpose when there are more than five, and says which", () => {
     const { value, summary } = load({ items: more });
@@ -193,8 +199,8 @@ describe("scaled to the real gifts (DECISIONS 176)", () => {
   const whole = { I10: 3, I13: 3 };
   it("enrols enough invented children for the real gifts: the units needed divided by the units of one child, plus two, in a large home", () => {
     const { value, summary } = load({ demand, whole });
-    expect(summary.beneficiaries).toBe(24 + 12 + 4); // 30 units over 3 is 10, plus 2; 6 over 3 is 2, plus 2
-    expect(summary.enrolments).toBe(18 + 16);
+    expect(summary.beneficiaries).toBe(26 + 12 + 4); // 30 units over 3 is 10, plus 2; 6 over 3 is 2, plus 2
+    expect(summary.enrolments).toBe(20 + 16);
     const main = value.giftProjects[0]!.clusters!.find((c) => c.name === "Sample Home - Main")!;
     expect(main.capacity).toBe(16); // large enough to hold them, so capacity never blocks
     expect(value.giftProjects[0]!.clusters!.filter((c) => c.parentId === main.id).map((c) => c.name)).toEqual(["Class 1", "Class 2", "Class 3", "Class 4", "Class 5"]);
@@ -204,9 +210,9 @@ describe("scaled to the real gifts (DECISIONS 176)", () => {
     expect(value.enrolments.records.filter((e) => e.itemId === "I13" && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Child "))).toHaveLength(4); // one child per place, for each item
   });
   it("makes none when the real gifts need no sponsorship, and caps the number", () => {
-    expect(load().summary.beneficiaries).toBe(24);
-    expect(load({ demand: { I10: 100000 }, whole: { I10: 1 } }).summary.beneficiaries).toBe(24 + 120); // no more than 120 for an item
-    expect(load({ demand: { I10: 100000, I13: 100000 }, whole: { I10: 1, I13: 1 } }).summary.beneficiaries).toBe(24 + 240);
+    expect(load().summary.beneficiaries).toBe(26);
+    expect(load({ demand: { I10: 100000 }, whole: { I10: 1 } }).summary.beneficiaries).toBe(26 + 120); // no more than 120 for an item
+    expect(load({ demand: { I10: 100000, I13: 100000 }, whole: { I10: 1, I13: 1 } }).summary.beneficiaries).toBe(26 + 240);
   });
   it("lets the real gifts fill them: every unit a real gift needs has a child to go to", () => {
     const { value } = load({ demand, whole });
@@ -306,7 +312,7 @@ describe("removing the sample setup", () => {
     const realEnrolment: Enrolment = { id: "EN-9999", beneficiaryId: "REAL-1", giftProjectId: "real", clusterId: "c", itemId: "I10", role: "", status: "active", since: "2026-01-01" };
     const loaded = load({ enrolments: { records: [realEnrolment], counter: 9999 } });
     const gone = removeSampleSetup(loaded.value);
-    expect(gone.removed).toEqual({ partners: 6, projects: 3, beneficiaries: 24, enrolments: 18 });
+    expect(gone.removed).toEqual({ partners: 6, projects: 3, beneficiaries: 26, enrolments: 20 });
     expect(gone.value.enrolments.records).toEqual([realEnrolment]);
     expect(gone.value.register.records).toEqual([]);
     expect(gone.value.giftProjects).toEqual([]);

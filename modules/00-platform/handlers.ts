@@ -385,7 +385,9 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     }
     // Assignment (DECISIONS 170): the same pure rule the demo uses. The workflow decides automatic or suggested, and whether a person may reassign. Results are separate records, so they can be reset.
     if (typeof b["action"] === "string" && b["action"].startsWith("asg-")) {
-      const ctx = contextFrom({ workOrders: await d.store.listWorkOrders(org), partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at });
+      const wosA = await d.store.listWorkOrders(org);
+      const namesA = new Map(wosA.map((w) => [w.itemId, w.itemName]));
+      const ctx = contextFrom({ workOrders: wosA, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesA.get(itemId) ?? "") });
       const r = applyAssignmentAction(ctx, assignments, b);
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
@@ -397,7 +399,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     if (typeof b["action"] === "string" && b["action"].startsWith("plc-")) {
       const wos = await d.store.listWorkOrders(org);
       const names = new Map(wos.map((w) => [w.itemId, w.itemName]));
-      const actx = contextFrom({ workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at });
+      const actx = contextFrom({ workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? "") });
       const ctx = placementContext({ assignments: assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: enrolments.records, beneficiaries: beneficiaries.records, giftProjects, frameworks: fw, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), now: at });
       const r = applyPlacementAction(ctx, placements, b);
       if (!r) return fail("That request is not understood.");

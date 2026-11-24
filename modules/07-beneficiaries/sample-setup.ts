@@ -76,12 +76,12 @@ export const isSamplePartner = (p: Project): boolean => (p.reference ?? "").star
 export const hasSample = (s: { giftProjects: GiftProject[]; register: Register }): boolean => s.giftProjects.some((g) => g.sample === true || g.sampleAttached !== undefined) || s.register.records.some((b) => b.sample === true);
 
 // The profile of an invented partner that delivers some items: active, due diligence approved, with a capacity and a cost for each. `lapsed` makes its due diligence approval run out last year, so it is not eligible.
-function partnerProfile(name: string, reference: string, items: { id: string }[], today: string, base: number, lapsed = false, room?: (itemId: string) => number): Record<string, unknown> {
+function partnerProfile(name: string, reference: string, items: { id: string }[], today: string, base: number, lapsed = false, room?: (itemId: string) => number | undefined): Record<string, unknown> {
   const year = Number(today.slice(0, 4)) || 2026;
   return {
     name, officialName: `${name} (invented)`, type: "Institute", status: lapsed ? "pending" : "active", reference, established: "2012-04-01", partnershipStart: `${year - 1}-01-15`, countries: "Examplestan", regions: "North District",
     contacts: [{ name: "Sample Director", position: "Director", phone: "+000 000 0000", mobile: "+000 000 0001", email: "director@example.org", handles: "Agreements and approvals" }],
-    itemIds: items.map((i) => i.id), terms: Object.fromEntries(items.map((i, n) => [i.id, { capacity: String(room ? room(i.id) : n === 0 ? base : Math.max(5, base - n * 5)), costPerUnit: String(100 + n * 50) }])), capacity: String(room ? Math.min(100000, items.reduce((t, i) => t + room(i.id), 0)) : base * 2),
+    itemIds: items.map((i) => i.id), terms: Object.fromEntries(items.map((i, n) => { const cap = room ? room(i.id) : n === 0 ? base : Math.max(5, base - n * 5); return [i.id, { ...(cap !== undefined ? { capacity: String(Math.min(100000, cap)) } : {}), costPerUnit: String(100 + n * 50) }]; })), capacity: room ? "" : String(base * 2), // a partner's total is a ceiling too: none for a partner whose room comes from its children (DECISIONS 183)
     capacityNote: lapsed ? "Invented partner whose due diligence has lapsed" : "Invented partner for trying the system", reportVia: "Email", language: "English", sectors: "Education, Child care",
     ddReference: `DD-${reference}`, ddStatus: "approved", ddReview: lapsed ? `${year - 1}-01-31` : `${year + 1}-12-31`, notes: "An invented sample partner. Nothing about it is real.",
   };
@@ -117,7 +117,7 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     // ---- Partners ----
     let ps: ProjectState = { projects: input.partners, nodes: [], outcomes: [], partnerTypes: input.partnerTypes, partnerFields: [], giftProjects: input.giftProjects };
     const partnerId = (name: string): string => ps.projects.find((p) => p.name.toLowerCase() === name.toLowerCase())?.id ?? "";
-    const addPartner = (name: string, reference: string, items: { id: string }[], base: number, lapsed = false, room?: (itemId: string) => number): string => {
+    const addPartner = (name: string, reference: string, items: { id: string }[], base: number, lapsed = false, room?: (itemId: string) => number | undefined): string => {
       if (items.length === 0) return "";
       const existing = partnerId(name);
       if (existing) return existing;
@@ -125,9 +125,11 @@ export function loadSampleSetup(input: SampleInput): Loaded {
       return partnerId(name);
     };
     // Scenarios: the trust has room for only three of the first item, so the next gift goes to the backup. The lapsed partner and the builders (who do not deliver sponsorship) come first and must be skipped.
-    const trust = addPartner("Sample Orphan Care Trust", "SAMPLE-001", sponsor, 3);
-    const careBackup = addPartner("Sample Care Partners", "SAMPLE-002", sponsor, 10);
-    const lapsed = addPartner("Sample Lapsed Partner", "SAMPLE-005", sponsor, 10, true);
+    // Rule (DECISIONS 183): a sponsorship partner's room is its own enrolled children, so nothing is typed. The trust has a ceiling of 3 for its first item only, so the overflow to the next partner still shows.
+    const firstSponsor = sponsor[0]?.id ?? "";
+    const trust = addPartner("Sample Orphan Care Trust", "SAMPLE-001", sponsor, 3, false, (id) => (id === firstSponsor ? 3 : undefined));
+    const careBackup = addPartner("Sample Care Partners", "SAMPLE-002", sponsor, 10, false, () => undefined);
+    const lapsed = addPartner("Sample Lapsed Partner", "SAMPLE-005", sponsor, 10, true, () => undefined);
     const builders = addPartner("Sample Builders Foundation", "SAMPLE-003", build, 15);
     const relieft = addPartner("Sample Relief Team", "SAMPLE-004", relief, 30);
     // The general partner delivers every item with generous room, so any gift has somewhere to go. It is the last choice in each sample project, so the others fill first and the overflow is still seen. With more than five items, the last one is left out on purpose: a gift for it waits, "no partner delivers it".
@@ -135,7 +137,8 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     const uncovered = sorted.length > 5 ? [sorted[sorted.length - 1] as { id: string; name: string }] : [];
     // Rule (DECISIONS 174): its room for each item is twice what the real gifts need, and never under 50, so it is never the bottleneck.
     const demand = input.demand ?? {};
-    const general = addPartner("Sample General Partner", "SAMPLE-006", sorted.filter((i) => !uncovered.some((u) => u.id === i.id)), 100, false, (id) => Math.min(100000, Math.max(50, 2 * (demand[id] ?? 0) + 5))); // a partner's capacity may not pass 100000
+    const sponsorIds = new Set(sponsor.map((i) => i.id));
+    const general = addPartner("Sample General Partner", "SAMPLE-006", sorted.filter((i) => !uncovered.some((u) => u.id === i.id)), 100, false, (id) => (sponsorIds.has(id) ? undefined : Math.min(100000, Math.max(50, 2 * (demand[id] ?? 0) + 5)))); // no ceiling for a sponsorship benefit (its room is its children), a partner's capacity may not pass 100000
 
     // ---- Projects and their clusters. A real project whose gifts carry the items is given the clusters and partners, so real gifts land in invented places. ----
     let gps = input.giftProjects;
@@ -273,18 +276,22 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     person("principal", "Sample Principal Hamid", { dob: "1975-04-04", gender: "male", idNumber: "SMP-2001", guardian: "", eligibility: "" });
     person("warden", "Sample Warden Saira", { dob: "1982-08-08", gender: "female", idNumber: "SMP-2002", guardian: "", eligibility: "" });
     person("dean", "Sample Dean Karim", { dob: "1970-02-02", gender: "male", idNumber: "SMP-2003", guardian: "", eligibility: "" });
+    person("lapsed1", "Sample Lapsed Child One", { dob: "2013-08-08", gender: "male", idNumber: "SMP-4001", fatherStatus: "deceased", motherStatus: "living", guardian: "Sample Guardian L1", eligibility: "ready", partnerId: lapsed || trust }); // owned by the lapsed partner, so its room is never used
+    person("lapsed2", "Sample Lapsed Child Two", { dob: "2014-09-09", gender: "female", idNumber: "SMP-4002", fatherStatus: "deceased", motherStatus: "living", guardian: "Sample Guardian L2", eligibility: "ready", partnerId: lapsed || trust });
     household("h1", "Sample Family Noor", { area: "Sample Village A", size: 5, partnerId: builders });
     household("h2", "Sample Family Rashid", { area: "Sample Village B", size: 7, partnerId: builders });
     household("h3", "Sample Family Qasim", { area: "Sample Camp 1", size: 4, partnerId: relieft });
     household("h4", "Sample Family Bashir", { area: "Sample Camp 1", size: 6, partnerId: relieft });
     // The invented children the real gifts need: one per place, each for one item, ready to be enrolled in the large home.
+    // Rule (DECISIONS 183): the invented children belong to the partners that gave them, alternating between the backup and the general partner, since a partner's room is its own children.
+    const owner = (n: number): string => (n % 2 === 0 ? careBackup : general) || trust;
     const bulkChildren: { id: string; itemId: string; cls: number; projectId: string }[] = [];
     let seq = 0;
     for (const x of need) {
       for (let k = 0; k < x.count; k++) {
         seq++;
         const label = String(seq).padStart(3, "0");
-        const r = mustBen(addBeneficiary(reg, "person", { name: `Sample Child ${label}`, dob: `${2008 + (seq % 9)}-0${1 + (seq % 9)}-1${seq % 9}`, gender: seq % 2 ? "female" : "male", placeOfBirth: "Sampletown", area: "North District", partnerId: trust, idNumber: `SMP-S${label}`, fatherStatus: "deceased", motherStatus: "living", guardian: `Sample Guardian S${label}`, guardianRelation: "mother", eligibility: "ready", eligibilityNote: "Checked (invented)", partnerRef: `SAMPLE-S${label}` }));
+        const r = mustBen(addBeneficiary(reg, "person", { name: `Sample Child ${label}`, dob: `${2008 + (seq % 9)}-0${1 + (seq % 9)}-1${seq % 9}`, gender: seq % 2 ? "female" : "male", placeOfBirth: "Sampletown", area: "North District", partnerId: owner(seq), idNumber: `SMP-S${label}`, fatherStatus: "deceased", motherStatus: "living", guardian: `Sample Guardian S${label}`, guardianRelation: "mother", eligibility: "ready", eligibilityNote: "Checked (invented)", partnerRef: `SAMPLE-S${label}` }));
         reg = r.value; made[`bulk${seq}`] = r.id;
         bulkChildren.push({ id: r.id, itemId: x.item.id, cls: (seq % 5) + 1, projectId: homes });
       }
@@ -294,7 +301,7 @@ export function loadSampleSetup(input: SampleInput): Loaded {
         for (let k = 0; k < x.count; k++) {
           seq++;
           const label = String(seq).padStart(3, "0");
-          const r = mustBen(addBeneficiary(reg, "person", { name: `Sample Child ${label}`, dob: `${2008 + (seq % 9)}-0${1 + (seq % 9)}-1${seq % 9}`, gender: seq % 2 ? "female" : "male", placeOfBirth: "Sampletown", area: "North District", partnerId: trust, idNumber: `SMP-S${label}`, fatherStatus: "deceased", motherStatus: "living", guardian: `Sample Guardian S${label}`, guardianRelation: "mother", eligibility: "ready", eligibilityNote: "Checked (invented)", partnerRef: `SAMPLE-S${label}` }));
+          const r = mustBen(addBeneficiary(reg, "person", { name: `Sample Child ${label}`, dob: `${2008 + (seq % 9)}-0${1 + (seq % 9)}-1${seq % 9}`, gender: seq % 2 ? "female" : "male", placeOfBirth: "Sampletown", area: "North District", partnerId: owner(seq), idNumber: `SMP-S${label}`, fatherStatus: "deceased", motherStatus: "living", guardian: `Sample Guardian S${label}`, guardianRelation: "mother", eligibility: "ready", eligibilityNote: "Checked (invented)", partnerRef: `SAMPLE-S${label}` }));
           reg = r.value; made[`bulk${seq}`] = r.id;
           bulkChildren.push({ id: r.id, itemId: x.item.id, cls: (seq % 5) + 1, projectId });
         }
@@ -324,6 +331,8 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     enroll("c4", homes, ["Sample Home - North", "Class 2"], s1);
     enroll("c5", homes, ["Sample Home - South", "Class 1"], s1);
     enroll("c1", homes, ["Sample Home - North", "Class 1"], s2); // the same child, a second benefit
+    enroll("lapsed1", homes, ["Sample Home - South", "Class 1"], s1);
+    enroll("lapsed2", homes, ["Sample Home - South", "Class 1"], s1);
     enroll("full1", homes, ["Sample Home - Small", "Class A"], s1);
     enroll("full2", homes, ["Sample Home - Small", "Class A"], s1); // the Small home is now full
     for (const who of ["st1", "st2", "st3"]) enroll(who, homes, ["Sample University", "Faculty of Science", "Physics Department"], sLast);

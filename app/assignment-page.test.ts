@@ -13,10 +13,10 @@ import type { FrameworkTemplate } from "../modules/02-project-rules/categories";
 import type { Project } from "../modules/06-projects/projects";
 
 const wo = (key: string, over: Partial<WorkOrder> = {}): WorkOrder => ({
-  key, lineId: key, transactionRef: `T-${key}`, paidDate: `2026-10-${key.slice(-2)}`, supporterId: "S1", supporterName: "Invented Donor", group: "", itemId: "I10", itemName: "Orphan Sponsorship Monthly", amount: 30, quantity: 1,
+  key, lineId: key, transactionRef: `T-${key}`, paidDate: `2026-10-${key.slice(-2)}`, supporterId: "S1", supporterName: "Invented Donor", group: "", itemId: "I11", itemName: "Small Pump", amount: 30, quantity: 1,
   intention: "", subscriptionId: "", instalmentNumber: "", instalmentCount: "", frameworkId: "wf", categoryId: "sponsorship", status: "ready", ...over,
 });
-const partner = (id: string, name: string, cap: number, over: Partial<Project> = {}): Project => ({ id, name, aliases: [], levels: [], types: [], status: "active", ddStatus: "approved", ddReview: "2027-12-31", itemIds: ["I10"], benefitTerms: { I10: { capacity: cap } }, ...over });
+const partner = (id: string, name: string, cap: number, over: Partial<Project> = {}): Project => ({ id, name, aliases: [], levels: [], types: [], status: "active", ddStatus: "approved", ddReview: "2027-12-31", itemIds: ["I11"], benefitTerms: { I11: { capacity: cap } }, ...over });
 const view = (over: Partial<View> = {}): View => ({
   workOrders: [wo("G01"), wo("G02"), wo("G03", { projectName: "Nowhere" })], projects: [partner("trust", "Trust", 1), partner("backup", "Backup", 5)], giftProjects: [], frameworks: [{ id: "wf", assign: "auto" } as FrameworkTemplate], outcomeTypes: [], today: "2026-11-24", ...over,
 }) as View;
@@ -34,7 +34,7 @@ describe("the Assignment page", () => {
   });
   it("shows the room left with each partner, and the first partner each gift would go to, with the reason", () => {
     const html = assignmentPage(view());
-    expect(html).toContain("<td>Trust</td><td>Orphan Sponsorship Monthly</td><td class=\"num\">1</td><td class=\"num\">0</td><td class=\"num\">1</td>");
+    expect(html).toContain("<td>Trust</td><td>Small Pump</td><td class=\"num\">1</td><td class=\"num\">0</td><td class=\"num\">1</td>");
     expect(html).toContain("Goes to Trust (1 of 1 units free)");
     expect(html).toContain("Goes to Backup (5 of 5 units free)"); // the trust is full after the first gift
     expect(html).toContain("Will be assigned automatically");
@@ -52,7 +52,7 @@ describe("the Assignment page", () => {
     expect(html).toContain("<li>Trust: no room (full: 1 of 1 units taken, needs 1)</li>"); // for the second gift, once the first has the trust's place
   });
   it("shows an assigned gift with its partner and a button to take it back, and enables Reset", () => {
-    const html = assignmentPage(view({ assignments: { records: [{ key: "G01", partnerId: "backup", giftProjectId: "", itemId: "I10", parts: 1, how: "auto", at: "x" }] } }));
+    const html = assignmentPage(view({ assignments: { records: [{ key: "G01", partnerId: "backup", giftProjectId: "", itemId: "I11", parts: 1, how: "auto", at: "x" }] } }));
     expect(html).toContain('<span class="pill">Assigned</span>');
     expect(html).toContain('<option value="backup" selected>Backup</option>');
     expect(html).toContain('data-asg="unassign" data-key="G01"');
@@ -65,7 +65,7 @@ describe("the Assignment page", () => {
     expect(html).not.toContain("Other</option>");
   });
   it("filters to the gifts that need a partner or are assigned, and says so when there are none", () => {
-    const a = { records: [{ key: "G01", partnerId: "backup", giftProjectId: "", itemId: "I10", parts: 1, how: "auto" as const, at: "x" }] };
+    const a = { records: [{ key: "G01", partnerId: "backup", giftProjectId: "", itemId: "I11", parts: 1, how: "auto" as const, at: "x" }] };
     expect(assignmentPage(view({ assignments: a, assignFilter: "assigned" }))).not.toContain('data-key="G02"');
     expect(assignmentPage(view({ assignments: a, assignFilter: "ready" }))).not.toContain('data-key="G01"');
     expect(assignmentPage(view({ workOrders: [] }))).toContain("No gifts here.");
@@ -78,6 +78,21 @@ describe("the Assignment page", () => {
     const ready = assignmentPage(view({ assignFilter: "ready" }));
     expect(ready).toContain('data-key="G01"');
     expect(ready).not.toContain('data-key="G03"');
+  });
+  it("shows a partner's room for a sponsorship benefit as its own children, apart from any ceiling, and sends a gift only to a partner that has a child", () => {
+    const kid = (id: string, partnerId: string) => ({ id, kind: "person", name: id, status: "active", eligibility: "ready", partnerId }) as never;
+    const sponsor = view({
+      workOrders: [wo("G01", { itemId: "I10", itemName: "Orphan Sponsorship Monthly" })], frameworks: [{ id: "wf", assign: "auto", unitsPerBeneficiary: 3 } as FrameworkTemplate],
+      projects: [partner("trust", "Trust", 5, { itemIds: ["I10"], benefitTerms: { I10: {} } }), partner("backup", "Backup", 5, { itemIds: ["I10"], benefitTerms: { I10: {} } })],
+      giftProjects: [{ id: "aghosh", name: "Aghosh Home", crmNames: [], partnerIds: ["trust", "backup"] }],
+      beneficiaries: { records: [kid("B1", "backup")], counters: {} },
+      enrolments: { records: [{ id: "EN-1", beneficiaryId: "B1", giftProjectId: "aghosh", clusterId: "c", itemId: "I10", role: "", status: "active", since: "x" }], counter: 1 },
+    });
+    const html = assignmentPage(sponsor);
+    expect(html).toContain('3 <span class="muted">from its children</span>'); // one child is three units
+    expect(html).toContain("<li>Trust: no room (no approved child of its own is enrolled for this benefit)</li>");
+    expect(html).toContain("<li>Backup: has room (3 of 3 units free, from its children)</li>");
+    expect(html).toContain("Goes to Backup");
   });
   it("never trusts a name as HTML", () => {
     const html = assignmentPage(view({ workOrders: [wo("G01", { supporterName: "<img src=x onerror=alert(1)>", itemName: "<script>1</script>" })] }));

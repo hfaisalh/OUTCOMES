@@ -13,7 +13,10 @@
  * - Which partners (DECISIONS 154): a gift for a project goes to that project's partners in the project's order. The project must offer the benefit. A gift with no project, or a blank or "Where Needed Most" one,
  *   is not a general fund: it is for its own item and goes to any partner that delivers it.
  * - A partner is eligible when it is active with its due diligence approved and in date, delivers the item, and its capacity for the item is not 0.
- * - Rule: room. A partner's capacity for an item is the units it can take (the benefit's capacity, else the partner's total). The units already given to it for that item, and those handed out earlier in the same run, are
+ * - Rule: room for a type where the beneficiary comes first (sponsorship) (DECISIONS 183). A partner's room is its own approved, enrolled children: the units that make one whole child, for each child it gave that is enrolled for the
+ *   benefit (in the gift's project when the gift has one, else in any project it delivers for), less what is already assigned to it. Nothing is typed. A capacity typed on the partner is only a ceiling: it may hold less than it has
+ *   registered, never more. A partner with no child of its own for the benefit has no room, so the gift goes to one that has.
+ * - Rule: room for any other type is the partner's typed capacity. A partner's capacity for an item is the units it can take (the benefit's capacity, else the partner's total). The units already given to it for that item, and those handed out earlier in the same run, are
  *   counted. A gift needs its units to fit: if it does not, the next partner is tried. A partner with no capacity set has no limit.
  * - Rule: order. Urgent gifts first, then the oldest payment first, so the order is the same every time.
  * - Rule: automatic or suggested. A workflow set to automatic is assigned at once (recorded as automatic). One set to suggest only shows its suggestion, and a person confirms it or chooses another partner.
@@ -25,6 +28,8 @@ import { partsOf, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import type { FrameworkTemplate } from "../02-project-rules/categories.js";
 import { assignOf, flagOf } from "../02-project-rules/workflows.js";
 import { typeForFramework } from "../05-outcomes/outcome-types.js";
+import type { Beneficiary } from "../07-beneficiaries/beneficiaries.js";
+import type { Enrolment, ItemRules } from "../07-beneficiaries/enrolments.js";
 import type { OutcomeType } from "../05-outcomes/outcome-types.js";
 import { capacityFor, crmMatchNames, eligiblePartners, isGeneralProjectName, projectOffers, projectVendors, type GiftProject, type Project } from "../06-projects/projects.js";
 
@@ -46,6 +51,7 @@ export interface AssignContext {
   giftProjects: GiftProject[];
   modeOf: (frameworkId: string) => "auto" | "suggest"; // the workflow's Assignment setting
   reassignOf: (frameworkId: string) => boolean; // the workflow's Reassign switch
+  derived?: (p: Project, itemId: string, giftProjectId: string) => number | undefined; // the units a partner's own enrolled children give for a benefit, undefined when the benefit is not one where the beneficiary comes first (DECISIONS 183)
   urgent: Set<string>; // work order keys marked urgent
   today: string; // YYYY-MM-DD
   now: string; // ISO time
@@ -68,10 +74,28 @@ export interface Suggestion {
 type Result = { value: Assignments } | { error: string };
 
 // Builds the context from what the callers hold: each workflow gives its Assignment setting (automatic or suggest) and its Reassign switch.
-export function contextFrom(a: { workOrders: WorkOrder[]; partners: Project[]; giftProjects: GiftProject[]; frameworks: FrameworkTemplate[]; outcomeTypes: OutcomeType[]; urgent?: Set<string>; today: string; now: string }): AssignContext {
+export function contextFrom(a: { workOrders: WorkOrder[]; partners: Project[]; giftProjects: GiftProject[]; frameworks: FrameworkTemplate[]; outcomeTypes: OutcomeType[]; urgent?: Set<string>; today: string; now: string; enrolments?: Enrolment[]; beneficiaries?: Beneficiary[]; rulesOf?: (itemId: string) => ItemRules | undefined }): AssignContext {
   const fw = (id: string): FrameworkTemplate | undefined => a.frameworks.find((f) => f.id === id);
+  // Rule (DECISIONS 183): the units a partner's own children give for a benefit. One whole child is the units of its workflow (3 for an orphan, 1 for a scholarship).
+  const itemFramework: Record<string, string> = {};
+  for (const w of a.workOrders) if ((w.frameworkId ?? "") !== "" && itemFramework[w.itemId] === undefined) itemFramework[w.itemId] = w.frameworkId as string;
+  const derived: AssignContext["derived"] = a.rulesOf && a.enrolments && a.beneficiaries ? (p, itemId, giftProjectId) => {
+    const rules = a.rulesOf?.(itemId);
+    if (!rules || rules.first !== "beneficiary" || rules.receiver === "none") return undefined;
+    const whole = Math.max(1, fw(itemFramework[itemId] ?? "")?.unitsPerBeneficiary ?? 1);
+    const byId = new Map((a.beneficiaries ?? []).map((b) => [b.id, b]));
+    const inScope = (gpId: string): boolean => {
+      if (giftProjectId !== "") return gpId === giftProjectId; // a gift for a project: that project's children
+      const gp = a.giftProjects.find((g) => g.id === gpId);
+      return !!gp && gp.partnerIds.includes(p.id) && projectOffers(gp, itemId); // any project the partner delivers for
+    };
+    return (a.enrolments ?? []).filter((e) => {
+      const b = byId.get(e.beneficiaryId);
+      return e.status === "active" && e.role === "" && e.itemId === itemId && inScope(e.giftProjectId) && !!b && b.status === "active" && b.partnerId === p.id && (b.kind !== "person" || b.eligibility === "ready");
+    }).length * whole;
+  } : undefined;
   return {
-    workOrders: a.workOrders, partners: a.partners, giftProjects: a.giftProjects, urgent: a.urgent ?? new Set(), today: a.today, now: a.now,
+    workOrders: a.workOrders, partners: a.partners, giftProjects: a.giftProjects, urgent: a.urgent ?? new Set(), today: a.today, now: a.now, ...(derived ? { derived } : {}),
     modeOf: (id) => { const f = fw(id); return f ? assignOf(f, typeForFramework(a.outcomeTypes, id)) : "suggest"; },
     reassignOf: (id) => { const f = fw(id); return f ? flagOf(f, "reassign") : true; },
   };
@@ -127,6 +151,24 @@ export function toAssign(ctx: AssignContext, existing: Assignments): Assignable[
 // Units already given to a partner for an item (the records, and what this run has handed out so far).
 const taken = (records: Assignment[], partnerId: string, itemId: string): number => records.filter((a) => a.partnerId === partnerId && a.itemId === itemId).reduce((n, a) => n + a.parts, 0);
 
+// Units already given to a partner for an item inside one project (a gift for a project uses that project's children).
+const takenIn = (records: Assignment[], partnerId: string, itemId: string, giftProjectId: string): number => records.filter((a) => a.partnerId === partnerId && a.itemId === itemId && a.giftProjectId === giftProjectId).reduce((n, a) => n + a.parts, 0);
+
+/**
+ * Rule (DECISIONS 183): does a partner have room for a gift? For a benefit where the beneficiary comes first, the room is its own approved enrolled children (derived), and a typed capacity is only a ceiling. For any other
+ * benefit it is the typed capacity. `giftProjectId` is the gift's project, "" when it has none.
+ */
+export function roomFor(ctx: AssignContext, p: Project, itemId: string, parts: number, records: Assignment[], giftProjectId: string): { ok: boolean; why: string } {
+  const d = ctx.derived?.(p, itemId, giftProjectId);
+  if (d === undefined) return hasRoom(p, itemId, parts, records);
+  const used = giftProjectId !== "" ? takenIn(records, p.id, itemId, giftProjectId) : taken(records, p.id, itemId);
+  if (d === 0) return { ok: false, why: "no approved child of its own is enrolled for this benefit" };
+  if (used + parts > d) return { ok: false, why: `its children are full: ${used} of ${d} units taken, needs ${parts}` };
+  const ceiling = capacityFor(p, itemId); // a typed capacity may hold the partner below what it has registered
+  if (ceiling !== undefined && taken(records, p.id, itemId) + parts > ceiling) return { ok: false, why: `at its own ceiling: ${taken(records, p.id, itemId)} of ${ceiling} units taken, needs ${parts}` };
+  return { ok: true, why: `${d - used} of ${d} units free, from its children` };
+}
+
 // Does a partner have room for this many more units of an item? No capacity set means no limit.
 export function hasRoom(p: Project, itemId: string, parts: number, records: Assignment[]): { ok: boolean; why: string } {
   const cap = capacityFor(p, itemId);
@@ -157,7 +199,7 @@ export function suggestAssignments(ctx: AssignContext, existing: Assignments): S
   for (const unit of toAssign(ctx, existing)) {
     const { w, parts } = unit;
     const { gp, list, reason, blocked } = considered(ctx, w);
-    const candidates: Candidate[] = list.map((p) => ({ partnerId: p.id, name: p.name, ...hasRoom(p, w.itemId, parts, running) }));
+    const candidates: Candidate[] = list.map((p) => ({ partnerId: p.id, name: p.name, ...roomFor(ctx, p, w.itemId, parts, running, gp?.id ?? "") }));
     const first = candidates.find((c) => c.ok);
     if (first) running.push({ key: unit.key, partnerId: first.partnerId, giftProjectId: gp?.id ?? "", itemId: w.itemId, parts, how: "auto", at: ctx.now });
     out.push({
@@ -198,8 +240,8 @@ export function assignManual(ctx: AssignContext, existing: Assignments, key: str
   const p = eligiblePartners(ctx.partners, w.itemId, ctx.today).find((x) => x.id === partnerId);
   if (!p) return { error: "That partner is not eligible for this item: it must be active, with its due diligence approved and in date, and deliver the item." };
   const others = existing.records.filter((a) => a.key !== key);
-  const room = hasRoom(p, w.itemId, unit.parts, others);
-  if (!room.ok) return { error: `${p.name} is ${room.why}.` };
+  const room = roomFor(ctx, p, w.itemId, unit.parts, others, projectOfOrder(w, ctx.giftProjects)?.id ?? "");
+  if (!room.ok) return { error: `${p.name} cannot take it: ${room.why}.` };
   const gp = projectOfOrder(w, ctx.giftProjects);
   return { value: { records: [...others, { key, partnerId, giftProjectId: gp?.id ?? "", itemId: w.itemId, parts: unit.parts, how: "manual", at: ctx.now }] } };
 }
@@ -209,13 +251,17 @@ export function unassign(existing: Assignments, key: string): Result {
   return { value: { records: existing.records.filter((a) => a.key !== key) } };
 }
 
-// The room each partner has left for each item it delivers: capacity, taken and free, for the partner table. A partner with no capacity set has no limit.
-export interface Load { partnerId: string; itemId: string; capacity: number | undefined; taken: number }
-export function loads(partners: Project[], existing: Assignments): Load[] {
+// The room each partner has left for each item it delivers, for the partner table. `capacity` is the typed ceiling (undefined when none). `derived` is the units its own enrolled children give (DECISIONS 183), undefined for a
+// benefit where the beneficiary does not come first.
+export interface Load { partnerId: string; itemId: string; capacity: number | undefined; derived?: number; taken: number }
+export function loads(partners: Project[], existing: Assignments, ctx?: AssignContext): Load[] {
   const out: Load[] = [];
   for (const p of partners) {
     const items = new Set([...(p.itemIds ?? []), ...existing.records.filter((a) => a.partnerId === p.id).map((a) => a.itemId)]);
-    for (const itemId of items) out.push({ partnerId: p.id, itemId, capacity: capacityFor(p, itemId), taken: taken(existing.records, p.id, itemId) });
+    for (const itemId of items) {
+      const d = ctx?.derived?.(p, itemId, "");
+      out.push({ partnerId: p.id, itemId, capacity: capacityFor(p, itemId), ...(d !== undefined ? { derived: d } : {}), taken: taken(existing.records, p.id, itemId) });
+    }
   }
   return out;
 }

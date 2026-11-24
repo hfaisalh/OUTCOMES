@@ -79,6 +79,18 @@ describe("an item with no type yet (DECISIONS 178)", () => {
   });
 });
 
+describe("the assigned partner's own children first (DECISIONS 183)", () => {
+  it("fills a child the assigned partner gave before another partner's, even when the other has less filled", () => {
+    const c = ctx({ beneficiaries: [child("B1", "Amina", { partnerId: "backup" }), child("B2", "Bilal", { partnerId: "trust" })], assignments: [asg("G1", { partnerId: "trust" }), asg("G2", { partnerId: "backup" })] });
+    const s = suggestPlacements(c, emptyPlacements());
+    expect(s.map((x) => [x.key, x.enrolmentId])).toEqual([["G1", "EN-2"], ["G2", "EN-1"]]); // each partner's gift fills its own child
+  });
+  it("falls back to another partner's child when it has none of its own open", () => {
+    const c = ctx({ beneficiaries: [child("B1", "Amina", { partnerId: "backup" }), child("B2", "Bilal", { partnerId: "backup" })], assignments: [asg("G1", { partnerId: "trust" })] });
+    expect(suggestPlacements(c, emptyPlacements())[0]?.kind).toBe("place");
+  });
+});
+
 describe("who can hold a place", () => {
   it("leaves out a child who is not approved or is inactive, a role holder and an ended enrolment", () => {
     const c = ctx({

@@ -13,7 +13,7 @@ Assignments (which partner each gift has), the enrolments (the places), the bene
 ## Rules
 - A place is an active enrolment, without a role, of an active beneficiary (a person must be Ready), for the gift's benefit. Its capacity is the units that make one whole beneficiary in the gift's workflow.
 - A gift with a project fills that project's places only. A gift with no project goes to a project that offers the benefit and has the assigned partner among its partners.
-- The lowest fill first, then the earliest enrolled. A gift's units must fit.
+- The assigned partner's own children first, then the lowest fill, then the earliest enrolled. A gift goes whole into one place when it fits, else it is spread over several (DECISIONS 181, 183).
 - A gift-first type, or one with no beneficiary, creates an outcome (OUT-0001, never reused) and needs no place.
 - A gift with no place waits with the reason. A person can choose another open place, or take a placement back.
 

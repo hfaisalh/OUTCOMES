@@ -13,7 +13,8 @@ Work orders (the gifts, with their workflow), partners (their eligibility, capac
 ## Rules
 - Which gifts: ready, with a workflow, not excluded, not a custom amount, not a legacy upload, not already assigned.
 - Which partners: a project's partners in the project's order. A gift with no project goes to any eligible partner that delivers its item. Eligible: active, due diligence approved and in date, delivers the item, capacity not 0.
-- Room: capacity for the item, less what is already assigned (including earlier in the same run). A gift's units must fit, or the next partner is tried. No capacity set means no limit.
+- Room for a sponsorship benefit (where the beneficiary comes first) is the partner's own approved enrolled children: the units of one whole child for each, less what is assigned (DECISIONS 183). A typed capacity is only a ceiling. A partner with no child of its own has no room.
+- Room for any other benefit: capacity for the item, less what is already assigned (including earlier in the same run). A gift's units must fit, or the next partner is tried. No capacity set means no limit.
 - Order: urgent first, then the oldest payment.
 - A workflow set to automatic assigns at once. One set to suggest waits for a person, who can confirm or choose another eligible partner. Reassigning needs the workflow's Reassign switch.
 - A gift with no one to go to waits with the reason (project not offering the benefit, not set up, no partner, every partner full).

@@ -181,7 +181,7 @@ A person or household that receives what a gift delivers. Stored on the organisa
 | `fatherStatus`, `motherStatus` | Person: living, deceased, or empty when not known |
 | `eligibility` | Person: the admission decision: ready (prepare for enrolment), review (needs management consent or further review), declined (cannot offer a place), or empty when not checked |
 | `eligibilityNote` | Person: the reason, in a few words |
-| `partnerId`, `partnerRef` | The partner that gave the record, and that partner's own ID for it |
+| `partnerId`, `partnerRef` | The partner that gave the record, and that partner's own ID for it. For a sponsorship benefit the partner's room is the units of its own approved enrolled children (DECISIONS 183) |
 | `memberIds` | Household: the IDs of the persons in it |
 | `size` | Household: how many people, when the persons are not listed |
 | `notes` | Free text |

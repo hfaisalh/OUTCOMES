@@ -9,6 +9,8 @@
 
 import { assignables, contextFrom, emptyAssignments, loads, projectOfOrder, suggestAssignments, toAssign, type Suggestion } from "../modules/08-assignment/assignment";
 import { eligiblePartners } from "../modules/06-projects/projects";
+import { itemRulesOf } from "../modules/07-beneficiaries/enrolments";
+import type { SavedFeatures } from "../modules/02-project-rules/kind-features";
 import { esc, type View } from "./pages";
 
 const MAX_ROWS = 150;
@@ -19,7 +21,8 @@ export function assignmentPage(v: View): string {
   const partners = v.projects ?? [];
   const existing = v.assignments ?? emptyAssignments();
   const today = v.today ?? "2026-01-01";
-  const ctx = contextFrom({ workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now: `${today}T00:00:00Z` });
+  const names = new Map(v.workOrders.map((w) => [w.itemId, w.itemName]));
+  const ctx = contextFrom({ workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now: `${today}T00:00:00Z`, enrolments: v.enrolments?.records ?? [], beneficiaries: v.beneficiaries?.records ?? [], rulesOf: (i) => itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, i, names.get(i) ?? "") });
   const pname = (id: string): string => partners.find((p) => p.id === id)?.name ?? id;
   const units = new Map(assignables(ctx).map((u) => [u.key, u])); // a recurring gift is one row, however many payments it has (DECISIONS 172)
   const suggestions = suggestAssignments(ctx, existing);
@@ -33,9 +36,13 @@ export function assignmentPage(v: View): string {
   const REASONS: Record<string, string> = { "none-delivers": "no partner delivers the item", full: "every eligible partner is full", "no-partner": "the project has no partner yet", "not-offered": "the project does not offer the benefit", "not-set-up": "the project is not set up" };
   const why = Object.entries(REASONS).map(([k, label]) => ({ n: suggestions.filter((s) => s.blocked === k).length, label })).filter((x) => x.n > 0);
   const metric = (n: number, label: string, cls = ""): string => `<div class="metric${cls ? ` ${cls}` : ""}"><b>${n}</b><span>${esc(label)}</span></div>`;
-  const rooms = loads(partners.filter((p) => (p.itemIds ?? []).length > 0 || existing.records.some((a) => a.partnerId === p.id)), existing);
+  const rooms = loads(partners.filter((p) => (p.itemIds ?? []).length > 0 || existing.records.some((a) => a.partnerId === p.id)), existing, ctx);
   const itemName = (id: string): string => v.workOrders.find((w) => w.itemId === id)?.itemName ?? id;
-  const roomRows = rooms.map((l) => `<tr><td>${esc(pname(l.partnerId))}</td><td>${esc(itemName(l.itemId))}</td><td class="num">${l.capacity ?? "no limit"}</td><td class="num">${l.taken}</td><td class="num">${l.capacity === undefined ? "" : Math.max(0, l.capacity - l.taken)}</td></tr>`).join("");
+  // Rule (DECISIONS 183): for a sponsorship benefit the room is the partner's own enrolled children, and a typed capacity is only a ceiling. Other benefits use the typed capacity.
+  const roomRows = rooms.map((l) => {
+    const room = l.derived !== undefined ? (l.capacity === undefined ? l.derived : Math.min(l.derived, l.capacity)) : l.capacity;
+    return `<tr><td>${esc(pname(l.partnerId))}</td><td>${esc(itemName(l.itemId))}</td><td class="num">${l.derived !== undefined ? `${l.derived} <span class="muted">from its children${l.capacity !== undefined ? `, ceiling ${l.capacity}` : ""}</span>` : l.capacity ?? "no limit"}</td><td class="num">${l.taken}</td><td class="num">${room === undefined ? "" : Math.max(0, room - l.taken)}</td></tr>`;
+  }).join("");
 
   // The gifts shown: those that still need a partner (with their suggestion) and those already assigned.
   const rowsAll: { key: string; assigned: string; sug?: Suggestion }[] = [
@@ -64,7 +71,7 @@ export function assignmentPage(v: View): string {
     <div class="metrics">${metric(toAssign(ctx, existing).length, "Need a partner")}${metric(toGo + suggested, "Have a partner ready")}${metric(existing.records.length, "Assigned")}${metric(waiting, "Wait, no partner with room", waiting ? "warn" : "")}</div>
     ${why.length ? `<p class="muted"><b>Why gifts wait:</b> ${why.map((x) => `${x.n} ${esc(x.label)}`).join(" · ")}.</p>` : ""}
     <div class="actions"><button class="primary" data-asg="run">Assign automatically</button><button data-asg="confirm"${suggested + toGo ? "" : " disabled"}>Confirm all suggestions</button><button data-asg="reset"${existing.records.length ? "" : " disabled"}>Reset assignments</button></div>
-    <div class="card"><h2>Room left with each partner</h2>${rooms.length ? `<table><thead><tr><th>Partner</th><th>Benefit</th><th class="num">Capacity</th><th class="num">Assigned</th><th class="num">Free</th></tr></thead><tbody>${roomRows}</tbody></table>` : '<div class="empty">No partner delivers a benefit yet. Add partners on the Partners page.</div>'}</div>
+    <div class="card"><h2>Room left with each partner</h2>${rooms.length ? `<table><thead><tr><th>Partner</th><th>Benefit</th><th class="num">Room</th><th class="num">Assigned</th><th class="num">Free</th></tr></thead><tbody>${roomRows}</tbody></table>` : '<div class="empty">No partner delivers a benefit yet. Add partners on the Partners page.</div>'}</div>
     <div class="card"><h2>Gifts <span class="muted">(${shown.length})</span></h2>${filters}
       ${rows ? `<div class="tablewrap"><table><thead><tr><th>Gift</th><th>Project</th><th class="num">Units</th><th>Partner</th><th>Why</th></tr></thead><tbody>${rows}</tbody></table></div>${shown.length > MAX_ROWS ? `<p class="muted">The first ${MAX_ROWS} are shown.</p>` : ""}` : '<div class="empty">No gifts here. Gifts appear when they are released and have a workflow.</div>'}</div>`;
 }

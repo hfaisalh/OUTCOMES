@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorkOrder } from "../01c-crm-connector/work-orders";
 import type { GiftProject, Project } from "../06-projects/projects";
-import { applyAssignmentAction, assignables, demandByItem, assignManual, emptyAssignments, hasRoom, loads, projectOfOrder, runAssignment, suggestAssignments, toAssign, unassign, type AssignContext, type Assignments } from "./assignment";
+import { applyAssignmentAction, assignables, contextFrom, demandByItem, assignManual, emptyAssignments, hasRoom, loads, projectOfOrder, runAssignment, suggestAssignments, toAssign, unassign, type AssignContext, type Assignments } from "./assignment";
 
 const wo = (key: string, over: Partial<WorkOrder> = {}): WorkOrder => ({
   key, lineId: key, transactionRef: `T-${key}`, paidDate: `2026-10-${key.slice(-2).padStart(2, "0")}`, supporterId: "S1", supporterName: "Invented Donor", group: "", itemId: "I10", itemName: "Orphan Sponsorship Monthly", amount: 30, quantity: 1,
@@ -68,6 +68,60 @@ describe("which partner a gift goes to", () => {
     expect(s.map((x) => x.key)).toEqual(["G05", "G01", "G02", "G03", "G04"]);
     expect(s[0]?.urgent).toBe(true);
     expect(s[0]?.partnerId).toBe("trust"); // the urgent one gets the trust's room first
+  });
+});
+
+describe("room from a partner's own children (DECISIONS 183)", () => {
+  const person = { first: "beneficiary" as const, receiver: "person" as const, kindLabel: "Person(s)" };
+  const kid = (id: string, partnerId: string, over: Record<string, unknown> = {}) => ({ id, kind: "person", name: id, status: "active", eligibility: "ready", partnerId, ...over }) as never;
+  const enr = (id: string, b: string, project = "aghosh", item = "I10") => ({ id, beneficiaryId: b, giftProjectId: project, clusterId: "c1", itemId: item, role: "", status: "active" as "active" | "ended", since: "x" });
+  const wfs = [{ id: "wf-sponsor", unitsPerBeneficiary: 3, assign: "auto" } as never];
+  const build = (over: { enrolments?: ReturnType<typeof enr>[]; beneficiaries?: ReturnType<typeof kid>[]; orders?: WorkOrder[]; partners?: Project[]; projects?: GiftProject[] } = {}): AssignContext => contextFrom({
+    workOrders: over.orders ?? [], partners: over.partners ?? [lapsed, builders, trust, backup], giftProjects: over.projects ?? [aghosh], frameworks: wfs, outcomeTypes: [], today: "2026-11-24", now: "2026-11-24T10:00:00Z",
+    enrolments: over.enrolments ?? [], beneficiaries: over.beneficiaries ?? [], rulesOf: (i) => (i === "I10" ? person : undefined),
+  });
+  const orders = ["G01", "G02", "G03", "G04", "G05", "G06", "G07"].map((k) => wo(k, { frameworkId: "wf-sponsor" }));
+  it("gives a partner the units of its own approved enrolled children, nothing typed: three children are nine units", () => {
+    const c = build({ orders, partners: [lapsed, builders, backup], enrolments: [enr("E1", "B1"), enr("E2", "B2"), enr("E3", "B3")], beneficiaries: [kid("B1", "backup"), kid("B2", "backup"), kid("B3", "backup")] });
+    expect(c.derived?.(backup, "I10", "aghosh")).toBe(9);
+    expect(c.derived?.(trust, "I10", "aghosh")).toBe(0); // it gave no child
+    expect(c.derived?.(builders, "I11", "")).toBeUndefined(); // not a sponsorship benefit: the typed capacity applies
+  });
+  it("sends a gift to a partner that has a child, and skips one with no child of its own, however much it could hold", () => {
+    const c = build({ orders: [orders[0]!], enrolments: [enr("E1", "B1")], beneficiaries: [kid("B1", "backup")] });
+    const s = suggestAssignments(c, emptyAssignments())[0]!;
+    expect(s.partnerId).toBe("backup"); // the trust has a typed capacity of 3 but no child, so it has no room
+    expect(s.candidates.map((x) => [x.name, x.ok, x.why])).toEqual([["Trust", false, "no approved child of its own is enrolled for this benefit"], ["Backup", true, "3 of 3 units free, from its children"]]);
+  });
+  it("fills a partner's children and then moves on: one child is three units", () => {
+    const c = build({ orders: ["G01", "G02", "G03", "G04"].map((k) => wo(k, { frameworkId: "wf-sponsor" })), enrolments: [enr("E1", "B1"), enr("E2", "B2")], beneficiaries: [kid("B1", "backup"), kid("B2", "trust")] });
+    expect(suggestAssignments(c, emptyAssignments()).map((x) => x.partnerId)).toEqual(["trust", "trust", "trust", "backup"]); // each child holds three units; the trust is first in the project's order
+  });
+  it("counts only a child that is approved, active and enrolled, in the gift's project, and not a role holder", () => {
+    const c = build({
+      orders: [orders[0]!],
+      enrolments: [enr("E1", "B1"), enr("E2", "B2"), enr("E3", "B3"), enr("E4", "B4", "other"), { ...enr("E5", "B5"), role: "Warden" }, { ...enr("E6", "B6"), status: "ended" as const }],
+      beneficiaries: [kid("B1", "trust"), kid("B2", "trust", { eligibility: "review" }), kid("B3", "trust", { status: "inactive" }), kid("B4", "trust"), kid("B5", "trust"), kid("B6", "trust")],
+    });
+    expect(c.derived?.(trust, "I10", "aghosh")).toBe(3); // only B1
+    expect(c.derived?.(trust, "I10", "other")).toBe(3); // B4, in the other project
+  });
+  it("uses a typed capacity only as a ceiling: it may hold a partner below its children, never above", () => {
+    const tight = partner("tight", "Tight", { benefitTerms: { I10: { capacity: 2 } } }); // two units, though it has three children
+    const c = build({ orders: ["G01", "G02", "G03"].map((k) => wo(k, { frameworkId: "wf-sponsor" })), partners: [tight], projects: [{ ...aghosh, partnerIds: ["tight"] }], enrolments: [enr("E1", "B1"), enr("E2", "B2"), enr("E3", "B3")], beneficiaries: [kid("B1", "tight"), kid("B2", "tight"), kid("B3", "tight")] });
+    const s = suggestAssignments(c, emptyAssignments());
+    expect(s.map((x) => x.partnerId)).toEqual(["tight", "tight", ""]); // 9 units from children, ceiling of 2 units
+    expect(s[2]?.candidates[0]?.why).toBe("at its own ceiling: 2 of 2 units taken, needs 1");
+  });
+  it("sends a gift for a project only to the children enrolled in that project, and a gift with no project to any project the partner delivers for", () => {
+    const projects: GiftProject[] = [aghosh, { id: "other", name: "Other", crmNames: [], partnerIds: ["backup"], itemIds: ["I10"] }];
+    const base = { enrolments: [enr("E1", "B1", "other")], beneficiaries: [kid("B1", "backup")], projects, partners: [backup] };
+    expect(suggestAssignments(build({ ...base, orders: [wo("G01", { frameworkId: "wf-sponsor", projectName: "Aghosh Home" })] }), emptyAssignments())[0]?.partnerId).toBe(""); // its child is in the other project
+    expect(suggestAssignments(build({ ...base, orders: [wo("G01", { frameworkId: "wf-sponsor", projectName: "" })] }), emptyAssignments())[0]?.partnerId).toBe("backup");
+  });
+  it("shows how much a partner has from its children, apart from a typed ceiling", () => {
+    const c = build({ orders: [orders[0]!], enrolments: [enr("E1", "B1")], beneficiaries: [kid("B1", "trust")] });
+    expect(loads([trust], emptyAssignments(), c).find((l) => l.itemId === "I10")).toEqual({ partnerId: "trust", itemId: "I10", capacity: 3, derived: 3, taken: 0 });
   });
 });
 
@@ -160,7 +214,7 @@ describe("a person assigning", () => {
     expect(assignManual(ctx({ workOrders: five, reassignOf: () => false }), a, "G01", "backup")).toEqual({ error: "Reassigning is switched off for this workflow." });
     const tight = ctx({ workOrders: five, partners: [partner("trust", "Trust", { benefitTerms: { I10: { capacity: 3 } } }), partner("backup", "Backup", { benefitTerms: { I10: { capacity: 2 } } })] });
     const full = runAssignment(tight, emptyAssignments()).value;
-    expect(assignManual(tight, full, "G01", "backup")).toEqual({ error: "Backup is full: 2 of 2 units taken, needs 1." });
+    expect(assignManual(tight, full, "G01", "backup")).toEqual({ error: "Backup cannot take it: full: 2 of 2 units taken, needs 1." });
   });
   it("assigns a gift that was only suggested", () => {
     const c = ctx({ workOrders: [wo("G01")], modeOf: () => "suggest" });

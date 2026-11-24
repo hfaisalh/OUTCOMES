@@ -51,7 +51,7 @@ describe("Assignment, used like a person would", () => {
     expect(shell.innerHTML).toContain("Confirmed 2 suggestions.");
     expect(shell.innerHTML).not.toContain('data-asg="reset" disabled');
     expect(shell.innerHTML).toContain('<span class="pill">Assigned</span>');
-    expect(shell.innerHTML).toContain("<td class=\"num\">3</td><td class=\"num\">1</td><td class=\"num\">2</td>"); // the trust: capacity 3, one taken, two free
+    expect(shell.innerHTML).toContain('from its children, ceiling 3</span></td><td class="num">1</td><td class="num">2</td>'); // the trust: its own children give the room, a ceiling of 3, one taken, two free (DECISIONS 183)
     expect(shell.innerHTML).not.toContain("Sample Lapsed Partner</option>"); // a lapsed partner is never offered
 
     const key = shell.innerHTML.match(/data-asg="unassign" data-key="([^"]+)"/)?.[1] ?? "";

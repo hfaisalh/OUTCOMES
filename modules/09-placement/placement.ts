@@ -13,7 +13,7 @@
  *   Its capacity is the units that make one whole beneficiary in the gift's workflow (3 parts for an orphan, 1 for a scholarship).
  * - Rule: which project. A gift that carries a project fills that project's places only. A gift with no project goes to a place in any project that offers the benefit and has the gift's assigned partner among
  *   its partners, so the partner that delivers is the partner for that place.
- * - Rule: which place. The place with the lowest fill first, so more beneficiaries are sponsored, then the earliest enrolled. A gift goes whole into one place when it fits. When no single place can take all of it, it is
+ * - Rule: which place (DECISIONS 183). The assigned partner's own children first, since a partner's room is its own children. Then the place with the lowest fill first, so more beneficiaries are sponsored, then the earliest enrolled. A gift goes whole into one place when it fits. When no single place can take all of it, it is
  *   spread over several (a gift of 2 units for a scholarship that needs 1 unit sponsors two children; 6 parts for an orphan who needs 3 sponsors two), each taking what it has free (DECISIONS 181).
  * - Rule: gift first. A gift for a gift-first type, or for a type with no beneficiary, creates an outcome (OUT-0001). It needs no place. Recipients are enrolled afterwards.
  * - A gift with no place waits, with the reason: no one is enrolled for the benefit, or every place for it is full. A gift for an item with no type yet waits too, and says the type is missing (DECISIONS 178).
@@ -92,7 +92,8 @@ export function placesFor(ctx: PlaceContext, a: Assignment, records: Placement[]
     .filter((e) => e.status === "active" && e.role === "" && e.itemId === a.itemId && inProject(e.giftProjectId))
     .filter((e) => { const b = byId.get(e.beneficiaryId); return !!b && b.status === "active" && (b.kind !== "person" || b.eligibility === "ready"); })
     .map((e): PlaceOption => { const u = used(records, e.id); return { enrolmentId: e.id, beneficiaryId: e.beneficiaryId, name: byId.get(e.beneficiaryId)?.name ?? e.beneficiaryId, giftProjectId: e.giftProjectId, clusterId: e.clusterId, used: u, capacity: whole, fits: u + a.parts <= whole }; })
-    .sort((x, y) => x.used - y.used || x.enrolmentId.localeCompare(y.enrolmentId)); // the lowest fill first, then the earliest enrolled
+    // Rule (DECISIONS 183): the assigned partner's own children first, since a partner's room is its own children. Then the lowest fill, then the earliest enrolled.
+    .sort((x, y) => Number(byId.get(y.beneficiaryId)?.partnerId === a.partnerId) - Number(byId.get(x.beneficiaryId)?.partnerId === a.partnerId) || x.used - y.used || x.enrolmentId.localeCompare(y.enrolmentId));
 }
 
 /**
