@@ -13,7 +13,8 @@
  *   Its capacity is the units that make one whole beneficiary in the gift's workflow (3 parts for an orphan, 1 for a scholarship).
  * - Rule: which project. A gift that carries a project fills that project's places only. A gift with no project goes to a place in any project that offers the benefit and has the gift's assigned partner among
  *   its partners, so the partner that delivers is the partner for that place.
- * - Rule: which place. The place with the lowest fill first, so more beneficiaries are sponsored, then the earliest enrolled. A gift's units must fit in the place's free units, else the next place is tried.
+ * - Rule: which place. The place with the lowest fill first, so more beneficiaries are sponsored, then the earliest enrolled. A gift goes whole into one place when it fits. When no single place can take all of it, it is
+ *   spread over several (a gift of 2 units for a scholarship that needs 1 unit sponsors two children; 6 parts for an orphan who needs 3 sponsors two), each taking what it has free (DECISIONS 181).
  * - Rule: gift first. A gift for a gift-first type, or for a type with no beneficiary, creates an outcome (OUT-0001). It needs no place. Recipients are enrolled afterwards.
  * - A gift with no place waits, with the reason: no one is enrolled for the benefit, or every place for it is full. A gift for an item with no type yet waits too, and says the type is missing (DECISIONS 178).
  * - A person can place a gift in a chosen place that is open and fits, or take a placement back. Nothing is changed in place: every function returns a new value.
@@ -26,7 +27,7 @@ import type { Beneficiary } from "../07-beneficiaries/beneficiaries.js";
 import type { Enrolment, ItemRules } from "../07-beneficiaries/enrolments.js";
 
 export interface Placement {
-  key: string; // the assignment (the subscription as "sub:" and its id, or the line id)
+  key: string; // one gift can have several records when it is spread over several places (DECISIONS 181) // the assignment (the subscription as "sub:" and its id, or the line id)
   kind: "place" | "outcome"; // a place filled, or an outcome created from the gift
   enrolmentId: string; // the place filled, "" for an outcome
   outcomeRef: string; // the outcome created, "" for a place
@@ -65,7 +66,8 @@ export interface PlaceSuggestion {
   itemId: string;
   parts: number;
   kind: "place" | "outcome" | "";
-  enrolmentId: string; // the place it would fill
+  enrolmentId: string; // the first place it would fill
+  shares: { enrolmentId: string; parts: number }[]; // every place it would fill, with the units in each: more than one when it is spread
   why: string;
   blocked: Blocked;
   options: PlaceOption[]; // every place considered, in order, with whether the gift fits
@@ -104,22 +106,31 @@ export function suggestPlacements(ctx: PlaceContext, existing: Placements): Plac
     const rules = ctx.rulesOf(a.itemId);
     // Rule: a gift for a type where the gift comes first, or with no beneficiary, creates an outcome. It needs no place.
     if (rules && (rules.first === "gift" || rules.receiver === "none")) {
-      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "outcome", enrolmentId: "", blocked: "", options: [], why: rules.receiver === "none" ? "Creates an outcome for a community: it has no beneficiary." : "Creates an outcome. Its recipients are enrolled after." });
+      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "outcome", enrolmentId: "", shares: [], blocked: "", options: [], why: rules.receiver === "none" ? "Creates an outcome for a community: it has no beneficiary." : "Creates an outcome. Its recipients are enrolled after." });
       continue;
     }
     // Rule (DECISIONS 178): an item with no type yet cannot say who receives it, so its gift waits and says so, instead of looking for a child that cannot exist.
     if (!rules) {
-      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "", enrolmentId: "", blocked: "no-type", options: [], why: "The item has no type yet, so it is not known who receives it. Choose a type on the Benefits page." });
+      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "", enrolmentId: "", shares: [], blocked: "no-type", options: [], why: "The item has no type yet, so it is not known who receives it. Choose a type on the Benefits page." });
       continue;
     }
     const options = placesFor(ctx, a, running);
     const open = options.find((o) => o.fits);
-    if (open) {
-      running.push({ key: a.key, kind: "place", enrolmentId: open.enrolmentId, outcomeRef: "", giftProjectId: open.giftProjectId, itemId: a.itemId, parts: a.parts, how: "auto", at: ctx.now });
-      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "place", enrolmentId: open.enrolmentId, blocked: "", options, why: `Fills a place for ${open.name} (${open.used} of ${open.capacity} units taken)` });
+    // Rule (DECISIONS 181): when no single place can take the whole gift, it is spread over the places that have room, the lowest fill first, if together they can take all of it.
+    const shares: { enrolmentId: string; parts: number }[] = [];
+    if (open) shares.push({ enrolmentId: open.enrolmentId, parts: a.parts });
+    else {
+      let left = a.parts;
+      for (const o of options) { const take = Math.min(left, o.capacity - o.used); if (take > 0) { shares.push({ enrolmentId: o.enrolmentId, parts: take }); left -= take; } if (left === 0) break; }
+      if (left > 0) shares.length = 0;
+    }
+    if (shares.length > 0) {
+      for (const sh of shares) running.push({ key: a.key, kind: "place", enrolmentId: sh.enrolmentId, outcomeRef: "", giftProjectId: options.find((o) => o.enrolmentId === sh.enrolmentId)?.giftProjectId ?? a.giftProjectId, itemId: a.itemId, parts: sh.parts, how: "auto", at: ctx.now });
+      const first = options.find((o) => o.enrolmentId === shares[0]?.enrolmentId) as PlaceOption;
+      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "place", enrolmentId: first.enrolmentId, shares, blocked: "", options, why: shares.length === 1 ? `Fills a place for ${first.name} (${first.used} of ${first.capacity} units taken)` : `Spread over ${shares.length} places, ${shares.map((x) => `${options.find((o) => o.enrolmentId === x.enrolmentId)?.name ?? x.enrolmentId} (${x.parts})`).join(", ")}, since no single place can take ${a.parts} units` });
     } else {
       const blocked: Blocked = options.length > 0 ? "full" : a.giftProjectId !== "" ? "no-places" : "no-project-places";
-      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "", enrolmentId: "", blocked, options, why: options.length > 0 ? "Every place for this benefit is full." : a.giftProjectId !== "" ? "No approved beneficiary is enrolled for this benefit in the gift's project." : "No approved beneficiary is enrolled for this benefit with the assigned partner." });
+      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "", enrolmentId: "", shares: [], blocked, options, why: options.length > 0 ? "Every place for this benefit is full." : a.giftProjectId !== "" ? "No approved beneficiary is enrolled for this benefit in the gift's project." : "No approved beneficiary is enrolled for this benefit with the assigned partner." });
     }
   }
   return out;
@@ -132,7 +143,7 @@ export function runPlacement(ctx: PlaceContext, existing: Placements): { value: 
   let placed = 0, outcomes = 0, waiting = 0;
   for (const s of suggestPlacements(ctx, existing)) {
     const a = ctx.assignments.find((x) => x.key === s.key) as Assignment;
-    if (s.kind === "place") { records = [...records, { key: s.key, kind: "place", enrolmentId: s.enrolmentId, outcomeRef: "", giftProjectId: a.giftProjectId, itemId: s.itemId, parts: s.parts, how: "auto", at: ctx.now }]; placed++; }
+    if (s.kind === "place") { records = [...records, ...s.shares.map((sh): Placement => ({ key: s.key, kind: "place", enrolmentId: sh.enrolmentId, outcomeRef: "", giftProjectId: ctx.enrolments.find((e) => e.id === sh.enrolmentId)?.giftProjectId ?? a.giftProjectId, itemId: s.itemId, parts: sh.parts, how: "auto", at: ctx.now }))]; placed++; }
     else if (s.kind === "outcome") { counter++; records = [...records, { key: s.key, kind: "outcome", enrolmentId: "", outcomeRef: `OUT-${String(counter).padStart(4, "0")}`, giftProjectId: a.giftProjectId, itemId: s.itemId, parts: s.parts, how: "auto", at: ctx.now }]; outcomes++; }
     else waiting++;
   }

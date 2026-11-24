@@ -40,7 +40,7 @@ export function allocatePage(v: View): string {
   const sug = suggestPlacements(ctx, placements);
   const sugOf = new Map<string, PlaceSuggestion>(sug.map((s) => [s.key, s]));
   const filter = v.allocFilter ?? "all";
-  const placedCount = placements.records.filter((p) => p.kind === "place").length;
+  const placedCount = new Set(placements.records.filter((p) => p.kind === "place").map((p) => p.key)).size; // a gift spread over several places counts once
   const outcomeCount = placements.records.filter((p) => p.kind === "outcome").length;
   const waiting = sug.filter((s) => s.kind === "").length;
   const ready = sug.filter((s) => s.kind !== "").length;
@@ -72,9 +72,12 @@ export function allocatePage(v: View): string {
   }).join("");
 
   // Every gift: placed, creating an outcome, or waiting.
-  const rowsAll: { key: string; rec?: (typeof placements.records)[number]; s?: PlaceSuggestion }[] = [
+  // A gift spread over several places has several records (DECISIONS 181): they are one row, with each child and the units it took.
+  const recsByKey = new Map<string, (typeof placements.records)>();
+  for (const rec of placements.records) recsByKey.set(rec.key, [...(recsByKey.get(rec.key) ?? []), rec]);
+  const rowsAll: { key: string; rec?: (typeof placements.records)[number]; recs?: (typeof placements.records); s?: PlaceSuggestion }[] = [
     ...sug.map((s) => ({ key: s.key, s })),
-    ...placements.records.map((rec) => ({ key: rec.key, rec })),
+    ...[...recsByKey.entries()].map(([key, recs]) => ({ key, rec: recs[0], recs })),
   ];
   const shown = rowsAll.filter((r) => unitOf.has(r.key)).filter((r) => filter === "all" || (filter === "placed" ? !!r.rec : filter === "waiting" ? !r.rec && r.s?.kind === "" : filter === "ready" ? !r.rec && r.s?.kind !== "" : true));
   const rows = shown.slice(0, MAX_ROWS).map((r) => {
@@ -84,7 +87,11 @@ export function allocatePage(v: View): string {
     const choose = (selected: string): string => `<select data-plc="set" data-key="${esc(r.key)}" aria-label="Choose a place"><option value="">${selected ? "" : r.s?.enrolmentId ? "Suggested: " + esc(person(enrolments.find((e) => e.id === r.s?.enrolmentId)?.beneficiaryId ?? "")) : "No open place"}</option>${opts.map((o) => `<option value="${esc(o.enrolmentId)}"${o.enrolmentId === (selected || r.s?.enrolmentId) ? " selected" : ""}${o.fits ? "" : " disabled"}>${esc(o.name)} (${o.used} of ${o.capacity})</option>`).join("")}</select>`;
     let place: string, note: string;
     if (r.rec?.kind === "outcome") { place = `<b>${esc(r.rec.outcomeRef)}</b> <button type="button" class="iconact" data-plc="unplace" data-key="${esc(r.key)}" title="Take the placement back" aria-label="Unplace">&times;</button>`; note = '<span class="pill">Outcome created</span>'; }
-    else if (r.rec) { place = `${placeLabel(r.rec.enrolmentId)} <button type="button" class="iconact" data-plc="unplace" data-key="${esc(r.key)}" title="Take the placement back" aria-label="Unplace">&times;</button>`; note = `<span class="pill">Placed</span> <span class="muted">${esc(where(r.rec.giftProjectId, enrolments.find((e) => e.id === r.rec?.enrolmentId)?.clusterId ?? ""))}</span>`; }
+    else if (r.rec) {
+      const recs = r.recs ?? [r.rec];
+      place = `${recs.map((x) => `${placeLabel(x.enrolmentId)}${recs.length > 1 ? ` <span class="muted">(${x.parts} unit${x.parts === 1 ? "" : "s"})</span>` : ""}`).join("<br>")} <button type="button" class="iconact" data-plc="unplace" data-key="${esc(r.key)}" title="Take the placement back" aria-label="Unplace">&times;</button>`;
+      note = `<span class="pill">Placed</span> ${recs.length > 1 ? `<span class="muted">Spread over ${recs.length} places</span>` : `<span class="muted">${esc(where(r.rec.giftProjectId, enrolments.find((e) => e.id === r.rec?.enrolmentId)?.clusterId ?? ""))}</span>`}`;
+    }
     else if (r.s?.kind === "outcome") { place = '<span class="muted">Outcome, no place needed</span>'; note = `<span class="muted">${esc(r.s.why)}</span>`; }
     else { place = choose(""); note = `<span class="muted">${esc(r.s?.why ?? "")}</span>`; }
     return `<tr><td><b>${esc(u.w.itemName)}</b><br><span class="muted">${esc(u.w.supporterName)} · ${esc(u.w.paidDate.slice(0, 10))}${u.payments > 1 ? ` · recurring, ${u.payments} payments` : ""}</span></td><td>${esc(pname(a?.partnerId ?? ""))}</td><td class="num">${a?.parts ?? ""}</td><td>${place}</td><td>${note}</td></tr>`;

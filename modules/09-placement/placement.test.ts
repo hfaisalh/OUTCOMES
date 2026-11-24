@@ -21,8 +21,9 @@ const aghosh: GiftProject = { id: "aghosh", name: "Aghosh", crmNames: [], partne
 const other: GiftProject = { id: "other", name: "Other", crmNames: [], partnerIds: ["backup"], itemIds: ["I10"] };
 const wf: FrameworkTemplate = { id: "wf-orphan", unitsPerBeneficiary: 3 } as FrameworkTemplate;
 const rules: Record<string, ItemRules> = { I10: { first: "beneficiary", receiver: "person", kindLabel: "Person(s)" }, I11: { first: "gift", receiver: "household", kindLabel: "Build" }, I12: { first: "gift", receiver: "none", kindLabel: "Waqf" } };
-const ctx = (over: Partial<PlaceContext> = {}): PlaceContext => placementContext({
-  assignments: [], assignables: [], workOrders: [{ itemId: "I10", frameworkId: "wf-orphan" }], enrolments: [enr("EN-1", "B1"), enr("EN-2", "B2")], beneficiaries: [child("B1", "Amina"), child("B2", "Bilal")], giftProjects: [aghosh, other], frameworks: [wf], rulesOf: (i) => rules[i], now: "2026-11-24T10:00:00Z", ...over,
+const ctx = (over: Partial<PlaceContext> = {}): PlaceContext => ({
+  ...placementContext({ assignments: [], assignables: [], workOrders: [{ itemId: "I10", frameworkId: "wf-orphan" }], enrolments: [enr("EN-1", "B1"), enr("EN-2", "B2")], beneficiaries: [child("B1", "Amina"), child("B2", "Bilal")], giftProjects: [aghosh, other], frameworks: [wf], rulesOf: (i) => rules[i], now: "2026-11-24T10:00:00Z" }),
+  ...over,
 });
 
 describe("filling an open place", () => {
@@ -85,6 +86,44 @@ describe("who can hold a place", () => {
       beneficiaries: [child("B1", "A", { eligibility: "review" }), child("B2", "B"), child("B3", "C", { status: "inactive" }), child("B4", "D"), child("B5", "E")], assignments: [asg("G1")],
     });
     expect(placesFor(c, asg("G1"), []).map((o) => o.enrolmentId)).toEqual(["EN-2"]);
+  });
+});
+
+describe("a gift spread over several places (DECISIONS 181)", () => {
+  const scholar: FrameworkTemplate = { id: "wf-scholar", unitsPerBeneficiary: 1 } as FrameworkTemplate;
+  it("sponsors two children with a gift of two units when a child needs one", () => {
+    const c = ctx({ frameworks: [scholar], itemFramework: { I10: "wf-scholar" }, assignments: [asg("G1", { parts: 2 })] });
+    const s = suggestPlacements(c, emptyPlacements())[0]!;
+    expect(s).toMatchObject({ kind: "place", shares: [{ enrolmentId: "EN-1", parts: 1 }, { enrolmentId: "EN-2", parts: 1 }] });
+    expect(s.why).toBe("Spread over 2 places, Amina (1), Bilal (1), since no single place can take 2 units");
+    const r = runPlacement(c, emptyPlacements());
+    expect(r).toMatchObject({ placed: 1, waiting: 0 }); // one gift placed, over two children
+    expect(r.value.records.map((p) => [p.key, p.enrolmentId, p.parts])).toEqual([["G1", "EN-1", 1], ["G1", "EN-2", 1]]);
+  });
+  it("splits 6 parts for a child who needs 3 into two children, and fills the next child before opening a third", () => {
+    const c = ctx({ assignments: [asg("G1", { parts: 4 })] });
+    const s = suggestPlacements(c, emptyPlacements())[0]!;
+    expect(s.shares).toEqual([{ enrolmentId: "EN-1", parts: 3 }, { enrolmentId: "EN-2", parts: 1 }]); // a whole child, then the rest
+  });
+  it("waits only when the places together cannot take it, and takes nothing partly", () => {
+    const c = ctx({ frameworks: [scholar], itemFramework: { I10: "wf-scholar" }, assignments: [asg("G1", { parts: 3 })] }); // two places of one unit each
+    const s = suggestPlacements(c, emptyPlacements())[0]!;
+    expect(s).toMatchObject({ kind: "", blocked: "full", shares: [] });
+    expect(runPlacement(c, emptyPlacements()).value.records).toEqual([]); // nothing was half placed
+  });
+  it("counts what every share took, so the next gift sees the room that is left", () => {
+    const c = ctx({ frameworks: [scholar], itemFramework: { I10: "wf-scholar" }, assignments: [asg("G1", { parts: 2 }), asg("G2", { parts: 1 })] });
+    const s = suggestPlacements(c, emptyPlacements());
+    expect(s[0]?.kind).toBe("place");
+    expect(s[1]).toMatchObject({ kind: "", blocked: "full" }); // both children are taken by G1
+    const first = runPlacement(c, emptyPlacements()).value;
+    expect(fills(c, first)).toEqual([{ enrolmentId: "EN-1", used: 1, capacity: 1 }, { enrolmentId: "EN-2", used: 1, capacity: 1 }]);
+  });
+  it("takes every share back at once", () => {
+    const c = ctx({ frameworks: [scholar], itemFramework: { I10: "wf-scholar" }, assignments: [asg("G1", { parts: 2 })] });
+    const placed = runPlacement(c, emptyPlacements()).value;
+    const gone = unplace(placed, "G1");
+    expect("value" in gone && gone.value.records).toEqual([]);
   });
 });
 

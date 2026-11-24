@@ -73,6 +73,15 @@ describe("the Allocate page", () => {
     expect(untyped).toContain("1 the item has no type yet (choose one on the Benefits page)");
     expect(untyped).toContain("No project · Mystery Item (1)");
   });
+  it("shows a gift spread over several children as one row, counted once, with the units each took", () => {
+    const records = [{ key: "G01", kind: "place" as const, enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 2, how: "auto" as const, at: "x" }, { key: "G01", kind: "place" as const, enrolmentId: "EN-2", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto" as const, at: "x" }];
+    const html = allocatePage(view({ placements: { counter: 0, records } }));
+    expect(html).toContain("<b>1</b><span>Placed in a place</span>"); // one gift, however many children
+    expect(html).toContain("Spread over 2 places");
+    expect(html).toContain('<span class="muted">(2 units)</span>');
+    expect(html).toContain('<span class="muted">(1 unit)</span>');
+    expect((html.match(/data-plc="unplace" data-key="G01"/g) ?? []).length).toBe(1); // one button takes it all back
+  });
   it("creates an outcome for a gift-first type, shown without a place", () => {
     const pump = view({ workOrders: [wo("G01", { itemId: "I11", itemName: "Small Pump" })], itemKinds: { I11: "build" }, assignments: { records: [{ key: "G01", partnerId: "trust", giftProjectId: "aghosh", itemId: "I11", parts: 1, how: "auto", at: "x" }] } });
     const html = allocatePage(pump);
