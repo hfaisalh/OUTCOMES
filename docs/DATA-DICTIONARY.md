@@ -207,3 +207,16 @@ A beneficiary placed in a cluster of a project for one benefit. Stored on the or
 | `receiver` | `person` (the person themselves), `household`, `list` (a list of people), `none` (a community or institution), or empty. Older saved values `group` and `institution` read as household and none |
 | `first` | `beneficiary` (enrolled first, waits for a sponsor) or `gift` (the gift creates the outcome, recipients come after) |
 
+## Assignment (DECISIONS 170)
+Which partner a gift was assigned to. Stored on the organisation's setup as `assignments` (`records`), apart from the gifts so they can be reset.
+
+| Field | Meaning |
+|---|---|
+| `key` | The gift (the CRM line id) |
+| `partnerId` | The partner it was assigned to |
+| `giftProjectId` | The project the gift belongs to, empty when it has none |
+| `itemId` | The benefit |
+| `parts` | The units it takes from the partner's room |
+| `how` | `auto` (the workflow assigned it) or `manual` (a person chose or confirmed it) |
+| `at` | When, as an ISO time |
+
