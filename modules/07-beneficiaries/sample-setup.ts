@@ -115,7 +115,7 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     const lapsed = addPartner("Sample Lapsed Partner", "SAMPLE-005", sponsor, 10, true);
     const builders = addPartner("Sample Builders Foundation", "SAMPLE-003", build, 15);
     const relieft = addPartner("Sample Relief Team", "SAMPLE-004", relief, 30);
-    // The general partner delivers every item with generous room, so any gift has somewhere to go. With more than five items, the last one is left out on purpose: a gift for it waits, "no partner delivers it".
+    // The general partner delivers every item with generous room, so any gift has somewhere to go. It is the last choice in each sample project, so the others fill first and the overflow is still seen. With more than five items, the last one is left out on purpose: a gift for it waits, "no partner delivers it".
     const sorted = [...input.items].sort((a, b) => a.id.localeCompare(b.id));
     const uncovered = sorted.length > 5 ? [sorted[sorted.length - 1] as { id: string; name: string }] : [];
     const general = addPartner("Sample General Partner", "SAMPLE-006", sorted.filter((i) => !uncovered.some((u) => u.id === i.id)), 100);
@@ -145,16 +145,16 @@ export function loadSampleSetup(input: SampleInput): Loaded {
       gps = gps.map((g) => (g.id === id ? { ...g, sample: true as const, clusters } : g));
       return id;
     };
-    const homes = addProject("Sample Orphan Homes", sponsor, [lapsed, builders, trust, careBackup].filter((x) => x !== ""), clustersFrom([
+    const homes = addProject("Sample Orphan Homes", sponsor, [lapsed, builders, trust, careBackup, general].filter((x) => x !== ""), clustersFrom([
       { name: "Sample Home - North", label: "Home", capacity: 12, roles: "Principal, Warden", subs: [{ name: "Class 1", label: "Class" }, { name: "Class 2", label: "Class" }] },
       { name: "Sample Home - South", label: "Home", capacity: 8, subs: [{ name: "Class 1", label: "Class" }] },
       { name: "Sample Home - Small", label: "Home", capacity: 2, subs: [{ name: "Class A", label: "Class" }] }, // two places, so it fills
       { name: "Sample Home - Closed", label: "Home", capacity: 10, closed: true }, // takes no one
       { name: "Sample University", label: "University", capacity: 6, roles: "Principal", subs: [{ name: "Faculty of Science", label: "Faculty", subs: [{ name: "Physics Department", label: "Department" }] }, { name: "Faculty of Arts", label: "Faculty" }] },
     ]));
-    const villages = addProject("Sample Village Projects", build, [builders].filter((x) => x !== ""), clustersFrom([{ name: "Sample Village A", label: "Village", capacity: 6 }, { name: "Sample Village B", label: "Village", capacity: 4 }]));
+    const villages = addProject("Sample Village Projects", build, [builders, general].filter((x) => x !== ""), clustersFrom([{ name: "Sample Village A", label: "Village", capacity: 6 }, { name: "Sample Village B", label: "Village", capacity: 4 }]));
     // The mosque site has no capacity on purpose: it serves a community, not a number of places.
-    const camps = addProject("Sample Relief Camps", relief, [relieft].filter((x) => x !== ""), clustersFrom([{ name: "Sample Camp 1", label: "Camp", capacity: 40 }, { name: "Sample Mosque Site", label: "Site" }]));
+    const camps = addProject("Sample Relief Camps", relief, [relieft, general].filter((x) => x !== ""), clustersFrom([{ name: "Sample Camp 1", label: "Camp", capacity: 40 }, { name: "Sample Mosque Site", label: "Site" }]));
     const programmes = addProject("Sample General Programmes", untyped, [general].filter((x) => x !== ""), clustersFrom([{ name: "Sample General Site", label: "Site" }]));
     // A real project with no partner is given the general partner, so its gifts do not all wait. Its own clusters, items and gifts are not touched.
     let coveredProjects = 0;

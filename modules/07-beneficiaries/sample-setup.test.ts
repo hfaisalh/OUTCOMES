@@ -28,8 +28,8 @@ describe("loading the sample setup", () => {
     const { value } = load();
     const homes = value.giftProjects[0]!;
     const name = (id: string) => value.partners.find((p) => p.id === id)?.name;
-    expect(homes.partnerIds.map(name)).toEqual(["Sample Lapsed Partner", "Sample Builders Foundation", "Sample Orphan Care Trust", "Sample Care Partners"]); // the priority order
-    expect(projectVendors(homes, value.partners, "I10", "2026-11-24").map((p) => p.name)).toEqual(["Sample Orphan Care Trust", "Sample Care Partners"]); // lapsed and builders skipped
+    expect(homes.partnerIds.map(name)).toEqual(["Sample Lapsed Partner", "Sample Builders Foundation", "Sample Orphan Care Trust", "Sample Care Partners", "Sample General Partner"]); // the priority order, the general partner last
+    expect(projectVendors(homes, value.partners, "I10", "2026-11-24").map((p) => p.name)).toEqual(["Sample Orphan Care Trust", "Sample Care Partners", "Sample General Partner"]); // lapsed and builders skipped, the general partner the last resort
     expect(value.partners.find((p) => p.name === "Sample Orphan Care Trust")?.benefitTerms?.["I10"]?.capacity).toBe(3); // room for three, then the backup
     expect(value.partners.every(isSamplePartner)).toBe(true);
   });
@@ -112,9 +112,9 @@ describe("attaching to a real project", () => {
     const gp = value.giftProjects.find((g) => g.id === "aghosh-orphan-home")!;
     expect(gp.clusters?.length).toBe(12);
     expect(gp.partnerIds[0]).toBe("real-partner"); // its own partner stays first, the sample ones follow
-    expect(gp.partnerIds.length).toBe(5);
+    expect(gp.partnerIds.length).toBe(6);
     expect(gp.sampleAttached).toEqual({ partnerIds: gp.sampleAttached!.partnerIds, clusters: true });
-    expect(gp.sampleAttached?.partnerIds.length).toBe(4);
+    expect(gp.sampleAttached?.partnerIds.length).toBe(5);
     expect(value.enrolments.records.some((e) => e.giftProjectId === "aghosh-orphan-home")).toBe(true);
     expect(value.giftProjects.map((g) => g.name)).toEqual(["Aghosh Orphan Home", "Sample Village Projects", "Sample Relief Camps"]);
   });
