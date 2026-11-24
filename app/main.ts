@@ -19,6 +19,7 @@ import { partnersPage } from "./partners-page";
 import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
 import { projectFormHtml, readProjectForm } from "./project-form";
+import { openClusters } from "./clusters-tab";
 import { benefitRow, NEW_CONTACT_ROW, NEW_DOC_ROW, readPartnerForm } from "./partner-form";
 import { partnerWindowHtml, type PartnerTab } from "./partner-window";
 import { allocationPage } from "./allocation-page";
@@ -1591,7 +1592,12 @@ document.addEventListener("click", (e) => {
   switch (b.dataset.cl) {
     case "level-add": return clusterRequest({ action: "cluster-level-add", name: val("cl-newlevel") });
     case "level-rm": return clusterRequest({ action: "cluster-level-remove", levelId: b.dataset.id ?? "" });
-    case "cluster-add": return clusterRequest({ action: "cluster-add", name: val("cl-name"), levelId: val("cl-level"), parentId: val("cl-parent"), place: val("cl-place"), capacity: val("cl-capacity") });
+    case "toggle": { const id = b.dataset.id ?? ""; if (openClusters.has(id)) openClusters.delete(id); else openClusters.add(id); return renderProjectWindow(lastError); }
+    case "cluster-add": { // Rule: capacity belongs to the first level only. The cluster it is added in opens, so the new one shows.
+      const parent = val("cl-parent");
+      if (parent !== "") openClusters.add(parent);
+      return clusterRequest({ action: "cluster-add", name: val("cl-name"), levelId: val("cl-level"), parentId: parent, place: val("cl-place"), capacity: parent === "" ? val("cl-capacity") : "" });
+    }
     case "cluster-rm": return clusterRequest({ action: "cluster-remove", clusterId: b.dataset.id ?? "" });
   }
 });

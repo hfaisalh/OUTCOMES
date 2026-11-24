@@ -539,3 +539,8 @@ First step of the build order in 152 and 153.
 - **"Vendors" is now "Partners / vendors"** (they are the same thing, Faisal, 23/11/2026) on the project form and the register. Where there is none, it says "No partner".
 
 Addendum to 159 (Faisal, 24/11/2026): the two names are called **Display Name** (the name shown in OUTCOMES) and **Original Name** (the CRM's own project name, fixed). The saved fields are still `name` and `crmName`.
+
+## 160. Clusters tab: first level shown, the rest as a drop down list; capacity at the first level (Faisal, 24/11/2026)
+
+- The Clusters tab shows the **first level** (for example each Aghosh Home) as the visible rows. The clusters inside (classrooms) are a **drop down list** under it, closed until opened with the arrow. A badge shows how many are inside. Adding a cluster opens the one it sits in.
+- **Capacity is set on the first level only** (a Home holds 40). Lower levels show no capacity. The stored field is unchanged, so nothing saved is lost.

@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { clustersTabHtml } from "./clusters-tab";
+import { clustersTabHtml, openClusters } from "./clusters-tab";
 import { projectFormHtml } from "./project-form";
 import type { ClusterState } from "../modules/06-projects/clusters";
 
@@ -26,14 +26,22 @@ describe("the Clusters tab", () => {
     expect(html).toContain('data-cl="level-rm" data-id="block"');
     expect(html).toContain('data-cl="level-add"');
   });
-  it("lists the clusters as a tree, a cluster under the one it is in, each with place, capacity and status", () => {
+  it("shows the first level, with the clusters inside as a drop down list that is closed until opened", () => {
+    openClusters.clear();
+    const closed = clustersTabHtml(home);
+    expect(closed).toContain('data-cl="capacity" data-id="block-a" value="60"');
+    expect(closed).toContain('data-cl="toggle" data-id="block-a" aria-expanded="false"');
+    expect(closed).not.toContain('data-id="classroom-5a"'); // hidden while closed
+    expect(closed).toContain('<span class="pill">1</span>'); // how many are inside
+    openClusters.add("block-a");
     const html = clustersTabHtml(home);
     expect(html.indexOf('data-id="block-a"')).toBeLessThan(html.indexOf('data-id="classroom-5a"'));
     expect(html).toContain("padding-left:32px"); // the classroom is indented one step
-    expect(html).toMatch(/data-cl="capacity" data-id="classroom-5a" value="30"/);
+    expect(html).not.toContain('data-cl="capacity" data-id="classroom-5a"'); // capacity is set at the first level only
     expect(html).toContain('<option value="closed" selected>Closed</option>');
     expect(html).toContain('data-cl="cluster-rm" data-id="classroom-5a"');
     expect(html).toContain("Clusters <span class=\"muted\">(2)</span>");
+    openClusters.clear();
   });
   it("has a row to add a cluster, with the level, and only clusters to sit in that belong to the level above", () => {
     const html = clustersTabHtml(home);
