@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorkOrder } from "../01c-crm-connector/work-orders";
 import type { GiftProject, Project } from "../06-projects/projects";
-import { applyAssignmentAction, assignables, assignManual, emptyAssignments, hasRoom, loads, projectOfOrder, runAssignment, suggestAssignments, toAssign, unassign, type AssignContext, type Assignments } from "./assignment";
+import { applyAssignmentAction, assignables, demandByItem, assignManual, emptyAssignments, hasRoom, loads, projectOfOrder, runAssignment, suggestAssignments, toAssign, unassign, type AssignContext, type Assignments } from "./assignment";
 
 const wo = (key: string, over: Partial<WorkOrder> = {}): WorkOrder => ({
   key, lineId: key, transactionRef: `T-${key}`, paidDate: `2026-10-${key.slice(-2).padStart(2, "0")}`, supporterId: "S1", supporterName: "Invented Donor", group: "", itemId: "I10", itemName: "Orphan Sponsorship Monthly", amount: 30, quantity: 1,
@@ -95,6 +95,10 @@ describe("a recurring gift is one assignment (DECISIONS 172)", () => {
     expect(new Set(s.map((x) => x.key)).size).toBe(2);
     expect(s.find((x) => x.key === "12345")?.partnerId).toBe("builders"); // the pump goes to the builders
     expect(s.find((x) => x.key === "sub:12345")?.partnerId).toBe("trust"); // the sponsorship goes to the trust
+  });
+  it("counts the units each item needs a partner for, a recurring gift once", () => {
+    const orders = [...monthly(12, "SUB-1"), ...monthly(12, "SUB-2"), wo("G90", { itemId: "I11", itemName: "Small Pump", quantity: 3 })];
+    expect(demandByItem(ctx({ workOrders: orders }))).toEqual({ I10: 2, I11: 3 }); // two subscriptions of one unit each, and a pump gift of three
   });
   it("takes the parts of one instalment, not of every payment, and counts a catch-up payment as the instalments it covers", () => {
     const covers = wo("C-01", { subscriptionId: "SUB-C", quantity: 3, covers: 3 }); // 3 units paid for 3 instalments: 1 unit each

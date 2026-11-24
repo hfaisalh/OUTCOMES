@@ -36,7 +36,7 @@ import { setItemKind } from "../02-project-rules/benefits.js";
 import { autoCreateProjects } from "../06-projects/projects.js";
 import { applyKindAction, type SavedFeatures } from "../02-project-rules/kind-features.js";
 import { applyBeneficiaryAction, emptyRegister } from "../07-beneficiaries/beneficiaries.js";
-import { applyAssignmentAction, contextFrom, emptyAssignments } from "../08-assignment/assignment.js";
+import { applyAssignmentAction, contextFrom, demandByItem, emptyAssignments } from "../08-assignment/assignment.js";
 import { loadSampleSetup, realProjectsFor, removeSampleSetup, sampleSummaryText, removedSummaryText } from "../07-beneficiaries/sample-setup.js";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf } from "../07-beneficiaries/enrolments.js";
 
@@ -399,7 +399,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (b["action"] === "sample-load") {
         const wos = await d.store.listWorkOrders(org);
         const seen = new Map(wos.map((w) => [w.itemId, w.itemName]));
-        const r = loadSampleSetup({ items: [...seen.entries()].map(([id, name]) => ({ id, name })), realProjects: realProjectsFor(giftProjects, wos), itemKinds: config.itemKinds ?? {}, kindFeatures: (config.kindFeatures ?? {}) as SavedFeatures, ...state, today: at.slice(0, 10) });
+        const r = loadSampleSetup({ items: [...seen.entries()].map(([id, name]) => ({ id, name })), realProjects: realProjectsFor(giftProjects, wos), demand: demandByItem(contextFrom({ workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at })), itemKinds: config.itemKinds ?? {}, kindFeatures: (config.kindFeatures ?? {}) as SavedFeatures, ...state, today: at.slice(0, 10) });
         if ("error" in r) return fail(r.error);
         next = r.value; message = sampleSummaryText(r.summary);
       } else {

@@ -111,6 +111,13 @@ export function assignables(ctx: AssignContext): Assignable[] {
   return out.sort((a, b) => Number(ctx.urgent.has(b.key) || ctx.urgent.has(b.w.key)) - Number(ctx.urgent.has(a.key) || ctx.urgent.has(a.w.key)) || a.w.paidDate.localeCompare(b.w.paidDate) || a.key.localeCompare(b.key));
 }
 
+// How many units each item needs a partner for (DECISIONS 174): the parts of every assignable, by item. The sample setup uses it to give its general partner enough room for the real gifts.
+export function demandByItem(ctx: AssignContext): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const u of assignables(ctx)) out[u.w.itemId] = (out[u.w.itemId] ?? 0) + u.parts;
+  return out;
+}
+
 // Which still need a partner: those with no assignment yet.
 export function toAssign(ctx: AssignContext, existing: Assignments): Assignable[] {
   const done = new Set(existing.records.map((a) => a.key));

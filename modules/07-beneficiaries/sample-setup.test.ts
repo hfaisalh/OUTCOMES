@@ -147,7 +147,15 @@ describe("covering every item (DECISIONS 171)", () => {
     const general = value.partners.find((p) => p.name === "Sample General Partner")!;
     expect(general.itemIds).toEqual(["I10", "I11", "I13", "I14"]);
     expect(Object.values(general.benefitTerms ?? {}).every((t) => (t.capacity ?? 0) >= 5)).toBe(true);
-    expect(general.benefitTerms?.["I10"]?.capacity).toBe(100);
+    expect(general.benefitTerms?.["I10"]?.capacity).toBe(50); // never under 50
+  });
+  it("sizes the general partner's room for each item from the real gifts, twice what they need, so it is never the bottleneck", () => {
+    const { value } = load({ demand: { I10: 300, I11: 4 } });
+    const general = value.partners.find((p) => p.name === "Sample General Partner")!;
+    expect(general.benefitTerms?.["I10"]?.capacity).toBe(605); // 2 x 300 + 5
+    expect(general.benefitTerms?.["I11"]?.capacity).toBe(50); // little demand: the floor
+    expect(general.benefitTerms?.["I13"]?.capacity).toBe(50); // no demand: the floor
+    expect(general.capacity).toBe(605 + 50 + 50 + 50); // the total is the sum
   });
   it("leaves one item without a partner on purpose when there are more than five, and says which", () => {
     const { value, summary } = load({ items: more });

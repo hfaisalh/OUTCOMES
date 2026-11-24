@@ -20,7 +20,7 @@ import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
 import { registerPage } from "./register-page";
 import { assignmentPage } from "./assignment-page";
-import { applyAssignmentAction, contextFrom, emptyAssignments, type Assignments } from "../modules/08-assignment/assignment";
+import { applyAssignmentAction, contextFrom, demandByItem, emptyAssignments, type Assignments } from "../modules/08-assignment/assignment";
 import { registerFormHtml } from "./register-form";
 import { loadSampleSetup, realProjectsFor, removeSampleSetup, removedSummaryText, sampleSummaryText } from "../modules/07-beneficiaries/sample-setup";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf, type Enrolments } from "../modules/07-beneficiaries/enrolments";
@@ -318,7 +318,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
           const cur = { partners: state.projects, giftProjects: state.giftProjects, partnerTypes: state.partnerTypes, register: state.beneficiaries, enrolments: state.enrolments };
           let next = cur;
           if (body["action"] === "sample-load") {
-            const r = loadSampleSetup({ items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), realProjects: realProjectsFor(state.giftProjects, state.workOrders), itemKinds: state.itemKinds, kindFeatures: state.kindFeatures as SavedFeatures, ...cur, today: new Date().toISOString().slice(0, 10) });
+            const r = loadSampleSetup({ items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), realProjects: realProjectsFor(state.giftProjects, state.workOrders), demand: demandByItem(contextFrom({ workOrders: view().workOrders, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString() })), itemKinds: state.itemKinds, kindFeatures: state.kindFeatures as SavedFeatures, ...cur, today: new Date().toISOString().slice(0, 10) });
             if ("error" in r) { error = r.error; break; }
             next = r.value; state.message = sampleSummaryText(r.summary);
           } else {

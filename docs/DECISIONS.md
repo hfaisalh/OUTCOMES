@@ -651,3 +651,8 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 
 - A first look at real gifts showed a pump suggestion on an orphan sponsorship row. Cause: a recurring gift was kept under its **subscription id** and a one-off payment under its **line id**, and in real data the two can be the **same number**. The page then paired one gift's suggestion with another gift's details, and confirming would have assigned the wrong gift.
 - A recurring gift is now kept under **`sub:` and its subscription id** (for example `sub:12345`). A one-off payment stays under its line id. The two can no longer collide. Any assignment made before this is cleared by **Reset assignments**.
+
+## 174. The general partner's room is sized from the real gifts (Faisal, 24/11/2026)
+
+- Supersedes the room for the general partner in 171. Its room for each item **shrank with the item's place in the list** (100, 95, 90 and so on, never under 5), so the later items in a large catalogue got only 5 places, and 80 real gifts still found every partner full. That was an arbitrary rule of mine.
+- Its room for each item is now **twice the units the real gifts need, plus 5, and never under 50** (`demandByItem` counts the assignments for each item, a recurring gift once). So it is never the bottleneck. The trust (3) and the backup (10) stay small, so the overflow order is still seen.

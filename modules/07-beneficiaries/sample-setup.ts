@@ -39,6 +39,7 @@ export interface SampleInput {
   partnerTypes: string[];
   register: Register;
   enrolments: Enrolments;
+  demand?: Record<string, number>; // the units each item needs a partner for (see demandByItem), so the general partner has room for the real gifts
   realProjects: { id: string; itemIds: string[]; itemCounts?: Record<string, number> }[]; // the real projects, the items their gifts carry and how many gifts carry each, to attach to (see realProjectsFor)
   today: string;
 }
@@ -61,12 +62,12 @@ export const isSamplePartner = (p: Project): boolean => (p.reference ?? "").star
 export const hasSample = (s: { giftProjects: GiftProject[]; register: Register }): boolean => s.giftProjects.some((g) => g.sample === true || g.sampleAttached !== undefined) || s.register.records.some((b) => b.sample === true);
 
 // The profile of an invented partner that delivers some items: active, due diligence approved, with a capacity and a cost for each. `lapsed` makes its due diligence approval run out last year, so it is not eligible.
-function partnerProfile(name: string, reference: string, items: { id: string }[], today: string, base: number, lapsed = false): Record<string, unknown> {
+function partnerProfile(name: string, reference: string, items: { id: string }[], today: string, base: number, lapsed = false, room?: (itemId: string) => number): Record<string, unknown> {
   const year = Number(today.slice(0, 4)) || 2026;
   return {
     name, officialName: `${name} (invented)`, type: "Institute", status: lapsed ? "pending" : "active", reference, established: "2012-04-01", partnershipStart: `${year - 1}-01-15`, countries: "Examplestan", regions: "North District",
     contacts: [{ name: "Sample Director", position: "Director", phone: "+000 000 0000", mobile: "+000 000 0001", email: "director@example.org", handles: "Agreements and approvals" }],
-    itemIds: items.map((i) => i.id), terms: Object.fromEntries(items.map((i, n) => [i.id, { capacity: String(n === 0 ? base : Math.max(5, base - n * 5)), costPerUnit: String(100 + n * 50) }])), capacity: String(base * 2),
+    itemIds: items.map((i) => i.id), terms: Object.fromEntries(items.map((i, n) => [i.id, { capacity: String(room ? room(i.id) : n === 0 ? base : Math.max(5, base - n * 5)), costPerUnit: String(100 + n * 50) }])), capacity: String(room ? items.reduce((t, i) => t + room(i.id), 0) : base * 2),
     capacityNote: lapsed ? "Invented partner whose due diligence has lapsed" : "Invented partner for trying the system", reportVia: "Email", language: "English", sectors: "Education, Child care",
     ddReference: `DD-${reference}`, ddStatus: "approved", ddReview: lapsed ? `${year - 1}-01-31` : `${year + 1}-12-31`, notes: "An invented sample partner. Nothing about it is real.",
   };
@@ -102,11 +103,11 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     // ---- Partners ----
     let ps: ProjectState = { projects: input.partners, nodes: [], outcomes: [], partnerTypes: input.partnerTypes, partnerFields: [], giftProjects: input.giftProjects };
     const partnerId = (name: string): string => ps.projects.find((p) => p.name.toLowerCase() === name.toLowerCase())?.id ?? "";
-    const addPartner = (name: string, reference: string, items: { id: string }[], base: number, lapsed = false): string => {
+    const addPartner = (name: string, reference: string, items: { id: string }[], base: number, lapsed = false, room?: (itemId: string) => number): string => {
       if (items.length === 0) return "";
       const existing = partnerId(name);
       if (existing) return existing;
-      ps = must(savePartner(ps, partnerProfile(name, reference, items, input.today, base, lapsed), "", "", input.today));
+      ps = must(savePartner(ps, partnerProfile(name, reference, items, input.today, base, lapsed, room), "", "", input.today));
       return partnerId(name);
     };
     // Scenarios: the trust has room for only three of the first item, so the next gift goes to the backup. The lapsed partner and the builders (who do not deliver sponsorship) come first and must be skipped.
@@ -118,7 +119,9 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     // The general partner delivers every item with generous room, so any gift has somewhere to go. It is the last choice in each sample project, so the others fill first and the overflow is still seen. With more than five items, the last one is left out on purpose: a gift for it waits, "no partner delivers it".
     const sorted = [...input.items].sort((a, b) => a.id.localeCompare(b.id));
     const uncovered = sorted.length > 5 ? [sorted[sorted.length - 1] as { id: string; name: string }] : [];
-    const general = addPartner("Sample General Partner", "SAMPLE-006", sorted.filter((i) => !uncovered.some((u) => u.id === i.id)), 100);
+    // Rule (DECISIONS 174): its room for each item is twice what the real gifts need, and never under 50, so it is never the bottleneck.
+    const demand = input.demand ?? {};
+    const general = addPartner("Sample General Partner", "SAMPLE-006", sorted.filter((i) => !uncovered.some((u) => u.id === i.id)), 100, false, (id) => Math.max(50, 2 * (demand[id] ?? 0) + 5));
 
     // ---- Projects and their clusters. A real project whose gifts carry the items is given the clusters and partners, so real gifts land in invented places. ----
     let gps = input.giftProjects;
