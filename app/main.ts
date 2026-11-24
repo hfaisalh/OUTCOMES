@@ -19,6 +19,7 @@ import { partnersPage } from "./partners-page";
 import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
 import { projectFormHtml, readProjectForm } from "./project-form";
+import { ICON_SETTINGS } from "./icons";
 import { clusterUi, openClusters } from "./clusters-tab";
 import { benefitRow, NEW_CONTACT_ROW, NEW_DOC_ROW, readPartnerForm } from "./partner-form";
 import { partnerWindowHtml, type PartnerTab } from "./partner-window";
@@ -542,7 +543,7 @@ function draw(): void {
   const current = entries.find((e) => e.pages.some((p) => p.id === state.page));
   const openCount = (state.live() ? state.attention : view().attention ?? []).filter((i) => i.status === "open").length;
   // Icon menus in the top bar (DECISIONS 92): settings (a gear) and the person (name, role and sign out). One opens at a time, and a click elsewhere closes it.
-  const ICON_GEAR = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>`;
+  const ICON_GEAR = ICON_SETTINGS.replace("<svg ", '<svg width="18" height="18" ');
   const ICON_USER = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>`;
   const gear = setupEntry ? `<span class="popwrap"><button class="iconbtn${setupEntry.pages.some((p) => p.id === state.page) || state.topMenu === "settings" ? " on" : ""}" data-menu="settings" title="Settings" aria-label="Settings" aria-expanded="${state.topMenu === "settings"}">${ICON_GEAR}${openCount > 0 ? `<span class="dot">${openCount}</span>` : ""}</button>${state.topMenu === "settings" ? `<div class="pop" role="menu"><div class="pophead">Settings</div>${setupEntry.pages.map((p) => `<a data-page="${p.id}" role="menuitem" class="${p.id === state.page ? "on" : ""}"><span class="ico">${p.icon}</span>${esc(p.label)}${p.id === "attention" && openCount > 0 ? ` <span class="pill review">${openCount}</span>` : ""}</a>`).join("")}</div>` : ""}</span>` : "";
   const person = `<span class="popwrap"><button class="iconbtn${state.topMenu === "user" ? " on" : ""}" data-menu="user" title="${state.me ? esc(state.me.name) : "Sign in"}" aria-label="Your account" aria-expanded="${state.topMenu === "user"}">${ICON_USER}</button>${state.topMenu === "user" ? `<div class="pop" role="menu">${state.me

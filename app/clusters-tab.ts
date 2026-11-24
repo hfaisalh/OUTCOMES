@@ -5,12 +5,13 @@
  * as are needed, to any depth. The tab has two views, so a big project never makes one long screen:
  * - The LIST: only the master clusters, one short line each (name, called, place, capacity, how many are inside, status) with a settings button. A row at the bottom adds a cluster.
  * - A CLUSTER (opened with its settings button): a path across the top (Aghosh Home > Block A > Classroom 1), then two tabs. Details: name, called, place, roles, status and, on a master cluster, the
- *   total capacity (a sub cluster shows its even share as a guide). Inside: the tree of what is in it, as folders that open and close, with + to add inside and a settings button to open that one in turn.
+ *   total capacity (a sub cluster shows its even share as a guide). Sub-Clusters: the tree of what is in it, as folders that open and close, with + to add inside and a settings button to open that one in turn.
  * Rule (Faisal): capacity is set on the master cluster only, and shared evenly down. Pure: it takes the clusters and returns HTML.
  * Who calls it: app/project-form.ts. Depends on: modules/06-projects/clusters.ts and esc from pages.ts.
  */
 
 import { clusterRows, evenShare, insideCount, pathOf, subRows, suggestLabel, type Cluster, type ClusterState } from "../modules/06-projects/clusters";
+import { ICON_SETTINGS } from "./icons";
 import { esc } from "./pages";
 
 // What is open, kept for the session so editing does not close it: the folders whose sub list is showing, the cluster a sub cluster is being added to, and the cluster window that is open ("" is the list).
@@ -20,7 +21,7 @@ export const clusterUi = { adding: "", node: "", nodeTab: "details" as "details"
 const SEARCH_FROM = 8; // a search box shows once a list is longer than this
 
 const labelsList = (state: ClusterState): string => `<datalist id="cl-labels">${[...new Set(state.clusters.map((c) => c.label).filter((l) => l !== ""))].map((l) => `<option value="${esc(l)}"></option>`).join("")}</datalist>`;
-const gear = (c: Cluster): string => `<button type="button" class="iconact" data-cl="goto" data-id="${esc(c.id)}" title="Settings of ${esc(c.name)}" aria-label="Settings of ${esc(c.name)}">&#9881;</button>`;
+const gear = (c: Cluster): string => `<button type="button" class="iconact gear" data-cl="goto" data-id="${esc(c.id)}" title="Settings of ${esc(c.name)}" aria-label="Settings of ${esc(c.name)}">${ICON_SETTINGS}</button>`;
 const remove = (c: Cluster): string => `<button type="button" class="iconact" data-cl="cluster-rm" data-id="${esc(c.id)}" title="Remove this cluster" aria-label="Remove ${esc(c.name)}">&times;</button>`;
 const statusPill = (c: Cluster): string => `<span class="pill${c.status === "closed" ? " muted" : ""}">${c.status === "closed" ? "Closed" : "Active"}</span>`;
 const searchBox = (n: number): string => (n > SEARCH_FROM ? '<input type="search" id="cl-search" placeholder="Search clusters" aria-label="Search clusters">' : "");
@@ -32,7 +33,7 @@ function listHtml(state: ClusterState): string {
   return `<section><h3>Clusters <span class="muted">(${tops.length})</span></h3>
     <p class="muted">A cluster is how a project is distributed: a school, a university, a home, a region. Open one with its settings button to set its details and to add the sub clusters inside it (a faculty, a department, a classroom).</p>
     ${searchBox(tops.length)}
-    ${tops.length ? `<div class="tablewrap"><table class="subtable cl-table"><thead><tr><th>Cluster</th><th>Called</th><th>Place</th><th class="num">Capacity</th><th class="num">Inside</th><th>Status</th><th class="actcol"></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">No clusters yet. Add the first one below.</p>'}
+    ${tops.length ? `<div class="tablewrap"><table class="subtable cl-table"><thead><tr><th>Cluster</th><th>Called</th><th>Place</th><th class="num">Capacity</th><th class="num">Subs</th><th>Status</th><th class="actcol"></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">No clusters yet. Add the first one below.</p>'}
     ${labelsList(state)}
     <div class="cl-add"><input id="cl-tname" placeholder="New cluster, for example Lahore University" aria-label="New cluster name">
       <input id="cl-tlabel" list="cl-labels" value="${esc(suggestLabel(state, ""))}" placeholder="Called, for example University" aria-label="What it is called"><input id="cl-tplace" placeholder="Place" aria-label="Place"><input id="cl-tcap" type="number" min="0" placeholder="Total capacity" aria-label="Total capacity">
@@ -71,7 +72,7 @@ function insideHtml(state: ClusterState, c: Cluster, adding: string): string {
     return row + (adding === x.id ? addSub(x.id, depth) : "");
   }).join("");
   return `<section>${searchBox(rows.length)}
-    ${rows.length ? `<div class="tablewrap"><table class="subtable cl-table"><thead><tr><th>Inside ${esc(c.name)}</th><th>Called</th><th>Place</th><th>Status</th><th class="actcol"></th></tr></thead><tbody>${tree}</tbody></table></div>` : '<p class="muted">Nothing inside yet. Add the first sub cluster below.</p>'}
+    ${rows.length ? `<div class="tablewrap"><table class="subtable cl-table"><thead><tr><th>Sub-Clusters of ${esc(c.name)}</th><th>Called</th><th>Place</th><th>Status</th><th class="actcol"></th></tr></thead><tbody>${tree}</tbody></table></div>` : '<p class="muted">No sub clusters yet. Add the first sub cluster below.</p>'}
     <div class="cl-add"><input id="cl-bname" placeholder="New sub cluster, for example Classroom 1" aria-label="New sub cluster name"><input id="cl-blabel" list="cl-labels" value="${esc(suggestLabel(state, c.id))}" placeholder="Called" aria-label="What it is called"><input id="cl-bplace" placeholder="Place" aria-label="Place">
       <button type="button" class="iconact ok" data-cl="cluster-add-b" data-id="${esc(c.id)}" title="Add inside ${esc(c.name)}" aria-label="Add inside ${esc(c.name)}">+</button></div>${labelsList(state)}</section>`;
 }
@@ -82,7 +83,7 @@ function clusterHtml(state: ClusterState, c: Cluster): string {
   const n = insideCount(state, c.id);
   const tab = clusterUi.nodeTab;
   return `<nav class="cl-path" aria-label="Where you are">${crumbs}</nav>
-    <nav class="pf-tabs" role="tablist"><button type="button" role="tab" class="${tab === "details" ? "on" : ""}" data-cl="node-tab" data-tab="details">Details</button><button type="button" role="tab" class="${tab === "inside" ? "on" : ""}" data-cl="node-tab" data-tab="inside">Inside <span class="muted">(${n})</span></button></nav>
+    <nav class="pf-tabs" role="tablist"><button type="button" role="tab" class="${tab === "details" ? "on" : ""}" data-cl="node-tab" data-tab="details">Details</button><button type="button" role="tab" class="${tab === "inside" ? "on" : ""}" data-cl="node-tab" data-tab="inside">Sub-Clusters <span class="muted">(${n})</span></button></nav>
     ${tab === "details" ? detailsHtml(state, c) : insideHtml(state, c, clusterUi.adding)}`;
 }
 

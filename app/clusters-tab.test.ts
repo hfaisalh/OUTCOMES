@@ -22,13 +22,15 @@ const home: ClusterState = {
 const reset = (): void => { openClusters.clear(); clusterUi.adding = ""; clusterUi.node = ""; clusterUi.nodeTab = "details"; };
 
 describe("the Clusters tab, the list", () => {
-  it("lists only the master clusters, one short line each, with how many are inside and a settings button", () => {
+  it("lists only the master clusters, one short line each, with how many subs are in it and a settings button, the settings button drawn as an icon", () => {
     reset();
     const html = clustersTabHtml(home);
     expect(html).toContain("<b>Lahore University</b>");
     expect(html).not.toContain("Science"); // sub clusters are not listed here
     expect(html).toMatch(/<td class="num">40<\/td><td class="num">3<\/td>/); // capacity 40, three inside (two faculties and a department)
     expect(html).toContain('data-cl="goto" data-id="lahore-university"');
+    expect(html).toMatch(/class="iconact gear" data-cl="goto"[^>]*><svg/); // a drawn gear, not a text character that shrinks to a dot
+    expect(html).toContain("<th class=\"num\">Subs</th>");
     expect(html).toContain('data-cl="cluster-rm" data-id="lahore-university"');
     expect(html).not.toContain('data-cl="capacity"'); // no input boxes in the rows
   });
@@ -68,7 +70,7 @@ describe("the Clusters tab, one cluster", () => {
     expect(html).toContain('id="cn-roles" value="Principal"');
     expect(html).toContain('id="cn-capacity" type="number" min="0" value="40"');
     expect(html).toContain('data-cl="node-save" data-id="lahore-university"');
-    expect(html).toContain('Inside <span class="muted">(3)</span>');
+    expect(html).toContain('Sub-Clusters <span class="muted">(3)</span>');
     reset();
   });
   it("shows a sub cluster its even share as a guide, with no capacity box, and a path back up", () => {

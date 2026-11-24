@@ -284,3 +284,7 @@ select:not([multiple]):focus-visible{outline:2px solid var(--accent);outline-off
 .cl-name{display:flex;align-items:center;gap:4px}.cl-name input{flex:1 1 auto}.cl-nobtn{display:inline-block;width:28px;flex:none}.cl-top td{background:var(--card);font-weight:600}
 .cl-path{display:flex;align-items:center;flex-wrap:wrap;gap:2px;margin:10px 0 4px;font-size:13px}.linkish{border:0;background:none;padding:2px 4px;color:var(--accent,#1d3a8a);cursor:pointer;font:inherit;text-decoration:underline}.cl-icon{flex:none}
 .cl-form{display:grid;gap:10px;max-width:520px}.cl-form label{display:grid;gap:3px;font-size:13px;color:var(--muted)}.cl-form input,.cl-form select{font:inherit;color:var(--text,inherit);width:100%}
+/* Icon buttons: a little air between neighbours, and a gear big enough to read as a gear (it was a dot). A row's action cell grows to fit its buttons. */
+.iconact+.iconact,.iconact+details.mo,details.mo+.iconact,.iconact+.actbox,.actbox+.iconact{margin-left:8px}
+.iconact.gear svg{width:18px;height:18px}.iconact.gear{width:30px;height:30px;min-width:30px}
+.subtable td.actcol,.subtable th.actcol{width:auto;min-width:44px;white-space:nowrap}
