@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorkOrder } from "../01c-crm-connector/work-orders";
 import type { GiftProject, Project } from "../06-projects/projects";
-import { applyAssignmentAction, assignManual, emptyAssignments, hasRoom, loads, projectOfOrder, runAssignment, suggestAssignments, toAssign, unassign, type AssignContext, type Assignments } from "./assignment";
+import { applyAssignmentAction, assignables, assignManual, emptyAssignments, hasRoom, loads, projectOfOrder, runAssignment, suggestAssignments, toAssign, unassign, type AssignContext, type Assignments } from "./assignment";
 
 const wo = (key: string, over: Partial<WorkOrder> = {}): WorkOrder => ({
   key, lineId: key, transactionRef: `T-${key}`, paidDate: `2026-10-${key.slice(-2).padStart(2, "0")}`, supporterId: "S1", supporterName: "Invented Donor", group: "", itemId: "I10", itemName: "Orphan Sponsorship Monthly", amount: 30, quantity: 1,
@@ -71,11 +71,40 @@ describe("which partner a gift goes to", () => {
   });
 });
 
+describe("a recurring gift is one assignment (DECISIONS 172)", () => {
+  const monthly = (n: number, sub: string) => Array.from({ length: n }, (_, i) => wo(`${sub}-${String(i + 1).padStart(2, "0")}`, { subscriptionId: sub, instalmentNumber: String(i + 1), instalmentCount: "12", paidDate: `2026-${String(i + 1).padStart(2, "0")}-05` }));
+  it("groups the payments of a subscription into one assignment that takes its units once", () => {
+    const orders = [...monthly(12, "SUB-1"), wo("G90")];
+    const list = assignables(ctx({ workOrders: orders }));
+    expect(list.map((x) => [x.key, x.payments, x.parts])).toEqual([["SUB-1", 12, 1], ["G90", 1, 1]]); // twelve payments, one assignment
+    const s = suggestAssignments(ctx({ workOrders: orders }), emptyAssignments());
+    expect(s).toHaveLength(2);
+    expect(s[0]).toMatchObject({ key: "SUB-1", payments: 12, partnerId: "trust" });
+    expect(s[1]?.partnerId).toBe("trust"); // the trust has room for three, and has used one
+    expect(hasRoom(trust, "I10", 1, runAssignment(ctx({ workOrders: orders }), emptyAssignments()).value.records)).toEqual({ ok: true, why: "1 of 3 units free" });
+  });
+  it("lets many subscriptions fill a partner, one place each, and sends the next to the backup", () => {
+    const orders = [...monthly(12, "SUB-1"), ...monthly(12, "SUB-2"), ...monthly(12, "SUB-3"), ...monthly(12, "SUB-4")];
+    expect(suggestAssignments(ctx({ workOrders: orders }), emptyAssignments()).map((x) => x.partnerId)).toEqual(["trust", "trust", "trust", "backup"]); // 48 payments, but four places
+  });
+  it("takes the parts of one instalment, not of every payment, and counts a catch-up payment as the instalments it covers", () => {
+    const covers = wo("C-01", { subscriptionId: "SUB-C", quantity: 3, covers: 3 }); // 3 units paid for 3 instalments: 1 unit each
+    expect(assignables(ctx({ workOrders: [covers] }))[0]?.parts).toBe(1);
+    expect(assignables(ctx({ workOrders: [wo("C-02", { subscriptionId: "SUB-D", quantity: 2 })] }))[0]?.parts).toBe(2);
+  });
+  it("assigns and moves a recurring gift by its subscription, and the key is the subscription", () => {
+    const c = ctx({ workOrders: monthly(3, "SUB-1") });
+    const r = assignManual(c, emptyAssignments(), "SUB-1", "backup");
+    expect("value" in r && r.value.records).toMatchObject([{ key: "SUB-1", partnerId: "backup", parts: 1 }]);
+    expect(assignManual(c, emptyAssignments(), "SUB-9", "backup")).toHaveProperty("error");
+  });
+});
+
 describe("which gifts are in scope", () => {
   it("leaves out gifts that are not ready, have no workflow, are excluded, a custom amount or a legacy upload, and ones already assigned", () => {
     const orders = [wo("G01"), wo("G02", { status: "unrouted", frameworkId: undefined }), wo("G03", { status: "excluded" }), wo("G04", { customAmount: true }), wo("G05", { legacyUpload: true }), wo("G06", { frameworkId: undefined }), wo("G07")];
     const done: Assignments = { records: [{ key: "G07", partnerId: "trust", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto", at: "x" }] };
-    expect(toAssign(ctx({ workOrders: orders }), done).map((w) => w.key)).toEqual(["G01"]);
+    expect(toAssign(ctx({ workOrders: orders }), done).map((u) => u.key)).toEqual(["G01"]);
   });
   it("finds a gift's project by the CRM name, ignoring case, and none for a blank or Where Needed Most", () => {
     expect(projectOfOrder(wo("G01", { projectName: "aghosh home" }), [aghosh])?.id).toBe("aghosh");

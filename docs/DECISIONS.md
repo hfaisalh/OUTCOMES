@@ -637,3 +637,10 @@ Addendum to 162 (Faisal, 24/11/2026): the Clusters tab itself shows **the whole 
 - **One item is left uncovered on purpose** when there are more than five (the last by its ID), so a gift that waits with "no partner delivers the item" can still be seen. The summary says which.
 - The Assignment page now counts **why gifts wait** by reason (no partner delivers the item, every eligible partner is full, the project has no partner, does not offer the benefit, is not set up).
 - Starting workflows still **suggest** by default: Assign automatically does nothing for them until a workflow's Assignment is set to automatic, or Confirm all suggestions is pressed.
+
+## 172. A recurring gift is one assignment, not one per payment (Faisal, 24/11/2026)
+
+- Supersedes the unit of Assignment in 170. A first run on the real gifts said **179 gifts were waiting because every eligible partner was full**. The cause was a mistake in the rule: every **payment** took room from a partner, so a child sponsored monthly used up twelve places. A recurring gift is one **commitment**, as Allocation already counts it.
+- **A recurring gift (all the payments of a subscription) is one assignment**: every payment goes to the same partner, and it takes the **parts of one instalment** (a payment that covers several instalments counts those many) from the partner's room, **once**. A **one-off payment** is its own assignment. The assignment is kept under the **subscription id** (or the line id for a one-off).
+- The Assignment page shows one row for a recurring gift, with how many payments it covers, and the counts are of assignments, not payments.
+- Not yet counted: a commitment that has finished (all its instalments paid) still holds its place until Allocation releases it; that comes with the rewiring.

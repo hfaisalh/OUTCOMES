@@ -8,7 +8,8 @@
  * (the types and partner rules only). Pure functions: no database, no screen, so the rules can be ported to Salesforce (Apex) or another stack.
  *
  * Rules:
- * - Which gifts: work orders that are ready (routed to a workflow), not excluded, not a custom amount (those are done by hand), and not already assigned.
+ * - Which gifts (DECISIONS 172): work orders that are ready (routed to a workflow), not excluded, not a custom amount (those are done by hand), and not already assigned. A recurring gift is ONE assignment, however many
+ *   payments it has: all the payments of a subscription go to the same partner, and it takes its units (the parts of one instalment) once. A one-off payment is its own assignment.
  * - Which partners (DECISIONS 154): a gift for a project goes to that project's partners in the project's order. The project must offer the benefit. A gift with no project, or a blank or "Where Needed Most" one,
  *   is not a general fund: it is for its own item and goes to any partner that delivers it.
  * - A partner is eligible when it is active with its due diligence approved and in date, delivers the item, and its capacity for the item is not 0.
@@ -28,7 +29,7 @@ import type { OutcomeType } from "../05-outcomes/outcome-types.js";
 import { capacityFor, crmMatchNames, eligiblePartners, isGeneralProjectName, projectOffers, projectVendors, type GiftProject, type Project } from "../06-projects/projects.js";
 
 export interface Assignment {
-  key: string; // the work order (the CRM line id)
+  key: string; // the subscription id for a recurring gift, or the work order (the CRM line id) for a one-off payment
   partnerId: string;
   giftProjectId: string; // the project the gift belongs to, "" when it has none
   itemId: string;
@@ -56,6 +57,7 @@ export interface Suggestion {
   projectId: string; // "" when the gift has no project
   itemId: string;
   parts: number;
+  payments: number; // how many payments the assignment covers: more than one for a recurring gift
   mode: "auto" | "suggest";
   partnerId: string; // the first partner with room, "" when none
   why: string; // in plain words: who it goes to or why no one
@@ -82,12 +84,34 @@ export function projectOfOrder(w: WorkOrder, gps: GiftProject[]): GiftProject | 
   return gps.find((g) => crmMatchNames(g).some((n) => n.trim().toLowerCase() === name));
 }
 
-// Which gifts need a partner: ready, with a workflow, not excluded, not a custom amount, not legacy, and not already assigned.
-export function toAssign(ctx: AssignContext, existing: Assignments): WorkOrder[] {
+// What is assigned as one: a recurring gift (all the payments of a subscription, one assignment) or a one-off payment. `w` is the payment that stands for it (the earliest), `payments` how many there are, and
+// `parts` the units it takes: the parts of one instalment, not of every payment (DECISIONS 172).
+export interface Assignable { key: string; w: WorkOrder; payments: number; parts: number }
+
+// Rule: the parts of one instalment. A payment that covers several instalments holds that many instalments' worth of parts.
+const partsPerInstalment = (w: WorkOrder): number => Math.max(1, Math.round(partsOf(w) / (w.covers ?? 1)));
+
+// Every assignable in scope, assigned or not: ready, with a workflow, not excluded, not a custom amount, not a legacy upload. Payments of one subscription are grouped. Urgent first, then the oldest payment.
+export function assignables(ctx: AssignContext): Assignable[] {
+  const live = ctx.workOrders.filter((w) => w.status === "ready" && (w.frameworkId ?? "") !== "" && w.customAmount !== true && w.legacyUpload !== true);
+  const bySub = new Map<string, WorkOrder[]>();
+  const out: Assignable[] = [];
+  for (const w of live) {
+    if (w.subscriptionId === "") out.push({ key: w.key, w, payments: 1, parts: partsOf(w) });
+    else bySub.set(w.subscriptionId, [...(bySub.get(w.subscriptionId) ?? []), w]);
+  }
+  for (const [sub, lines] of bySub) {
+    const sorted = [...lines].sort((a, b) => a.paidDate.localeCompare(b.paidDate) || a.key.localeCompare(b.key));
+    const first = sorted[0] as WorkOrder;
+    out.push({ key: sub, w: first, payments: lines.length, parts: partsPerInstalment(first) });
+  }
+  return out.sort((a, b) => Number(ctx.urgent.has(b.key) || ctx.urgent.has(b.w.key)) - Number(ctx.urgent.has(a.key) || ctx.urgent.has(a.w.key)) || a.w.paidDate.localeCompare(b.w.paidDate) || a.key.localeCompare(b.key));
+}
+
+// Which still need a partner: those with no assignment yet.
+export function toAssign(ctx: AssignContext, existing: Assignments): Assignable[] {
   const done = new Set(existing.records.map((a) => a.key));
-  return ctx.workOrders
-    .filter((w) => w.status === "ready" && (w.frameworkId ?? "") !== "" && w.customAmount !== true && w.legacyUpload !== true && !done.has(w.key))
-    .sort((a, b) => Number(ctx.urgent.has(b.key)) - Number(ctx.urgent.has(a.key)) || a.paidDate.localeCompare(b.paidDate) || a.key.localeCompare(b.key));
+  return assignables(ctx).filter((x) => !done.has(x.key));
 }
 
 // Units already given to a partner for an item (the records, and what this run has handed out so far).
@@ -120,14 +144,14 @@ function considered(ctx: AssignContext, w: WorkOrder): { gp: GiftProject | undef
 export function suggestAssignments(ctx: AssignContext, existing: Assignments): Suggestion[] {
   const running: Assignment[] = [...existing.records];
   const out: Suggestion[] = [];
-  for (const w of toAssign(ctx, existing)) {
-    const parts = partsOf(w);
+  for (const unit of toAssign(ctx, existing)) {
+    const { w, parts } = unit;
     const { gp, list, reason, blocked } = considered(ctx, w);
     const candidates: Candidate[] = list.map((p) => ({ partnerId: p.id, name: p.name, ...hasRoom(p, w.itemId, parts, running) }));
     const first = candidates.find((c) => c.ok);
-    if (first) running.push({ key: w.key, partnerId: first.partnerId, giftProjectId: gp?.id ?? "", itemId: w.itemId, parts, how: "auto", at: ctx.now });
+    if (first) running.push({ key: unit.key, partnerId: first.partnerId, giftProjectId: gp?.id ?? "", itemId: w.itemId, parts, how: "auto", at: ctx.now });
     out.push({
-      key: w.key, projectId: gp?.id ?? "", itemId: w.itemId, parts, mode: ctx.modeOf(w.frameworkId ?? ""), partnerId: first?.partnerId ?? "", urgent: ctx.urgent.has(w.key), candidates,
+      key: unit.key, projectId: gp?.id ?? "", itemId: w.itemId, parts, payments: unit.payments, mode: ctx.modeOf(w.frameworkId ?? ""), partnerId: first?.partnerId ?? "", urgent: ctx.urgent.has(unit.key) || ctx.urgent.has(w.key), candidates,
       why: first ? `Goes to ${first.name} (${first.why})` : reason || `Every eligible partner is full (${candidates.map((c) => c.name).join(", ")}).`,
       blocked: first ? "" : blocked || "full",
     });
@@ -155,19 +179,19 @@ export function runAssignment(ctx: AssignContext, existing: Assignments): { valu
  * A person may choose a partner outside the project's order, as long as it is eligible.
  */
 export function assignManual(ctx: AssignContext, existing: Assignments, key: string, partnerId: string): Result {
-  const w = ctx.workOrders.find((x) => x.key === key);
-  if (!w) return { error: "That gift was not found." };
-  if (w.status !== "ready" || (w.frameworkId ?? "") === "") return { error: "That gift is not ready to be assigned: it needs a workflow." };
+  const unit = assignables(ctx).find((x) => x.key === key);
+  if (!unit) return { error: "That gift was not found, or it is not ready to be assigned: it needs a workflow." };
+  const w = unit.w;
   const current = existing.records.find((a) => a.key === key);
   if (current && current.partnerId === partnerId) return { error: "It is already assigned to that partner." };
   if (current && !ctx.reassignOf(w.frameworkId ?? "")) return { error: "Reassigning is switched off for this workflow." };
   const p = eligiblePartners(ctx.partners, w.itemId, ctx.today).find((x) => x.id === partnerId);
   if (!p) return { error: "That partner is not eligible for this item: it must be active, with its due diligence approved and in date, and deliver the item." };
   const others = existing.records.filter((a) => a.key !== key);
-  const room = hasRoom(p, w.itemId, partsOf(w), others);
+  const room = hasRoom(p, w.itemId, unit.parts, others);
   if (!room.ok) return { error: `${p.name} is ${room.why}.` };
   const gp = projectOfOrder(w, ctx.giftProjects);
-  return { value: { records: [...others, { key, partnerId, giftProjectId: gp?.id ?? "", itemId: w.itemId, parts: partsOf(w), how: "manual", at: ctx.now }] } };
+  return { value: { records: [...others, { key, partnerId, giftProjectId: gp?.id ?? "", itemId: w.itemId, parts: unit.parts, how: "manual", at: ctx.now }] } };
 }
 
 export function unassign(existing: Assignments, key: string): Result {
