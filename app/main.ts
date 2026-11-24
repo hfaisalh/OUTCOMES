@@ -20,7 +20,7 @@ import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
 import { registerPage } from "./register-page";
 import { registerFormHtml } from "./register-form";
-import { loadSampleSetup, removeSampleSetup, removedSummaryText, sampleSummaryText } from "../modules/07-beneficiaries/sample-setup";
+import { loadSampleSetup, realProjectsFor, removeSampleSetup, removedSummaryText, sampleSummaryText } from "../modules/07-beneficiaries/sample-setup";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf, type Enrolments } from "../modules/07-beneficiaries/enrolments";
 import { applyBeneficiaryAction, emptyRegister, NO_FILTER as NO_REGISTER_FILTER, type Beneficiary, type BeneficiaryFilter, type BeneficiaryKind, type Register } from "../modules/07-beneficiaries/beneficiaries";
 import { projectFormHtml, readProjectForm } from "./project-form";
@@ -304,7 +304,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
           const cur = { partners: state.projects, giftProjects: state.giftProjects, partnerTypes: state.partnerTypes, register: state.beneficiaries, enrolments: state.enrolments };
           let next = cur;
           if (body["action"] === "sample-load") {
-            const r = loadSampleSetup({ items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), itemKinds: state.itemKinds, kindFeatures: state.kindFeatures as SavedFeatures, ...cur, today: new Date().toISOString().slice(0, 10) });
+            const r = loadSampleSetup({ items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), realProjects: realProjectsFor(state.giftProjects, state.workOrders), itemKinds: state.itemKinds, kindFeatures: state.kindFeatures as SavedFeatures, ...cur, today: new Date().toISOString().slice(0, 10) });
             if ("error" in r) { error = r.error; break; }
             next = r.value; state.message = sampleSummaryText(r.summary);
           } else {

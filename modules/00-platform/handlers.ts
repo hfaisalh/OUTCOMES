@@ -36,7 +36,7 @@ import { setItemKind } from "../02-project-rules/benefits.js";
 import { autoCreateProjects } from "../06-projects/projects.js";
 import { applyKindAction, type SavedFeatures } from "../02-project-rules/kind-features.js";
 import { applyBeneficiaryAction, emptyRegister } from "../07-beneficiaries/beneficiaries.js";
-import { loadSampleSetup, removeSampleSetup, sampleSummaryText, removedSummaryText } from "../07-beneficiaries/sample-setup.js";
+import { loadSampleSetup, realProjectsFor, removeSampleSetup, sampleSummaryText, removedSummaryText } from "../07-beneficiaries/sample-setup.js";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf } from "../07-beneficiaries/enrolments.js";
 
 export interface HttpRequest {
@@ -385,8 +385,9 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       let message = "";
       let next = state;
       if (b["action"] === "sample-load") {
-        const seen = new Map((await d.store.listWorkOrders(org)).map((w) => [w.itemId, w.itemName]));
-        const r = loadSampleSetup({ items: [...seen.entries()].map(([id, name]) => ({ id, name })), itemKinds: config.itemKinds ?? {}, kindFeatures: (config.kindFeatures ?? {}) as SavedFeatures, ...state, today: at.slice(0, 10) });
+        const wos = await d.store.listWorkOrders(org);
+        const seen = new Map(wos.map((w) => [w.itemId, w.itemName]));
+        const r = loadSampleSetup({ items: [...seen.entries()].map(([id, name]) => ({ id, name })), realProjects: realProjectsFor(giftProjects, wos), itemKinds: config.itemKinds ?? {}, kindFeatures: (config.kindFeatures ?? {}) as SavedFeatures, ...state, today: at.slice(0, 10) });
         if ("error" in r) return fail(r.error);
         next = r.value; message = sampleSummaryText(r.summary);
       } else {

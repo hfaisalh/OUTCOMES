@@ -813,6 +813,7 @@ export interface GiftProject {
   levels?: ClusterLevel[]; // older: a shared chain of levels. Read by clusterStateOf into labels, and dropped the next time the clusters change (DECISIONS 161)
   clusters?: Cluster[]; // the groups of beneficiaries inside it
   sample?: true; // made by the sample setup (DECISIONS 168), so it can be removed again
+  sampleAttached?: { partnerIds: string[] }; // a real project the sample setup gave clusters and partners to (DECISIONS 169). Removing the sample takes those clusters and these partners off again
   auto?: true; // made automatically from the project name a gift carried, and not changed by a person since (DECISIONS 155)
   itemIds?: string[]; // the benefits (gift items) it offers. Absent or empty means any item (DECISIONS 154)
   notes?: string;

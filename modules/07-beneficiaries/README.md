@@ -38,7 +38,7 @@ A beneficiary is enrolled in a cluster of a project for a benefit, in a role if 
 | `sample-setup.ts` | Loads and removes the invented sample setup (partners, projects, clusters, beneficiaries, enrolments) as pure functions (DECISIONS 168) |
 | `sample-setup.test.ts` | Tests and examples |
 
-The sample setup is loaded from the Organisation settings page. Real children's data is never loaded this way.
+The sample setup is loaded from the Organisation settings page (DECISIONS 168, 169). It covers every scenario the workflow must place (a partner with little room, a lapsed one, a full home, a closed home, a university three levels deep, every admission decision, a possible duplicate, an inactive child, one waiting) and attaches to a real project when one carries the items. Real children's data is never loaded this way.
 
 The screens are `app/register-page.ts` (the table and filters), `app/register-form.ts` (the window) and `app/cluster-people.ts` (the Beneficiaries tab of a cluster). Saved on the organisation's setup as `beneficiaries`.
 
