@@ -65,6 +65,13 @@ describe("the Allocate page", () => {
     expect(none).toContain("<b>Why gifts wait:</b> 3 no approved beneficiary is enrolled in the gift&#39;s project");
     expect(none).toContain("No place is open. Enrol approved beneficiaries");
   });
+  it("says which project and benefit the waiting gifts belong to, and names an item with no type", () => {
+    const none = allocatePage(view({ enrolments: { records: [], counter: 0 } }));
+    expect(none).toContain("<b>Waiting, by project and benefit:</b> Aghosh · Orphan Sponsorship Monthly (3)");
+    const untyped = allocatePage(view({ workOrders: [wo("G01", { itemId: "I77", itemName: "Mystery Item" })], assignments: { records: [{ key: "G01", partnerId: "trust", giftProjectId: "", itemId: "I77", parts: 1, how: "auto", at: "x" }] } }));
+    expect(untyped).toContain("1 the item has no type yet (choose one on the Benefits page)");
+    expect(untyped).toContain("No project · Mystery Item (1)");
+  });
   it("creates an outcome for a gift-first type, shown without a place", () => {
     const pump = view({ workOrders: [wo("G01", { itemId: "I11", itemName: "Small Pump" })], itemKinds: { I11: "build" }, assignments: { records: [{ key: "G01", partnerId: "trust", giftProjectId: "aghosh", itemId: "I11", parts: 1, how: "auto", at: "x" }] } });
     const html = allocatePage(pump);

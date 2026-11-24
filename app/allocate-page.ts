@@ -18,7 +18,7 @@ import { esc, type View } from "./pages";
 
 const MAX_ROWS = 150;
 const FILTERS = [{ id: "all", label: "All gifts" }, { id: "open", label: "Waiting for a place" }, { id: "placed", label: "Placed" }];
-const WHY: Record<string, string> = { "no-places": "no approved beneficiary is enrolled in the gift's project", "no-project-places": "no approved beneficiary is enrolled with the assigned partner", full: "every place for the benefit is full" };
+const WHY: Record<string, string> = { "no-places": "no approved beneficiary is enrolled in the gift's project", "no-project-places": "no approved beneficiary is enrolled with the assigned partner", full: "every place for the benefit is full", "no-type": "the item has no type yet (choose one on the Benefits page)" };
 
 export function allocatePage(v: View): string {
   const partners = v.projects ?? [];
@@ -44,6 +44,14 @@ export function allocatePage(v: View): string {
   const waiting = sug.filter((s) => s.kind === "").length;
   const ready = sug.filter((s) => s.kind !== "").length;
   const why = Object.entries(WHY).map(([k, label]) => ({ n: sug.filter((s) => s.blocked === k).length, label })).filter((x) => x.n > 0);
+  // Which project and benefit the waiting gifts belong to, the biggest first, so the cause is seen without scrolling.
+  const waitingBy = new Map<string, number>();
+  for (const x of sug.filter((s) => s.kind === "")) {
+    const gpId = assignments.find((a) => a.key === x.key)?.giftProjectId ?? "";
+    const label = `${gpId === "" ? "No project" : gps.find((g) => g.id === gpId)?.name ?? gpId} · ${names.get(x.itemId) ?? x.itemId}`;
+    waitingBy.set(label, (waitingBy.get(label) ?? 0) + 1);
+  }
+  const waitingList = [...waitingBy.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8);
   const metric = (n: number, label: string, cls = ""): string => `<div class="metric${cls ? ` ${cls}` : ""}"><b>${n}</b><span>${esc(label)}</span></div>`;
 
   // Where a place is: the project and the cluster path from the master cluster down.
@@ -87,6 +95,7 @@ export function allocatePage(v: View): string {
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics">${metric(assignments.length, "Assigned gifts")}${metric(placedCount, "Placed in a place")}${metric(outcomeCount, "Outcomes created")}${metric(waiting, "Wait, no open place", waiting ? "warn" : "")}</div>
     ${why.length ? `<p class="muted"><b>Why gifts wait:</b> ${why.map((x) => `${x.n} ${esc(x.label)}`).join(" · ")}.</p>` : ""}
+    ${waitingList.length ? `<p class="muted"><b>Waiting, by project and benefit:</b> ${waitingList.map(([l, n]) => `${esc(l)} (${n})`).join(" · ")}${waitingBy.size > waitingList.length ? ` · and ${waitingBy.size - waitingList.length} more` : ""}.</p>` : ""}
     <div class="actions"><button class="primary" data-plc="run"${ready ? "" : " disabled"}>Place automatically</button><button data-plc="reset"${placements.records.length ? "" : " disabled"}>Reset placements</button></div>
     ${assignments.length === 0 ? '<div class="empty">No gift has been assigned yet. Assign gifts to partners on the Assignment tab first.</div>' : ""}
     <div class="card"><h2>Places <span class="muted">(${fillList.length})</span></h2>${placeRows ? `<div class="tablewrap"><table><thead><tr><th>Beneficiary</th><th>Benefit</th><th>Where</th><th class="num">Units</th><th>State</th></tr></thead><tbody>${placeRows}</tbody></table></div>${fillList.length > MAX_ROWS ? `<p class="muted">The first ${MAX_ROWS} are shown.</p>` : ""}` : '<div class="empty">No place is open. Enrol approved beneficiaries in a cluster, on the cluster\'s Beneficiaries tab.</div>'}</div>

@@ -680,3 +680,8 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 - A first run of the scaled sample (176) left 19 gifts waiting with "no approved beneficiary is enrolled in the gift's project". A gift for a project fills **only that project's places** (175), and the invented children had gone into one project, the best match. Other real projects, such as Aghosh with 22 gifts, carry sponsorship gifts too and had none.
 - **Every real project that carries sponsorship gifts now gets its own large home** (Sample Home - Main, five classes) **and its own invented children, sized to its own gifts**: the lines it has for each item divided by the units of one whole child, plus two, at most 120 an item. The best match (by name, then gifts) keeps the full set of scenarios (the full home, the closed home, the university) and the children for gifts with no project. The total is capped at 800 children.
 - Removing the sample takes the homes, children and sample partners off every one of them and leaves each real project exactly as it was.
+
+## 178. An item with no type waits and says so; the page names the project and benefit of waiting gifts (Faisal, 24/11/2026)
+
+- A gift for an item with **no type yet** was sent down the path that looks for a child, and waited with "no approved beneficiary is enrolled", which is misleading: nobody can say who receives it. It now waits with **"The item has no type yet, so it is not known who receives it. Choose a type on the Benefits page."**
+- The Allocate page lists, under "Why gifts wait", **which project and benefit** the waiting gifts belong to, biggest first (for example "Aghosh · Orphan Sponsorship (9)"), so a cause is seen without scrolling the table.

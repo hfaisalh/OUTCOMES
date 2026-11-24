@@ -69,6 +69,15 @@ describe("which project", () => {
   });
 });
 
+describe("an item with no type yet (DECISIONS 178)", () => {
+  it("waits and says the type is missing, instead of looking for a child that cannot exist", () => {
+    const c = ctx({ assignments: [asg("G1", { itemId: "I99" })] });
+    const s = suggestPlacements(c, emptyPlacements());
+    expect(s[0]).toMatchObject({ kind: "", blocked: "no-type", why: "The item has no type yet, so it is not known who receives it. Choose a type on the Benefits page." });
+    expect(runPlacement(c, emptyPlacements())).toMatchObject({ placed: 0, outcomes: 0, waiting: 1 });
+  });
+});
+
 describe("who can hold a place", () => {
   it("leaves out a child who is not approved or is inactive, a role holder and an ended enrolment", () => {
     const c = ctx({

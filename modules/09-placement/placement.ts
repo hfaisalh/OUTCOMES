@@ -15,7 +15,7 @@
  *   its partners, so the partner that delivers is the partner for that place.
  * - Rule: which place. The place with the lowest fill first, so more beneficiaries are sponsored, then the earliest enrolled. A gift's units must fit in the place's free units, else the next place is tried.
  * - Rule: gift first. A gift for a gift-first type, or for a type with no beneficiary, creates an outcome (OUT-0001). It needs no place. Recipients are enrolled afterwards.
- * - A gift with no place waits, with the reason: no one is enrolled for the benefit, or every place for it is full.
+ * - A gift with no place waits, with the reason: no one is enrolled for the benefit, or every place for it is full. A gift for an item with no type yet waits too, and says the type is missing (DECISIONS 178).
  * - A person can place a gift in a chosen place that is open and fits, or take a placement back. Nothing is changed in place: every function returns a new value.
  */
 
@@ -58,7 +58,7 @@ export function placementContext(a: { assignments: Assignment[]; assignables: As
   return { assignments: a.assignments, assignables: a.assignables, enrolments: a.enrolments, beneficiaries: a.beneficiaries, giftProjects: a.giftProjects, frameworks: a.frameworks, itemFramework, rulesOf: a.rulesOf, now: a.now };
 }
 
-export type Blocked = "" | "no-places" | "full" | "no-project-places";
+export type Blocked = "" | "no-places" | "full" | "no-project-places" | "no-type";
 export interface PlaceOption { enrolmentId: string; beneficiaryId: string; name: string; giftProjectId: string; clusterId: string; used: number; capacity: number; fits: boolean }
 export interface PlaceSuggestion {
   key: string;
@@ -105,6 +105,11 @@ export function suggestPlacements(ctx: PlaceContext, existing: Placements): Plac
     // Rule: a gift for a type where the gift comes first, or with no beneficiary, creates an outcome. It needs no place.
     if (rules && (rules.first === "gift" || rules.receiver === "none")) {
       out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "outcome", enrolmentId: "", blocked: "", options: [], why: rules.receiver === "none" ? "Creates an outcome for a community: it has no beneficiary." : "Creates an outcome. Its recipients are enrolled after." });
+      continue;
+    }
+    // Rule (DECISIONS 178): an item with no type yet cannot say who receives it, so its gift waits and says so, instead of looking for a child that cannot exist.
+    if (!rules) {
+      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "", enrolmentId: "", blocked: "no-type", options: [], why: "The item has no type yet, so it is not known who receives it. Choose a type on the Benefits page." });
       continue;
     }
     const options = placesFor(ctx, a, running);
