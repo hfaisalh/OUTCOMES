@@ -67,9 +67,17 @@ describe("the Assignment page", () => {
   it("filters to the gifts that need a partner or are assigned, and says so when there are none", () => {
     const a = { records: [{ key: "G01", partnerId: "backup", giftProjectId: "", itemId: "I10", parts: 1, how: "auto" as const, at: "x" }] };
     expect(assignmentPage(view({ assignments: a, assignFilter: "assigned" }))).not.toContain('data-key="G02"');
-    expect(assignmentPage(view({ assignments: a, assignFilter: "open" }))).not.toContain('data-key="G01"');
+    expect(assignmentPage(view({ assignments: a, assignFilter: "ready" }))).not.toContain('data-key="G01"');
     expect(assignmentPage(view({ workOrders: [] }))).toContain("No gifts here.");
     expect(assignmentPage(view({ projects: [] }))).toContain("No partner delivers a benefit yet.");
+  });
+  it("filters to the gifts that really wait for a partner, apart from those ready to assign", () => {
+    const waiting = assignmentPage(view({ assignFilter: "waiting" })); // G01 and G02 have a partner with room, G03 is for a project that is not set up
+    expect(waiting).toContain('data-key="G03"');
+    expect(waiting).not.toContain('data-key="G01"');
+    const ready = assignmentPage(view({ assignFilter: "ready" }));
+    expect(ready).toContain('data-key="G01"');
+    expect(ready).not.toContain('data-key="G03"');
   });
   it("never trusts a name as HTML", () => {
     const html = assignmentPage(view({ workOrders: [wo("G01", { supporterName: "<img src=x onerror=alert(1)>", itemName: "<script>1</script>" })] }));

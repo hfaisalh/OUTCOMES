@@ -12,7 +12,8 @@ import { eligiblePartners } from "../modules/06-projects/projects";
 import { esc, type View } from "./pages";
 
 const MAX_ROWS = 150;
-const FILTERS = [{ id: "all", label: "All gifts" }, { id: "open", label: "Needs a partner" }, { id: "assigned", label: "Assigned" }];
+// The filters say what they mean: ready to be assigned, waiting with no partner, or already assigned (DECISIONS 179).
+const FILTERS = [{ id: "all", label: "All gifts" }, { id: "ready", label: "Ready to assign" }, { id: "waiting", label: "Waiting, no partner" }, { id: "assigned", label: "Assigned" }];
 
 export function assignmentPage(v: View): string {
   const partners = v.projects ?? [];
@@ -41,7 +42,7 @@ export function assignmentPage(v: View): string {
     ...suggestions.map((s) => ({ key: s.key, assigned: "", sug: s })),
     ...existing.records.map((a) => ({ key: a.key, assigned: a.partnerId })),
   ];
-  const shown = rowsAll.filter((r) => filter === "all" || (filter === "open" ? r.assigned === "" : r.assigned !== "")).filter((r) => units.has(r.key));
+  const shown = rowsAll.filter((r) => filter === "all" || (filter === "assigned" ? r.assigned !== "" : filter === "waiting" ? r.assigned === "" && !r.sug?.partnerId : filter === "ready" ? r.assigned === "" && !!r.sug?.partnerId : true)).filter((r) => units.has(r.key));
   const rows = shown.slice(0, MAX_ROWS).map((r) => {
     const unit = units.get(r.key)!;
     const w = unit.w;

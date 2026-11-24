@@ -685,3 +685,7 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 
 - A gift for an item with **no type yet** was sent down the path that looks for a child, and waited with "no approved beneficiary is enrolled", which is misleading: nobody can say who receives it. It now waits with **"The item has no type yet, so it is not known who receives it. Choose a type on the Benefits page."**
 - The Allocate page lists, under "Why gifts wait", **which project and benefit** the waiting gifts belong to, biggest first (for example "Aghosh · Orphan Sponsorship (9)"), so a cause is seen without scrolling the table.
+
+## 179. The list filters say what they mean (Faisal, 24/11/2026)
+
+- On the Allocate and Assignment pages a filter called "Waiting for a place" (or "Needs a partner") meant "not placed yet", so it kept every gift that was ready to be placed and appeared not to work. The filters are now **All gifts, Ready to place (assign), Waiting with no place (partner), and Placed (Assigned)**, so a person can pick out exactly the gifts that have nowhere to go.

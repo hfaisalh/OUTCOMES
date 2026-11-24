@@ -17,7 +17,8 @@ import type { SavedFeatures } from "../modules/02-project-rules/kind-features";
 import { esc, type View } from "./pages";
 
 const MAX_ROWS = 150;
-const FILTERS = [{ id: "all", label: "All gifts" }, { id: "open", label: "Waiting for a place" }, { id: "placed", label: "Placed" }];
+// The filters say what they mean: ready to be placed, waiting with no place, or already placed (DECISIONS 179).
+const FILTERS = [{ id: "all", label: "All gifts" }, { id: "ready", label: "Ready to place" }, { id: "waiting", label: "Waiting, no place" }, { id: "placed", label: "Placed" }];
 const WHY: Record<string, string> = { "no-places": "no approved beneficiary is enrolled in the gift's project", "no-project-places": "no approved beneficiary is enrolled with the assigned partner", full: "every place for the benefit is full", "no-type": "the item has no type yet (choose one on the Benefits page)" };
 
 export function allocatePage(v: View): string {
@@ -75,7 +76,7 @@ export function allocatePage(v: View): string {
     ...sug.map((s) => ({ key: s.key, s })),
     ...placements.records.map((rec) => ({ key: rec.key, rec })),
   ];
-  const shown = rowsAll.filter((r) => unitOf.has(r.key)).filter((r) => filter === "all" || (filter === "open" ? !r.rec : !!r.rec));
+  const shown = rowsAll.filter((r) => unitOf.has(r.key)).filter((r) => filter === "all" || (filter === "placed" ? !!r.rec : filter === "waiting" ? !r.rec && r.s?.kind === "" : filter === "ready" ? !r.rec && r.s?.kind !== "" : true));
   const rows = shown.slice(0, MAX_ROWS).map((r) => {
     const u = unitOf.get(r.key)!;
     const a = assignments.find((x) => x.key === r.key);

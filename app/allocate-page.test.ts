@@ -19,6 +19,7 @@ const wo = (key: string, over: Partial<WorkOrder> = {}): WorkOrder => ({
 });
 const child = (id: string, name: string): Beneficiary => ({ id, kind: "person", name, status: "active", area: "", notes: "", dob: "", gender: "", guardian: "", guardianRelation: "", placeOfBirth: "", idNumber: "", fatherStatus: "", motherStatus: "", eligibility: "ready", eligibilityNote: "", partnerId: "", partnerRef: "", memberIds: [] });
 const partner = { id: "trust", name: "Trust", aliases: [], levels: [], types: [], status: "active", ddStatus: "approved" } as Project;
+const asg = (key: string, giftProjectId: string) => ({ key, partnerId: "trust", giftProjectId, itemId: "I10", parts: 1, how: "auto" as const, at: "2026-11-02T00:00:00Z" });
 const view = (over: Partial<View> = {}): View => ({
   workOrders: [wo("G01"), wo("G02"), wo("G03")], projects: [partner], today: "2026-11-24", frameworks: [{ id: "wf", unitsPerBeneficiary: 3 } as FrameworkTemplate], outcomeTypes: [],
   giftProjects: [{ id: "aghosh", name: "Aghosh", crmNames: [], partnerIds: ["trust"], clusters: [{ id: "c1", name: "Class 1", label: "Class", parentId: "", place: "", status: "active" }] }],
@@ -81,8 +82,17 @@ describe("the Allocate page", () => {
   it("filters to the gifts that wait or are placed, and says so when nothing is assigned", () => {
     const placements = { counter: 0, records: [{ key: "G01", kind: "place" as const, enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto" as const, at: "x" }] };
     expect(allocatePage(view({ placements, allocFilter: "placed" }))).not.toContain('data-key="G02"');
-    expect(allocatePage(view({ placements, allocFilter: "open" }))).not.toContain('data-plc="unplace" data-key="G01"');
+    expect(allocatePage(view({ placements, allocFilter: "ready" }))).not.toContain('data-plc="unplace" data-key="G01"');
+    expect(allocatePage(view({ placements, allocFilter: "ready" }))).toContain('data-key="G02"'); // ready to place
     expect(allocatePage(view({ assignments: { records: [] } }))).toContain("No gift has been assigned yet.");
+  });
+  it("filters to the gifts that are really waiting, not those that are only not placed yet", () => {
+    const html = allocatePage(view({ enrolments: { records: [{ id: "EN-1", beneficiaryId: "B1", giftProjectId: "aghosh", clusterId: "c1", itemId: "I10", role: "", status: "active", since: "x" }], counter: 1 }, workOrders: [wo("G01"), wo("G02", { projectName: "Other" }), wo("G03")], assignments: { records: [asg("G01", "aghosh"), asg("G02", "other"), asg("G03", "aghosh")] } }));
+    const waiting = allocatePage(view({ enrolments: { records: [{ id: "EN-1", beneficiaryId: "B1", giftProjectId: "aghosh", clusterId: "c1", itemId: "I10", role: "", status: "active", since: "x" }], counter: 1 }, workOrders: [wo("G01"), wo("G02", { projectName: "Other" }), wo("G03")], assignments: { records: [asg("G01", "aghosh"), asg("G02", "other"), asg("G03", "aghosh")] }, allocFilter: "waiting" }));
+    expect(html).toContain('data-key="G02"');
+    expect(waiting).toContain('data-key="G02"'); // its project has no one enrolled
+    expect(waiting).not.toContain('data-key="G01"'); // it has a place, so it is ready, not waiting
+    expect(waiting).toContain('<option value="waiting" selected>Waiting, no place</option>');
   });
   it("never trusts a name as HTML", () => {
     const html = allocatePage(view({ beneficiaries: { records: [child("B1", "<img src=x onerror=alert(1)>"), child("B2", "Bilal")], counters: {} } }));
