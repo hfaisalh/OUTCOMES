@@ -104,7 +104,7 @@ describe("attaching to a real project", () => {
   const real = (over: Partial<GiftProject> = {}): GiftProject => ({ id: "aghosh-orphan-home", name: "Aghosh Orphan Home", crmNames: [], partnerIds: ["real-partner"], ...over });
   it("finds the real projects and the items their gifts carry", () => {
     const wo = [{ projectName: "Aghosh Orphan Home", itemId: "I10", status: "ready" }, { projectName: "Aghosh Orphan Home", itemId: "I13", status: "ready" }, { projectName: "Other", itemId: "I11", status: "ready" }];
-    expect(realProjectsFor([real(), { ...real({ id: "s", name: "S" }), sample: true }], wo)).toEqual([{ id: "aghosh-orphan-home", itemIds: ["I10", "I13"] }]);
+    expect(realProjectsFor([real(), { ...real({ id: "s", name: "S" }), sample: true }], wo)).toEqual([{ id: "aghosh-orphan-home", itemIds: ["I10", "I13"], itemCounts: { I10: 1, I13: 1 } }]);
   });
   it("gives the clusters and the sample partners to the real project whose gifts carry the sponsorship items, and makes new projects for the rest", () => {
     const { value, summary } = load({ giftProjects: [real()], realProjects: [{ id: "aghosh-orphan-home", itemIds: ["I10", "I13"] }] });
@@ -116,6 +116,13 @@ describe("attaching to a real project", () => {
     expect(gp.sampleAttached?.partnerIds.length).toBe(4);
     expect(value.enrolments.records.some((e) => e.giftProjectId === "aghosh-orphan-home")).toBe(true);
     expect(value.giftProjects.map((g) => g.name)).toEqual(["Aghosh Orphan Home", "Sample Village Projects", "Sample Relief Camps"]);
+  });
+  it("attaches to the project whose gifts carry the most of the items, not the one with the most kinds of item", () => {
+    const quiet = real({ id: "quiet", name: "Quiet" });
+    const busy = real({ id: "busy", name: "Busy" });
+    const { value } = load({ giftProjects: [quiet, busy], realProjects: [{ id: "quiet", itemIds: ["I10", "I13"], itemCounts: { I10: 1, I13: 1 } }, { id: "busy", itemIds: ["I10"], itemCounts: { I10: 22 } }] });
+    expect(value.giftProjects.find((g) => g.id === "busy")?.clusters?.length).toBe(12);
+    expect(value.giftProjects.find((g) => g.id === "quiet")?.clusters).toBeUndefined();
   });
   it("leaves a real project that already has clusters alone, and makes its own project instead", () => {
     const own = real({ clusters: [{ id: "x", name: "Mine", label: "Home", parentId: "", place: "", status: "active" }] });

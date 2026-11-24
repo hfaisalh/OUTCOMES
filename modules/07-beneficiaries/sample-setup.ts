@@ -37,16 +37,21 @@ export interface SampleInput {
   partnerTypes: string[];
   register: Register;
   enrolments: Enrolments;
-  realProjects: { id: string; itemIds: string[] }[]; // the real projects and the items their gifts carry, to attach to (see realProjectsFor)
+  realProjects: { id: string; itemIds: string[]; itemCounts?: Record<string, number> }[]; // the real projects, the items their gifts carry and how many gifts carry each, to attach to (see realProjectsFor)
   today: string;
 }
 export interface SampleState { partners: Project[]; giftProjects: GiftProject[]; partnerTypes: string[]; register: Register; enrolments: Enrolments }
 export interface SampleSummary { partners: number; projects: number; attached: number; clusters: number; beneficiaries: number; enrolments: number; skipped: string[] }
 type Loaded = ({ value: SampleState; summary: SampleSummary }) | { error: string };
 
-// The real projects (not made by the sample) and the items the gifts of each carry, for the sample to attach to. A project is known by its CRM name, or its own name when it has none.
-export function realProjectsFor(gps: GiftProject[], workOrders: { projectName?: string; itemId: string; status: string }[]): { id: string; itemIds: string[] }[] {
-  return gps.filter((g) => g.sample !== true).map((g) => ({ id: g.id, itemIds: itemsSeenWith(workOrders, g.crmName ?? g.name) }));
+// The real projects (not made by the sample), the items the gifts of each carry and how many gifts carry each, for the sample to attach to the busiest. A project is known by its CRM name, or its own name when it has none.
+export function realProjectsFor(gps: GiftProject[], workOrders: { projectName?: string; itemId: string; status: string }[]): { id: string; itemIds: string[]; itemCounts: Record<string, number> }[] {
+  return gps.filter((g) => g.sample !== true).map((g) => {
+    const name = (g.crmName ?? g.name).trim().toLowerCase();
+    const itemCounts: Record<string, number> = {};
+    for (const w of workOrders) if (w.status !== "excluded" && w.itemId !== "" && (w.projectName ?? "").trim().toLowerCase() === name) itemCounts[w.itemId] = (itemCounts[w.itemId] ?? 0) + 1;
+    return { id: g.id, itemIds: itemsSeenWith(workOrders, g.crmName ?? g.name), itemCounts };
+  });
 }
 
 const must = <T>(r: { value: T; error?: string }): T => { if (r.error) throw new Error(r.error); return r.value; };
@@ -117,9 +122,10 @@ export function loadSampleSetup(input: SampleInput): Loaded {
       const wanted = new Set(items.map((i) => i.id));
       const real = input.realProjects
         .filter((rp) => !used.has(rp.id) && !(gps.find((g) => g.id === rp.id)?.clusters ?? []).length)
-        .map((rp) => ({ rp, overlap: rp.itemIds.filter((i) => wanted.has(i)).length }))
+        // Rule (DECISIONS 169): the project whose gifts carry the most of these items gets the clusters, so the busiest real project is the one the sample is built around.
+        .map((rp) => ({ rp, overlap: rp.itemIds.filter((i) => wanted.has(i)).length, gifts: [...wanted].reduce((n, i) => n + (rp.itemCounts?.[i] ?? 0), 0) }))
         .filter((x) => x.overlap > 0)
-        .sort((a, b) => b.overlap - a.overlap)[0]?.rp;
+        .sort((a, b) => b.gifts - a.gifts || b.overlap - a.overlap)[0]?.rp;
       if (real) {
         used.add(real.id);
         attached++;
