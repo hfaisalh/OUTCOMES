@@ -19,69 +19,94 @@ const home: ClusterState = {
   ],
 };
 
-describe("the Clusters tab", () => {
-  it("shows the clusters first, with the top ones visible and the sub clusters in a drop down list closed until opened", () => {
-    openClusters.clear();
-    const closed = clustersTabHtml(home);
-    expect(closed).toContain('data-cl="capacity" data-id="lahore-university" value="40"');
-    expect(closed).toContain('data-cl="toggle" data-id="lahore-university" aria-expanded="false"');
-    expect(closed).toContain('<span class="pill" title="Sub clusters inside">2</span>'); // how many are inside
-    expect(closed).not.toContain('data-id="science"'); // hidden while closed
-    expect(closed).not.toContain("Level"); // there is no level setup
-    openClusters.add("lahore-university");
+const reset = (): void => { openClusters.clear(); clusterUi.adding = ""; clusterUi.node = ""; clusterUi.nodeTab = "details"; };
+
+describe("the Clusters tab, the list", () => {
+  it("lists only the master clusters, one short line each, with how many are inside and a settings button", () => {
+    reset();
     const html = clustersTabHtml(home);
-    expect(html.indexOf('data-id="lahore-university"')).toBeLessThan(html.indexOf('data-id="science"'));
-    expect(html).toContain("padding-left:32px"); // a faculty is indented one step
-    expect(html).not.toContain('data-id="physics"'); // a department shows only when its faculty is opened
-    openClusters.add("science");
-    expect(clustersTabHtml(home)).toContain('data-id="physics"');
-    openClusters.clear();
+    expect(html).toContain("<b>Lahore University</b>");
+    expect(html).not.toContain("Science"); // sub clusters are not listed here
+    expect(html).toMatch(/<td class="num">40<\/td><td class="num">3<\/td>/); // capacity 40, three inside (two faculties and a department)
+    expect(html).toContain('data-cl="goto" data-id="lahore-university"');
+    expect(html).toContain('data-cl="cluster-rm" data-id="lahore-university"');
+    expect(html).not.toContain('data-cl="capacity"'); // no input boxes in the rows
   });
-  it("gives every cluster its own label, place, roles and status, and a + to add a sub cluster inside it", () => {
-    openClusters.add("lahore-university");
-    const html = clustersTabHtml(home);
-    expect(html).toContain('data-cl="label" list="cl-labels" data-id="science" value="Faculty"');
-    expect(html).toContain('data-cl="roles" data-id="lahore-university" value="Principal"');
-    expect(html).toContain('<option value="closed" selected>Closed</option>');
-    expect(html).toContain('data-cl="sub-open" data-id="science"');
-    expect(html).toContain('data-cl="cluster-rm" data-id="science"');
-    expect(html).toContain("Clusters <span class=\"muted\">(4)</span>");
-    openClusters.clear();
-  });
-  it("sets capacity on the top cluster only, and shows a sub cluster its even share as a guide", () => {
-    openClusters.add("lahore-university");
-    openClusters.add("science");
-    const html = clustersTabHtml(home);
-    expect(html).not.toContain('data-cl="capacity" data-id="science"');
-    expect(html).toContain("about 20"); // 40 over 2 faculties
-    expect(html).toContain("about 20"); // physics is alone in science, so it takes the faculty's 20
-    openClusters.clear();
-  });
-  it("adds a top cluster from a row at the bottom, and a sub cluster from an inline row under the cluster whose + was pressed, suggested the label its sisters use", () => {
+  it("adds a master cluster from a row at the bottom, and asks for the first one when there are none", () => {
+    reset();
     expect(clustersTabHtml(home)).toContain('id="cl-tname"');
-    expect(clustersTabHtml(home)).not.toContain('id="cl-sname"');
-    openClusters.add("lahore-university");
-    clusterUi.adding = "lahore-university";
-    const html = clustersTabHtml(home);
-    expect(html).toContain('id="cl-sname"');
-    expect(html).toContain('id="cl-slabel" list="cl-labels" value="Faculty"');
-    expect(html).toContain('data-cl="cluster-add" data-id="lahore-university"');
-    expect(html).toContain('data-cl="sub-cancel"');
-    clusterUi.adding = "";
-    openClusters.clear();
+    const none = clustersTabHtml({ clusters: [] });
+    expect(none).toContain("No clusters yet. Add the first one below.");
+    expect(none).toContain('id="cl-tname"');
   });
-  it("asks for the first cluster when there are none", () => {
-    const html = clustersTabHtml({ clusters: [] });
-    expect(html).toContain("No clusters yet. Add the first one below.");
-    expect(html).toContain('id="cl-tname"');
+  it("shows a search box only once the list is long", () => {
+    reset();
+    expect(clustersTabHtml(home)).not.toContain('id="cl-search"');
+    const many: ClusterState = { clusters: Array.from({ length: 9 }, (_, i) => ({ id: `c${i}`, name: `School ${i}`, label: "School", parentId: "", place: "", status: "active" as const })) };
+    expect(clustersTabHtml(many)).toContain('id="cl-search"');
   });
   it("shows an error where the person is looking, and never trusts a name as HTML", () => {
-    expect(clustersTabHtml(home, "Choose a name.")).toContain('role="alert">Choose a name.');
+    reset();
+    expect(clustersTabHtml(home, "Give the cluster a name.")).toContain('role="alert">Give the cluster a name.');
     const html = clustersTabHtml({ clusters: [{ id: "c", name: "<img src=x onerror=alert(1)>", label: "<b>L</b>", parentId: "", place: "<script>1</script>", status: "active", roles: ["<i>r</i>"] }] });
     expect(html).not.toContain("<img src=x");
     expect(html).not.toContain("<script>1");
     expect(html).not.toContain("<b>L</b>");
-    expect(html).not.toContain("<i>r</i>");
+    clusterUi.node = "c";
+    expect(clustersTabHtml({ clusters: [{ id: "c", name: "<img src=x onerror=alert(1)>", label: "<b>L</b>", parentId: "", place: "<script>1</script>", status: "active", roles: ["<i>r</i>"] }] })).not.toContain("<i>r</i>");
+    reset();
+  });
+});
+
+describe("the Clusters tab, one cluster", () => {
+  it("shows the path across the top and the details of a master cluster, with its total capacity", () => {
+    reset();
+    clusterUi.node = "lahore-university";
+    const html = clustersTabHtml(home);
+    expect(html).toContain('data-cl="goto" data-id="">Clusters</button>');
+    expect(html).toContain("<b>Lahore University</b>");
+    expect(html).toContain('id="cn-roles" value="Principal"');
+    expect(html).toContain('id="cn-capacity" type="number" min="0" value="40"');
+    expect(html).toContain('data-cl="node-save" data-id="lahore-university"');
+    expect(html).toContain('Inside <span class="muted">(3)</span>');
+    reset();
+  });
+  it("shows a sub cluster its even share as a guide, with no capacity box, and a path back up", () => {
+    reset();
+    clusterUi.node = "physics";
+    const html = clustersTabHtml(home);
+    expect(html).not.toContain('id="cn-capacity"');
+    expect(html).toContain("about <b>20</b>"); // 40 over two faculties, physics alone in science
+    expect(html).toContain('data-cl="goto" data-id="lahore-university">Lahore University</button>');
+    expect(html).toContain('data-cl="goto" data-id="science">Science</button>');
+    reset();
+  });
+  it("shows what is inside as folders that open and close, each with settings and a + to add inside", () => {
+    reset();
+    clusterUi.node = "lahore-university";
+    clusterUi.nodeTab = "inside";
+    const closed = clustersTabHtml(home);
+    expect(closed).toContain('data-id="science"');
+    expect(closed).toContain('data-cl="toggle" data-id="science" aria-expanded="false"');
+    expect(closed).not.toContain('data-cl="goto" data-id="physics"'); // inside Science, which is closed
+    openClusters.add("science");
+    const open = clustersTabHtml(home);
+    expect(open).toContain('data-cl="goto" data-id="physics"');
+    expect(open).toContain('data-cl="sub-open" data-id="physics"');
+    expect(open).toContain('id="cl-bname"'); // add inside this cluster
+    expect(open).toContain('id="cl-blabel" list="cl-labels" value="Faculty"'); // the label its sisters use
+    clusterUi.adding = "science";
+    const adding = clustersTabHtml(home);
+    expect(adding).toContain('id="cl-sname"');
+    expect(adding).toContain('id="cl-slabel" list="cl-labels" value="Department"');
+    reset();
+  });
+  it("falls back to the list when the open cluster no longer exists", () => {
+    reset();
+    clusterUi.node = "gone";
+    expect(clustersTabHtml(home)).toContain("<b>Lahore University</b>");
+    expect(clustersTabHtml(home)).not.toContain("cn-name");
+    reset();
   });
 });
 

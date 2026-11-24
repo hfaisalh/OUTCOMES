@@ -171,6 +171,27 @@ export function clusterRows(s: ClusterState): ClusterRow[] {
   return out;
 }
 
+// The sub clusters inside one cluster, as a tree in order, depth 0 for those directly inside it. Used by the Inside tab of a cluster.
+export function subRows(s: ClusterState, id: string): ClusterRow[] {
+  const out: ClusterRow[] = [];
+  const walk = (parentId: string, depth: number): void => {
+    const here = s.clusters.filter((c) => c.parentId === parentId).sort((a, b) => a.name.localeCompare(b.name));
+    for (const c of here) { out.push({ cluster: c, depth }); walk(c.id, depth + 1); }
+  };
+  walk(id, 0);
+  return out;
+}
+
+// How many sub clusters are inside a cluster, all the way down.
+export const insideCount = (s: ClusterState, id: string): number => subRows(s, id).length;
+
+// The clusters from the top one down to this one, for the path shown above a cluster window (Aghosh Home > Block A > Classroom 1). Empty when it is not found.
+export function pathOf(s: ClusterState, id: string): Cluster[] {
+  const out: Cluster[] = [];
+  for (let c = s.clusters.find((x) => x.id === id); c && out.length <= s.clusters.length; c = s.clusters.find((x) => x.id === c?.parentId)) out.unshift(c);
+  return out;
+}
+
 /**
  * The requests the page makes on clusters, applied by one pure function so the server and the demo behave the same. Returns null for a request that is not about clusters.
  */

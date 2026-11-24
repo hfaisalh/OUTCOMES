@@ -1327,6 +1327,7 @@ function renderProjectWindow(error = "", draft?: Record<string, unknown>): void 
   root.innerHTML = projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })) }, error, w.tab ?? "details");
 }
 function closeProjectWindow(): void {
+  clusterUi.node = ""; clusterUi.adding = ""; clusterUi.nodeTab = "details"; // the next project opens on its list of clusters
   state.projectWin = { open: false, id: "" };
   const root = document.getElementById("project-root");
   if (root) root.innerHTML = "";
@@ -1571,31 +1572,36 @@ document.addEventListener("change", (e) => {
   (body.lastElementChild?.querySelector(".pf-cap") as HTMLInputElement | null)?.focus();
 });
 
-// The Clusters tab of the project window (DECISIONS 158, 161): each button or field is one request on the project's clusters, applied on the server when live and in the browser in the demo.
+// The Clusters tab of the project window (DECISIONS 158, 161, 162): each button or field is one request on the project's clusters, applied on the server when live and in the browser in the demo.
 const clusterRequest = (body: Record<string, unknown>): void => void outcomeChange({ ...body, giftProjectId: state.projectWin.id }).then(() => renderProjectWindow(lastError));
+// A change of view only (open a folder, go into a cluster): it clears any old message, so a stale error does not stay on the screen.
+const clusterView = (): void => { lastError = ""; renderProjectWindow(); };
 document.addEventListener("click", (e) => {
   const b = (e.target as HTMLElement).closest?.("[data-cl]") as HTMLElement | null;
   if (!b || !state.projectWin.open) return;
   const val = (i: string) => (document.getElementById(i) as HTMLInputElement | null)?.value ?? "";
   const id = b.dataset.id ?? "";
   switch (b.dataset.cl) {
-    case "toggle": if (openClusters.has(id)) openClusters.delete(id); else openClusters.add(id); return renderProjectWindow(lastError);
-    case "sub-open": openClusters.add(id); clusterUi.adding = id; return renderProjectWindow(lastError); // the cluster opens so the new sub cluster shows
-    case "sub-cancel": clusterUi.adding = ""; return renderProjectWindow(lastError);
-    case "cluster-add": { // Rule: capacity belongs to the top cluster only, so a sub cluster is sent none.
+    case "toggle": if (openClusters.has(id)) openClusters.delete(id); else openClusters.add(id); return clusterView();
+    case "sub-open": openClusters.add(id); clusterUi.adding = id; return clusterView(); // the folder opens so the new sub cluster shows
+    case "sub-cancel": clusterUi.adding = ""; return clusterView();
+    case "goto": clusterUi.node = id; clusterUi.adding = ""; clusterUi.nodeTab = "details"; return clusterView(); // "" goes back to the list
+    case "node-tab": clusterUi.nodeTab = b.dataset.tab === "inside" ? "inside" : "details"; clusterUi.adding = ""; return clusterView();
+    case "node-save": return clusterRequest({ action: "cluster-set", clusterId: id, name: val("cn-name"), label: val("cn-label"), place: val("cn-place"), roles: val("cn-roles"), status: val("cn-status"), ...(document.getElementById("cn-capacity") ? { capacity: val("cn-capacity") } : {}) });
+    case "cluster-add": { // Rule: capacity belongs to the master cluster only, so a sub cluster is sent none.
       if (id === "") return clusterRequest({ action: "cluster-add", name: val("cl-tname"), label: val("cl-tlabel"), parentId: "", place: val("cl-tplace"), capacity: val("cl-tcap") });
       openClusters.add(id);
       clusterUi.adding = "";
       return clusterRequest({ action: "cluster-add", name: val("cl-sname"), label: val("cl-slabel"), parentId: id, place: val("cl-splace") });
     }
+    case "cluster-add-b": openClusters.add(id); return clusterRequest({ action: "cluster-add", name: val("cl-bname"), label: val("cl-blabel"), parentId: id, place: val("cl-bplace") });
     case "cluster-rm": return clusterRequest({ action: "cluster-remove", clusterId: id });
   }
 });
-document.addEventListener("change", (e) => {
-  const t = e.target as HTMLInputElement | HTMLSelectElement | null;
-  const what = t?.dataset?.cl;
-  if (!t || what === undefined || !state.projectWin.open) return;
-  const id = t.dataset.id ?? "";
-  if (what === "name" || what === "label" || what === "place" || what === "roles" || what === "status") clusterRequest({ action: "cluster-set", clusterId: id, [what]: t.value });
-  else if (what === "capacity") clusterRequest({ action: "cluster-set", clusterId: id, capacity: t.value });
+// The search box on a long list hides the rows that do not match. Nothing is saved.
+document.addEventListener("input", (e) => {
+  const t = e.target as HTMLInputElement | null;
+  if (t?.id !== "cl-search") return;
+  const q = t.value.trim().toLowerCase();
+  document.querySelectorAll<HTMLElement>("tr[data-find]").forEach((r) => { r.hidden = q !== "" && !(r.dataset.find ?? "").includes(q); });
 });

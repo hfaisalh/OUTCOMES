@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { addCluster, applyClusterAction, clusterRows, clusterStateOf, emptyClusters, evenShare, removeCluster, setCluster, suggestLabel, type ClusterState } from "./clusters";
+import { addCluster, applyClusterAction, clusterRows, clusterStateOf, emptyClusters, evenShare, insideCount, pathOf, removeCluster, setCluster, subRows, suggestLabel, type ClusterState } from "./clusters";
 
 const ok = (r: { value: ClusterState } | { error: string } | null): ClusterState => { if (r === null) throw new Error("not a cluster request"); if ("error" in r) throw new Error(r.error); return r.value; };
 
@@ -83,6 +83,20 @@ describe("the tree and removal", () => {
     s = ok(removeCluster(s, "physics"));
     expect(s.clusters.some((c) => c.id === "physics")).toBe(false);
     expect(removeCluster(s, "nope")).toHaveProperty("error");
+  });
+});
+
+describe("what is inside a cluster", () => {
+  it("lists the sub clusters of one cluster as a tree, depth 0 for those directly inside, and counts them all the way down", () => {
+    const s = sample();
+    expect(subRows(s, "lahore-university").map((r) => `${"-".repeat(r.depth)}${r.cluster.name}`)).toEqual(["Arts", "Science", "-Chemistry", "-Physics"]);
+    expect(insideCount(s, "lahore-university")).toBe(4);
+    expect(insideCount(s, "science")).toBe(2);
+    expect(insideCount(s, "al-noor-school")).toBe(0);
+  });
+  it("gives the path from the top cluster down, for the line across the top of a cluster window", () => {
+    expect(pathOf(sample(), "physics").map((c) => c.name)).toEqual(["Lahore University", "Science", "Physics"]);
+    expect(pathOf(sample(), "nope")).toEqual([]);
   });
 });
 

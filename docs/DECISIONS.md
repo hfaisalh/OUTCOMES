@@ -553,3 +553,9 @@ Addendum to 159 (Faisal, 24/11/2026): the two names are called **Display Name** 
 - **Capacity is set once, on the top cluster, as the total.** It is shared **evenly down** through the sub clusters as a guide ("about 10"), not a limit. Sub clusters carry no capacity.
 - Older projects that saved levels are read through `clusterStateOf`: the level name becomes the label, and nothing is lost.
 - **Next (agreed, not built):** a **Person** register (one profile and one permanent ID per human, duplicates checked on the person) and **Enrolments** (a person in a benefit, a project and a cluster, with its own ID carrying the type prefix). A sponsored principal or warden is a person enrolled in a benefit, not a new kind of beneficiary. One person can have several enrolments (orphan care, education, Hifz), one per benefit and project.
+
+## 162. Clusters tab: a short list of master clusters, and a cluster opens to its own settings and tree (Faisal, 24/11/2026)
+
+- The tab lists **only the master clusters**, one short line each: name, called, place, capacity, how many are inside, status, and a settings button. A row at the bottom adds one. A search box shows once the list is longer than 8. Reason: a project with many clusters, each with many sub clusters, would make one very long screen.
+- The settings button opens **that cluster** in the same tab, with a path across the top (Aghosh Home > Block A > Classroom 1) and two tabs. **Details:** name, called, place, roles, status and, on a master cluster, the total capacity (a sub cluster shows its even share as a guide). Saved with a Save button, so a stray edit changes nothing. **Inside:** the tree of what is in it, as folders that open and close, with a settings button to open each sub cluster in turn, a + to add inside, and a row to add directly inside.
+- A message from an earlier action no longer stays on the screen when only the view changes (opening a folder or a cluster).
