@@ -185,6 +185,7 @@ A person or household that receives what a gift delivers. Stored on the organisa
 | `memberIds` | Household: the IDs of the persons in it |
 | `size` | Household: how many people, when the persons are not listed |
 | `notes` | Free text |
+| `sample` | True when made by the sample setup (DECISIONS 168). Enrolments, projects and partners made by it are marked in the same way (a partner by a reference starting SAMPLE-) |
 
 ## Enrolment (DECISIONS 167)
 A beneficiary placed in a cluster of a project for one benefit. Stored on the organisation's setup as `enrolments` (`records` and a `counter`).

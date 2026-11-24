@@ -24,7 +24,7 @@ What a person types in the Beneficiaries window: a name, and for a person a date
 A beneficiary is enrolled in a cluster of a project for a benefit, in a role if the cluster lists one. The type of the benefit (set on the Benefits page: who receives, who comes first) decides who it takes and whether approval comes first. Capacity is the master cluster's total. A role holder does not use up a place. A beneficiary or cluster that is enrolled cannot be removed.
 
 ## Not built yet
-- The open places that Allocation fills, the sample setup, Assignment, and Allocation rewired onto them (DECISIONS 165).
+- A Beneficiary import for real data (read in the browser, mapped, duplicate checked, previewed, into a local or private environment only), the open places that Allocation fills, Assignment, and Allocation rewired onto them (DECISIONS 165).
 - The partner portal: partners share updates and prerequisites there, and it becomes the beneficiary's profile lifecycle (DECISIONS 164). Siblings and parents as linked persons.
 - Role based access (for now anyone who can view work orders sees the register), importing a list, merging two records found to be the same.
 
@@ -35,6 +35,10 @@ A beneficiary is enrolled in a cluster of a project for a benefit, in a role if 
 | `beneficiaries.test.ts` | Tests and examples on invented people |
 | `enrolments.ts` | Enrolment rules as pure functions (enrol, end, move, capacity, who a type allows) and `applyEnrolmentAction`, used by the server and the demo |
 | `enrolments.test.ts` | Tests and examples: an orphan home with classes, a water project |
+| `sample-setup.ts` | Loads and removes the invented sample setup (partners, projects, clusters, beneficiaries, enrolments) as pure functions (DECISIONS 168) |
+| `sample-setup.test.ts` | Tests and examples |
+
+The sample setup is loaded from the Organisation settings page. Real children's data is never loaded this way.
 
 The screens are `app/register-page.ts` (the table and filters), `app/register-form.ts` (the window) and `app/cluster-people.ts` (the Beneficiaries tab of a cluster). Saved on the organisation's setup as `beneficiaries`.
 

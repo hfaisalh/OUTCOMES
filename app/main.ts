@@ -20,6 +20,7 @@ import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
 import { registerPage } from "./register-page";
 import { registerFormHtml } from "./register-form";
+import { loadSampleSetup, removeSampleSetup, removedSummaryText, sampleSummaryText } from "../modules/07-beneficiaries/sample-setup";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf, type Enrolments } from "../modules/07-beneficiaries/enrolments";
 import { applyBeneficiaryAction, emptyRegister, NO_FILTER as NO_REGISTER_FILTER, type Beneficiary, type BeneficiaryFilter, type BeneficiaryKind, type Register } from "../modules/07-beneficiaries/beneficiaries";
 import { projectFormHtml, readProjectForm } from "./project-form";
@@ -299,6 +300,20 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "place-in-partner": { const r = placeInPartner(state.allocations, commitments, state.outcomes, state.projects, state.frameworks, str("commitmentKey"), str("projectId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
         case "adopt-legacy": { const r = adoptLegacy(state.outcomes, state.projects, str("projectId")); if (r.error) error = r.error; else { state.outcomes = r.value; state.message = `Moved ${r.moved} into the partner.`; } break; }
         case "clear-legacy": { const r = clearLegacy(state.outcomes, state.allocations); state.outcomes = r.outcomes; state.allocations = r.allocations; state.message = `Removed ${r.removed} and released ${r.released} gift${r.released === 1 ? "" : "s"}.`; break; }
+        case "sample-load": case "sample-remove": { // The sample setup (DECISIONS 168): the same pure rule the server uses.
+          const cur = { partners: state.projects, giftProjects: state.giftProjects, partnerTypes: state.partnerTypes, register: state.beneficiaries, enrolments: state.enrolments };
+          let next = cur;
+          if (body["action"] === "sample-load") {
+            const r = loadSampleSetup({ items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), itemKinds: state.itemKinds, kindFeatures: state.kindFeatures as SavedFeatures, ...cur, today: new Date().toISOString().slice(0, 10) });
+            if ("error" in r) { error = r.error; break; }
+            next = r.value; state.message = sampleSummaryText(r.summary);
+          } else {
+            const r = removeSampleSetup(cur);
+            next = r.value; state.message = removedSummaryText(r);
+          }
+          state.projects = next.partners; state.giftProjects = next.giftProjects; state.partnerTypes = next.partnerTypes; state.beneficiaries = next.register; state.enrolments = next.enrolments;
+          break;
+        }
         case "set-require-ref": state.requireRef = body["on"] === true; break;
         case "set-grace": { const n = Number(body["days"]); if (!Number.isInteger(n) || n < 0 || n > 90) error = "The grace period is a whole number of days, from 0 to 90."; else state.graceDays = n; break; }
         case "approve-release": { const due = releaseApprovals(state.allocations, commitments, state.frameworks, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy).find((x) => x.commitmentKey === str("commitmentKey")); if (!due) error = "That place is not due for release."; else state.allocations = releaseAllocation(state.allocations, due.commitmentKey); break; }
@@ -1636,6 +1651,13 @@ document.addEventListener("input", (e) => {
   if (t?.id !== "cl-search") return;
   const q = t.value.trim().toLowerCase();
   document.querySelectorAll<HTMLElement>("tr[data-find]").forEach((r) => { r.hidden = q !== "" && !(r.dataset.find ?? "").includes(q); });
+});
+
+// The sample setup buttons on the Organisation settings page (DECISIONS 168).
+document.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest?.("[data-sample]") as HTMLElement | null;
+  if (!b) return;
+  void outcomeChange({ action: b.dataset.sample === "remove" ? "sample-remove" : "sample-load" });
 });
 
 // ---- The Beneficiaries page and its window (DECISIONS 163) ----

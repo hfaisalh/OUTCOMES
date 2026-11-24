@@ -9,6 +9,7 @@
  */
 
 import type { AttentionItem } from "../modules/04-triage/triage";
+import { hasSample } from "../modules/07-beneficiaries/sample-setup";
 import type { BeneficiaryFilter, Register } from "../modules/07-beneficiaries/beneficiaries";
 import type { Enrolments } from "../modules/07-beneficiaries/enrolments";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
@@ -281,7 +282,18 @@ export const settingsPage = (v: View): string => `
       <tr><td>Values that mean yes</td><td>${v.config.yesValues.map((x) => `<code>${esc(x)}</code>`).join(" ")}</td></tr>
       <tr><td>Values that mean paid</td><td>${v.config.paidValues.map((x) => `<code>${esc(x)}</code>`).join(" ")}</td></tr>
       <tr><td>How the feed is read</td><td>Database view or API (chosen per organisation)</td></tr></tbody></table>
-    <p class="muted">In this demo the settings are read-only and the feed is the invented sample.</p></div>`;
+    <p class="muted">In this demo the settings are read-only and the feed is the invented sample.</p></div>
+    ${sampleCard(v)}`;
+
+// The sample setup card (DECISIONS 168): one button loads invented partners, projects, clusters, beneficiaries and enrolments so the whole chain can be tried, and one removes exactly those.
+function sampleCard(v: View): string {
+  const loaded = hasSample({ giftProjects: v.giftProjects ?? [], register: v.beneficiaries ?? { records: [], counters: {} } });
+  return `<div class="card"><h2>Sample setup</h2>
+    ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
+    <p class="muted">Loads invented partners, projects with clusters, children and households, and enrolments, built from the items that exist, so the whole journey can be tried without real data. Everything it makes is marked as sample, and Remove takes away exactly that and nothing else. Real children's data is never loaded this way.</p>
+    <div class="actions"><button class="primary" data-sample="load"${loaded ? " disabled" : ""}>Load sample setup</button><button data-sample="remove"${loaded ? "" : " disabled"}>Remove sample data</button></div>
+    <p class="muted">${loaded ? "The sample setup is loaded." : "The sample setup is not loaded."}</p></div>`;
+}
 
 const kindWord: Record<string, string> = { added: "New", changed: "Changed", moved: "Moved to another item", no_longer_needs_feedback: "No longer needs feedback", removed: "No longer in the CRM" };
 

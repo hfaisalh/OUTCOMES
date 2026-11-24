@@ -47,6 +47,7 @@ export interface Beneficiary {
   eligibilityNote: string; // person: why, in a few words
   partnerId: string; // the partner that gave this record, "" when none
   partnerRef: string; // the partner's own ID for it, so their records and ours can be matched
+  sample?: true; // made by the sample setup (DECISIONS 168), so it can be removed again
   memberIds: string[]; // household: the persons in it
   size?: number; // household: how many people, when the persons are not listed
 }

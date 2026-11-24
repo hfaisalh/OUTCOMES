@@ -36,6 +36,7 @@ export interface Enrolment {
   status: EnrolmentStatus;
   since: string; // YYYY-MM-DD
   endedOn?: string;
+  sample?: true; // made by the sample setup (DECISIONS 168)
 }
 export interface Enrolments { records: Enrolment[]; counter: number }
 export const emptyEnrolments = (): Enrolments => ({ records: [], counter: 0 });
