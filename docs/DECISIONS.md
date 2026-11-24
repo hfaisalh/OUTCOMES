@@ -544,3 +544,12 @@ Addendum to 159 (Faisal, 24/11/2026): the two names are called **Display Name** 
 
 - The Clusters tab shows the **first level** (for example each Aghosh Home) as the visible rows. The clusters inside (classrooms) are a **drop down list** under it, closed until opened with the arrow. A badge shows how many are inside. Adding a cluster opens the one it sits in.
 - **Capacity is set on the first level only** (a Home holds 40). Lower levels show no capacity. The stored field is unchanged, so nothing saved is lost.
+
+## 161. Clusters have no levels: each cluster and sub cluster stands on its own (Faisal, 24/11/2026)
+
+- A **cluster** is the master distribution of a project (a school, a university, a home). It holds **sub clusters**, as many as needed and to any depth (faculty, department, classroom, hostel). The shared chain of levels (Block, then Classroom) is **removed**: a university and a school need different shapes, and depth comes from where a cluster sits.
+- Each cluster or sub cluster has its **own name, label (what it is called), place, status and roles** (the people it needs, for example Principal, Warden). A new sub cluster is suggested the label its sisters use, so names stay the same with no setup step.
+- The tab shows **clusters first**: top clusters visible, sub clusters in a drop down list, and a **+ on each row** adds a sub cluster inside it.
+- **Capacity is set once, on the top cluster, as the total.** It is shared **evenly down** through the sub clusters as a guide ("about 10"), not a limit. Sub clusters carry no capacity.
+- Older projects that saved levels are read through `clusterStateOf`: the level name becomes the label, and nothing is lost.
+- **Next (agreed, not built):** a **Person** register (one profile and one permanent ID per human, duplicates checked on the person) and **Enrolments** (a person in a benefit, a project and a cluster, with its own ID carrying the type prefix). A sponsored principal or warden is a person enrolled in a benefit, not a new kind of beneficiary. One person can have several enrolments (orphan care, education, Hifz), one per benefit and project.

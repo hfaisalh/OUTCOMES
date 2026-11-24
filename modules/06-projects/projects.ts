@@ -20,7 +20,7 @@
 import { slugify, type FrameworkTemplate } from "../02-project-rules/categories.js";
 import { addOutcomes, autoAllocate, capacityOf, DEFAULT_GRACE_DAYS, fillOf, inGrace, asksForPlace, pickOutcome, releaseDue, takesCapacity, type AllocOptions, type Allocation, type Outcome, type Policy } from "../05-outcomes/outcomes.js";
 import type { Commitment } from "../04b-commitments/commitments.js";
-import { applyClusterAction, type Cluster, type ClusterLevel } from "./clusters.js";
+import { applyClusterAction, clusterStateOf, type Cluster, type ClusterLevel } from "./clusters.js";
 
 export interface Level {
   id: string;
@@ -554,10 +554,10 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
     const id = str("giftProjectId");
     const gp = s.giftProjects.find((g) => g.id === id);
     if (!gp) return fail("That project was not found.");
-    const r = applyClusterAction({ levels: gp.levels ?? [], clusters: gp.clusters ?? [] }, body);
+    const r = applyClusterAction(clusterStateOf(gp.levels, gp.clusters), body);
     if (r === null) return undefined;
     if ("error" in r) return fail(r.error);
-    return done({ ...s, giftProjects: s.giftProjects.map((g) => (g.id === id ? { ...g, ...(r.value.levels.length ? { levels: r.value.levels } : { levels: undefined }), ...(r.value.clusters.length ? { clusters: r.value.clusters } : { clusters: undefined }) } : g)) });
+    return done({ ...s, giftProjects: s.giftProjects.map((g) => (g.id === id ? { ...g, levels: undefined, ...(r.value.clusters.length ? { clusters: r.value.clusters } : { clusters: undefined }) } : g)) });
   }
   switch (action) {
     case "remove-partner": {
@@ -810,7 +810,7 @@ export interface GiftProject {
   crmName?: string; // the CRM's own project name, fixed once set: the project's hard link to the CRM, kept as the CRM spells it. "" means not linked to a CRM project. Absent: an older project, matched by its name (DECISIONS 159). `name` is the name shown in OUTCOMES.
   crmNames: string[]; // older: other CRM names it also answers to. Kept so nothing breaks, no longer edited
   partnerIds: string[]; // the partners that deliver it. Any of them can take a gift for it. The order is the priority order: the first takes work until it is full, then the next (DECISIONS 154)
-  levels?: ClusterLevel[]; // the levels of its clusters, for example Region, then Classroom (DECISIONS 158)
+  levels?: ClusterLevel[]; // older: a shared chain of levels. Read by clusterStateOf into labels, and dropped the next time the clusters change (DECISIONS 161)
   clusters?: Cluster[]; // the groups of beneficiaries inside it
   auto?: true; // made automatically from the project name a gift carried, and not changed by a person since (DECISIONS 155)
   itemIds?: string[]; // the benefits (gift items) it offers. Absent or empty means any item (DECISIONS 154)

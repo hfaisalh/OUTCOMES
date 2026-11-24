@@ -19,7 +19,7 @@ import { partnersPage } from "./partners-page";
 import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
 import { projectFormHtml, readProjectForm } from "./project-form";
-import { openClusters } from "./clusters-tab";
+import { clusterUi, openClusters } from "./clusters-tab";
 import { benefitRow, NEW_CONTACT_ROW, NEW_DOC_ROW, readPartnerForm } from "./partner-form";
 import { partnerWindowHtml, type PartnerTab } from "./partner-window";
 import { allocationPage } from "./allocation-page";
@@ -1325,18 +1325,6 @@ function renderProjectWindow(error = "", draft?: Record<string, unknown>): void 
   const existing = state.giftProjects.find((g) => g.id === w.id);
   const names = crmNamesOf(state.workOrders, state.giftProjects).filter((n) => n.giftProjectId === "").map((n) => ({ name: n.name, gifts: n.gifts })); // the CRM names no project has yet, to link a new project to
   root.innerHTML = projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })) }, error, w.tab ?? "details");
-  syncClusterParent();
-}
-// In the Clusters tab, "Inside which cluster" lists only clusters of the level above the chosen level, and is unavailable for the first level.
-function syncClusterParent(): void {
-  const lvl = document.getElementById("cl-level") as HTMLSelectElement | null;
-  const par = document.getElementById("cl-parent") as HTMLSelectElement | null;
-  if (!lvl || !par) return;
-  const above = lvl.selectedOptions[0]?.dataset.parent ?? "";
-  let first = "";
-  for (const o of [...par.options]) { const show = above !== "" && o.dataset.level === above; o.hidden = !show; o.disabled = !show; if (show && first === "") first = o.value; }
-  par.disabled = above === "";
-  par.value = above === "" ? "" : first;
 }
 function closeProjectWindow(): void {
   state.projectWin = { open: false, id: "" };
@@ -1583,33 +1571,31 @@ document.addEventListener("change", (e) => {
   (body.lastElementChild?.querySelector(".pf-cap") as HTMLInputElement | null)?.focus();
 });
 
-// The Clusters tab of the project window (DECISIONS 158): each button or field is one request on the project's levels or clusters, applied on the server when live and in the browser in the demo.
+// The Clusters tab of the project window (DECISIONS 158, 161): each button or field is one request on the project's clusters, applied on the server when live and in the browser in the demo.
 const clusterRequest = (body: Record<string, unknown>): void => void outcomeChange({ ...body, giftProjectId: state.projectWin.id }).then(() => renderProjectWindow(lastError));
 document.addEventListener("click", (e) => {
   const b = (e.target as HTMLElement).closest?.("[data-cl]") as HTMLElement | null;
   if (!b || !state.projectWin.open) return;
   const val = (i: string) => (document.getElementById(i) as HTMLInputElement | null)?.value ?? "";
+  const id = b.dataset.id ?? "";
   switch (b.dataset.cl) {
-    case "level-add": return clusterRequest({ action: "cluster-level-add", name: val("cl-newlevel") });
-    case "level-rm": return clusterRequest({ action: "cluster-level-remove", levelId: b.dataset.id ?? "" });
-    case "toggle": { const id = b.dataset.id ?? ""; if (openClusters.has(id)) openClusters.delete(id); else openClusters.add(id); return renderProjectWindow(lastError); }
-    case "cluster-add": { // Rule: capacity belongs to the first level only. The cluster it is added in opens, so the new one shows.
-      const parent = val("cl-parent");
-      if (parent !== "") openClusters.add(parent);
-      return clusterRequest({ action: "cluster-add", name: val("cl-name"), levelId: val("cl-level"), parentId: parent, place: val("cl-place"), capacity: parent === "" ? val("cl-capacity") : "" });
+    case "toggle": if (openClusters.has(id)) openClusters.delete(id); else openClusters.add(id); return renderProjectWindow(lastError);
+    case "sub-open": openClusters.add(id); clusterUi.adding = id; return renderProjectWindow(lastError); // the cluster opens so the new sub cluster shows
+    case "sub-cancel": clusterUi.adding = ""; return renderProjectWindow(lastError);
+    case "cluster-add": { // Rule: capacity belongs to the top cluster only, so a sub cluster is sent none.
+      if (id === "") return clusterRequest({ action: "cluster-add", name: val("cl-tname"), label: val("cl-tlabel"), parentId: "", place: val("cl-tplace"), capacity: val("cl-tcap") });
+      openClusters.add(id);
+      clusterUi.adding = "";
+      return clusterRequest({ action: "cluster-add", name: val("cl-sname"), label: val("cl-slabel"), parentId: id, place: val("cl-splace") });
     }
-    case "cluster-rm": return clusterRequest({ action: "cluster-remove", clusterId: b.dataset.id ?? "" });
+    case "cluster-rm": return clusterRequest({ action: "cluster-remove", clusterId: id });
   }
 });
 document.addEventListener("change", (e) => {
   const t = e.target as HTMLInputElement | HTMLSelectElement | null;
-  if (t?.id === "cl-level") return syncClusterParent();
   const what = t?.dataset?.cl;
   if (!t || what === undefined || !state.projectWin.open) return;
   const id = t.dataset.id ?? "";
-  if (what === "level-name") clusterRequest({ action: "cluster-level-rename", levelId: id, name: t.value });
-  else if (what === "name") clusterRequest({ action: "cluster-set", clusterId: id, name: t.value });
-  else if (what === "place") clusterRequest({ action: "cluster-set", clusterId: id, place: t.value });
+  if (what === "name" || what === "label" || what === "place" || what === "roles" || what === "status") clusterRequest({ action: "cluster-set", clusterId: id, [what]: t.value });
   else if (what === "capacity") clusterRequest({ action: "cluster-set", clusterId: id, capacity: t.value });
-  else if (what === "status") clusterRequest({ action: "cluster-set", clusterId: id, status: t.value });
 });
