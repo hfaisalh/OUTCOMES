@@ -285,7 +285,7 @@ export const settingsPage = (v: View): string => `
       <tr><td>Values that mean yes</td><td>${v.config.yesValues.map((x) => `<code>${esc(x)}</code>`).join(" ")}</td></tr>
       <tr><td>Values that mean paid</td><td>${v.config.paidValues.map((x) => `<code>${esc(x)}</code>`).join(" ")}</td></tr>
       <tr><td>How the feed is read</td><td>Database view or API (chosen per organisation)</td></tr></tbody></table>
-    <p class="muted">In this demo the settings are read-only and the feed is the invented sample.</p></div>
+    <p class="muted">${v.live ? "These settings are read-only here. Gifts come from the CRM exports or the feed you loaded." : "In this demo the settings are read-only and the feed is the invented sample."}</p></div>
     ${sampleCard(v)}`;
 
 // The sample setup card (DECISIONS 168): one button loads invented partners, projects, clusters, beneficiaries and enrolments so the whole chain can be tried, and one removes exactly those.
