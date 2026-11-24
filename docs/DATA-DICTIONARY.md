@@ -146,3 +146,18 @@ An item belongs to one **category** (for example Sponsorship or Transactional). 
 | `bundleQty` (work order, feed line) | Parts of the item in the bundle the line was bought as. Absent on a work order means 1. Comes from the CRM's bundle configuration through the Catalogue prices export |
 | `periodCount` (work order, feed line) | For a one-off payment: the months it covers, the item's instalment plan length from the Catalogue prices export. Absent means one period. Decision 64 |
 | parts | `bundleQty` x `quantity`. The base for units. Months are added later by the category (a sponsorship counts months, a water pump does not) |
+
+## Cluster (DECISIONS 161, 162)
+A cluster is a part of a gift project's distribution: a school, a university, a home, a region, or a sub cluster inside one (a faculty, a department, a classroom). Stored on the gift project as `clusters`.
+
+| Field | Meaning |
+|---|---|
+| `id` | Permanent identifier made from the name |
+| `name` | What it is called here. Used once among the clusters inside the same cluster |
+| `label` | What kind of thing it is (Home, Faculty, Classroom). Free text, suggested from its brothers and sisters |
+| `parentId` | The cluster it sits in. Empty for a master cluster |
+| `place` | Where it is |
+| `capacity` | The total number of places. Set on a master cluster only. Sub clusters show an even share of it as a guide, never a limit |
+| `status` | Active or closed |
+| `roles` | The people it needs, for example Principal or Warden. Who holds them comes with the beneficiary register |
+| `levelId` | Older projects only: the level it was in. Read into `label` and then dropped |

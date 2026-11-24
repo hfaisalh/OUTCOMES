@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { addCluster, applyClusterAction, clusterRows, clusterStateOf, emptyClusters, evenShare, insideCount, pathOf, removeCluster, setCluster, subRows, suggestLabel, treeRows, type ClusterState } from "./clusters";
+import { addCluster, applyClusterAction, clusterStateOf, emptyClusters, evenShare, insideCount, pathOf, removeCluster, setCluster, suggestLabel, treeRows, type ClusterState } from "./clusters";
 
 const ok = (r: { value: ClusterState } | { error: string } | null): ClusterState => { if (r === null) throw new Error("not a cluster request"); if ("error" in r) throw new Error(r.error); return r.value; };
 
@@ -74,7 +74,7 @@ describe("capacity shared evenly down", () => {
 
 describe("the tree and removal", () => {
   it("lists the clusters as a tree, each sub cluster under the one it is in", () => {
-    expect(clusterRows(sample()).map((r) => `${"-".repeat(r.depth)}${r.cluster.name}`)).toEqual(["Al-Noor School", "Lahore University", "-Arts", "-Science", "--Chemistry", "--Physics"]);
+    expect(treeRows(sample()).map((r) => `${"-".repeat(r.depth)}${r.cluster.name}`)).toEqual(["Al-Noor School", "Lahore University", "-Arts", "-Science", "--Chemistry", "--Physics"]);
   });
   it("refuses to remove a cluster that holds sub clusters or beneficiaries", () => {
     let s = sample();
@@ -89,7 +89,7 @@ describe("the tree and removal", () => {
 describe("what is inside a cluster", () => {
   it("lists the sub clusters of one cluster as a tree, depth 0 for those directly inside, and counts them all the way down", () => {
     const s = sample();
-    expect(subRows(s, "lahore-university").map((r) => `${"-".repeat(r.depth)}${r.cluster.name}`)).toEqual(["Arts", "Science", "-Chemistry", "-Physics"]);
+    expect(treeRows(s, "lahore-university").map((r) => `${"-".repeat(r.depth)}${r.cluster.name}`)).toEqual(["Arts", "Science", "-Chemistry", "-Physics"]);
     expect(insideCount(s, "lahore-university")).toBe(4);
     expect(insideCount(s, "science")).toBe(2);
     expect(insideCount(s, "al-noor-school")).toBe(0);

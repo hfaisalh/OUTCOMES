@@ -159,29 +159,6 @@ export function evenShare(s: ClusterState, id: string): number | undefined {
   return c.capacity === undefined ? undefined : Math.round((c.capacity / divisor) * 10) / 10;
 }
 
-// The clusters as a tree, in order, with how deep each is, for one row each on the page. Top clusters by name, then each one's sub clusters under it.
-export interface ClusterRow { cluster: Cluster; depth: number }
-export function clusterRows(s: ClusterState): ClusterRow[] {
-  const out: ClusterRow[] = [];
-  const walk = (parentId: string, depth: number): void => {
-    const here = s.clusters.filter((c) => c.parentId === parentId).sort((a, b) => a.name.localeCompare(b.name));
-    for (const c of here) { out.push({ cluster: c, depth }); walk(c.id, depth + 1); }
-  };
-  walk("", 0);
-  return out;
-}
-
-// The sub clusters inside one cluster, as a tree in order, depth 0 for those directly inside it. Used by the Inside tab of a cluster.
-export function subRows(s: ClusterState, id: string): ClusterRow[] {
-  const out: ClusterRow[] = [];
-  const walk = (parentId: string, depth: number): void => {
-    const here = s.clusters.filter((c) => c.parentId === parentId).sort((a, b) => a.name.localeCompare(b.name));
-    for (const c of here) { out.push({ cluster: c, depth }); walk(c.id, depth + 1); }
-  };
-  walk(id, 0);
-  return out;
-}
-
 // The tree under `rootId` ("" is the whole project) for drawing hierarchy lines. For each cluster: how deep (0 is directly under the root), whether it is the last of its brothers and sisters,
 // and for each level above it whether that level's cluster still has brothers and sisters below (so a vertical line carries on past this row).
 export interface TreeRow { cluster: Cluster; depth: number; last: boolean; guides: boolean[] }
@@ -200,7 +177,7 @@ export function treeRows(s: ClusterState, rootId = ""): TreeRow[] {
 }
 
 // How many sub clusters are inside a cluster, all the way down.
-export const insideCount = (s: ClusterState, id: string): number => subRows(s, id).length;
+export const insideCount = (s: ClusterState, id: string): number => treeRows(s, id).length;
 
 // The clusters from the top one down to this one, for the path shown above a cluster window (Aghosh Home > Block A > Classroom 1). Empty when it is not found.
 export function pathOf(s: ClusterState, id: string): Cluster[] {

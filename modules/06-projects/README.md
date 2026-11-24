@@ -26,6 +26,13 @@ Framework templates (Module 2), outcomes and allocations (Module 5), commitments
 - General gifts are spread across places, and a directed gift whose project is full waits for a person (DECISIONS 66).
 - The summary per project (beneficiaries, units, sponsored, free, in buffer, waiting, surplus or deficit), suggestions, and placing a gift by hand into a place are pure functions here too.
 
+## Gift projects and clusters (DECISIONS 154 to 162)
+Two different things in this module share the word "project", which is confusing and will be renamed:
+- **Partner** (called `Project` in `projects.ts`, an older name): who delivers. Profile, benefits it offers, capacity and cost per benefit. Its old Structure tab (levels, types, places) is being replaced by clusters and will be removed once the beneficiary register exists.
+- **Gift project** (`GiftProject`): what a donor chooses. A shell: Display Name, Original Name (the CRM's, fixed), the benefits it offers, the partners that deliver it in priority order, and its clusters. Its progress is rolled up from its gifts and outcomes, not stored.
+- **Clusters** (`clusters.ts`): the master distribution of a gift project (a school, a university, a home) with sub clusters to any depth. Each has its own name, label, place, status and roles. There is no shared chain of levels. Capacity is set on the master cluster only and shared evenly down as a guide (`evenShare`). Older projects that saved levels are read through `clusterStateOf`.
+- Screens: `app/clusters-tab.ts` (the tree with hierarchy lines, and one cluster's details) inside `app/project-form.ts`.
+
 ## Not built yet
 - Activities (one-offs with stages and reports), profile fields, vendor updates and the vendor portal.
 
@@ -34,6 +41,9 @@ Framework templates (Module 2), outcomes and allocations (Module 5), commitments
 |---|---|
 | `projects.ts` | All the rules above as pure functions, and `applyProjectAction`, which the server and the demo both use |
 | `projects.test.ts` | Tests and examples on invented data |
+| `clusters.ts` | Clusters and sub clusters of a gift project: add, change, remove, the tree for drawing lines, the even share of capacity, and the page requests (pure functions) |
+| `clusters.test.ts` | Tests and examples: a university with faculties and departments, a school |
+| `readiness.ts` | Whether a benefit is ready to receive gifts (workflow, type and an eligible partner) |
 
 The screens are `app/projects-page.ts` and `app/project-form.ts` (Projects), `app/partners-page.ts`, `app/partner-window.ts` and `app/partner-form.ts` (Partners: profile and structure), `app/beneficiaries-page.ts` (Beneficiaries) and `app/allocation-page.ts` (Allocation, Place gifts). The server actions are on `/api/outcomes` (Vercel's Hobby plan allows only 12 functions).
 

@@ -281,7 +281,7 @@ select:not([multiple]):focus-visible{outline:2px solid var(--accent);outline-off
 .pf-bentable{max-height:none;overflow:visible}.pf-bentable td.num input{width:100%}.pf-additem{margin:8px 0}.pf-additem select{min-width:260px}.pf-bentable #pf-benempty{padding:10px;margin:0}
 .pf-tabs{display:flex;gap:4px;padding:0 16px;border-bottom:1px solid var(--line)}.pf-tabs button{border:0;background:none;padding:10px 14px;font:inherit;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent}.pf-tabs button.on{color:var(--text);border-bottom-color:var(--accent);font-weight:600}
 .cl-table input,.cl-table select{width:100%;min-width:0}.cl-add{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}.cl-add input,.cl-add select{flex:1 1 150px;min-width:0}.cl-add select:disabled{opacity:.5}
-.cl-name{display:flex;align-items:center;gap:4px}.cl-name input{flex:1 1 auto}.cl-nobtn{display:inline-block;width:28px;flex:none}.cl-top td{background:var(--card);font-weight:600}
+.cl-nobtn{display:inline-block;width:28px;flex:none}.cl-top td{background:var(--card);font-weight:600}
 .cl-path{display:flex;align-items:center;flex-wrap:wrap;gap:2px;margin:10px 0 4px;font-size:13px}.linkish{border:0;background:none;padding:2px 4px;color:var(--accent,#1d3a8a);cursor:pointer;font:inherit;text-decoration:underline}.cl-icon{flex:none}
 .cl-form{display:grid;gap:10px;max-width:520px}.cl-form label{display:grid;gap:3px;font-size:13px;color:var(--muted)}.cl-form input,.cl-form select{font:inherit;color:var(--text,inherit);width:100%}
 /* Icon buttons: a little air between neighbours, and a gear big enough to read as a gear (it was a dot). A row's action cell grows to fit its buttons. */
@@ -299,3 +299,4 @@ select:not([multiple]):focus-visible{outline:2px solid var(--accent);outline-off
 .cl-tree .tgl{width:22px;height:22px;min-width:22px;border:0;background:none}.cl-tree .cl-nobtn{width:22px}
 .cl-tree tr.cl-top td{background:var(--card)}.cl-tree tr.cl-top .cl-node b{font-weight:650}
 .cl-tree .cl-addrow td{padding:6px 0}
+.cl-sep{color:var(--muted);padding:0 2px}
