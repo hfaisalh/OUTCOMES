@@ -212,7 +212,7 @@ Which partner a gift was assigned to. Stored on the organisation's setup as `ass
 
 | Field | Meaning |
 |---|---|
-| `key` | The gift (the CRM line id) |
+| `key` | `sub:` and the subscription id for a recurring gift (all its payments are one assignment), or the line id for a one-off payment (DECISIONS 172, 173) |
 | `partnerId` | The partner it was assigned to |
 | `giftProjectId` | The project the gift belongs to, empty when it has none |
 | `itemId` | The benefit |

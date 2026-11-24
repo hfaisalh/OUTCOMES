@@ -646,3 +646,8 @@ Addendum to 162 (Faisal, 24/11/2026): the Clusters tab itself shows **the whole 
 - Not yet counted: a commitment that has finished (all its instalments paid) still holds its place until Allocation releases it; that comes with the rewiring.
 
 Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gifts needed 258 assignments, and 80 still found every partner full, because real sponsorship volume is far larger than the sample partners' room (the trust 3, the backup 10). The **general partner is now the last choice in every sample project** (and in the sample's own projects), so the others fill first, the overflow order is still seen, and nothing is stranded. Gifts for the deliberately uncovered item still wait.
+
+## 173. A recurring gift is kept under "sub:" and its subscription id (Faisal, 24/11/2026)
+
+- A first look at real gifts showed a pump suggestion on an orphan sponsorship row. Cause: a recurring gift was kept under its **subscription id** and a one-off payment under its **line id**, and in real data the two can be the **same number**. The page then paired one gift's suggestion with another gift's details, and confirming would have assigned the wrong gift.
+- A recurring gift is now kept under **`sub:` and its subscription id** (for example `sub:12345`). A one-off payment stays under its line id. The two can no longer collide. Any assignment made before this is cleared by **Reset assignments**.

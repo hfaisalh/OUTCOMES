@@ -76,16 +76,25 @@ describe("a recurring gift is one assignment (DECISIONS 172)", () => {
   it("groups the payments of a subscription into one assignment that takes its units once", () => {
     const orders = [...monthly(12, "SUB-1"), wo("G90")];
     const list = assignables(ctx({ workOrders: orders }));
-    expect(list.map((x) => [x.key, x.payments, x.parts])).toEqual([["SUB-1", 12, 1], ["G90", 1, 1]]); // twelve payments, one assignment
+    expect(list.map((x) => [x.key, x.payments, x.parts])).toEqual([["sub:SUB-1", 12, 1], ["G90", 1, 1]]); // twelve payments, one assignment
     const s = suggestAssignments(ctx({ workOrders: orders }), emptyAssignments());
     expect(s).toHaveLength(2);
-    expect(s[0]).toMatchObject({ key: "SUB-1", payments: 12, partnerId: "trust" });
+    expect(s[0]).toMatchObject({ key: "sub:SUB-1", payments: 12, partnerId: "trust" });
     expect(s[1]?.partnerId).toBe("trust"); // the trust has room for three, and has used one
     expect(hasRoom(trust, "I10", 1, runAssignment(ctx({ workOrders: orders }), emptyAssignments()).value.records)).toEqual({ ok: true, why: "1 of 3 units free" });
   });
   it("lets many subscriptions fill a partner, one place each, and sends the next to the backup", () => {
     const orders = [...monthly(12, "SUB-1"), ...monthly(12, "SUB-2"), ...monthly(12, "SUB-3"), ...monthly(12, "SUB-4")];
     expect(suggestAssignments(ctx({ workOrders: orders }), emptyAssignments()).map((x) => x.partnerId)).toEqual(["trust", "trust", "trust", "backup"]); // 48 payments, but four places
+  });
+  it("never mistakes a subscription for a one-off payment whose line id has the same value", () => {
+    const orders = [wo("12345", { itemId: "I11", itemName: "Small Pump", projectName: "" }), ...["a", "b"].map((x) => wo(`line-${x}`, { subscriptionId: "12345", instalmentNumber: x, instalmentCount: "12" }))];
+    const list = assignables(ctx({ workOrders: orders, partners: [trust, backup, builders] }));
+    expect(list.map((x) => [x.key, x.w.itemId, x.payments]).sort()).toEqual([["12345", "I11", 1], ["sub:12345", "I10", 2]]); // two assignments, never one
+    const s = suggestAssignments(ctx({ workOrders: orders, partners: [trust, backup, builders] }), emptyAssignments());
+    expect(new Set(s.map((x) => x.key)).size).toBe(2);
+    expect(s.find((x) => x.key === "12345")?.partnerId).toBe("builders"); // the pump goes to the builders
+    expect(s.find((x) => x.key === "sub:12345")?.partnerId).toBe("trust"); // the sponsorship goes to the trust
   });
   it("takes the parts of one instalment, not of every payment, and counts a catch-up payment as the instalments it covers", () => {
     const covers = wo("C-01", { subscriptionId: "SUB-C", quantity: 3, covers: 3 }); // 3 units paid for 3 instalments: 1 unit each
@@ -94,9 +103,10 @@ describe("a recurring gift is one assignment (DECISIONS 172)", () => {
   });
   it("assigns and moves a recurring gift by its subscription, and the key is the subscription", () => {
     const c = ctx({ workOrders: monthly(3, "SUB-1") });
-    const r = assignManual(c, emptyAssignments(), "SUB-1", "backup");
-    expect("value" in r && r.value.records).toMatchObject([{ key: "SUB-1", partnerId: "backup", parts: 1 }]);
+    const r = assignManual(c, emptyAssignments(), "sub:SUB-1", "backup");
+    expect("value" in r && r.value.records).toMatchObject([{ key: "sub:SUB-1", partnerId: "backup", parts: 1 }]);
     expect(assignManual(c, emptyAssignments(), "SUB-9", "backup")).toHaveProperty("error");
+    expect(assignManual(c, emptyAssignments(), "SUB-1", "backup")).toHaveProperty("error"); // the bare subscription id is not a key
   });
 });
 

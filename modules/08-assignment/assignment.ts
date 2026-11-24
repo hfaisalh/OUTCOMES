@@ -29,7 +29,7 @@ import type { OutcomeType } from "../05-outcomes/outcome-types.js";
 import { capacityFor, crmMatchNames, eligiblePartners, isGeneralProjectName, projectOffers, projectVendors, type GiftProject, type Project } from "../06-projects/projects.js";
 
 export interface Assignment {
-  key: string; // the subscription id for a recurring gift, or the work order (the CRM line id) for a one-off payment
+  key: string; // "sub:" and the subscription id for a recurring gift, or the work order (the CRM line id) for a one-off payment
   partnerId: string;
   giftProjectId: string; // the project the gift belongs to, "" when it has none
   itemId: string;
@@ -88,6 +88,9 @@ export function projectOfOrder(w: WorkOrder, gps: GiftProject[]): GiftProject | 
 // `parts` the units it takes: the parts of one instalment, not of every payment (DECISIONS 172).
 export interface Assignable { key: string; w: WorkOrder; payments: number; parts: number }
 
+// Rule (DECISIONS 173): a recurring gift is kept under "sub:" and its subscription id, so it can never be mistaken for a one-off payment whose line id has the same value.
+export const subKey = (subscriptionId: string): string => `sub:${subscriptionId}`;
+
 // Rule: the parts of one instalment. A payment that covers several instalments holds that many instalments' worth of parts.
 const partsPerInstalment = (w: WorkOrder): number => Math.max(1, Math.round(partsOf(w) / (w.covers ?? 1)));
 
@@ -103,7 +106,7 @@ export function assignables(ctx: AssignContext): Assignable[] {
   for (const [sub, lines] of bySub) {
     const sorted = [...lines].sort((a, b) => a.paidDate.localeCompare(b.paidDate) || a.key.localeCompare(b.key));
     const first = sorted[0] as WorkOrder;
-    out.push({ key: sub, w: first, payments: lines.length, parts: partsPerInstalment(first) });
+    out.push({ key: subKey(sub), w: first, payments: lines.length, parts: partsPerInstalment(first) });
   }
   return out.sort((a, b) => Number(ctx.urgent.has(b.key) || ctx.urgent.has(b.w.key)) - Number(ctx.urgent.has(a.key) || ctx.urgent.has(a.w.key)) || a.w.paidDate.localeCompare(b.w.paidDate) || a.key.localeCompare(b.key));
 }
