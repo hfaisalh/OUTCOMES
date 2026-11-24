@@ -220,3 +220,16 @@ Which partner a gift was assigned to. Stored on the organisation's setup as `ass
 | `how` | `auto` (the workflow assigned it) or `manual` (a person chose or confirmed it) |
 | `at` | When, as an ISO time |
 
+## Placement (DECISIONS 175)
+Where an assigned gift went. Stored on the organisation's setup as `placements` (`records` and a `counter`), apart from the gifts so they can be reset.
+
+| Field | Meaning |
+|---|---|
+| `key` | The assignment: `sub:` and the subscription id for a recurring gift, or the line id for a one-off payment |
+| `kind` | `place` (it filled an open place) or `outcome` (it created an outcome) |
+| `enrolmentId` | The place filled, which is an enrolment. Empty for an outcome |
+| `outcomeRef` | The outcome created, for example OUT-0001, never reused. Empty for a place |
+| `giftProjectId` | The project the place or outcome belongs to |
+| `itemId`, `parts` | The benefit, and the units the gift put in the place |
+| `how` | `auto` or `manual` (a person chose the place) |
+

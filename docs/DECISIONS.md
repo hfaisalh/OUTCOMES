@@ -656,3 +656,14 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 
 - Supersedes the room for the general partner in 171. Its room for each item **shrank with the item's place in the list** (100, 95, 90 and so on, never under 5), so the later items in a large catalogue got only 5 places, and 80 real gifts still found every partner full. That was an arbitrary rule of mine.
 - Its room for each item is now **twice the units the real gifts need, plus 5, and never under 50** (`demandByItem` counts the assignments for each item, a recurring gift once). So it is never the bottleneck. The trust (3) and the backup (10) stay small, so the overflow order is still seen.
+
+## 175. Allocation rewired: an assigned gift fills an open place or creates an outcome (Faisal, 24/11/2026)
+
+- New page **Allocate** (the second tab of the Allocation entry). The older Allocate page, built before Assignment, clusters and enrolments, is renamed **Allocate (older)**. It counted every payment, read the old records ("No beneficiaries yet"), and showed a deficit of 290 places while 24 beneficiaries were enrolled. It goes when Month by month is rewired too.
+- **Beneficiary first** (sponsorship, scholarship, Hifz): an assigned gift fills an **open place**: an **active enrolment, without a role, of an active beneficiary (a person must be Ready), for the gift's benefit, in a cluster of the project**. A place's capacity is the **units that make one whole beneficiary** in the gift's workflow (3 parts for an orphan, 1 for a scholarship). A gift's units must fit.
+- **Which project:** a gift that carries a project fills **that project's places only**. A gift with no project goes to a place in **any project that offers the benefit and has the gift's assigned partner among its partners**, so the partner that delivers is the partner for that place.
+- **Which place:** the place with the **lowest fill first**, so more beneficiaries are sponsored, then the earliest enrolled (the old rule, kept).
+- **Gift first** (a pump, a camp), or a type with **no beneficiary** (a mosque): the gift **creates an outcome** (OUT-0001, never reused) and needs no place. Recipients are enrolled afterwards.
+- A gift with no place **waits, with the reason**: no approved beneficiary is enrolled in its project, none with its partner, or every place is full. The page counts the reasons.
+- A person can **choose another open place** for a gift that fits, or **take a placement back**. The results are **separate records** (never written onto the gift) with **Reset placements**.
+- **Not built yet:** Month by month on the new records, releasing a place when a plan stops paying (the 15 day grace and manager approval of the old page), the gift's stage showing Allocated on the Gifts list, and the Partners page counting the new records.

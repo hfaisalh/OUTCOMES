@@ -20,7 +20,9 @@ import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
 import { registerPage } from "./register-page";
 import { assignmentPage } from "./assignment-page";
-import { applyAssignmentAction, contextFrom, demandByItem, emptyAssignments, type Assignments } from "../modules/08-assignment/assignment";
+import { allocatePage } from "./allocate-page";
+import { applyPlacementAction, emptyPlacements, placementContext, type Placements } from "../modules/09-placement/placement";
+import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments, type Assignments } from "../modules/08-assignment/assignment";
 import { registerFormHtml } from "./register-form";
 import { loadSampleSetup, realProjectsFor, removeSampleSetup, removedSummaryText, sampleSummaryText } from "../modules/07-beneficiaries/sample-setup";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf, type Enrolments } from "../modules/07-beneficiaries/enrolments";
@@ -96,6 +98,8 @@ const state = {
   giftProjects: [] as GiftProject[], // the projects donors choose, and the partners that deliver them (DECISIONS 76)
   benFilter: { ...NO_BEN_FILTER } as BenFilter, // the filters on the Outcomes list page
   beneficiaries: emptyRegister() as Register, // the Beneficiary register (DECISIONS 163)
+  placements: emptyPlacements() as Placements, // which place each assigned gift fills (DECISIONS 175)
+  allocFilter: "all", // the filter on the Allocate page
   assignments: emptyAssignments() as Assignments, // which partner each gift was assigned to (DECISIONS 170)
   assignFilter: "all", // the filter on the Assignment page
   enrolments: emptyEnrolments() as Enrolments, // who is enrolled in which cluster (DECISIONS 167)
@@ -161,7 +165,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
-    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.enrolments = o.enrolments ?? state.enrolments; state.assignments = o.assignments ?? state.assignments; state.itemIcons = o.itemIcons ?? state.itemIcons; }).catch(() => undefined);
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.enrolments = o.enrolments ?? state.enrolments; state.assignments = o.assignments ?? state.assignments; state.placements = o.placements ?? state.placements; state.itemIcons = o.itemIcons ?? state.itemIcons; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
     state.message = "";
   } catch (e) {
@@ -230,7 +234,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, assignFilter: state.assignFilter, registerFilter: state.registerFilter, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, assignFilter: state.assignFilter, placements: state.placements, allocFilter: state.allocFilter, registerFilter: state.registerFilter, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -268,6 +272,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.beneficiaries = r.beneficiaries ?? state.beneficiaries;
       state.enrolments = r.enrolments ?? state.enrolments;
       state.assignments = r.assignments ?? state.assignments;
+      state.placements = r.placements ?? state.placements;
       state.itemIcons = r.itemIcons ?? state.itemIcons;
       state.itemKinds = r.itemKinds ?? state.itemKinds;
       state.kindFeatures = r.kindFeatures ?? state.kindFeatures;
@@ -311,6 +316,19 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
           if (!r) { error = "That request is not understood."; break; }
           if ("error" in r) { error = r.error; break; }
           state.assignments = r.value;
+          if (r.message) state.message = r.message;
+          break;
+        }
+        case "plc-run": case "plc-set": case "plc-unplace": case "plc-reset": { // Placement, the rewired Allocation (DECISIONS 175): the same pure rule the server uses.
+          const wos = view().workOrders;
+          const names2 = new Map(wos.map((w) => [w.itemId, w.itemName]));
+          const nowIso = new Date().toISOString();
+          const actx = contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: nowIso.slice(0, 10), now: nowIso });
+          const pctx = placementContext({ assignments: state.assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, frameworks: state.frameworks, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names2.get(itemId) ?? ""), now: nowIso });
+          const r = applyPlacementAction(pctx, state.placements, body);
+          if (!r) { error = "That request is not understood."; break; }
+          if ("error" in r) { error = r.error; break; }
+          state.placements = r.value;
           if (r.message) state.message = r.message;
           break;
         }
@@ -576,6 +594,7 @@ function draw(): void {
     : state.page === "partners" ? partnersPage(v)
     : state.page === "beneficiaries" ? registerPage(v)
     : state.page === "assignment" ? assignmentPage(v)
+    : state.page === "placement" ? allocatePage(v)
     : state.page === "outcome-list" ? beneficiariesPage(v)
     : state.page === "audit" ? auditPage(v)
     : state.page === "dashboard" ? dashboardPage(v)
@@ -1682,6 +1701,21 @@ document.addEventListener("change", (e) => {
   const t = e.target as HTMLSelectElement | null;
   if (t?.dataset?.asg === "set" && t.value !== "") void outcomeChange({ action: "asg-set", key: t.dataset.key ?? "", partnerId: t.value });
   else if (t?.dataset?.asgf === "filter") { state.assignFilter = t.value; draw(); }
+});
+
+// The Allocate page (DECISIONS 175): the buttons, the place list on each gift, and the filter.
+document.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest?.("[data-plc]") as HTMLElement | null;
+  if (!b || b.tagName === "SELECT") return;
+  const what = b.dataset.plc;
+  if (what === "run") void outcomeChange({ action: "plc-run" });
+  else if (what === "reset") void outcomeChange({ action: "plc-reset" });
+  else if (what === "unplace") void outcomeChange({ action: "plc-unplace", key: b.dataset.key ?? "" });
+});
+document.addEventListener("change", (e) => {
+  const t = e.target as HTMLSelectElement | null;
+  if (t?.dataset?.plc === "set" && t.value !== "") void outcomeChange({ action: "plc-set", key: t.dataset.key ?? "", enrolmentId: t.value });
+  else if (t?.dataset?.allocf === "filter") { state.allocFilter = t.value; draw(); }
 });
 
 // The sample setup buttons on the Organisation settings page (DECISIONS 168).

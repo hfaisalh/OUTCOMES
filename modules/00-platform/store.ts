@@ -19,6 +19,7 @@ import type { GiftProject, Node, Project } from "../06-projects/projects.js";
 import type { Register } from "../07-beneficiaries/beneficiaries.js";
 import type { Enrolments } from "../07-beneficiaries/enrolments.js";
 import type { Assignments } from "../08-assignment/assignment.js";
+import type { Placements } from "../09-placement/placement.js";
 import { migrateSetup, type Category, type FrameworkTemplate, type ItemMap, type Setup } from "../02-project-rules/categories.js";
 import type { AuditRecord } from "../01f-batch-audit/audit.js";
 import type { TriageMark } from "../04-triage/triage.js";
@@ -40,6 +41,7 @@ export interface OrgConfig {
   kindFeatures?: Record<string, unknown>; // the features of each kind a person has changed, by kind id. Absent: the defaults (DECISIONS 146)
   itemKinds?: Record<string, string>; // the kind of benefit chosen for an item, by item id. Absent: the kind is suggested from the name (DECISIONS 143)
   itemIcons?: Record<string, string>; // the icon chosen for an item, by item id. Absent: the icon is suggested from the name (DECISIONS 107)
+  placements?: Placements; // which place each assigned gift fills, or which outcome it created, kept apart from the gifts so a test run can be reset (DECISIONS 175)
   assignments?: Assignments; // which partner each gift was assigned to, kept apart from the gifts so a test run can be reset (DECISIONS 170)
   enrolments?: Enrolments; // who is enrolled in which cluster, for which benefit (DECISIONS 167)
   beneficiaries?: Register; // the Beneficiary register: persons and households (DECISIONS 163)
