@@ -171,7 +171,7 @@ const giftIcon = (v: View, g: GiftRow, size: "sm" | "lg" = "sm"): string => icon
 // Rule (DECISIONS 141): the stage of a gift's workflow it is in now, shown as a small pill with the reason in its tooltip. Excluded payments have none.
 function stageFor(v: View, g: GiftRow, a: { state: "placed" | "waiting" | "manual" | "none" | "n/a"; who: string; partner: string }): StageResult {
   const fw = (v.frameworks ?? []).find((f) => f.id === g.frameworkId);
-  return giftStage({ kind: g.kind, hasWorkflow: g.frameworkId !== "" && !g.unrouted, holdUntilPaid: fw?.instalment === "share_of_whole", planStatus: g.planStatus, paid: g.paid, planned: g.planned, placement: a.state, where: a.state === "placed" ? `${a.who} at ${a.partner}` : "" });
+  return giftStage({ kind: g.kind, hasWorkflow: g.frameworkId !== "" && !g.unrouted, holdUntilPaid: fw?.instalment === "share_of_whole", planStatus: g.planStatus, paid: g.paid, planned: g.planned, placement: a.state, assignedTo: a.state === "waiting" ? a.partner : "", where: a.state === "placed" ? `${a.who} at ${a.partner}` : "" });
 }
 const stagePill = (r: StageResult): string => (r.stage === null ? "" : `<span class="pill stage st-${r.stage}" title="${esc(r.note || STAGE_TITLES[r.stage])}">${esc(STAGE_TITLES[r.stage])}</span>`);
 
@@ -186,7 +186,18 @@ function allocationContext(v: View) {
   // Where a gift is allocated: the beneficiary and its partner, or why it is not.
   // Rule (DECISIONS 113): a gift marked manual (a custom amount, or marked by a person) is not waiting for the system. A person allocates it.
   const waits = (g: GiftRow, why: string) => (g.manual !== "" ? { state: "manual" as const, who: "", partner: "", parts: null, why: g.manual } : { state: "waiting" as const, who: "", partner: "", parts: null, why });
+  // Rule (DECISIONS 176): where a gift stands now is read from Assignment and Placement first. A recurring gift is kept under "sub:" and its subscription id, a one-off under its line id.
+  const assigned = new Map((v.assignments?.records ?? []).map((a) => [a.key, a]));
+  const placed = new Map((v.placements?.records ?? []).map((p) => [p.key, p]));
+  const enrolled = new Map((v.enrolments?.records ?? []).map((e) => [e.id, e]));
+  const personName = (id: string): string => (v.beneficiaries?.records ?? []).find((b) => b.id === id)?.name ?? id;
+  const newKey = (g: GiftRow): string => (g.kind === "recurring" ? `sub:${g.key}` : g.kind === "one_off" ? g.payments[0]?.key ?? "" : "");
   return (g: GiftRow): { state: "placed" | "waiting" | "manual" | "none" | "n/a"; who: string; partner: string; parts: number | null; why: string; ref?: string; allocRef?: string } => {
+    const nk = newKey(g);
+    const asg = nk !== "" ? assigned.get(nk) : undefined;
+    const plc = nk !== "" ? placed.get(nk) : undefined;
+    if (asg && plc) return { state: "placed", who: plc.kind === "outcome" ? plc.outcomeRef : personName(enrolled.get(plc.enrolmentId)?.beneficiaryId ?? ""), partner: partnerName(asg.partnerId) || "No partner", parts: null, why: "" };
+    if (asg) return { state: "waiting", who: "", partner: partnerName(asg.partnerId) || "A partner", parts: null, why: `Assigned to ${partnerName(asg.partnerId) || "a partner"}, waiting for a place` };
     if (g.allocationKey === "") return { state: "n/a", who: "", partner: "", parts: null, why: "" };
     if (keys.has(g.allocationKey)) {
       const a = allocationOf.get(g.allocationKey);

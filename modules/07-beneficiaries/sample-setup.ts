@@ -8,6 +8,8 @@
  * It is built from the items that exist, using each item's type: person items go to the sponsorship project, build items to the village project, the rest to the relief project. A group with no items is skipped.
  * Every other item is covered too (DECISIONS 171): one general partner delivers all of them with generous room, an untyped item gets a general project, and a real project that has no partner is given the general
  * partner, so every gift in every workflow has somewhere to go. One item is left uncovered on purpose (when there are more than five), so a gift that waits with "no partner delivers it" can still be seen.
+ * Scaled to the real gifts (DECISIONS 176): for every sponsorship-type item the real gifts need, invented children are enrolled in a large home, enough to hold them (the units the gifts need, divided by the units
+ * that make one whole child, plus two), so the real gifts have places to fill. A real project is chosen by what its name means first (orphan, water, flood), then by how many gifts carry the items.
  * Where real gifts exist, the invented clusters and partners are attached to the real project whose gifts carry those items (so real gifts land in invented places), and a project of its own is made only when there is none.
  * Who calls it: the server (modules/00-platform/handlers.ts) and the demo (app/main.ts), from the buttons on the Organisation settings page. Depends on: projects.ts, clusters.ts, beneficiaries.ts, enrolments.ts,
  * benefits.ts and kind-features.ts. Pure functions: no database, no screen.
@@ -39,6 +41,7 @@ export interface SampleInput {
   partnerTypes: string[];
   register: Register;
   enrolments: Enrolments;
+  whole?: Record<string, number>; // the units that make one whole beneficiary, by item (from its workflow), to know how many invented children the real gifts need
   demand?: Record<string, number>; // the units each item needs a partner for (see demandByItem), so the general partner has room for the real gifts
   realProjects: { id: string; itemIds: string[]; itemCounts?: Record<string, number> }[]; // the real projects, the items their gifts carry and how many gifts carry each, to attach to (see realProjectsFor)
   today: string;
@@ -57,6 +60,17 @@ export function realProjectsFor(gps: GiftProject[], workOrders: { projectName?: 
   });
 }
 
+// The units that make one whole beneficiary for each item, from the workflow its gifts are routed under (3 parts for an orphan, 1 for a scholarship).
+export function wholeByItem(workOrders: { itemId: string; frameworkId?: string }[], frameworks: { id: string; unitsPerBeneficiary: number }[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const w of workOrders) {
+    if (out[w.itemId] !== undefined || (w.frameworkId ?? "") === "") continue;
+    const u = frameworks.find((f) => f.id === w.frameworkId)?.unitsPerBeneficiary;
+    if (u !== undefined) out[w.itemId] = Math.max(1, u);
+  }
+  return out;
+}
+
 const must = <T>(r: { value: T; error?: string }): T => { if (r.error) throw new Error(r.error); return r.value; };
 export const isSamplePartner = (p: Project): boolean => (p.reference ?? "").startsWith(SAMPLE_REF_PREFIX);
 export const hasSample = (s: { giftProjects: GiftProject[]; register: Register }): boolean => s.giftProjects.some((g) => g.sample === true || g.sampleAttached !== undefined) || s.register.records.some((b) => b.sample === true);
@@ -67,7 +81,7 @@ function partnerProfile(name: string, reference: string, items: { id: string }[]
   return {
     name, officialName: `${name} (invented)`, type: "Institute", status: lapsed ? "pending" : "active", reference, established: "2012-04-01", partnershipStart: `${year - 1}-01-15`, countries: "Examplestan", regions: "North District",
     contacts: [{ name: "Sample Director", position: "Director", phone: "+000 000 0000", mobile: "+000 000 0001", email: "director@example.org", handles: "Agreements and approvals" }],
-    itemIds: items.map((i) => i.id), terms: Object.fromEntries(items.map((i, n) => [i.id, { capacity: String(room ? room(i.id) : n === 0 ? base : Math.max(5, base - n * 5)), costPerUnit: String(100 + n * 50) }])), capacity: String(room ? items.reduce((t, i) => t + room(i.id), 0) : base * 2),
+    itemIds: items.map((i) => i.id), terms: Object.fromEntries(items.map((i, n) => [i.id, { capacity: String(room ? room(i.id) : n === 0 ? base : Math.max(5, base - n * 5)), costPerUnit: String(100 + n * 50) }])), capacity: String(room ? Math.min(100000, items.reduce((t, i) => t + room(i.id), 0)) : base * 2),
     capacityNote: lapsed ? "Invented partner whose due diligence has lapsed" : "Invented partner for trying the system", reportVia: "Email", language: "English", sectors: "Education, Child care",
     ddReference: `DD-${reference}`, ddStatus: "approved", ddReview: lapsed ? `${year - 1}-01-31` : `${year + 1}-12-31`, notes: "An invented sample partner. Nothing about it is real.",
   };
@@ -121,21 +135,21 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     const uncovered = sorted.length > 5 ? [sorted[sorted.length - 1] as { id: string; name: string }] : [];
     // Rule (DECISIONS 174): its room for each item is twice what the real gifts need, and never under 50, so it is never the bottleneck.
     const demand = input.demand ?? {};
-    const general = addPartner("Sample General Partner", "SAMPLE-006", sorted.filter((i) => !uncovered.some((u) => u.id === i.id)), 100, false, (id) => Math.max(50, 2 * (demand[id] ?? 0) + 5));
+    const general = addPartner("Sample General Partner", "SAMPLE-006", sorted.filter((i) => !uncovered.some((u) => u.id === i.id)), 100, false, (id) => Math.min(100000, Math.max(50, 2 * (demand[id] ?? 0) + 5))); // a partner's capacity may not pass 100000
 
     // ---- Projects and their clusters. A real project whose gifts carry the items is given the clusters and partners, so real gifts land in invented places. ----
     let gps = input.giftProjects;
     const used = new Set<string>();
     let attached = 0;
-    const addProject = (name: string, items: { id: string }[], partnerIds: string[], clusters: Cluster[]): string => {
+    const addProject = (name: string, items: { id: string }[], partnerIds: string[], clusters: Cluster[], words: string[] = []): string => {
       if (items.length === 0) return "";
       const wanted = new Set(items.map((i) => i.id));
       const real = input.realProjects
         .filter((rp) => !used.has(rp.id) && !(gps.find((g) => g.id === rp.id)?.clusters ?? []).length)
         // Rule (DECISIONS 169): the project whose gifts carry the most of these items gets the clusters, so the busiest real project is the one the sample is built around.
-        .map((rp) => ({ rp, overlap: rp.itemIds.filter((i) => wanted.has(i)).length, gifts: [...wanted].reduce((n, i) => n + (rp.itemCounts?.[i] ?? 0), 0) }))
+        .map((rp) => ({ rp, overlap: rp.itemIds.filter((i) => wanted.has(i)).length, gifts: [...wanted].reduce((n, i) => n + (rp.itemCounts?.[i] ?? 0), 0), meaning: words.filter((w) => (gps.find((g) => g.id === rp.id)?.name ?? "").toLowerCase().includes(w)).length }))
         .filter((x) => x.overlap > 0)
-        .sort((a, b) => b.gifts - a.gifts || b.overlap - a.overlap)[0]?.rp;
+        .sort((a, b) => b.meaning - a.meaning || b.gifts - a.gifts || b.overlap - a.overlap)[0]?.rp;
       if (real) {
         used.add(real.id);
         attached++;
@@ -148,16 +162,23 @@ export function loadSampleSetup(input: SampleInput): Loaded {
       gps = gps.map((g) => (g.id === id ? { ...g, sample: true as const, clusters } : g));
       return id;
     };
+    // Rule (DECISIONS 176): the invented children the real gifts need. For each sponsorship item, the units its gifts need divided by the units of one whole child, plus two, up to 120 an item and 400 in all.
+    const whole = input.whole ?? {};
+    const need = sponsor.map((i) => ({ item: i, count: Math.min(120, Math.ceil((input.demand?.[i.id] ?? 0) / Math.max(1, whole[i.id] ?? 1)) + ((input.demand?.[i.id] ?? 0) > 0 ? 2 : 0)) })).filter((x) => x.count > 0);
+    let budget = 400;
+    for (const x of need) { x.count = Math.min(x.count, budget); budget -= x.count; }
+    const bulk = need.reduce((n, x) => n + x.count, 0);
     const homes = addProject("Sample Orphan Homes", sponsor, [lapsed, builders, trust, careBackup, general].filter((x) => x !== ""), clustersFrom([
+      ...(bulk > 0 ? [{ name: "Sample Home - Main", label: "Home", capacity: bulk, subs: [1, 2, 3, 4, 5].map((n) => ({ name: `Class ${n}`, label: "Class" })) }] : []), // large enough for the real gifts
       { name: "Sample Home - North", label: "Home", capacity: 12, roles: "Principal, Warden", subs: [{ name: "Class 1", label: "Class" }, { name: "Class 2", label: "Class" }] },
       { name: "Sample Home - South", label: "Home", capacity: 8, subs: [{ name: "Class 1", label: "Class" }] },
       { name: "Sample Home - Small", label: "Home", capacity: 2, subs: [{ name: "Class A", label: "Class" }] }, // two places, so it fills
       { name: "Sample Home - Closed", label: "Home", capacity: 10, closed: true }, // takes no one
       { name: "Sample University", label: "University", capacity: 6, roles: "Principal", subs: [{ name: "Faculty of Science", label: "Faculty", subs: [{ name: "Physics Department", label: "Department" }] }, { name: "Faculty of Arts", label: "Faculty" }] },
-    ]));
-    const villages = addProject("Sample Village Projects", build, [builders, general].filter((x) => x !== ""), clustersFrom([{ name: "Sample Village A", label: "Village", capacity: 6 }, { name: "Sample Village B", label: "Village", capacity: 4 }]));
+    ]), ["orphan", "care", "hifz", "scholar", "school", "college", "student", "sponsor"]);
+    const villages = addProject("Sample Village Projects", build, [builders, general].filter((x) => x !== ""), clustersFrom([{ name: "Sample Village A", label: "Village", capacity: 6 }, { name: "Sample Village B", label: "Village", capacity: 4 }]), ["water", "well", "pump", "house", "mosque", "build"]);
     // The mosque site has no capacity on purpose: it serves a community, not a number of places.
-    const camps = addProject("Sample Relief Camps", relief, [relieft, general].filter((x) => x !== ""), clustersFrom([{ name: "Sample Camp 1", label: "Camp", capacity: 40 }, { name: "Sample Mosque Site", label: "Site" }]));
+    const camps = addProject("Sample Relief Camps", relief, [relieft, general].filter((x) => x !== ""), clustersFrom([{ name: "Sample Camp 1", label: "Camp", capacity: 40 }, { name: "Sample Mosque Site", label: "Site" }]), ["flood", "relief", "camp", "palestine", "emergency", "food"]);
     const programmes = addProject("Sample General Programmes", untyped, [general].filter((x) => x !== ""), clustersFrom([{ name: "Sample General Site", label: "Site" }]));
     // A real project with no partner is given the general partner, so its gifts do not all wait. Its own clusters, items and gifts are not touched.
     let coveredProjects = 0;
@@ -209,6 +230,18 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     household("h2", "Sample Family Rashid", { area: "Sample Village B", size: 7, partnerId: builders });
     household("h3", "Sample Family Qasim", { area: "Sample Camp 1", size: 4, partnerId: relieft });
     household("h4", "Sample Family Bashir", { area: "Sample Camp 1", size: 6, partnerId: relieft });
+    // The invented children the real gifts need: one per place, each for one item, ready to be enrolled in the large home.
+    const bulkChildren: { id: string; itemId: string; cls: number }[] = [];
+    let seq = 0;
+    for (const x of need) {
+      for (let k = 0; k < x.count; k++) {
+        seq++;
+        const label = String(seq).padStart(3, "0");
+        const r = mustBen(addBeneficiary(reg, "person", { name: `Sample Child ${label}`, dob: `${2008 + (seq % 9)}-0${1 + (seq % 9)}-1${seq % 9}`, gender: seq % 2 ? "female" : "male", placeOfBirth: "Sampletown", area: "North District", partnerId: trust, idNumber: `SMP-S${label}`, fatherStatus: "deceased", motherStatus: "living", guardian: `Sample Guardian S${label}`, guardianRelation: "mother", eligibility: "ready", eligibilityNote: "Checked (invented)", partnerRef: `SAMPLE-S${label}` }));
+        reg = r.value; made[`bulk${seq}`] = r.id;
+        bulkChildren.push({ id: r.id, itemId: x.item.id, cls: (seq % 5) + 1 });
+      }
+    }
     { const r = setBeneficiary(reg, made["idris"] as string, { name: "Sample Inactive Idris", dob: "2012-02-20", status: "inactive", placeOfBirth: "Sampletown", idNumber: "SMP-1013", fatherStatus: "deceased", motherStatus: "living", guardian: "Sample Guardian 13", guardianRelation: "mother", eligibility: "ready", partnerId: trust, area: "North District" }); if ("error" in r) throw new Error(r.error); reg = r.value; } // an inactive child: cannot be enrolled
     const sampleIds = new Set(Object.values(made));
     reg = { ...reg, records: reg.records.map((b): Beneficiary => (sampleIds.has(b.id) ? { ...b, sample: true } : b)) };
@@ -243,6 +276,12 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     enroll("h2", villages, ["Sample Village B"], build[0]);
     enroll("h3", camps, ["Sample Camp 1"], relief[0]);
     enroll("h4", camps, ["Sample Camp 1"], relief[relief.length > 1 ? 1 : 0]);
+    // The invented children are enrolled in the large home, spread over its classes.
+    for (const c of bulkChildren) {
+      const cid = clusterId(homes, ["Sample Home - Main", `Class ${c.cls}`]);
+      const r = enrol(ctx, enr, { beneficiaryId: c.id, giftProjectId: homes, clusterId: cid, itemId: c.itemId, role: "" });
+      if ("error" in r) skipped.push(`${c.id} in Sample Home - Main: ${r.error}`); else enr = r.value;
+    }
     // Only the enrolments made here are marked as sample.
     const before = new Set(input.enrolments.records.map((e) => e.id));
     enr = { ...enr, records: enr.records.map((e) => (before.has(e.id) ? e : { ...e, sample: true as const })) };

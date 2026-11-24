@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyRegister } from "./beneficiaries";
 import { activeIn, emptyEnrolments, type Enrolment } from "./enrolments";
-import { hasSample, isSamplePartner, loadSampleSetup, realProjectsFor, removeSampleSetup, type SampleInput, type SampleState } from "./sample-setup";
+import { hasSample, isSamplePartner, loadSampleSetup, realProjectsFor, removeSampleSetup, wholeByItem, type SampleInput, type SampleState } from "./sample-setup";
 import { projectVendors, type GiftProject } from "../06-projects/projects";
 
 const items = [{ id: "I10", name: "Orphan Sponsorship Monthly" }, { id: "I13", name: "Hifz Sponsorship Monthly" }, { id: "I11", name: "Water Pump" }, { id: "I14", name: "Animal Sacrifice" }];
@@ -181,6 +181,53 @@ describe("covering every item (DECISIONS 171)", () => {
     expect(value.giftProjects.find((g) => g.id === "own")?.partnerIds).toEqual(["real-partner"]); // already had a partner: untouched
     const gone = removeSampleSetup(value);
     expect(gone.value.giftProjects.filter((g) => g.sample !== true)).toEqual([noPartner, own]);
+  });
+});
+
+describe("scaled to the real gifts (DECISIONS 176)", () => {
+  const demand = { I10: 30, I13: 6 };
+  const whole = { I10: 3, I13: 3 };
+  it("enrols enough invented children for the real gifts: the units needed divided by the units of one child, plus two, in a large home", () => {
+    const { value, summary } = load({ demand, whole });
+    expect(summary.beneficiaries).toBe(24 + 12 + 4); // 30 units over 3 is 10, plus 2; 6 over 3 is 2, plus 2
+    expect(summary.enrolments).toBe(18 + 16);
+    const main = value.giftProjects[0]!.clusters!.find((c) => c.name === "Sample Home - Main")!;
+    expect(main.capacity).toBe(16); // large enough to hold them, so capacity never blocks
+    expect(value.giftProjects[0]!.clusters!.filter((c) => c.parentId === main.id).map((c) => c.name)).toEqual(["Class 1", "Class 2", "Class 3", "Class 4", "Class 5"]);
+    const kids = value.register.records.filter((b) => b.name.startsWith("Sample Child "));
+    expect(kids).toHaveLength(16);
+    expect(kids.every((b) => b.eligibility === "ready" && b.sample === true)).toBe(true);
+    expect(value.enrolments.records.filter((e) => e.itemId === "I13" && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Child "))).toHaveLength(4); // one child per place, for each item
+  });
+  it("makes none when the real gifts need no sponsorship, and caps the number", () => {
+    expect(load().summary.beneficiaries).toBe(24);
+    expect(load({ demand: { I10: 100000 }, whole: { I10: 1 } }).summary.beneficiaries).toBe(24 + 120); // no more than 120 for an item
+    expect(load({ demand: { I10: 100000, I13: 100000 }, whole: { I10: 1, I13: 1 } }).summary.beneficiaries).toBe(24 + 240);
+  });
+  it("lets the real gifts fill them: every unit a real gift needs has a child to go to", () => {
+    const { value } = load({ demand, whole });
+    const per = (item: string): number => value.enrolments.records.filter((e) => e.itemId === item && e.role === "" && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Child ")).length;
+    expect(per("I10") * 3).toBeGreaterThanOrEqual(30);
+    expect(per("I13") * 3).toBeGreaterThanOrEqual(6);
+  });
+  it("works out the units of one whole beneficiary for each item from its workflow", () => {
+    expect(wholeByItem([{ itemId: "I10", frameworkId: "orphan" }, { itemId: "I11", frameworkId: "pump" }, { itemId: "I12" }], [{ id: "orphan", unitsPerBeneficiary: 3 }, { id: "pump", unitsPerBeneficiary: 1 }])).toEqual({ I10: 3, I11: 1 });
+  });
+});
+
+describe("choosing the real project by what its name means (DECISIONS 176)", () => {
+  const p = (id: string, name: string): GiftProject => ({ id, name, crmNames: [], partnerIds: [] });
+  it("gives the sponsorship clusters to the orphan project, not to the flood one with a few gifts of the same item", () => {
+    const projects = [p("flood", "Flood Relief"), p("dadyal", "Dadyal Orphan Complex"), p("aghosh", "Aghosh")];
+    const real = [{ id: "flood", itemIds: ["I10"], itemCounts: { I10: 40 } }, { id: "dadyal", itemIds: ["I10"], itemCounts: { I10: 5 } }, { id: "aghosh", itemIds: ["I10"], itemCounts: { I10: 22 } }];
+    const { value } = load({ giftProjects: projects, realProjects: real });
+    expect(value.giftProjects.find((g) => g.id === "dadyal")?.clusters?.length).toBeGreaterThan(0); // "orphan" is in its name
+    expect(value.giftProjects.find((g) => g.id === "flood")?.clusters).toBeUndefined();
+  });
+  it("falls back to the busiest project when no name means anything", () => {
+    const projects = [p("a", "Alpha"), p("b", "Beta")];
+    const { value } = load({ giftProjects: projects, realProjects: [{ id: "a", itemIds: ["I10"], itemCounts: { I10: 2 } }, { id: "b", itemIds: ["I10"], itemCounts: { I10: 9 } }] });
+    expect(value.giftProjects.find((g) => g.id === "b")?.clusters?.length).toBeGreaterThan(0);
   });
 });
 

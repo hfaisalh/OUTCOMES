@@ -38,7 +38,7 @@ import { applyKindAction, type SavedFeatures } from "../02-project-rules/kind-fe
 import { applyBeneficiaryAction, emptyRegister } from "../07-beneficiaries/beneficiaries.js";
 import { applyPlacementAction, emptyPlacements, placementContext } from "../09-placement/placement.js";
 import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments } from "../08-assignment/assignment.js";
-import { loadSampleSetup, realProjectsFor, removeSampleSetup, sampleSummaryText, removedSummaryText } from "../07-beneficiaries/sample-setup.js";
+import { loadSampleSetup, realProjectsFor, wholeByItem, removeSampleSetup, sampleSummaryText, removedSummaryText } from "../07-beneficiaries/sample-setup.js";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf } from "../07-beneficiaries/enrolments.js";
 
 export interface HttpRequest {
@@ -414,7 +414,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (b["action"] === "sample-load") {
         const wos = await d.store.listWorkOrders(org);
         const seen = new Map(wos.map((w) => [w.itemId, w.itemName]));
-        const r = loadSampleSetup({ items: [...seen.entries()].map(([id, name]) => ({ id, name })), realProjects: realProjectsFor(giftProjects, wos), demand: demandByItem(contextFrom({ workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at })), itemKinds: config.itemKinds ?? {}, kindFeatures: (config.kindFeatures ?? {}) as SavedFeatures, ...state, today: at.slice(0, 10) });
+        const r = loadSampleSetup({ items: [...seen.entries()].map(([id, name]) => ({ id, name })), realProjects: realProjectsFor(giftProjects, wos), demand: demandByItem(contextFrom({ workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at })), whole: wholeByItem(wos, fw), itemKinds: config.itemKinds ?? {}, kindFeatures: (config.kindFeatures ?? {}) as SavedFeatures, ...state, today: at.slice(0, 10) });
         if ("error" in r) return fail(r.error);
         next = r.value; message = sampleSummaryText(r.summary);
       } else {

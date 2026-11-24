@@ -101,6 +101,23 @@ describe("giftsPage", () => {
     // an item with no workflow is still at Gift
     expect(giftListHtml(view())).toContain('class="pill stage st-gift" title="Choose a workflow for its item">Gift</span>');
   });
+  it("reads the stage from Assignment and Placement: assigned to a partner, then allocated to a child (DECISIONS 176)", () => {
+    const fws = starterFrameworks();
+    const orders = [1, 2, 3, 4].map((n) => sub(n, { instalmentCount: "12", frameworkId: "sponsorship-shared-parts" }));
+    const partners = [{ id: "trust", name: "Sample Trust", aliases: [], levels: [], types: [] }] as unknown as View["projects"];
+    const assignments = { records: [{ key: "sub:S9", partnerId: "trust", giftProjectId: "", itemId: base.itemId, parts: 1, how: "auto" as const, at: "x" }] };
+    const assigned = giftListHtml(view({ workOrders: orders, frameworks: fws, projects: partners, assignments }));
+    expect(assigned).toContain('title="Assigned to Sample Trust, waiting for a place">Assigned</span>'); // no longer "waiting for a partner"
+    expect(assigned).not.toContain("Released, waiting for a partner");
+    const detail = giftDetailHtml(view({ workOrders: orders, frameworks: fws, projects: partners, assignments }), "S9");
+    expect(detail).toContain("Assigned to Sample Trust, waiting for a place");
+    const child = { id: "B1", kind: "person", name: "Sample Amina" } as unknown as NonNullable<View["beneficiaries"]>["records"][number];
+    const enrolments = { counter: 1, records: [{ id: "EN-1", beneficiaryId: "B1", giftProjectId: "p", clusterId: "c", itemId: base.itemId, role: "", status: "active" as const, since: "x" }] };
+    const placements = { counter: 0, records: [{ key: "sub:S9", kind: "place" as const, enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "p", itemId: base.itemId, parts: 1, how: "auto" as const, at: "x" }] };
+    const placed = giftListHtml(view({ workOrders: orders, frameworks: fws, projects: partners, assignments, placements, enrolments, beneficiaries: { records: [child], counters: {} } }));
+    expect(placed).toMatch(/class="pill stage st-allocation"[^>]*>Allocated<\/span>/);
+    expect(placed).toContain("Sample Amina");
+  });
   it("filters to unrouted only, and narrows the list by the filter boxes and says how many are shown", () => {
     const html = giftListHtml(view({ filter: "unrouted" }));
     expect(html).toContain("Animal Sacrifice");

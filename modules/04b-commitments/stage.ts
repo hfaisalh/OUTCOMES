@@ -9,7 +9,7 @@
  * - A gift with no workflow is still at Gift: there is nothing to move it on. An excluded payment has no stage.
  * - A gift that is paused or cancelled is parked where it is, and says so.
  * - A gift whose workflow releases only when fully paid stays at Work order, funding, until every payment is in. Other gifts are released as each payment arrives.
- * - A released gift not yet placed is at Assignment, waiting for a partner. A gift placed in an outcome is at Allocation.
+ * - A released gift not yet placed is at Assignment: waiting for a partner, or, once Assignment has given it one, assigned to that partner and waiting for a place (DECISIONS 176). A gift placed in an outcome or an open place is at Allocation.
  * - Confirmation, Review, Report, Complete and Feedback need the partner side, which is not built yet, so nothing is put there for now.
  */
 
@@ -29,6 +29,7 @@ export interface StageInput {
   planned: number | null; // payments planned, null when not known or without end
   placement: "placed" | "waiting" | "manual" | "none" | "n/a"; // where the allocation stands today
   where: string; // for a placed gift, a short account of where, for example "Orphan at Partner A"
+  assignedTo?: string; // the partner it was assigned to (DECISIONS 176), when it has one and is not placed yet
 }
 
 export interface StageResult { stage: GiftStage | null; note: string }
@@ -44,6 +45,6 @@ export function giftStage(i: StageInput): StageResult {
     return { stage: "work-order", note: `Funding, ${i.paid} of ${i.planned ?? "?"} paid` };
   }
   if (i.placement === "placed") return { stage: "allocation", note: i.where };
-  if (i.placement === "waiting") return { stage: "assignment", note: "Released, waiting for a partner" };
+  if (i.placement === "waiting") return { stage: "assignment", note: i.assignedTo ? `Assigned to ${i.assignedTo}, waiting for a place` : "Released, waiting for a partner" };
   return { stage: "gift", note: "" };
 }
