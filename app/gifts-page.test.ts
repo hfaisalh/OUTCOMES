@@ -117,6 +117,17 @@ describe("giftsPage", () => {
     const placed = giftListHtml(view({ workOrders: orders, frameworks: fws, projects: partners, assignments, placements, enrolments, beneficiaries: { records: [child], counters: {} } }));
     expect(placed).toMatch(/class="pill stage st-allocation"[^>]*>Allocated<\/span>/);
     expect(placed).toContain("Sample Amina");
+    // Assigned to is the partner, Allocated to is the beneficiary, in their own columns (DECISIONS 184).
+    expect(placed).toContain("<th>Assigned to</th><th>Allocated to</th>");
+    expect(placed).toContain('<span title="Assigned to Sample Trust">Sample Trust</span>');
+    expect(placed).not.toContain("Sample Amina</span> <span class=\"muted\"> Sample Trust"); // the partner is no longer under the child
+    const win = giftDetailHtml(view({ workOrders: orders, frameworks: fws, projects: partners, assignments, placements, enrolments, beneficiaries: { records: [child], counters: {} } }), "S9");
+    expect(win).toContain("<span>Assigned to</span>");
+    expect(win).toMatch(/<span>Assigned to<\/span>[\s\S]*Sample Trust[\s\S]*<span>Allocated to<\/span>[\s\S]*Sample Amina/);
+    // A placement whose place is gone is not a placement: the gift is assigned and waiting for a place again.
+    const stale = giftListHtml(view({ workOrders: orders, frameworks: fws, projects: partners, assignments, placements, enrolments: { counter: 0, records: [] }, beneficiaries: { records: [], counters: {} } }));
+    expect(stale).toContain('title="Assigned to Sample Trust, waiting for a place">Assigned</span>');
+    expect(stale).not.toMatch(/class="pill stage st-allocation"/);
   });
   it("filters to unrouted only, and narrows the list by the filter boxes and says how many are shown", () => {
     const html = giftListHtml(view({ filter: "unrouted" }));

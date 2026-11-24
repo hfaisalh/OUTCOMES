@@ -20,7 +20,7 @@
  * - A real project is attached only when it has no clusters of its own. Its own partners, items and gifts are never changed.
  * - Loading twice adds nothing: if the sample is already there it says so. A partner that already exists by name (the one-click sample partner) is reused.
  * - Enrolments go through the same rules as a person's (who a type takes, approval first, capacity, roles). Any refused is reported, not hidden.
- * - Removing leaves a sample beneficiary that a real enrolment still holds, and a partner a real project still uses, and says so.
+ * - Removing also clears any assignment to a partner it removed, and any placement in a place it removed (DECISIONS 184), so nothing points at something that is gone. Removing leaves a sample beneficiary that a real enrolment still holds, and a partner a real project still uses, and says so.
  */
 
 import { kindOf } from "../02-project-rules/benefits.js";
@@ -28,6 +28,8 @@ import type { SavedFeatures } from "../02-project-rules/kind-features.js";
 import { addCluster, clusterStateOf, setCluster, type Cluster, type ClusterState } from "../06-projects/clusters.js";
 import { itemsSeenWith, saveGiftProject, savePartner, type GiftProject, type Project, type ProjectState } from "../06-projects/projects.js";
 import { addBeneficiary, setBeneficiary, type Beneficiary, type Register } from "./beneficiaries.js";
+import type { Assignments } from "../08-assignment/assignment.js";
+import type { Placements } from "../09-placement/placement.js";
 import { enrol, itemRulesOf, type Enrolments } from "./enrolments.js";
 
 export const SAMPLE_REF_PREFIX = "SAMPLE-";
@@ -46,7 +48,7 @@ export interface SampleInput {
   realProjects: { id: string; itemIds: string[]; itemCounts?: Record<string, number> }[]; // the real projects, the items their gifts carry and how many gifts carry each, to attach to (see realProjectsFor)
   today: string;
 }
-export interface SampleState { partners: Project[]; giftProjects: GiftProject[]; partnerTypes: string[]; register: Register; enrolments: Enrolments }
+export interface SampleState { partners: Project[]; giftProjects: GiftProject[]; partnerTypes: string[]; register: Register; enrolments: Enrolments; assignments?: Assignments; placements?: Placements }
 export interface SampleSummary { partners: number; projects: number; attached: number; ownClusters: number; coveredProjects: number; uncovered: string[]; clusters: number; beneficiaries: number; enrolments: number; skipped: string[] }
 type Loaded = ({ value: SampleState; summary: SampleSummary }) | { error: string };
 
@@ -362,7 +364,7 @@ export function loadSampleSetup(input: SampleInput): Loaded {
   }
 }
 
-export interface Removed { value: SampleState; removed: { partners: number; projects: number; beneficiaries: number; enrolments: number }; kept: string[] }
+export interface Removed { value: SampleState; removed: { partners: number; projects: number; beneficiaries: number; enrolments: number; assignments: number; placements: number }; kept: string[] }
 
 // Removes exactly what the sample made. A real project the sample was attached to gets its clusters and the sample partners taken off, and is otherwise untouched. A sample beneficiary that a real
 // (not sample) enrolment holds stays, and a sample partner that a real project uses stays, and both are reported.
@@ -386,13 +388,20 @@ export function removeSampleSetup(s: SampleState): Removed {
     if (usedByReal.has(p.id)) { kept.push(`${p.name} is used by a real project`); return true; }
     return false;
   });
+  // Rule (DECISIONS 184): an assignment to a partner that is gone, or for a project that is gone, and a placement in a place that is gone, are cleared with it. An outcome does not need a place, so it stays while its assignment does.
+  const partnerIds = new Set(partners.map((p) => p.id));
+  const projectIds = new Set(giftProjects.map((g) => g.id));
+  const assignmentRecords = (s.assignments?.records ?? []).filter((a) => partnerIds.has(a.partnerId) && (a.giftProjectId === "" || projectIds.has(a.giftProjectId)));
+  const kept2 = new Set(assignmentRecords.map((a) => a.key));
+  const enrolmentIds = new Set(enrolments.map((e) => e.id));
+  const placementRecords = (s.placements?.records ?? []).filter((p) => kept2.has(p.key) && (p.kind === "outcome" || enrolmentIds.has(p.enrolmentId)));
   return {
-    value: { partners, giftProjects, partnerTypes: s.partnerTypes, register: { ...s.register, records }, enrolments: { ...s.enrolments, records: enrolments } },
-    removed: { partners: s.partners.length - partners.length, projects: s.giftProjects.filter((g) => g.sample === true).length, beneficiaries: s.register.records.length - records.length, enrolments: s.enrolments.records.length - enrolments.length },
+    value: { partners, giftProjects, partnerTypes: s.partnerTypes, register: { ...s.register, records }, enrolments: { ...s.enrolments, records: enrolments }, ...(s.assignments ? { assignments: { records: assignmentRecords } } : {}), ...(s.placements ? { placements: { ...s.placements, records: placementRecords } } : {}) },
+    removed: { partners: s.partners.length - partners.length, projects: s.giftProjects.filter((g) => g.sample === true).length, beneficiaries: s.register.records.length - records.length, enrolments: s.enrolments.records.length - enrolments.length, assignments: (s.assignments?.records.length ?? 0) - assignmentRecords.length, placements: (s.placements?.records.length ?? 0) - placementRecords.length },
     kept,
   };
 }
 
 // What a person is told after loading or removing, in plain words.
 export const sampleSummaryText = (m: SampleSummary): string => `Sample setup loaded: ${m.partners} partner${m.partners === 1 ? "" : "s"}, ${m.projects} new project${m.projects === 1 ? "" : "s"}${m.attached ? ` and ${m.attached} real project${m.attached === 1 ? "" : "s"} given sample clusters` : ""}${m.ownClusters ? `, children enrolled in the own clusters of ${m.ownClusters} real project${m.ownClusters === 1 ? "" : "s"}` : ""}${m.coveredProjects ? `, ${m.coveredProjects} real project${m.coveredProjects === 1 ? "" : "s"} without a partner given the sample general partner` : ""}, ${m.clusters} clusters, ${m.beneficiaries} beneficiaries and ${m.enrolments} enrolments.${m.uncovered.length ? ` Left without a partner on purpose: ${m.uncovered.join(", ")}.` : ""}${m.skipped.length ? ` Not enrolled: ${m.skipped.join("; ")}.` : ""}`;
-export const removedSummaryText = (r: Removed): string => `Sample data removed: ${r.removed.partners} partners, ${r.removed.projects} projects, ${r.removed.beneficiaries} beneficiaries and ${r.removed.enrolments} enrolments.${r.kept.length ? ` Kept: ${r.kept.join("; ")}.` : ""}`;
+export const removedSummaryText = (r: Removed): string => `Sample data removed: ${r.removed.partners} partners, ${r.removed.projects} projects, ${r.removed.beneficiaries} beneficiaries and ${r.removed.enrolments} enrolments${r.removed.assignments || r.removed.placements ? `, and cleared ${r.removed.assignments} assignment${r.removed.assignments === 1 ? "" : "s"} and ${r.removed.placements} placement${r.removed.placements === 1 ? "" : "s"} that pointed at them` : ""}.${r.kept.length ? ` Kept: ${r.kept.join("; ")}.` : ""}`;

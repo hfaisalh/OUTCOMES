@@ -196,7 +196,8 @@ function allocationContext(v: View) {
     const nk = newKey(g);
     const asg = nk !== "" ? assigned.get(nk) : undefined;
     const plc = nk !== "" ? placed.get(nk) : undefined;
-    if (asg && plc) return { state: "placed", who: plc.kind === "outcome" ? plc.outcomeRef : personName(enrolled.get(plc.enrolmentId)?.beneficiaryId ?? ""), partner: partnerName(asg.partnerId) || "No partner", parts: null, why: "" };
+    // A placement whose place no longer exists (the child was removed) is not a placement: the gift is assigned and waiting for a place again.
+    if (asg && plc && (plc.kind === "outcome" || enrolled.has(plc.enrolmentId))) return { state: "placed", who: plc.kind === "outcome" ? plc.outcomeRef : personName(enrolled.get(plc.enrolmentId)?.beneficiaryId ?? ""), partner: partnerName(asg.partnerId) || "No partner", parts: null, why: "" };
     if (asg) return { state: "waiting", who: "", partner: partnerName(asg.partnerId) || "A partner", parts: null, why: `Assigned to ${partnerName(asg.partnerId) || "a partner"}, waiting for a place` };
     if (g.allocationKey === "") return { state: "n/a", who: "", partner: "", parts: null, why: "" };
     if (keys.has(g.allocationKey)) {
@@ -260,11 +261,14 @@ export function giftListHtml(v: View): string {
   };
   const allocCell = (g: GiftRow): string => {
     const a = where(g);
-    if (a.state === "placed") return `<span title="${esc(a.who)} ${esc(a.ref ?? "")} at ${esc(a.partner)}">${esc(a.who)} <span class="muted">${esc(a.ref ?? "")} ${esc(a.partner)}</span></span>`;
+    // Rule (DECISIONS 184): Allocated to is the beneficiary (or the outcome). The partner is Assigned to, in its own column.
+    if (a.state === "placed") return `<span title="${esc(a.who)} ${esc(a.ref ?? "")}">${esc(a.who)} <span class="muted">${esc(a.ref ?? "")}</span></span>`;
     if (a.state === "manual") return icon("manual", SYMBOL.manual, `Allocate manually. ${a.why}`);
     if (a.state === "waiting") return a.why.startsWith("Plan paused") ? icon("muted", PLAN_ICON["paused"]![0], a.why) : icon("warn", SYMBOL.waiting, a.why ? `Waiting for allocation. ${a.why}` : "Waiting for allocation");
     return a.state === "none" ? `<span class="muted" title="${esc(a.why)}">\u2013</span>` : "";
   };
+
+  const assignedCell = (g: GiftRow): string => { const a = where(g); return a.partner ? `<span title="Assigned to ${esc(a.partner)}">${esc(a.partner)}</span>` : `<span class="muted">\u2013</span>`; };
 
   const row = (g: GiftRow): string => {
     const first = g.payments[0];
@@ -282,11 +286,12 @@ export function giftListHtml(v: View): string {
       <td class="num" title="${esc(paid)}">${esc(shortDate(paid))}</td>
       <td class="num muted" title="${esc(g.nextDue)}">${esc(shortDate(g.nextDue))}</td>
       <td class="clip">${stagePill(stageFor(v, g, where(g)))}</td>
+      <td class="clip">${assignedCell(g)}</td>
       <td class="clip">${allocCell(g)}</td>
       <td class="c st">${statusIcons(g)}${g.kind === "excluded" && first ? `<button data-excl="${esc(first.key)}" data-excl-action="restore" title="${esc(reason || "Excluded")}">Restore</button>` : ""}</td>
       </tr>`;
   };
-  return `${bulk}${note}${rows.length === 0 ? `<div class="empty">No gifts match the filters.</div>` : `${key}<div class="tablewrap"><table class="giftlist"><thead><tr><th><input type="checkbox" data-selall="main" title="Tick all shown"${allTicked ? " checked" : ""}></th><th></th><th>Rec. ID</th><th>Donor</th><th>Item</th><th>Project</th><th>Plan</th><th>Value</th><th>Paid</th><th>Next</th><th>Stage</th><th>Allocated to</th><th>Status</th><th></th></tr></thead><tbody>${shown.map(row).join("")}</tbody></table></div>`}`;
+  return `${bulk}${note}${rows.length === 0 ? `<div class="empty">No gifts match the filters.</div>` : `${key}<div class="tablewrap"><table class="giftlist"><thead><tr><th><input type="checkbox" data-selall="main" title="Tick all shown"${allTicked ? " checked" : ""}></th><th></th><th>Rec. ID</th><th>Donor</th><th>Item</th><th>Project</th><th>Plan</th><th>Value</th><th>Paid</th><th>Next</th><th>Stage</th><th>Assigned to</th><th>Allocated to</th><th>Status</th><th></th></tr></thead><tbody>${shown.map(row).join("")}</tbody></table></div>`}`;
 }
 
 // The window for one gift: everything the list leaves out (DECISIONS 78). Returns "" when the gift is not in the data, so the caller closes the window.
@@ -298,7 +303,8 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   const kindName = g.kind === "recurring" ? "Recurring gift" : g.kind === "unlinked" ? "Recurring payment the CRM did not link to a subscription" : g.kind === "excluded" ? "Excluded payment" : "One payment";
   const row = (label: string, value: string, wide = false) => value === "" ? "" : `<div class="f${wide ? " w" : ""}"><span>${label}</span><div>${value}</div></div>`;
   const progress = g.kind === "recurring" || g.kind === "unlinked" ? `${g.paid} of ${g.planned ?? INFINITY}${g.planned ? `<div class="bar"><span style="width:${Math.min(100, Math.round((g.paid / g.planned) * 100))}%"></span></div>` : ""}` : g.periodCount > 0 ? `covers ${g.periodCount} month${g.periodCount === 1 ? "" : "s"}` : "";
-  const allocation = a.state === "placed" ? `${esc(a.who)}${a.ref ? ` <b>${esc(a.ref)}</b>` : ""}<div class="muted">${a.allocRef ? `Allocation ${esc(a.allocRef)} \u00B7 ` : ""}${esc(a.partner)}${a.parts !== null ? ` · ${a.parts} part${a.parts === 1 ? "" : "s"}` : ""}</div>` : a.state === "manual" ? `<span class="pill review">Allocate manually</span><div class="muted">${esc(a.why)}</div>` : a.state === "waiting" ? `<span class="pill review">Waiting for allocation</span>${a.why ? `<div class="muted">${esc(a.why)}</div>` : ""}` : a.why ? `<span class="muted">${esc(a.why)}</span>` : "";
+  // Rule (DECISIONS 184): Allocated to is the beneficiary or outcome. The partner it was assigned to has its own line, Assigned to.
+  const allocation = a.state === "placed" ? `${esc(a.who)}${a.ref ? ` <b>${esc(a.ref)}</b>` : ""}${a.allocRef || a.parts !== null ? `<div class="muted">${a.allocRef ? `Allocation ${esc(a.allocRef)}` : ""}${a.allocRef && a.parts !== null ? " \u00B7 " : ""}${a.parts !== null ? `${a.parts} part${a.parts === 1 ? "" : "s"}` : ""}</div>` : ""}` : a.state === "manual" ? `<span class="pill review">Allocate manually</span><div class="muted">${esc(a.why)}</div>` : a.state === "waiting" ? `<span class="pill review">Waiting for allocation</span>${a.why ? `<div class="muted">${esc(a.why)}</div>` : ""}` : a.why ? `<span class="muted">${esc(a.why)}</span>` : "";
   const status = [
     g.kind === "excluded" ? "" : g.unrouted ? `<span class="pill unrouted">Unrouted</span>` : `<span class="pill ready">Ready</span>`,
     g.inReview ? `<span class="pill review">Review</span>` : "",
@@ -349,6 +355,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Cause", esc(first?.cause ?? ""))}
         ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
         ${row("Stage", `${stagePill(stageFor(v, g, a))}${stageFor(v, g, a).note ? `<div class="muted">${esc(stageFor(v, g, a).note)}</div>` : ""}`)}
+        ${row("Assigned to", a.partner ? esc(a.partner) : `<span class="muted">Not assigned to a partner yet</span>`)}
         ${row("Allocated to", allocation)}
         ${row("Status", `${status} ${logBtn}${markManual ? `<div class="statusact">${markManual}</div>` : ""}`)}
         ${first ? row("Credit", creditLine(first), true) : ""}

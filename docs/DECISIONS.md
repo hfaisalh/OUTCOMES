@@ -719,3 +719,9 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 - **Cluster capacity stays** as an optional physical total (250 beds); it caps enrolment and is no longer needed to count places.
 - **The sample:** sponsorship partners have **no typed capacity** (the trust keeps a ceiling of 3 for its first item so the overflow still shows). The invented children **belong to partners** (alternating between the backup and the general partner), and two belong to the lapsed partner, so its room is never used.
 - The Assignment page's room table shows "N from its children" and any ceiling.
+
+## 184. Assigned to is the partner, Allocated to is the beneficiary; removing the sample clears what points at it (Faisal, 24/11/2026)
+
+- On the Gifts list and in the gift window, **Allocated to** showed the beneficiary with the **partner underneath**, and the window showed only the partner. They are two things. **Assigned to** is now the **partner** (its own column in the list and its own line in the window) and **Allocated to** is the **beneficiary or the outcome** (with the units, when the gift is spread).
+- A placement whose place has gone (the child was removed) is **not a placement**: the gift shows as assigned and waiting for a place again, instead of "Allocated" with no name.
+- **Removing the sample also clears** any assignment to a partner it removed, any assignment for a project it removed, and any placement in a place it removed, and says how many. Before, a reloaded sample left assignments and placements pointing at children and partners that no longer existed, which is why the window showed no beneficiary.

@@ -24,7 +24,7 @@ import { allocatePage } from "./allocate-page";
 import { applyPlacementAction, emptyPlacements, placementContext, type Placements } from "../modules/09-placement/placement";
 import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments, type Assignments } from "../modules/08-assignment/assignment";
 import { registerFormHtml } from "./register-form";
-import { loadSampleSetup, realProjectsFor, wholeByItem, removeSampleSetup, removedSummaryText, sampleSummaryText } from "../modules/07-beneficiaries/sample-setup";
+import { loadSampleSetup, realProjectsFor, wholeByItem, type SampleState, removeSampleSetup, removedSummaryText, sampleSummaryText } from "../modules/07-beneficiaries/sample-setup";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf, type Enrolments } from "../modules/07-beneficiaries/enrolments";
 import { applyBeneficiaryAction, emptyRegister, NO_FILTER as NO_REGISTER_FILTER, type Beneficiary, type BeneficiaryFilter, type BeneficiaryKind, type Register } from "../modules/07-beneficiaries/beneficiaries";
 import { projectFormHtml, readProjectForm } from "./project-form";
@@ -335,8 +335,8 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
           break;
         }
         case "sample-load": case "sample-remove": { // The sample setup (DECISIONS 168): the same pure rule the server uses.
-          const cur = { partners: state.projects, giftProjects: state.giftProjects, partnerTypes: state.partnerTypes, register: state.beneficiaries, enrolments: state.enrolments };
-          let next = cur;
+          const cur = { partners: state.projects, giftProjects: state.giftProjects, partnerTypes: state.partnerTypes, register: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, placements: state.placements };
+          let next: SampleState = cur;
           if (body["action"] === "sample-load") {
             const r = loadSampleSetup({ items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), realProjects: realProjectsFor(state.giftProjects, state.workOrders), whole: wholeByItem(view().workOrders, state.frameworks), demand: demandByItem(contextFrom({ workOrders: view().workOrders, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString() })), itemKinds: state.itemKinds, kindFeatures: state.kindFeatures as SavedFeatures, ...cur, today: new Date().toISOString().slice(0, 10) });
             if ("error" in r) { error = r.error; break; }
@@ -345,7 +345,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
             const r = removeSampleSetup(cur);
             next = r.value; state.message = removedSummaryText(r);
           }
-          state.projects = next.partners; state.giftProjects = next.giftProjects; state.partnerTypes = next.partnerTypes; state.beneficiaries = next.register; state.enrolments = next.enrolments;
+          state.projects = next.partners; state.giftProjects = next.giftProjects; state.partnerTypes = next.partnerTypes; state.beneficiaries = next.register; state.enrolments = next.enrolments; if (next.assignments) state.assignments = next.assignments; if (next.placements) state.placements = next.placements;
           break;
         }
         case "set-require-ref": state.requireRef = body["on"] === true; break;

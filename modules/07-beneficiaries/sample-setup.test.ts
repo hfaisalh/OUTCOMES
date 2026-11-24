@@ -307,12 +307,41 @@ describe("the scenario clusters stay in the sample's own project (DECISIONS 182)
   });
 });
 
+describe("removing clears what points at it (DECISIONS 184)", () => {
+  const asg = (key: string, partnerId: string, giftProjectId = "") => ({ key, partnerId, giftProjectId, itemId: "I10", parts: 1, how: "auto" as const, at: "x" });
+  it("clears an assignment to a partner that is removed, and a placement in a place that is removed, and keeps the rest", () => {
+    const loaded = load();
+    const sampleChild = loaded.value.enrolments.records[0]!;
+    const realPartner = "real-partner";
+    const base: SampleState = {
+      ...loaded.value,
+      partners: [...loaded.value.partners, { id: realPartner, name: "Real", aliases: [], levels: [], types: [] }],
+      assignments: { records: [asg("sub:1", loaded.value.partners[0]!.id), asg("sub:2", realPartner), asg("G3", loaded.value.partners[0]!.id)] },
+      placements: { counter: 1, records: [
+        { key: "sub:1", kind: "place", enrolmentId: sampleChild.id, outcomeRef: "", giftProjectId: "", itemId: "I10", parts: 1, how: "auto", at: "x" },
+        { key: "sub:2", kind: "place", enrolmentId: "EN-REAL", outcomeRef: "", giftProjectId: "", itemId: "I10", parts: 1, how: "auto", at: "x" },
+        { key: "G3", kind: "outcome", enrolmentId: "", outcomeRef: "OUT-0001", giftProjectId: "", itemId: "I11", parts: 1, how: "auto", at: "x" },
+      ] },
+    };
+    const gone = removeSampleSetup({ ...base, enrolments: { ...base.enrolments, records: [...base.enrolments.records, { id: "EN-REAL", beneficiaryId: "REAL", giftProjectId: "real", clusterId: "c", itemId: "I10", role: "", status: "active", since: "x" }] } });
+    expect(gone.value.assignments?.records.map((a) => a.key)).toEqual(["sub:2"]); // the two to the removed sample partner are cleared, the real one stays
+    expect(gone.value.placements?.records.map((p) => p.key)).toEqual(["sub:2"]); // its placement in a real place stays, the outcome goes with its assignment
+    expect(gone.removed).toMatchObject({ assignments: 2, placements: 2 });
+  });
+  it("says what it cleared, and leaves them alone when it was not given any", () => {
+    const loaded = load();
+    const none = removeSampleSetup(loaded.value);
+    expect(none.value.assignments).toBeUndefined();
+    expect(none.removed).toMatchObject({ assignments: 0, placements: 0 });
+  });
+});
+
 describe("removing the sample setup", () => {
   it("takes away exactly what the sample made and leaves everything else", () => {
     const realEnrolment: Enrolment = { id: "EN-9999", beneficiaryId: "REAL-1", giftProjectId: "real", clusterId: "c", itemId: "I10", role: "", status: "active", since: "2026-01-01" };
     const loaded = load({ enrolments: { records: [realEnrolment], counter: 9999 } });
     const gone = removeSampleSetup(loaded.value);
-    expect(gone.removed).toEqual({ partners: 6, projects: 3, beneficiaries: 26, enrolments: 20 });
+    expect(gone.removed).toEqual({ partners: 6, projects: 3, beneficiaries: 26, enrolments: 20, assignments: 0, placements: 0 });
     expect(gone.value.enrolments.records).toEqual([realEnrolment]);
     expect(gone.value.register.records).toEqual([]);
     expect(gone.value.giftProjects).toEqual([]);

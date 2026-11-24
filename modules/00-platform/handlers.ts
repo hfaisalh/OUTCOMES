@@ -38,7 +38,7 @@ import { applyKindAction, type SavedFeatures } from "../02-project-rules/kind-fe
 import { applyBeneficiaryAction, emptyRegister } from "../07-beneficiaries/beneficiaries.js";
 import { applyPlacementAction, emptyPlacements, placementContext } from "../09-placement/placement.js";
 import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments } from "../08-assignment/assignment.js";
-import { loadSampleSetup, realProjectsFor, wholeByItem, removeSampleSetup, sampleSummaryText, removedSummaryText } from "../07-beneficiaries/sample-setup.js";
+import { loadSampleSetup, realProjectsFor, wholeByItem, type SampleState, removeSampleSetup, sampleSummaryText, removedSummaryText } from "../07-beneficiaries/sample-setup.js";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf } from "../07-beneficiaries/enrolments.js";
 
 export interface HttpRequest {
@@ -410,9 +410,9 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     }
     // The sample setup (DECISIONS 168): invented partners, projects, clusters, beneficiaries and enrolments, loaded and removed as one.
     if (b["action"] === "sample-load" || b["action"] === "sample-remove") {
-      const state = { partners: projects, giftProjects, partnerTypes, register: beneficiaries, enrolments };
+      const state = { partners: projects, giftProjects, partnerTypes, register: beneficiaries, enrolments, assignments, placements };
       let message = "";
-      let next = state;
+      let next: SampleState = state;
       if (b["action"] === "sample-load") {
         const wos = await d.store.listWorkOrders(org);
         const seen = new Map(wos.map((w) => [w.itemId, w.itemName]));
@@ -424,7 +424,9 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
         next = r.value; message = removedSummaryText(r);
       }
       ({ partners: projects, giftProjects, partnerTypes, register: beneficiaries, enrolments } = next);
-      await d.store.putConfig(org, { ...config, projects, giftProjects, partnerTypes, beneficiaries, enrolments });
+      if (next.assignments) assignments = next.assignments;
+      if (next.placements) placements = next.placements;
+      await d.store.putConfig(org, { ...config, projects, giftProjects, partnerTypes, beneficiaries, enrolments, assignments, placements });
       return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, kindFeatures: config.kindFeatures ?? {}, warning: message });
     }
     // The Beneficiary register (DECISIONS 163) and enrolments (DECISIONS 167): the same pure rules the demo uses. A beneficiary that is enrolled cannot be removed.
