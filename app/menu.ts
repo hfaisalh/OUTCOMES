@@ -59,10 +59,10 @@ export const MENU: MenuItem[] = [
   { id: "projects", label: "Projects", icon: "▥", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "partners", label: "Partners", icon: "▤", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "beneficiaries", label: "Beneficiaries", icon: "☺", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
-  // Rule (DECISIONS 163): Beneficiaries is the register of people and households. The older list of what gifts are placed on (children, pumps, with capacity) is Outcomes.
-  { id: "outcome-list", label: "Outcomes", icon: "◍", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "allocation", label: "Allocate", icon: "⇄", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "outcomes", label: "Month by month", icon: "◎", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
+  // Rule (DECISIONS 165): the older list of what gifts are placed on is not a main menu entry. Outcomes are made by the workflow, so it sits under Allocation until Allocation is rewired onto outcomes in clusters, then it goes.
+  { id: "outcome-list", label: "Outcome records (older)", icon: "◍", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "dashboard", label: "Dashboard", icon: "◔", permission: PERMISSIONS.dashboards, section: "Work" },
   // Data (DECISIONS 92): everything about getting gifts in sits in its own area, as in a CRM's data integration. Gifts only shows the result.
   { id: "data-feed", label: "CRM connection", icon: "⇅", permission: PERMISSIONS.settings, section: "Data", module: "data" },

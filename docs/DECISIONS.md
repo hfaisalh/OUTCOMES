@@ -578,3 +578,10 @@ Addendum to 162 (Faisal, 24/11/2026): the Clusters tab itself shows **the whole 
 - Any record may name the **partner that gave it** and **the partner's own ID** for it, since partners keep their own records.
 - **Not held yet:** health and immunisation records, fingerprints, photos, signed declarations, the document checklist, the adverse conditions list, siblings and parents as linked persons, and any contact details (phone, email). Health and abuse flags need a restricted role first.
 - **Direction (Faisal):** the **partner portal becomes the profile lifecycle of the beneficiary**, whatever tool a partner uses for its own records: they share updates and prerequisites there. Contact details stay in the CRM. Screens stay in **English** for now.
+
+## 165. Outcomes are made by the workflow, so there is no Outcomes menu entry (Faisal, 24/11/2026)
+
+- An outcome is an **instance of the CRM item**, made by the workflow, so there is nothing to configure and no list to keep as a main page. The only exception is an outcome made by hand for a manual workflow that has no item behind it.
+- Two ways an outcome arises: **gift-first** types (house, pump, tent, food drive, mosque) are created by the gift when the work order reaches Allocation, and recipients are attached after. **Beneficiary-first** types (sponsorship, scholarship, Hifz) start as an **open place** made when an approved beneficiary is enrolled in a cluster for a benefit, and gifts fill it.
+- The older list is **removed from the main menu** and sits under Allocation as "Outcome records (older)" until Allocation is rewired onto outcomes in clusters, then it goes. This supersedes the "Outcomes" rename in 163.
+- Next, in order: the **who receives** setting per type (also says gift-first or beneficiary-first), **enrolment** in clusters, **sample data** (dummy clusters and beneficiaries for the sample items), **Assignment**, then **Allocation rewired** onto the open places, and a test run of the sample gifts.
