@@ -26,3 +26,13 @@ One module at a time. Each ends with: working screen, tests, module README, deci
 | 8 | **Dashboards** | | Coverage, compliance, outstanding feedback. |
 
 Reference: earlier prototype covering parts of 1, 5, 6, 8 in `github.com/hfaisalh/mwf-impact-tracker` (see `docs/` there for diagrams and the sprint mapping).
+
+## Later to-do: reorganise the code by feature (agreed in principle, 24/11/2026)
+
+To do **after** the steps that make Outcomes work end to end (beneficiary enrolment, Assignment, Confirmation, Allocation, Review, Report, Feedback). Not before, so a move does not collide with building.
+
+- **One folder per feature**, not one file: `features/<feature>/` with `rules/` (pure functions, portable to Apex), `screens/`, `tests/` and a `README.md`. Features: Gifts, Projects (with clusters), Partners, Beneficiaries, Allocation, Dashboard, Data, Workflows, Benefits. Plus `platform/` (sign-in, storage, pick-up, the server) and `shared/` (tables, windows, icons used by every feature).
+- Split the big switches by feature too: the server's `handlers.ts` and the click and change handlers in `app/main.ts` (about 1,600 lines).
+- Rename the code's `Project` to `Partner` and `GiftProject` to `Project` in the same pass, and remove the old partner Structure tab (replaced by clusters).
+- Do it once, mechanically, one feature at a time, with the tests green after each. No behaviour change.
+- Until then, new files keep the current layout and carry the feature name in the file name (as `register-page.ts` does), so the later move is only a relocation.
