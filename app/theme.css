@@ -288,3 +288,14 @@ select:not([multiple]):focus-visible{outline:2px solid var(--accent);outline-off
 .iconact+.iconact,.iconact+details.mo,details.mo+.iconact,.iconact+.actbox,.actbox+.iconact{margin-left:8px}
 .iconact.gear svg{width:18px;height:18px}.iconact.gear{width:30px;height:30px;min-width:30px}
 .subtable td.actcol,.subtable th.actcol{width:auto;min-width:44px;white-space:nowrap}
+/* The cluster tree: hierarchy lines like a folder list. Each level is a 22px column; a vertical line carries on while more brothers and sisters follow, and an elbow or tee joins the cluster. */
+.cl-tree td.cl-treecell{padding:0}.cl-node{display:flex;align-items:center;gap:4px;min-height:38px}
+.tl{position:relative;flex:none;width:22px;align-self:stretch}
+.tl.v::before,.tl.mid::before,.tl.end::before{content:"";position:absolute;left:10px;top:0;bottom:0;border-left:1px solid var(--line)}
+.tl.end::before{bottom:50%}
+.tl.mid::after,.tl.end::after{content:"";position:absolute;left:10px;top:50%;width:12px;border-top:1px solid var(--line)}
+.tls{display:flex;align-self:stretch;flex:none}
+.cl-bar{display:flex;gap:8px;margin:6px 0}.cl-bar button{font-size:12px;padding:3px 10px}
+.cl-tree .tgl{width:22px;height:22px;min-width:22px;border:0;background:none}.cl-tree .cl-nobtn{width:22px}
+.cl-tree tr.cl-top td{background:var(--card)}.cl-tree tr.cl-top .cl-node b{font-weight:650}
+.cl-tree .cl-addrow td{padding:6px 0}

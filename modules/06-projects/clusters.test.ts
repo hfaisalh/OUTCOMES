@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { addCluster, applyClusterAction, clusterRows, clusterStateOf, emptyClusters, evenShare, insideCount, pathOf, removeCluster, setCluster, subRows, suggestLabel, type ClusterState } from "./clusters";
+import { addCluster, applyClusterAction, clusterRows, clusterStateOf, emptyClusters, evenShare, insideCount, pathOf, removeCluster, setCluster, subRows, suggestLabel, treeRows, type ClusterState } from "./clusters";
 
 const ok = (r: { value: ClusterState } | { error: string } | null): ClusterState => { if (r === null) throw new Error("not a cluster request"); if ("error" in r) throw new Error(r.error); return r.value; };
 
@@ -97,6 +97,21 @@ describe("what is inside a cluster", () => {
   it("gives the path from the top cluster down, for the line across the top of a cluster window", () => {
     expect(pathOf(sample(), "physics").map((c) => c.name)).toEqual(["Lahore University", "Science", "Physics"]);
     expect(pathOf(sample(), "nope")).toEqual([]);
+  });
+});
+
+describe("the tree for drawing lines", () => {
+  it("says for each cluster how deep it is, whether it is the last of its brothers and sisters, and which levels above still have more below", () => {
+    const rows = treeRows(sample());
+    expect(rows.map((r) => [r.cluster.name, r.depth, r.last, r.guides])).toEqual([
+      ["Al-Noor School", 0, false, []],
+      ["Lahore University", 0, true, []],
+      ["Arts", 1, false, [false]],
+      ["Science", 1, true, [false]],
+      ["Chemistry", 2, false, [false, false]],
+      ["Physics", 2, true, [false, false]],
+    ]);
+    expect(treeRows(sample(), "science").map((r) => [r.cluster.name, r.depth])).toEqual([["Chemistry", 0], ["Physics", 0]]); // from one cluster down
   });
 });
 

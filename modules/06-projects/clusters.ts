@@ -182,6 +182,23 @@ export function subRows(s: ClusterState, id: string): ClusterRow[] {
   return out;
 }
 
+// The tree under `rootId` ("" is the whole project) for drawing hierarchy lines. For each cluster: how deep (0 is directly under the root), whether it is the last of its brothers and sisters,
+// and for each level above it whether that level's cluster still has brothers and sisters below (so a vertical line carries on past this row).
+export interface TreeRow { cluster: Cluster; depth: number; last: boolean; guides: boolean[] }
+export function treeRows(s: ClusterState, rootId = ""): TreeRow[] {
+  const out: TreeRow[] = [];
+  const walk = (parentId: string, depth: number, guides: boolean[]): void => {
+    const here = s.clusters.filter((c) => c.parentId === parentId).sort((a, b) => a.name.localeCompare(b.name));
+    here.forEach((c, i) => {
+      const last = i === here.length - 1;
+      out.push({ cluster: c, depth, last, guides });
+      walk(c.id, depth + 1, [...guides, !last]);
+    });
+  };
+  walk(rootId, 0, []);
+  return out;
+}
+
 // How many sub clusters are inside a cluster, all the way down.
 export const insideCount = (s: ClusterState, id: string): number => subRows(s, id).length;
 

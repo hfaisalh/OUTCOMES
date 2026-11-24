@@ -10,12 +10,12 @@
  * Who calls it: app/project-form.ts. Depends on: modules/06-projects/clusters.ts and esc from pages.ts.
  */
 
-import { clusterRows, evenShare, insideCount, pathOf, subRows, suggestLabel, type Cluster, type ClusterState } from "../modules/06-projects/clusters";
+import { evenShare, insideCount, pathOf, treeRows, suggestLabel, type Cluster, type ClusterState } from "../modules/06-projects/clusters";
 import { ICON_SETTINGS } from "./icons";
 import { esc } from "./pages";
 
-// What is open, kept for the session so editing does not close it: the folders whose sub list is showing, the cluster a sub cluster is being added to, and the cluster window that is open ("" is the list).
-export const openClusters = new Set<string>();
+// What is shown, kept for the session so editing does not change it: the folders a person has closed (every folder is open until closed), the cluster a sub cluster is being added to, and the cluster window that is open ("" is the list).
+export const closedClusters = new Set<string>();
 export const clusterUi = { adding: "", node: "", nodeTab: "details" as "details" | "inside", notice: "" };
 
 const SEARCH_FROM = 8; // a search box shows once a list is longer than this
@@ -26,14 +26,39 @@ const remove = (c: Cluster): string => `<button type="button" class="iconact" da
 const statusPill = (c: Cluster): string => `<span class="pill${c.status === "closed" ? " muted" : ""}">${c.status === "closed" ? "Closed" : "Active"}</span>`;
 const searchBox = (n: number): string => (n > SEARCH_FROM ? '<input type="search" id="cl-search" placeholder="Search clusters" aria-label="Search clusters">' : "");
 
-// ---- The list of master clusters ----
+// ---- The tree: one row per cluster, drawn with hierarchy lines like a folder list ----
+// Each row starts with its lines (a master cluster has none): a vertical line for every level between that carries on, then an elbow (or a tee when more follow) to the cluster itself. A folder shows an arrow to close or open it.
+function treeHtml(state: ClusterState, rootId: string, adding: string): string {
+  const rows = treeRows(state, rootId);
+  const byId = new Map(state.clusters.map((x) => [x.id, x]));
+  // Rule: a row shows unless a cluster between it and the root has been closed.
+  const shown = (parentId: string): boolean => parentId === rootId || (!closedClusters.has(parentId) && shown(byId.get(parentId)?.parentId ?? rootId));
+  const kids = (id: string): number => state.clusters.filter((x) => x.parentId === id).length;
+  const lines = (guides: boolean[], last: boolean, depth: number): string => (depth === 0 ? "" : `<span class="tls">${guides.slice(1).map((g) => `<span class="tl${g ? " v" : ""}"></span>`).join("")}<span class="tl ${last ? "end" : "mid"}"></span></span>`);
+  const addSub = (parentId: string, depth: number): string => `<tr class="cl-addrow"><td colspan="6"><div class="cl-add" style="margin-left:${(depth + 1) * 22 + 12}px"><input id="cl-sname" placeholder="New sub cluster name" aria-label="New sub cluster name"><input id="cl-slabel" list="cl-labels" value="${esc(suggestLabel(state, parentId))}" placeholder="Called" aria-label="What it is called"><input id="cl-splace" placeholder="Place" aria-label="Place">
+      <button type="button" class="iconact ok" data-cl="cluster-add" data-id="${esc(parentId)}" title="Add the sub cluster" aria-label="Add the sub cluster">+</button><button type="button" class="iconact" data-cl="sub-cancel" title="Cancel" aria-label="Cancel">&times;</button></div></td></tr>`;
+  const body = rows.filter(({ cluster: x }) => shown(x.parentId)).map(({ cluster: x, depth, last, guides }) => {
+    const n = kids(x.id);
+    const isClosed = closedClusters.has(x.id);
+    const toggle = n > 0 ? `<button type="button" class="iconact tgl" data-cl="toggle" data-id="${esc(x.id)}" aria-expanded="${!isClosed}" title="${isClosed ? "Show" : "Hide"} what is inside" aria-label="${isClosed ? "Show" : "Hide"} what is inside ${esc(x.name)}">${isClosed ? "&#9656;" : "&#9662;"}</button>` : '<span class="cl-nobtn"></span>';
+    const share = evenShare(state, x.id);
+    const cap = depth === 0 && x.parentId === "" ? (x.capacity !== undefined ? String(x.capacity) : '<span class="muted">-</span>') : share !== undefined ? `<span class="muted" title="The total shared evenly down">about ${share}</span>` : '<span class="muted">-</span>';
+    const row = `<tr class="cl-trow${x.parentId === "" ? " cl-top" : ""}" data-find="${esc(`${x.name} ${x.label} ${x.place}`.toLowerCase())}"><td class="cl-treecell"><div class="cl-node">${lines(guides, last, depth)}${toggle}<span class="cl-icon" aria-hidden="true">${n > 0 ? "&#128193;" : "&#128196;"}</span><b>${esc(x.name)}</b>${n > 0 ? `<span class="pill" title="Directly inside">${n}</span>` : ""}</div></td><td>${esc(x.label)}</td><td class="muted">${esc(x.place)}</td><td class="num">${cap}</td><td>${statusPill(x)}</td>
+      <td class="actcol">${gear(x)}<button type="button" class="iconact ok" data-cl="sub-open" data-id="${esc(x.id)}" title="Add a sub cluster inside" aria-label="Add a sub cluster inside ${esc(x.name)}">+</button>${remove(x)}</td></tr>`;
+    return row + (adding === x.id ? addSub(x.id, depth) : "");
+  }).join("");
+  const anyFolder = rows.some((r) => kids(r.cluster.id) > 0);
+  return `${anyFolder ? '<div class="cl-bar"><button type="button" data-cl="expand-all">Expand all</button><button type="button" data-cl="collapse-all">Collapse all</button></div>' : ""}
+    <div class="tablewrap"><table class="subtable cl-table cl-tree"><thead><tr><th>Cluster</th><th>Called</th><th>Place</th><th class="num">Capacity</th><th>Status</th><th class="actcol"></th></tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+// ---- The list: every cluster as a tree ----
 function listHtml(state: ClusterState): string {
-  const tops = clusterRows(state).filter((r) => r.depth === 0).map((r) => r.cluster);
-  const rows = tops.map((c) => `<tr data-find="${esc(`${c.name} ${c.label} ${c.place}`.toLowerCase())}"><td><b>${esc(c.name)}</b></td><td>${esc(c.label)}</td><td class="muted">${esc(c.place)}</td><td class="num">${c.capacity ?? '<span class="muted">-</span>'}</td><td class="num">${insideCount(state, c.id)}</td><td>${statusPill(c)}</td><td class="actcol">${gear(c)}${remove(c)}</td></tr>`).join("");
-  return `<section><h3>Clusters <span class="muted">(${tops.length})</span></h3>
-    <p class="muted">A cluster is how a project is distributed: a school, a university, a home, a region. Open one with its settings button to set its details and to add the sub clusters inside it (a faculty, a department, a classroom).</p>
-    ${searchBox(tops.length)}
-    ${tops.length ? `<div class="tablewrap"><table class="subtable cl-table"><thead><tr><th>Cluster</th><th>Called</th><th>Place</th><th class="num">Capacity</th><th class="num">Subs</th><th>Status</th><th class="actcol"></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">No clusters yet. Add the first one below.</p>'}
+  const tops = state.clusters.filter((c) => c.parentId === "");
+  return `<section><h3>Clusters <span class="muted">(${state.clusters.length})</span></h3>
+    <p class="muted">A cluster is how a project is distributed: a school, a university, a home, a region. The tree shows every cluster with the sub clusters inside it. Use the gear to set one up, + to add a sub cluster inside it.</p>
+    ${searchBox(state.clusters.length)}
+    ${tops.length ? treeHtml(state, "", clusterUi.adding) : '<p class="muted">No clusters yet. Add the first one below.</p>'}
     ${labelsList(state)}
     <div class="cl-add"><input id="cl-tname" placeholder="New cluster, for example Lahore University" aria-label="New cluster name">
       <input id="cl-tlabel" list="cl-labels" value="${esc(suggestLabel(state, ""))}" placeholder="Called, for example University" aria-label="What it is called"><input id="cl-tplace" placeholder="Place" aria-label="Place"><input id="cl-tcap" type="number" min="0" placeholder="Total capacity" aria-label="Total capacity">
@@ -56,23 +81,9 @@ function detailsHtml(state: ClusterState, c: Cluster): string {
 }
 
 function insideHtml(state: ClusterState, c: Cluster, adding: string): string {
-  const rows = subRows(state, c.id);
-  const byId = new Map(state.clusters.map((x) => [x.id, x]));
-  // Rule: a row shows only when every cluster between it and this one is opened.
-  const shown = (parentId: string): boolean => parentId === c.id || (openClusters.has(parentId) && shown(byId.get(parentId)?.parentId ?? ""));
-  const kids = (id: string): number => state.clusters.filter((x) => x.parentId === id).length;
-  const addSub = (parentId: string, depth: number): string => `<tr class="cl-addrow"><td colspan="5" style="padding-left:${10 + (depth + 1) * 22}px"><div class="cl-add"><input id="cl-sname" placeholder="New sub cluster name" aria-label="New sub cluster name"><input id="cl-slabel" list="cl-labels" value="${esc(suggestLabel(state, parentId))}" placeholder="Called" aria-label="What it is called"><input id="cl-splace" placeholder="Place" aria-label="Place">
-      <button type="button" class="iconact ok" data-cl="cluster-add" data-id="${esc(parentId)}" title="Add the sub cluster" aria-label="Add the sub cluster">+</button><button type="button" class="iconact" data-cl="sub-cancel" title="Cancel" aria-label="Cancel">&times;</button></div></td></tr>`;
-  const tree = rows.filter(({ cluster: x }) => shown(x.parentId)).map(({ cluster: x, depth }) => {
-    const n = kids(x.id);
-    const open = openClusters.has(x.id);
-    const toggle = n > 0 ? `<button type="button" class="iconact" data-cl="toggle" data-id="${esc(x.id)}" aria-expanded="${open}" title="${open ? "Hide" : "Show"} what is inside" aria-label="${open ? "Hide" : "Show"} what is inside ${esc(x.name)}">${open ? "&#9662;" : "&#9656;"}</button>` : '<span class="cl-nobtn"></span>';
-    const row = `<tr data-find="${esc(`${x.name} ${x.label} ${x.place}`.toLowerCase())}"><td style="padding-left:${10 + depth * 22}px"><span class="cl-name">${toggle}<span class="cl-icon" aria-hidden="true">${n > 0 ? "&#128193;" : "&#128196;"}</span><b>${esc(x.name)}</b>${n > 0 ? `<span class="pill" title="Inside">${n}</span>` : ""}</span></td><td>${esc(x.label)}</td><td class="muted">${esc(x.place)}</td><td>${statusPill(x)}</td>
-      <td class="actcol">${gear(x)}<button type="button" class="iconact ok" data-cl="sub-open" data-id="${esc(x.id)}" title="Add a sub cluster inside" aria-label="Add a sub cluster inside ${esc(x.name)}">+</button>${remove(x)}</td></tr>`;
-    return row + (adding === x.id ? addSub(x.id, depth) : "");
-  }).join("");
-  return `<section>${searchBox(rows.length)}
-    ${rows.length ? `<div class="tablewrap"><table class="subtable cl-table"><thead><tr><th>Sub-Clusters of ${esc(c.name)}</th><th>Called</th><th>Place</th><th>Status</th><th class="actcol"></th></tr></thead><tbody>${tree}</tbody></table></div>` : '<p class="muted">No sub clusters yet. Add the first sub cluster below.</p>'}
+  const n = insideCount(state, c.id);
+  return `<section>${searchBox(n)}
+    ${n ? treeHtml(state, c.id, adding) : "<p class=\"muted\">No sub clusters yet. Add the first one below.</p>"}
     <div class="cl-add"><input id="cl-bname" placeholder="New sub cluster, for example Classroom 1" aria-label="New sub cluster name"><input id="cl-blabel" list="cl-labels" value="${esc(suggestLabel(state, c.id))}" placeholder="Called" aria-label="What it is called"><input id="cl-bplace" placeholder="Place" aria-label="Place">
       <button type="button" class="iconact ok" data-cl="cluster-add-b" data-id="${esc(c.id)}" title="Add inside ${esc(c.name)}" aria-label="Add inside ${esc(c.name)}">+</button></div>${labelsList(state)}</section>`;
 }

@@ -20,8 +20,8 @@ import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
 import { projectFormHtml, readProjectForm } from "./project-form";
 import { ICON_SETTINGS } from "./icons";
-import { clusterStateOf, subRows } from "../modules/06-projects/clusters";
-import { clusterUi, openClusters } from "./clusters-tab";
+import { clusterStateOf } from "../modules/06-projects/clusters";
+import { closedClusters, clusterUi } from "./clusters-tab";
 import { benefitRow, NEW_CONTACT_ROW, NEW_DOC_ROW, readPartnerForm } from "./partner-form";
 import { partnerWindowHtml, type PartnerTab } from "./partner-window";
 import { allocationPage } from "./allocation-page";
@@ -1586,25 +1586,21 @@ document.addEventListener("click", (e) => {
   const val = (i: string) => (document.getElementById(i) as HTMLInputElement | null)?.value ?? "";
   const id = b.dataset.id ?? "";
   switch (b.dataset.cl) {
-    case "toggle": if (openClusters.has(id)) openClusters.delete(id); else openClusters.add(id); return clusterView();
-    case "sub-open": openClusters.add(id); clusterUi.adding = id; return clusterView(); // the folder opens so the new sub cluster shows
+    case "toggle": if (closedClusters.has(id)) closedClusters.delete(id); else closedClusters.add(id); return clusterView();
+    case "expand-all": closedClusters.clear(); return clusterView();
+    case "collapse-all": { const gp = state.giftProjects.find((g) => g.id === state.projectWin.id); const all = clusterStateOf(gp?.levels, gp?.clusters); for (const c of all.clusters) if (all.clusters.some((x) => x.parentId === c.id)) closedClusters.add(c.id); return clusterView(); }
+    case "sub-open": closedClusters.delete(id); clusterUi.adding = id; return clusterView(); // the folder opens so the new sub cluster shows
     case "sub-cancel": clusterUi.adding = ""; return clusterView();
-    case "goto": { // "" goes back to the list. A cluster opens with its tree showing in full, since each cluster is a screen of its own and stays short.
-      clusterUi.node = id; clusterUi.adding = ""; clusterUi.nodeTab = "details";
-      const gp = state.giftProjects.find((g) => g.id === state.projectWin.id);
-      const all = clusterStateOf(gp?.levels, gp?.clusters);
-      for (const r of subRows(all, id)) if (all.clusters.some((c) => c.parentId === r.cluster.id)) openClusters.add(r.cluster.id);
-      return clusterView();
-    }
+    case "goto": clusterUi.node = id; clusterUi.adding = ""; clusterUi.nodeTab = "details"; return clusterView(); // "" goes back to the tree
     case "node-tab": clusterUi.nodeTab = b.dataset.tab === "inside" ? "inside" : "details"; clusterUi.adding = ""; return clusterView();
     case "node-save": return clusterRequestThen("Saved.", { action: "cluster-set", clusterId: id, name: val("cn-name"), label: val("cn-label"), place: val("cn-place"), roles: val("cn-roles"), status: val("cn-status"), ...(document.getElementById("cn-capacity") ? { capacity: val("cn-capacity") } : {}) });
     case "cluster-add": { // Rule: capacity belongs to the master cluster only, so a sub cluster is sent none.
       if (id === "") return clusterRequest({ action: "cluster-add", name: val("cl-tname"), label: val("cl-tlabel"), parentId: "", place: val("cl-tplace"), capacity: val("cl-tcap") });
-      openClusters.add(id);
+      closedClusters.delete(id);
       clusterUi.adding = "";
       return clusterRequest({ action: "cluster-add", name: val("cl-sname"), label: val("cl-slabel"), parentId: id, place: val("cl-splace") });
     }
-    case "cluster-add-b": openClusters.add(id); return clusterRequest({ action: "cluster-add", name: val("cl-bname"), label: val("cl-blabel"), parentId: id, place: val("cl-bplace") });
+    case "cluster-add-b": closedClusters.delete(id); return clusterRequest({ action: "cluster-add", name: val("cl-bname"), label: val("cl-blabel"), parentId: id, place: val("cl-bplace") });
     case "cluster-rm": return clusterRequest({ action: "cluster-remove", clusterId: id });
   }
 });

@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { clusterUi, clustersTabHtml, openClusters } from "./clusters-tab";
+import { closedClusters, clusterUi, clustersTabHtml } from "./clusters-tab";
 import { projectFormHtml } from "./project-form";
 import type { ClusterState } from "../modules/06-projects/clusters";
 
@@ -19,20 +19,60 @@ const home: ClusterState = {
   ],
 };
 
-const reset = (): void => { openClusters.clear(); clusterUi.adding = ""; clusterUi.node = ""; clusterUi.nodeTab = "details"; };
+const reset = (): void => { closedClusters.clear(); clusterUi.adding = ""; clusterUi.node = ""; clusterUi.nodeTab = "details"; clusterUi.notice = ""; };
 
-describe("the Clusters tab, the list", () => {
-  it("lists only the master clusters, one short line each, with how many subs are in it and a settings button, the settings button drawn as an icon", () => {
+describe("the Clusters tab, the tree", () => {
+  it("shows every cluster as a tree, a sub cluster under the one it is in, with hierarchy lines and a folder icon on those that hold others", () => {
     reset();
     const html = clustersTabHtml(home);
-    expect(html).toContain("<b>Lahore University</b>");
-    expect(html).not.toContain("Science"); // sub clusters are not listed here
-    expect(html).toMatch(/<td class="num">40<\/td><td class="num">3<\/td>/); // capacity 40, three inside (two faculties and a department)
-    expect(html).toContain('data-cl="goto" data-id="lahore-university"');
-    expect(html).toMatch(/class="iconact gear" data-cl="goto"[^>]*><svg/); // a drawn gear, not a text character that shrinks to a dot
-    expect(html).toContain("<th class=\"num\">Subs</th>");
-    expect(html).toContain('data-cl="cluster-rm" data-id="lahore-university"');
+    expect(html.indexOf('data-id="lahore-university"')).toBeLessThan(html.indexOf('data-id="science"'));
+    expect(html.indexOf('data-id="science"')).toBeLessThan(html.indexOf('data-id="physics"'));
+    expect(html).toContain('class="tl end"'); // the last of its brothers and sisters ends with an elbow
+    expect(html).toContain('class="tl mid"'); // one with more after it has a tee
+    const more: ClusterState = { clusters: [...home.clusters, { id: "painting", name: "Painting", label: "Department", parentId: "arts", place: "", status: "active" }] };
+    expect(clustersTabHtml(more)).toContain('class="tl v"'); // a line carries on past a faculty that has more below it (Arts comes before Science)
+    expect(html).toContain("Clusters <span class=\"muted\">(4)</span>");
+    expect(html).toContain('data-cl="expand-all"');
+  });
+  it("draws a top cluster with no lines, and a deeper one with one more column of line for each level", () => {
+    reset();
+    const html = clustersTabHtml(home);
+    const row = (id: string): string => html.split("<tr").find((r) => r.includes(`data-cl="goto" data-id="${id}"`)) ?? "";
+    expect(row("lahore-university")).not.toContain("tls");
+    expect((row("science").match(/class="tl[ "]/g) ?? []).length).toBe(1);
+    expect((row("physics").match(/class="tl[ v"]/g) ?? []).length).toBe(2);
+  });
+  it("closes a folder to hide what is inside it, and every folder is open until closed", () => {
+    reset();
+    expect(clustersTabHtml(home)).toContain('data-id="physics"');
+    expect(clustersTabHtml(home)).toContain('data-cl="toggle" data-id="science" aria-expanded="true"');
+    closedClusters.add("science");
+    const closed = clustersTabHtml(home);
+    expect(closed).not.toContain('data-cl="goto" data-id="physics"');
+    expect(closed).toContain('data-cl="toggle" data-id="science" aria-expanded="false"');
+    closedClusters.add("lahore-university");
+    expect(clustersTabHtml(home)).not.toContain('data-cl="goto" data-id="science"');
+    reset();
+  });
+  it("gives each row a settings gear drawn as an icon, a + to add inside, and a remove, and sets capacity on the top cluster only", () => {
+    reset();
+    const html = clustersTabHtml(home);
+    expect(html).toMatch(/class="iconact gear" data-cl="goto" data-id="physics"[^>]*><svg/);
+    expect(html).toContain('data-cl="sub-open" data-id="science"');
+    expect(html).toContain('data-cl="cluster-rm" data-id="science"');
+    expect(html).toContain('<td class="num">40</td>'); // the total on the top cluster
+    expect(html).toContain("about 20"); // a sub cluster's even share
     expect(html).not.toContain('data-cl="capacity"'); // no input boxes in the rows
+  });
+  it("adds a sub cluster from an inline row under the cluster whose + was pressed, suggested the label its sisters use", () => {
+    reset();
+    expect(clustersTabHtml(home)).not.toContain('id="cl-sname"');
+    clusterUi.adding = "lahore-university";
+    const html = clustersTabHtml(home);
+    expect(html).toContain('id="cl-sname"');
+    expect(html).toContain('id="cl-slabel" list="cl-labels" value="Faculty"');
+    expect(html).toContain('data-cl="sub-cancel"');
+    reset();
   });
   it("adds a master cluster from a row at the bottom, and asks for the first one when there are none", () => {
     reset();
@@ -40,6 +80,7 @@ describe("the Clusters tab, the list", () => {
     const none = clustersTabHtml({ clusters: [] });
     expect(none).toContain("No clusters yet. Add the first one below.");
     expect(none).toContain('id="cl-tname"');
+    expect(none).not.toContain('data-cl="expand-all"');
   });
   it("shows a search box only once the list is long", () => {
     reset();
@@ -50,12 +91,13 @@ describe("the Clusters tab, the list", () => {
   it("shows an error where the person is looking, and never trusts a name as HTML", () => {
     reset();
     expect(clustersTabHtml(home, "Give the cluster a name.")).toContain('role="alert">Give the cluster a name.');
-    const html = clustersTabHtml({ clusters: [{ id: "c", name: "<img src=x onerror=alert(1)>", label: "<b>L</b>", parentId: "", place: "<script>1</script>", status: "active", roles: ["<i>r</i>"] }] });
+    const evil: ClusterState = { clusters: [{ id: "c", name: "<img src=x onerror=alert(1)>", label: "<b>L</b>", parentId: "", place: "<script>1</script>", status: "active", roles: ["<i>r</i>"] }] };
+    const html = clustersTabHtml(evil);
     expect(html).not.toContain("<img src=x");
     expect(html).not.toContain("<script>1");
     expect(html).not.toContain("<b>L</b>");
     clusterUi.node = "c";
-    expect(clustersTabHtml({ clusters: [{ id: "c", name: "<img src=x onerror=alert(1)>", label: "<b>L</b>", parentId: "", place: "<script>1</script>", status: "active", roles: ["<i>r</i>"] }] })).not.toContain("<i>r</i>");
+    expect(clustersTabHtml(evil)).not.toContain("<i>r</i>");
     reset();
   });
 });
@@ -78,32 +120,23 @@ describe("the Clusters tab, one cluster", () => {
     clusterUi.node = "physics";
     const html = clustersTabHtml(home);
     expect(html).not.toContain('id="cn-capacity"');
-    expect(html).toContain("about <b>20</b>"); // 40 over two faculties, physics alone in science
+    expect(html).toContain("about <b>20</b>");
     expect(html).toContain('data-cl="goto" data-id="lahore-university">Lahore University</button>');
     expect(html).toContain('data-cl="goto" data-id="science">Science</button>');
     reset();
   });
-  it("shows what is inside as folders that open and close, each with settings and a + to add inside", () => {
+  it("shows what is inside a cluster as the same tree, starting from that cluster", () => {
     reset();
     clusterUi.node = "lahore-university";
     clusterUi.nodeTab = "inside";
-    const closed = clustersTabHtml(home);
-    expect(closed).toContain('data-id="science"');
-    expect(closed).toContain('data-cl="toggle" data-id="science" aria-expanded="false"');
-    expect(closed).not.toContain('data-cl="goto" data-id="physics"'); // inside Science, which is closed
-    openClusters.add("science");
-    const open = clustersTabHtml(home);
-    expect(open).toContain('data-cl="goto" data-id="physics"');
-    expect(open).toContain('data-cl="sub-open" data-id="physics"');
-    expect(open).toContain('id="cl-bname"'); // add inside this cluster
-    expect(open).toContain('id="cl-blabel" list="cl-labels" value="Faculty"'); // the label its sisters use
-    clusterUi.adding = "science";
-    const adding = clustersTabHtml(home);
-    expect(adding).toContain('id="cl-sname"');
-    expect(adding).toContain('id="cl-slabel" list="cl-labels" value="Department"');
+    const html = clustersTabHtml(home);
+    expect(html).toContain('data-cl="goto" data-id="physics"');
+    expect(html).not.toContain('data-cl="goto" data-id="lahore-university"'); // the cluster itself is the page, not a row
+    expect(html).toContain('id="cl-bname"');
+    expect(html).toContain('id="cl-blabel" list="cl-labels" value="Faculty"');
     reset();
   });
-  it("falls back to the list when the open cluster no longer exists", () => {
+  it("falls back to the tree when the open cluster no longer exists", () => {
     reset();
     clusterUi.node = "gone";
     expect(clustersTabHtml(home)).toContain("<b>Lahore University</b>");
