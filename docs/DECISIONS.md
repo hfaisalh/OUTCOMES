@@ -627,3 +627,13 @@ Addendum to 162 (Faisal, 24/11/2026): the Clusters tab itself shows **the whole 
 - **Automatic or suggested** follows the **workflow's own Assignment setting** (automatic, or suggest, which is the default). Automatic is assigned at once. Suggested only shows who it would go to, and a person confirms one or all, or chooses another eligible partner from the list. **Reassigning** a gift needs the workflow's Reassign switch on.
 - **Kept apart from the gifts:** the results are separate records, one per gift, never written onto the gift. **Reset assignments** clears them all so a test can be run again. The page shows the room left with each partner and, for each gift, who it goes to or why no one.
 - **Not built yet:** Confirmation by the partner (the 3 day answer), the urgent flag, and **Allocation rewired** so an assigned gift fills an open place in a cluster (see 165).
+
+## 171. The sample covers every item, so every gift has somewhere to go (Faisal, 24/11/2026)
+
+- Supersedes the partner set in 169 in one respect: the sample was built around sponsorship, building and relief items, so most gifts in the real catalogue (the transactional workflows replicate the same one) had **no partner that delivers their item** or met a partner with room for one. A first run showed 350 of 397 gifts waiting.
+- **One general partner** now delivers every item, with generous room (100 for each, never under 5). Every other sample partner has at least **5** for each benefit it delivers (the trust keeps 3 for its first item, so the overflow is still seen).
+- **A real project with no partner** is given the general partner, so its gifts do not all wait. Its own clusters, items and gifts are not touched, and Remove takes the partner off again.
+- **Items with no type** get a general project and a site of their own, with the general partner.
+- **One item is left uncovered on purpose** when there are more than five (the last by its ID), so a gift that waits with "no partner delivers the item" can still be seen. The summary says which.
+- The Assignment page now counts **why gifts wait** by reason (no partner delivers the item, every eligible partner is full, the project has no partner, does not offer the benefit, is not set up).
+- Starting workflows still **suggest** by default: Assign automatically does nothing for them until a workflow's Assignment is set to automatic, or Confirm all suggestions is pressed.

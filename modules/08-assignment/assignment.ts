@@ -59,6 +59,7 @@ export interface Suggestion {
   mode: "auto" | "suggest";
   partnerId: string; // the first partner with room, "" when none
   why: string; // in plain words: who it goes to or why no one
+  blocked: "" | "not-offered" | "not-set-up" | "no-partner" | "none-delivers" | "full"; // why no one, in a word for counting: "" when a partner has room
   candidates: Candidate[]; // every partner considered, in order, with whether it has room
   urgent: boolean;
 }
@@ -101,16 +102,16 @@ export function hasRoom(p: Project, itemId: string, parts: number, records: Assi
 }
 
 // The partners a gift can be considered for, in order, and why a gift may have none.
-function considered(ctx: AssignContext, w: WorkOrder): { gp: GiftProject | undefined; list: Project[]; reason: string } {
+function considered(ctx: AssignContext, w: WorkOrder): { gp: GiftProject | undefined; list: Project[]; reason: string; blocked: Suggestion["blocked"] } {
   const gp = projectOfOrder(w, ctx.giftProjects);
   if (!gp) {
-    if ((w.projectName ?? "").trim() !== "" && !isGeneralProjectName(w.projectName ?? "")) return { gp, list: [], reason: `The project ${w.projectName} is not set up yet.` };
+    if ((w.projectName ?? "").trim() !== "" && !isGeneralProjectName(w.projectName ?? "")) return { gp, list: [], reason: `The project ${w.projectName} is not set up yet.`, blocked: "not-set-up" };
     const list = eligiblePartners(ctx.partners, w.itemId, ctx.today);
-    return { gp, list, reason: list.length ? "" : "No active partner delivers this item." };
+    return { gp, list, reason: list.length ? "" : "No active partner delivers this item.", blocked: list.length ? "" : "none-delivers" };
   }
-  if (!projectOffers(gp, w.itemId)) return { gp, list: [], reason: `${gp.name} does not offer this benefit.` };
+  if (!projectOffers(gp, w.itemId)) return { gp, list: [], reason: `${gp.name} does not offer this benefit.`, blocked: "not-offered" };
   const list = projectVendors(gp, ctx.partners, w.itemId, ctx.today);
-  return { gp, list, reason: list.length ? "" : gp.partnerIds.length === 0 ? `${gp.name} has no partner yet.` : `No partner of ${gp.name} is eligible for this item.` };
+  return { gp, list, reason: list.length ? "" : gp.partnerIds.length === 0 ? `${gp.name} has no partner yet.` : `No partner of ${gp.name} is eligible for this item.`, blocked: list.length ? "" : gp.partnerIds.length === 0 ? "no-partner" : "none-delivers" };
 }
 
 /**
@@ -121,13 +122,14 @@ export function suggestAssignments(ctx: AssignContext, existing: Assignments): S
   const out: Suggestion[] = [];
   for (const w of toAssign(ctx, existing)) {
     const parts = partsOf(w);
-    const { gp, list, reason } = considered(ctx, w);
+    const { gp, list, reason, blocked } = considered(ctx, w);
     const candidates: Candidate[] = list.map((p) => ({ partnerId: p.id, name: p.name, ...hasRoom(p, w.itemId, parts, running) }));
     const first = candidates.find((c) => c.ok);
     if (first) running.push({ key: w.key, partnerId: first.partnerId, giftProjectId: gp?.id ?? "", itemId: w.itemId, parts, how: "auto", at: ctx.now });
     out.push({
       key: w.key, projectId: gp?.id ?? "", itemId: w.itemId, parts, mode: ctx.modeOf(w.frameworkId ?? ""), partnerId: first?.partnerId ?? "", urgent: ctx.urgent.has(w.key), candidates,
       why: first ? `Goes to ${first.name} (${first.why})` : reason || `Every eligible partner is full (${candidates.map((c) => c.name).join(", ")}).`,
+      blocked: first ? "" : blocked || "full",
     });
   }
   return out;

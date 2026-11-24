@@ -20,7 +20,7 @@ const load = (over: Partial<SampleInput> = {}) => { const r = loadSampleSetup(in
 describe("loading the sample setup", () => {
   it("builds partners, projects with clusters, beneficiaries and enrolments from the items that exist", () => {
     const { value, summary } = load();
-    expect(summary).toMatchObject({ partners: 5, projects: 3, attached: 0, clusters: 16, beneficiaries: 24, enrolments: 18, skipped: [] });
+    expect(summary).toMatchObject({ partners: 6, projects: 3, attached: 0, clusters: 16, beneficiaries: 24, enrolments: 18, skipped: [] });
     expect(value.giftProjects.map((g) => g.name)).toEqual(["Sample Orphan Homes", "Sample Village Projects", "Sample Relief Camps"]);
     expect(value.giftProjects[0]?.itemIds).toEqual(["I10", "I13"]); // the person items
   });
@@ -113,6 +113,7 @@ describe("attaching to a real project", () => {
     expect(gp.clusters?.length).toBe(12);
     expect(gp.partnerIds[0]).toBe("real-partner"); // its own partner stays first, the sample ones follow
     expect(gp.partnerIds.length).toBe(5);
+    expect(gp.sampleAttached).toEqual({ partnerIds: gp.sampleAttached!.partnerIds, clusters: true });
     expect(gp.sampleAttached?.partnerIds.length).toBe(4);
     expect(value.enrolments.records.some((e) => e.giftProjectId === "aghosh-orphan-home")).toBe(true);
     expect(value.giftProjects.map((g) => g.name)).toEqual(["Aghosh Orphan Home", "Sample Village Projects", "Sample Relief Camps"]);
@@ -139,12 +140,48 @@ describe("attaching to a real project", () => {
   });
 });
 
+describe("covering every item (DECISIONS 171)", () => {
+  const more = [...items, { id: "I20", name: "Zakat General" }, { id: "I21", name: "Ramadan Food Packs" }, { id: "I22", name: "Mystery Item" }];
+  it("makes one general partner that delivers every item with generous room, so any gift has somewhere to go", () => {
+    const { value } = load();
+    const general = value.partners.find((p) => p.name === "Sample General Partner")!;
+    expect(general.itemIds).toEqual(["I10", "I11", "I13", "I14"]);
+    expect(Object.values(general.benefitTerms ?? {}).every((t) => (t.capacity ?? 0) >= 5)).toBe(true);
+    expect(general.benefitTerms?.["I10"]?.capacity).toBe(100);
+  });
+  it("leaves one item without a partner on purpose when there are more than five, and says which", () => {
+    const { value, summary } = load({ items: more });
+    const general = value.partners.find((p) => p.name === "Sample General Partner")!;
+    expect(summary.uncovered).toEqual(["Mystery Item"]);
+    expect(general.itemIds).not.toContain("I22");
+    expect(general.itemIds).toContain("I21");
+  });
+  it("gives items with no type a general project of their own, with the general partner", () => {
+    const { value } = load({ items: more });
+    const gp = value.giftProjects.find((g) => g.name === "Sample General Programmes")!;
+    expect(gp.itemIds?.sort()).toEqual(["I20", "I22"]); // no type (Ramadan Food Packs is read as a distribution from its name), so no clusters of a kind, but a site to belong to
+    expect(gp.partnerIds).toHaveLength(1);
+  });
+  it("gives the general partner to a real project that has none, and takes it off again, leaving the project's own clusters, items and gifts alone", () => {
+    const noPartner = { id: "flood", name: "Flood Relief", crmNames: [], partnerIds: [], clusters: [{ id: "x", name: "Mine", label: "Camp", parentId: "", place: "", status: "active" as const }] } satisfies GiftProject;
+    const own = { id: "own", name: "Own Project", crmNames: [], partnerIds: ["real-partner"] } satisfies GiftProject;
+    const { value, summary } = load({ giftProjects: [noPartner, own], realProjects: [] });
+    expect(summary.coveredProjects).toBe(1);
+    const given = value.giftProjects.find((g) => g.id === "flood")!;
+    expect(given.partnerIds).toHaveLength(1);
+    expect(given.clusters?.map((c) => c.name)).toEqual(["Mine"]);
+    expect(value.giftProjects.find((g) => g.id === "own")?.partnerIds).toEqual(["real-partner"]); // already had a partner: untouched
+    const gone = removeSampleSetup(value);
+    expect(gone.value.giftProjects.filter((g) => g.sample !== true)).toEqual([noPartner, own]);
+  });
+});
+
 describe("removing the sample setup", () => {
   it("takes away exactly what the sample made and leaves everything else", () => {
     const realEnrolment: Enrolment = { id: "EN-9999", beneficiaryId: "REAL-1", giftProjectId: "real", clusterId: "c", itemId: "I10", role: "", status: "active", since: "2026-01-01" };
     const loaded = load({ enrolments: { records: [realEnrolment], counter: 9999 } });
     const gone = removeSampleSetup(loaded.value);
-    expect(gone.removed).toEqual({ partners: 5, projects: 3, beneficiaries: 24, enrolments: 18 });
+    expect(gone.removed).toEqual({ partners: 6, projects: 3, beneficiaries: 24, enrolments: 18 });
     expect(gone.value.enrolments.records).toEqual([realEnrolment]);
     expect(gone.value.register.records).toEqual([]);
     expect(gone.value.giftProjects).toEqual([]);

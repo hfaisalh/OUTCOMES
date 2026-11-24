@@ -28,6 +28,9 @@ export function assignmentPage(v: View): string {
   const toGo = suggestions.filter((s) => s.partnerId !== "" && s.mode === "auto").length;
   const filter = v.assignFilter ?? "all";
 
+  // Why gifts wait, counted by reason, so a long list is understood at a glance.
+  const REASONS: Record<string, string> = { "none-delivers": "no partner delivers the item", full: "every eligible partner is full", "no-partner": "the project has no partner yet", "not-offered": "the project does not offer the benefit", "not-set-up": "the project is not set up" };
+  const why = Object.entries(REASONS).map(([k, label]) => ({ n: suggestions.filter((s) => s.blocked === k).length, label })).filter((x) => x.n > 0);
   const metric = (n: number, label: string, cls = ""): string => `<div class="metric${cls ? ` ${cls}` : ""}"><b>${n}</b><span>${esc(label)}</span></div>`;
   const rooms = loads(partners.filter((p) => (p.itemIds ?? []).length > 0 || existing.records.some((a) => a.partnerId === p.id)), existing);
   const itemName = (id: string): string => v.workOrders.find((w) => w.itemId === id)?.itemName ?? id;
@@ -55,6 +58,7 @@ export function assignmentPage(v: View): string {
     <p class="sub">Each released gift is handed to a partner. A gift for a project goes to that project's partners in its order, and the first that is active, in date, delivers the item and has room takes it. A gift with no project goes to any partner that delivers its item. A workflow set to automatic assigns at once, one set to suggest waits for a person.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics">${metric(toAssign(ctx, existing).length, "Need a partner")}${metric(toGo + suggested, "Have a partner ready")}${metric(existing.records.length, "Assigned")}${metric(waiting, "Wait, no partner with room", waiting ? "warn" : "")}</div>
+    ${why.length ? `<p class="muted"><b>Why gifts wait:</b> ${why.map((x) => `${x.n} ${esc(x.label)}`).join(" · ")}.</p>` : ""}
     <div class="actions"><button class="primary" data-asg="run">Assign automatically</button><button data-asg="confirm"${suggested + toGo ? "" : " disabled"}>Confirm all suggestions</button><button data-asg="reset"${existing.records.length ? "" : " disabled"}>Reset assignments</button></div>
     <div class="card"><h2>Room left with each partner</h2>${rooms.length ? `<table><thead><tr><th>Partner</th><th>Benefit</th><th class="num">Capacity</th><th class="num">Assigned</th><th class="num">Free</th></tr></thead><tbody>${roomRows}</tbody></table>` : '<div class="empty">No partner delivers a benefit yet. Add partners on the Partners page.</div>'}</div>
     <div class="card"><h2>Gifts <span class="muted">(${shown.length})</span></h2>${filters}

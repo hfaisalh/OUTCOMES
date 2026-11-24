@@ -6,6 +6,8 @@
  * classes, a home that is full, a home that is closed, a university three levels deep, villages, a camp, a mosque site), and beneficiaries (children with every admission decision, students, a widow, a principal, a
  * warden and a dean in roles, households, a possible duplicate, an inactive child, a child waiting with nowhere to go), enrolled through the same rules as a person's.
  * It is built from the items that exist, using each item's type: person items go to the sponsorship project, build items to the village project, the rest to the relief project. A group with no items is skipped.
+ * Every other item is covered too (DECISIONS 171): one general partner delivers all of them with generous room, an untyped item gets a general project, and a real project that has no partner is given the general
+ * partner, so every gift in every workflow has somewhere to go. One item is left uncovered on purpose (when there are more than five), so a gift that waits with "no partner delivers it" can still be seen.
  * Where real gifts exist, the invented clusters and partners are attached to the real project whose gifts carry those items (so real gifts land in invented places), and a project of its own is made only when there is none.
  * Who calls it: the server (modules/00-platform/handlers.ts) and the demo (app/main.ts), from the buttons on the Organisation settings page. Depends on: projects.ts, clusters.ts, beneficiaries.ts, enrolments.ts,
  * benefits.ts and kind-features.ts. Pure functions: no database, no screen.
@@ -41,7 +43,7 @@ export interface SampleInput {
   today: string;
 }
 export interface SampleState { partners: Project[]; giftProjects: GiftProject[]; partnerTypes: string[]; register: Register; enrolments: Enrolments }
-export interface SampleSummary { partners: number; projects: number; attached: number; clusters: number; beneficiaries: number; enrolments: number; skipped: string[] }
+export interface SampleSummary { partners: number; projects: number; attached: number; coveredProjects: number; uncovered: string[]; clusters: number; beneficiaries: number; enrolments: number; skipped: string[] }
 type Loaded = ({ value: SampleState; summary: SampleSummary }) | { error: string };
 
 // The real projects (not made by the sample), the items the gifts of each carry and how many gifts carry each, for the sample to attach to the busiest. A project is known by its CRM name, or its own name when it has none.
@@ -64,7 +66,7 @@ function partnerProfile(name: string, reference: string, items: { id: string }[]
   return {
     name, officialName: `${name} (invented)`, type: "Institute", status: lapsed ? "pending" : "active", reference, established: "2012-04-01", partnershipStart: `${year - 1}-01-15`, countries: "Examplestan", regions: "North District",
     contacts: [{ name: "Sample Director", position: "Director", phone: "+000 000 0000", mobile: "+000 000 0001", email: "director@example.org", handles: "Agreements and approvals" }],
-    itemIds: items.map((i) => i.id), terms: Object.fromEntries(items.map((i, n) => [i.id, { capacity: String(Math.max(1, base - n * 5)), costPerUnit: String(100 + n * 50) }])), capacity: String(base * 2),
+    itemIds: items.map((i) => i.id), terms: Object.fromEntries(items.map((i, n) => [i.id, { capacity: String(n === 0 ? base : Math.max(5, base - n * 5)), costPerUnit: String(100 + n * 50) }])), capacity: String(base * 2),
     capacityNote: lapsed ? "Invented partner whose due diligence has lapsed" : "Invented partner for trying the system", reportVia: "Email", language: "English", sectors: "Education, Child care",
     ddReference: `DD-${reference}`, ddStatus: "approved", ddReview: lapsed ? `${year - 1}-01-31` : `${year + 1}-12-31`, notes: "An invented sample partner. Nothing about it is real.",
   };
@@ -93,6 +95,7 @@ export function loadSampleSetup(input: SampleInput): Loaded {
   const sponsor = group(["person"]);
   const build = group(["build"]);
   const relief = group(["activity", "distribution", "programme", "waqf"]);
+  const untyped = group([""]); // items with no type yet: no clusters or beneficiaries, but they still need somewhere to go
   if (sponsor.length + build.length + relief.length === 0) return { error: "No item has a type yet, so there is nothing to build a sample from. Choose a type for the items on the Benefits page." };
   const skipped: string[] = [];
   try {
@@ -112,6 +115,10 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     const lapsed = addPartner("Sample Lapsed Partner", "SAMPLE-005", sponsor, 10, true);
     const builders = addPartner("Sample Builders Foundation", "SAMPLE-003", build, 15);
     const relieft = addPartner("Sample Relief Team", "SAMPLE-004", relief, 30);
+    // The general partner delivers every item with generous room, so any gift has somewhere to go. With more than five items, the last one is left out on purpose: a gift for it waits, "no partner delivers it".
+    const sorted = [...input.items].sort((a, b) => a.id.localeCompare(b.id));
+    const uncovered = sorted.length > 5 ? [sorted[sorted.length - 1] as { id: string; name: string }] : [];
+    const general = addPartner("Sample General Partner", "SAMPLE-006", sorted.filter((i) => !uncovered.some((u) => u.id === i.id)), 100);
 
     // ---- Projects and their clusters. A real project whose gifts carry the items is given the clusters and partners, so real gifts land in invented places. ----
     let gps = input.giftProjects;
@@ -130,7 +137,7 @@ export function loadSampleSetup(input: SampleInput): Loaded {
         used.add(real.id);
         attached++;
         const adds = partnerIds.filter((id) => !(gps.find((g) => g.id === real.id)?.partnerIds ?? []).includes(id));
-        gps = gps.map((g) => (g.id === real.id ? { ...g, clusters, partnerIds: [...g.partnerIds, ...adds], sampleAttached: { partnerIds: adds } } : g));
+        gps = gps.map((g) => (g.id === real.id ? { ...g, clusters, partnerIds: [...g.partnerIds, ...adds], sampleAttached: { partnerIds: adds, clusters: true } } : g));
         return real.id;
       }
       gps = must(saveGiftProject(gps, ps.projects, { name, crmName: "", partnerIds, itemIds: items.map((i) => i.id), notes: "An invented sample project. Nothing about it is real." }, ""));
@@ -148,7 +155,17 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     const villages = addProject("Sample Village Projects", build, [builders].filter((x) => x !== ""), clustersFrom([{ name: "Sample Village A", label: "Village", capacity: 6 }, { name: "Sample Village B", label: "Village", capacity: 4 }]));
     // The mosque site has no capacity on purpose: it serves a community, not a number of places.
     const camps = addProject("Sample Relief Camps", relief, [relieft].filter((x) => x !== ""), clustersFrom([{ name: "Sample Camp 1", label: "Camp", capacity: 40 }, { name: "Sample Mosque Site", label: "Site" }]));
-    const clusterCount = [homes, villages, camps].reduce((n, id) => n + (gps.find((g) => g.id === id)?.clusters?.length ?? 0), 0);
+    const programmes = addProject("Sample General Programmes", untyped, [general].filter((x) => x !== ""), clustersFrom([{ name: "Sample General Site", label: "Site" }]));
+    // A real project with no partner is given the general partner, so its gifts do not all wait. Its own clusters, items and gifts are not touched.
+    let coveredProjects = 0;
+    if (general !== "") {
+      gps = gps.map((g) => {
+        if (g.sample === true || g.partnerIds.length > 0) return g;
+        coveredProjects++;
+        return { ...g, partnerIds: [general], sampleAttached: { partnerIds: [general], clusters: g.sampleAttached?.clusters ?? false } };
+      });
+    }
+    const clusterCount = [homes, villages, camps, programmes].reduce((n, id) => n + (gps.find((g) => g.id === id)?.clusters?.length ?? 0), 0);
 
     // ---- Beneficiaries ----
     let reg = input.register;
@@ -229,7 +246,7 @@ export function loadSampleSetup(input: SampleInput): Loaded {
 
     return {
       value: { partners: ps.projects, giftProjects: gps, partnerTypes: ps.partnerTypes, register: reg, enrolments: enr },
-      summary: { partners: ps.projects.length - input.partners.length, projects: gps.length - input.giftProjects.length, attached, clusters: clusterCount, beneficiaries: sampleIds.size, enrolments: enr.records.length - input.enrolments.records.length, skipped },
+      summary: { partners: ps.projects.length - input.partners.length, projects: gps.length - input.giftProjects.length, attached, coveredProjects, uncovered: uncovered.map((u) => u.name), clusters: clusterCount, beneficiaries: sampleIds.size, enrolments: enr.records.length - input.enrolments.records.length, skipped },
     };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "The sample setup could not be built." };
@@ -251,8 +268,8 @@ export function removeSampleSetup(s: SampleState): Removed {
   });
   const giftProjects = s.giftProjects.filter((g) => g.sample !== true).map((g): GiftProject => {
     if (g.sampleAttached === undefined) return g;
-    const { sampleAttached, clusters: _c, ...rest } = g;
-    return { ...rest, partnerIds: g.partnerIds.filter((id) => !sampleAttached.partnerIds.includes(id)) };
+    const { sampleAttached, clusters, ...rest } = g;
+    return { ...rest, ...(sampleAttached.clusters || clusters === undefined ? {} : { clusters }), partnerIds: g.partnerIds.filter((id) => !sampleAttached.partnerIds.includes(id)) };
   });
   const usedByReal = new Set(giftProjects.flatMap((g) => g.partnerIds));
   const partners = s.partners.filter((p) => {
@@ -268,5 +285,5 @@ export function removeSampleSetup(s: SampleState): Removed {
 }
 
 // What a person is told after loading or removing, in plain words.
-export const sampleSummaryText = (m: SampleSummary): string => `Sample setup loaded: ${m.partners} partners, ${m.projects} new projects${m.attached ? ` and ${m.attached} real project${m.attached === 1 ? "" : "s"} given sample clusters` : ""}, ${m.clusters} clusters, ${m.beneficiaries} beneficiaries and ${m.enrolments} enrolments.${m.skipped.length ? ` Not enrolled: ${m.skipped.join("; ")}.` : ""}`;
+export const sampleSummaryText = (m: SampleSummary): string => `Sample setup loaded: ${m.partners} partners, ${m.projects} new projects${m.attached ? ` and ${m.attached} real project${m.attached === 1 ? "" : "s"} given sample clusters` : ""}${m.coveredProjects ? `, ${m.coveredProjects} real project${m.coveredProjects === 1 ? "" : "s"} without a partner given the sample general partner` : ""}, ${m.clusters} clusters, ${m.beneficiaries} beneficiaries and ${m.enrolments} enrolments.${m.uncovered.length ? ` Left without a partner on purpose: ${m.uncovered.join(", ")}.` : ""}${m.skipped.length ? ` Not enrolled: ${m.skipped.join("; ")}.` : ""}`;
 export const removedSummaryText = (r: Removed): string => `Sample data removed: ${r.removed.partners} partners, ${r.removed.projects} projects, ${r.removed.beneficiaries} beneficiaries and ${r.removed.enrolments} enrolments.${r.kept.length ? ` Kept: ${r.kept.join("; ")}.` : ""}`;

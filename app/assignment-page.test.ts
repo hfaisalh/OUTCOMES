@@ -41,6 +41,10 @@ describe("the Assignment page", () => {
     expect(html).toContain("The project Nowhere is not set up yet.");
     expect(html).toContain('<option value="">No partner with room</option>');
   });
+  it("counts why gifts wait by reason", () => {
+    const html = assignmentPage(view({ workOrders: [wo("G01"), wo("G02", { projectName: "Nowhere" }), wo("G03", { projectName: "Nowhere" }), wo("G04", { itemId: "I99" })] }));
+    expect(html).toContain("<b>Why gifts wait:</b> 1 no partner delivers the item · 2 the project is not set up"); // G01 fits the trust, G04 is an item nobody delivers
+  });
   it("shows an assigned gift with its partner and a button to take it back, and enables Reset", () => {
     const html = assignmentPage(view({ assignments: { records: [{ key: "G01", partnerId: "backup", giftProjectId: "", itemId: "I10", parts: 1, how: "auto", at: "x" }] } }));
     expect(html).toContain('<span class="pill">Assigned</span>');
