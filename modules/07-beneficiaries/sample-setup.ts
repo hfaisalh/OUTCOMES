@@ -25,7 +25,7 @@
 
 import { kindOf } from "../02-project-rules/benefits.js";
 import type { SavedFeatures } from "../02-project-rules/kind-features.js";
-import { addCluster, setCluster, type Cluster, type ClusterState } from "../06-projects/clusters.js";
+import { addCluster, clusterStateOf, setCluster, type Cluster, type ClusterState } from "../06-projects/clusters.js";
 import { itemsSeenWith, saveGiftProject, savePartner, type GiftProject, type Project, type ProjectState } from "../06-projects/projects.js";
 import { addBeneficiary, setBeneficiary, type Beneficiary, type Register } from "./beneficiaries.js";
 import { enrol, itemRulesOf, type Enrolments } from "./enrolments.js";
@@ -47,7 +47,7 @@ export interface SampleInput {
   today: string;
 }
 export interface SampleState { partners: Project[]; giftProjects: GiftProject[]; partnerTypes: string[]; register: Register; enrolments: Enrolments }
-export interface SampleSummary { partners: number; projects: number; attached: number; coveredProjects: number; uncovered: string[]; clusters: number; beneficiaries: number; enrolments: number; skipped: string[] }
+export interface SampleSummary { partners: number; projects: number; attached: number; ownClusters: number; coveredProjects: number; uncovered: string[]; clusters: number; beneficiaries: number; enrolments: number; skipped: string[] }
 type Loaded = ({ value: SampleState; summary: SampleSummary }) | { error: string };
 
 // The real projects (not made by the sample), the items the gifts of each carry and how many gifts carry each, for the sample to attach to the busiest. A project is known by its CRM name, or its own name when it has none.
@@ -142,9 +142,17 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     const used = new Set<string>();
     let attached = 0;
     // `extra` (sponsorship only) also gives every other real project that carries these items a home of its own, since a gift for a project fills only that project's places (DECISIONS 177).
-    const addProject = (name: string, items: { id: string }[], partnerIds: string[], clusters: Cluster[], words: string[] = [], extra?: (rp: SampleInput["realProjects"][number]) => Cluster[]): string => {
+    const addProject = (name: string, items: { id: string }[], partnerIds: string[], clusters: Cluster[], words: string[] = [], extra?: (rp: SampleInput["realProjects"][number]) => Cluster[], existing?: (rp: SampleInput["realProjects"][number]) => boolean): string => {
       if (items.length === 0) return "";
       const wanted = new Set(items.map((i) => i.id));
+      // Rule (DECISIONS 180): a real project that already has clusters of its own keeps them, and the invented children are enrolled in them, so its own home is filled.
+      if (existing) {
+        for (const rp of input.realProjects) {
+          const gp = gps.find((g) => g.id === rp.id);
+          if (!gp || gp.sample === true || used.has(rp.id) || (gp.clusters ?? []).length === 0 || !rp.itemIds.some((i) => wanted.has(i))) continue;
+          if (existing(rp)) used.add(rp.id);
+        }
+      }
       const real = input.realProjects
         .filter((rp) => !used.has(rp.id) && !(gps.find((g) => g.id === rp.id)?.clusters ?? []).length)
         // Rule (DECISIONS 169): the project whose gifts carry the most of these items gets the clusters, so the busiest real project is the one the sample is built around.
@@ -182,6 +190,29 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     for (const x of need) { x.count = Math.min(x.count, budget); budget -= x.count; }
     // Each other real project that carries sponsorship gifts gets a home and children for its own gifts: the lines it has for each item divided by the units of one child, plus two.
     const extraPlans = new Map<string, { item: { id: string; name: string }; count: number }[]>();
+    const extraTarget = new Map<string, string>(); // for a real project with clusters of its own: the cluster its invented children are enrolled in
+    let ownClusters = 0;
+    const existingHome = (rp: SampleInput["realProjects"][number]): boolean => {
+      const gp = gps.find((g) => g.id === rp.id);
+      const st = clusterStateOf(gp?.levels, gp?.clusters);
+      const master = st.clusters.find((c) => c.parentId === "" && c.status === "active");
+      if (!master) return false;
+      const target = (st.clusters.find((c) => c.parentId === master.id && c.status === "active") ?? master).id;
+      let room = master.capacity ?? Infinity; // the master cluster's total is shared by everything in it
+      const list = sponsor.map((i) => {
+        const wanted = (rp.itemCounts?.[i.id] ?? 0) > 0 ? Math.ceil((rp.itemCounts?.[i.id] ?? 0) / Math.max(1, whole[i.id] ?? 1)) + 2 : 0;
+        const count = Math.max(0, Math.min(120, budget, room, wanted));
+        room -= count;
+        return { item: i, count };
+      }).filter((x) => x.count > 0);
+      const total = list.reduce((n, x) => n + x.count, 0);
+      if (total === 0) return false;
+      budget -= total;
+      extraPlans.set(rp.id, list);
+      extraTarget.set(rp.id, target);
+      ownClusters++;
+      return true;
+    };
     const extraHome = (rp: SampleInput["realProjects"][number]): Cluster[] => {
       const list = sponsor.map((i) => ({ item: i, count: Math.min(120, budget, (rp.itemCounts?.[i.id] ?? 0) > 0 ? Math.ceil((rp.itemCounts?.[i.id] ?? 0) / Math.max(1, whole[i.id] ?? 1)) + 2 : 0) })).filter((x) => x.count > 0);
       const total = list.reduce((n, x) => n + x.count, 0);
@@ -198,7 +229,7 @@ export function loadSampleSetup(input: SampleInput): Loaded {
       { name: "Sample Home - Small", label: "Home", capacity: 2, subs: [{ name: "Class A", label: "Class" }] }, // two places, so it fills
       { name: "Sample Home - Closed", label: "Home", capacity: 10, closed: true }, // takes no one
       { name: "Sample University", label: "University", capacity: 6, roles: "Principal", subs: [{ name: "Faculty of Science", label: "Faculty", subs: [{ name: "Physics Department", label: "Department" }] }, { name: "Faculty of Arts", label: "Faculty" }] },
-    ]), ["orphan", "care", "hifz", "scholar", "school", "college", "student", "sponsor"], extraHome);
+    ]), ["orphan", "care", "hifz", "scholar", "school", "college", "student", "sponsor"], extraHome, existingHome);
     const villages = addProject("Sample Village Projects", build, [builders, general].filter((x) => x !== ""), clustersFrom([{ name: "Sample Village A", label: "Village", capacity: 6 }, { name: "Sample Village B", label: "Village", capacity: 4 }]), ["water", "well", "pump", "house", "mosque", "build"]);
     // The mosque site has no capacity on purpose: it serves a community, not a number of places.
     const camps = addProject("Sample Relief Camps", relief, [relieft, general].filter((x) => x !== ""), clustersFrom([{ name: "Sample Camp 1", label: "Camp", capacity: 40 }, { name: "Sample Mosque Site", label: "Site" }]), ["flood", "relief", "camp", "palestine", "emergency", "food"]);
@@ -212,7 +243,7 @@ export function loadSampleSetup(input: SampleInput): Loaded {
         return { ...g, partnerIds: [general], sampleAttached: { partnerIds: [general], clusters: g.sampleAttached?.clusters ?? false } };
       });
     }
-    const clusterCount = [homes, villages, camps, programmes, ...extraPlans.keys()].reduce((n, id) => n + (gps.find((g) => g.id === id)?.clusters?.length ?? 0), 0);
+    const clusterCount = [homes, villages, camps, programmes, ...[...extraPlans.keys()].filter((id) => !extraTarget.has(id))].reduce((n, id) => n + (gps.find((g) => g.id === id)?.clusters?.length ?? 0), 0);
 
     // ---- Beneficiaries ----
     let reg = input.register;
@@ -312,7 +343,7 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     enroll("h4", camps, ["Sample Camp 1"], relief[relief.length > 1 ? 1 : 0]);
     // The invented children are enrolled in the large home, spread over its classes.
     for (const c of bulkChildren) {
-      const cid = clusterId(c.projectId, ["Sample Home - Main", `Class ${c.cls}`]);
+      const cid = extraTarget.get(c.projectId) ?? clusterId(c.projectId, ["Sample Home - Main", `Class ${c.cls}`]);
       const r = enrol(ctx, enr, { beneficiaryId: c.id, giftProjectId: c.projectId, clusterId: cid, itemId: c.itemId, role: "" });
       if ("error" in r) skipped.push(`${c.id} in Sample Home - Main: ${r.error}`); else enr = r.value;
     }
@@ -322,7 +353,7 @@ export function loadSampleSetup(input: SampleInput): Loaded {
 
     return {
       value: { partners: ps.projects, giftProjects: gps, partnerTypes: ps.partnerTypes, register: reg, enrolments: enr },
-      summary: { partners: ps.projects.length - input.partners.length, projects: gps.length - input.giftProjects.length, attached, coveredProjects, uncovered: uncovered.map((u) => u.name), clusters: clusterCount, beneficiaries: sampleIds.size, enrolments: enr.records.length - input.enrolments.records.length, skipped },
+      summary: { partners: ps.projects.length - input.partners.length, projects: gps.length - input.giftProjects.length, attached, ownClusters, coveredProjects, uncovered: uncovered.map((u) => u.name), clusters: clusterCount, beneficiaries: sampleIds.size, enrolments: enr.records.length - input.enrolments.records.length, skipped },
     };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "The sample setup could not be built." };
@@ -361,5 +392,5 @@ export function removeSampleSetup(s: SampleState): Removed {
 }
 
 // What a person is told after loading or removing, in plain words.
-export const sampleSummaryText = (m: SampleSummary): string => `Sample setup loaded: ${m.partners} partner${m.partners === 1 ? "" : "s"}, ${m.projects} new project${m.projects === 1 ? "" : "s"}${m.attached ? ` and ${m.attached} real project${m.attached === 1 ? "" : "s"} given sample clusters` : ""}${m.coveredProjects ? `, ${m.coveredProjects} real project${m.coveredProjects === 1 ? "" : "s"} without a partner given the sample general partner` : ""}, ${m.clusters} clusters, ${m.beneficiaries} beneficiaries and ${m.enrolments} enrolments.${m.uncovered.length ? ` Left without a partner on purpose: ${m.uncovered.join(", ")}.` : ""}${m.skipped.length ? ` Not enrolled: ${m.skipped.join("; ")}.` : ""}`;
+export const sampleSummaryText = (m: SampleSummary): string => `Sample setup loaded: ${m.partners} partner${m.partners === 1 ? "" : "s"}, ${m.projects} new project${m.projects === 1 ? "" : "s"}${m.attached ? ` and ${m.attached} real project${m.attached === 1 ? "" : "s"} given sample clusters` : ""}${m.ownClusters ? `, children enrolled in the own clusters of ${m.ownClusters} real project${m.ownClusters === 1 ? "" : "s"}` : ""}${m.coveredProjects ? `, ${m.coveredProjects} real project${m.coveredProjects === 1 ? "" : "s"} without a partner given the sample general partner` : ""}, ${m.clusters} clusters, ${m.beneficiaries} beneficiaries and ${m.enrolments} enrolments.${m.uncovered.length ? ` Left without a partner on purpose: ${m.uncovered.join(", ")}.` : ""}${m.skipped.length ? ` Not enrolled: ${m.skipped.join("; ")}.` : ""}`;
 export const removedSummaryText = (r: Removed): string => `Sample data removed: ${r.removed.partners} partners, ${r.removed.projects} projects, ${r.removed.beneficiaries} beneficiaries and ${r.removed.enrolments} enrolments.${r.kept.length ? ` Kept: ${r.kept.join("; ")}.` : ""}`;

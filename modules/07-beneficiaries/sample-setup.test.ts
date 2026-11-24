@@ -245,6 +245,37 @@ describe("every real project that carries sponsorship gifts gets its own home (D
   });
 });
 
+describe("a real project with clusters of its own keeps them and is filled (DECISIONS 180)", () => {
+  const own = (capacity?: number): GiftProject => ({ id: "aghosh", name: "Aghosh", crmNames: [], partnerIds: [], clusters: [
+    { id: "lahore-township", name: "LAHORE - TOWNSHIP", label: "Aghosh Orphan Care Home", parentId: "", place: "Lahore", ...(capacity !== undefined ? { capacity } : {}), status: "active" },
+    { id: "class-1", name: "CLASS 1", label: "Class", parentId: "lahore-township", place: "", status: "active" },
+  ] });
+  const real: SampleInput["realProjects"] = [{ id: "aghosh", itemIds: ["I10"], itemCounts: { I10: 17 } }, { id: "dadyal", itemIds: ["I10"], itemCounts: { I10: 3 } }];
+  const others = (): GiftProject[] => [own(250), { id: "dadyal", name: "Dadyal Orphan Complex", crmNames: [], partnerIds: [] }];
+  it("enrols the invented children in the project's own cluster, without adding clusters of its own", () => {
+    const { value, summary } = load({ giftProjects: others(), realProjects: real, demand: { I10: 20 }, whole: { I10: 3 } });
+    const aghosh = value.giftProjects.find((g) => g.id === "aghosh")!;
+    expect(aghosh.clusters).toEqual(own(250).clusters); // the project's own clusters, unchanged
+    expect(aghosh.sampleAttached?.clusters).toBe(false); // only the general partner was given, as it had none: no clusters
+    const kids = value.enrolments.records.filter((e) => e.giftProjectId === "aghosh" && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Child "));
+    expect(kids).toHaveLength(8); // 17 over 3 is 6, plus 2
+    expect(kids.every((e) => e.clusterId === "class-1")).toBe(true); // in its first class
+    expect(summary.ownClusters).toBe(1);
+    expect(summary.skipped).toEqual([]);
+  });
+  it("never passes the cluster's own total, and says nothing is lost when it is small", () => {
+    const { value } = load({ giftProjects: [own(5), { id: "dadyal", name: "Dadyal Orphan Complex", crmNames: [], partnerIds: [] }], realProjects: real, demand: { I10: 20 }, whole: { I10: 3 } });
+    expect(value.enrolments.records.filter((e) => e.giftProjectId === "aghosh" && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Child ")).length).toBe(5);
+  });
+  it("leaves the project exactly as it was when the sample is removed", () => {
+    const projects = others();
+    const gone = removeSampleSetup(load({ giftProjects: projects, realProjects: real, demand: { I10: 20 }, whole: { I10: 3 } }).value);
+    expect(gone.value.giftProjects.find((g) => g.id === "aghosh")).toEqual(own(250));
+    expect(gone.value.enrolments.records).toEqual([]);
+    expect(gone.value.register.records).toEqual([]);
+  });
+});
+
 describe("choosing the real project by what its name means (DECISIONS 176)", () => {
   const p = (id: string, name: string): GiftProject => ({ id, name, crmNames: [], partnerIds: [] });
   it("gives the sponsorship clusters to the orphan project, not to the flood one with a few gifts of the same item", () => {

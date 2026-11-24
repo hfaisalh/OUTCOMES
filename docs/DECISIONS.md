@@ -689,3 +689,9 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 ## 179. The list filters say what they mean (Faisal, 24/11/2026)
 
 - On the Allocate and Assignment pages a filter called "Waiting for a place" (or "Needs a partner") meant "not placed yet", so it kept every gift that was ready to be placed and appeared not to work. The filters are now **All gifts, Ready to place (assign), Waiting with no place (partner), and Placed (Assigned)**, so a person can pick out exactly the gifts that have nowhere to go.
+
+## 180. A real project with clusters of its own keeps them, and the invented children are enrolled in them (Faisal, 24/11/2026)
+
+- A run on real gifts left 17 sponsorship gifts waiting with "no approved beneficiary is enrolled in the gift's project". The real exports show **Aghosh** carries 17 Orphan Sponsorship gifts and 5 Uni Scholarship gifts, and Aghosh already had **its own cluster** (the home set up by hand). The sample added a home only to projects with **no** clusters, so the busiest real project got no children.
+- A real project that carries sponsorship gifts and **already has clusters** now keeps them untouched. Its invented children are **enrolled in its own first active master cluster** (in its first active sub cluster when it has one), sized to its own gifts, and **never past that cluster's total capacity**. So the project's own tree is filled, which is also what a person recognises.
+- Removing the sample takes the children and their enrolments away and leaves the project exactly as it was (only the general partner, when it had none, is taken off).
