@@ -142,7 +142,8 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     const used = new Set<string>();
     let attached = 0;
     // `extra` (sponsorship only) also gives every other real project that carries these items a home of its own, since a gift for a project fills only that project's places (DECISIONS 177).
-    const addProject = (name: string, items: { id: string }[], partnerIds: string[], clusters: Cluster[], words: string[] = [], extra?: (rp: SampleInput["realProjects"][number]) => Cluster[], existing?: (rp: SampleInput["realProjects"][number]) => boolean): string => {
+    const addProject = (name: string, items: { id: string }[], partnerIds: string[], clusters: Cluster[], opts: { extra?: (rp: SampleInput["realProjects"][number]) => Cluster[]; existing?: (rp: SampleInput["realProjects"][number]) => boolean } = {}): string => {
+      const { extra, existing } = opts;
       if (items.length === 0) return "";
       const wanted = new Set(items.map((i) => i.id));
       // Rule (DECISIONS 180): a real project that already has clusters of its own keeps them, and the invented children are enrolled in them, so its own home is filled.
@@ -153,15 +154,15 @@ export function loadSampleSetup(input: SampleInput): Loaded {
           if (existing(rp)) used.add(rp.id);
         }
       }
+      // Rule (DECISIONS 182): the scenario clusters (the full home, the closed home, the university, the villages, the camp) are always the sample's own projects, never put on a real project. A real project is only
+      // given what it needs for its own gifts: children in the clusters it already has (above), or a home of its own sized to its gifts (below), with the sample partners.
       const real = input.realProjects
         .filter((rp) => !used.has(rp.id) && !(gps.find((g) => g.id === rp.id)?.clusters ?? []).length)
-        // Rule (DECISIONS 169): the project whose gifts carry the most of these items gets the clusters, so the busiest real project is the one the sample is built around.
-        .map((rp) => ({ rp, overlap: rp.itemIds.filter((i) => wanted.has(i)).length, gifts: [...wanted].reduce((n, i) => n + (rp.itemCounts?.[i] ?? 0), 0), meaning: words.filter((w) => (gps.find((g) => g.id === rp.id)?.name ?? "").toLowerCase().includes(w)).length }))
+        .map((rp) => ({ rp, overlap: rp.itemIds.filter((i) => wanted.has(i)).length, gifts: [...wanted].reduce((n, i) => n + (rp.itemCounts?.[i] ?? 0), 0) }))
         .filter((x) => x.overlap > 0)
-        .sort((a, b) => b.meaning - a.meaning || b.gifts - a.gifts || b.overlap - a.overlap);
-      const best = real[0]?.rp;
+        .sort((a, b) => b.gifts - a.gifts || b.overlap - a.overlap);
       if (extra) {
-        for (const x of real.slice(1)) {
+        for (const x of real) {
           const cl = extra(x.rp);
           if (cl.length === 0) continue;
           used.add(x.rp.id);
@@ -169,14 +170,6 @@ export function loadSampleSetup(input: SampleInput): Loaded {
           const adds = partnerIds.filter((id) => !(gps.find((g) => g.id === x.rp.id)?.partnerIds ?? []).includes(id));
           gps = gps.map((g) => (g.id === x.rp.id ? { ...g, clusters: cl, partnerIds: [...g.partnerIds, ...adds], sampleAttached: { partnerIds: adds, clusters: true } } : g));
         }
-      }
-      if (best) {
-        const real2 = best;
-        used.add(real2.id);
-        attached++;
-        const adds = partnerIds.filter((id) => !(gps.find((g) => g.id === real2.id)?.partnerIds ?? []).includes(id));
-        gps = gps.map((g) => (g.id === real2.id ? { ...g, clusters, partnerIds: [...g.partnerIds, ...adds], sampleAttached: { partnerIds: adds, clusters: true } } : g));
-        return real2.id;
       }
       gps = must(saveGiftProject(gps, ps.projects, { name, crmName: "", partnerIds, itemIds: items.map((i) => i.id), notes: "An invented sample project. Nothing about it is real." }, ""));
       const id = gps.find((g) => g.name === name)?.id ?? "";
@@ -229,10 +222,10 @@ export function loadSampleSetup(input: SampleInput): Loaded {
       { name: "Sample Home - Small", label: "Home", capacity: 2, subs: [{ name: "Class A", label: "Class" }] }, // two places, so it fills
       { name: "Sample Home - Closed", label: "Home", capacity: 10, closed: true }, // takes no one
       { name: "Sample University", label: "University", capacity: 6, roles: "Principal", subs: [{ name: "Faculty of Science", label: "Faculty", subs: [{ name: "Physics Department", label: "Department" }] }, { name: "Faculty of Arts", label: "Faculty" }] },
-    ]), ["orphan", "care", "hifz", "scholar", "school", "college", "student", "sponsor"], extraHome, existingHome);
-    const villages = addProject("Sample Village Projects", build, [builders, general].filter((x) => x !== ""), clustersFrom([{ name: "Sample Village A", label: "Village", capacity: 6 }, { name: "Sample Village B", label: "Village", capacity: 4 }]), ["water", "well", "pump", "house", "mosque", "build"]);
+    ]), { extra: extraHome, existing: existingHome });
+    const villages = addProject("Sample Village Projects", build, [builders, general].filter((x) => x !== ""), clustersFrom([{ name: "Sample Village A", label: "Village", capacity: 6 }, { name: "Sample Village B", label: "Village", capacity: 4 }]));
     // The mosque site has no capacity on purpose: it serves a community, not a number of places.
-    const camps = addProject("Sample Relief Camps", relief, [relieft, general].filter((x) => x !== ""), clustersFrom([{ name: "Sample Camp 1", label: "Camp", capacity: 40 }, { name: "Sample Mosque Site", label: "Site" }]), ["flood", "relief", "camp", "palestine", "emergency", "food"]);
+    const camps = addProject("Sample Relief Camps", relief, [relieft, general].filter((x) => x !== ""), clustersFrom([{ name: "Sample Camp 1", label: "Camp", capacity: 40 }, { name: "Sample Mosque Site", label: "Site" }]));
     const programmes = addProject("Sample General Programmes", untyped, [general].filter((x) => x !== ""), clustersFrom([{ name: "Sample General Site", label: "Site" }]));
     // A real project with no partner is given the general partner, so its gifts do not all wait. Its own clusters, items and gifts are not touched.
     let coveredProjects = 0;
