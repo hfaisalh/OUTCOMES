@@ -16,7 +16,7 @@ import { esc } from "./pages";
 
 // What is open, kept for the session so editing does not close it: the folders whose sub list is showing, the cluster a sub cluster is being added to, and the cluster window that is open ("" is the list).
 export const openClusters = new Set<string>();
-export const clusterUi = { adding: "", node: "", nodeTab: "details" as "details" | "inside" };
+export const clusterUi = { adding: "", node: "", nodeTab: "details" as "details" | "inside", notice: "" };
 
 const SEARCH_FROM = 8; // a search box shows once a list is longer than this
 
@@ -90,7 +90,7 @@ function clusterHtml(state: ClusterState, c: Cluster): string {
 export function clustersTabHtml(state: ClusterState, error = ""): string {
   const open = clusterUi.node === "" ? undefined : state.clusters.find((c) => c.id === clusterUi.node);
   return `<div class="pf-body">
-    ${error ? `<div class="note" role="alert">${esc(error)}</div>` : ""}
+    ${error ? `<div class="note" role="alert">${esc(error)}</div>` : clusterUi.notice ? `<div class="note ok" role="status">${esc(clusterUi.notice)}</div>` : ""}
     ${open ? clusterHtml(state, open) : listHtml(state)}
     <p class="muted">Who holds each role, and the beneficiaries enrolled in each cluster, come next.</p>
   </div>`;

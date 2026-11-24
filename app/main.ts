@@ -20,6 +20,7 @@ import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
 import { projectFormHtml, readProjectForm } from "./project-form";
 import { ICON_SETTINGS } from "./icons";
+import { clusterStateOf, subRows } from "../modules/06-projects/clusters";
 import { clusterUi, openClusters } from "./clusters-tab";
 import { benefitRow, NEW_CONTACT_ROW, NEW_DOC_ROW, readPartnerForm } from "./partner-form";
 import { partnerWindowHtml, type PartnerTab } from "./partner-window";
@@ -1574,9 +1575,11 @@ document.addEventListener("change", (e) => {
 });
 
 // The Clusters tab of the project window (DECISIONS 158, 161, 162): each button or field is one request on the project's clusters, applied on the server when live and in the browser in the demo.
-const clusterRequest = (body: Record<string, unknown>): void => void outcomeChange({ ...body, giftProjectId: state.projectWin.id }).then(() => renderProjectWindow(lastError));
+const clusterRequest = (body: Record<string, unknown>): void => void outcomeChange({ ...body, giftProjectId: state.projectWin.id }).then(() => { clusterUi.notice = ""; renderProjectWindow(lastError); });
+// The same, and a short "Saved." shows when it worked, so a person can see that a Save did something.
+const clusterRequestThen = (notice: string, body: Record<string, unknown>): void => void outcomeChange({ ...body, giftProjectId: state.projectWin.id }).then(() => { clusterUi.notice = lastError === "" ? notice : ""; renderProjectWindow(lastError); });
 // A change of view only (open a folder, go into a cluster): it clears any old message, so a stale error does not stay on the screen.
-const clusterView = (): void => { lastError = ""; renderProjectWindow(); };
+const clusterView = (): void => { lastError = ""; clusterUi.notice = ""; renderProjectWindow(); };
 document.addEventListener("click", (e) => {
   const b = (e.target as HTMLElement).closest?.("[data-cl]") as HTMLElement | null;
   if (!b || !state.projectWin.open) return;
@@ -1586,9 +1589,15 @@ document.addEventListener("click", (e) => {
     case "toggle": if (openClusters.has(id)) openClusters.delete(id); else openClusters.add(id); return clusterView();
     case "sub-open": openClusters.add(id); clusterUi.adding = id; return clusterView(); // the folder opens so the new sub cluster shows
     case "sub-cancel": clusterUi.adding = ""; return clusterView();
-    case "goto": clusterUi.node = id; clusterUi.adding = ""; clusterUi.nodeTab = "details"; return clusterView(); // "" goes back to the list
+    case "goto": { // "" goes back to the list. A cluster opens with its tree showing in full, since each cluster is a screen of its own and stays short.
+      clusterUi.node = id; clusterUi.adding = ""; clusterUi.nodeTab = "details";
+      const gp = state.giftProjects.find((g) => g.id === state.projectWin.id);
+      const all = clusterStateOf(gp?.levels, gp?.clusters);
+      for (const r of subRows(all, id)) if (all.clusters.some((c) => c.parentId === r.cluster.id)) openClusters.add(r.cluster.id);
+      return clusterView();
+    }
     case "node-tab": clusterUi.nodeTab = b.dataset.tab === "inside" ? "inside" : "details"; clusterUi.adding = ""; return clusterView();
-    case "node-save": return clusterRequest({ action: "cluster-set", clusterId: id, name: val("cn-name"), label: val("cn-label"), place: val("cn-place"), roles: val("cn-roles"), status: val("cn-status"), ...(document.getElementById("cn-capacity") ? { capacity: val("cn-capacity") } : {}) });
+    case "node-save": return clusterRequestThen("Saved.", { action: "cluster-set", clusterId: id, name: val("cn-name"), label: val("cn-label"), place: val("cn-place"), roles: val("cn-roles"), status: val("cn-status"), ...(document.getElementById("cn-capacity") ? { capacity: val("cn-capacity") } : {}) });
     case "cluster-add": { // Rule: capacity belongs to the master cluster only, so a sub cluster is sent none.
       if (id === "") return clusterRequest({ action: "cluster-add", name: val("cl-tname"), label: val("cl-tlabel"), parentId: "", place: val("cl-tplace"), capacity: val("cl-tcap") });
       openClusters.add(id);
