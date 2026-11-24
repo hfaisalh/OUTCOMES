@@ -1,7 +1,7 @@
 /**
  * project-form.ts
  *
- * What it does: draws the project form (a pop-up) and reads it back (DECISIONS 76, 154, 159). A project has the name shown in OUTCOMES, its CRM project (fixed once set), the benefits it
+ * What it does: draws the project form (a pop-up) and reads it back (DECISIONS 76, 154, 159). A project has a Display Name, its Original Name (the CRM's own project name, fixed once set), the benefits it
  * offers, the partners (vendors) that deliver it in order, and notes. The HTML builder is pure. The reader needs a page.
  * Who calls it: app/main.ts. Depends on: Module 6 (GiftProject) and esc from pages.ts.
  */
@@ -27,10 +27,10 @@ export function projectFormHtml(g: Partial<GiftProject>, id: string, ctx: Projec
     <header><h2>${id ? esc(g.name ?? "Project") : "New project"}</h2><button data-pj="cancel" aria-label="Close">Close</button></header>
     ${id ? `<nav class="pf-tabs" role="tablist"><button type="button" role="tab" class="${tab === "details" ? "on" : ""}" data-pj="tab" data-tab="details">Details</button><button type="button" role="tab" class="${tab === "clusters" ? "on" : ""}" data-pj="tab" data-tab="clusters">Clusters${(g.clusters ?? []).length ? ` <span class="muted">(${(g.clusters ?? []).length})</span>` : ""}</button></nav>` : ""}
     ${id && tab === "clusters" ? clustersTabHtml({ levels: g.levels ?? [], clusters: g.clusters ?? [] }, error) : `<div class="pf-body">
-      <section><div class="pf-grid"><label class="pf-field"><span>Name shown in OUTCOMES</span><input id="pr-name" value="${esc(g.name ?? "")}" placeholder="For example Aghosh" required /></label>
-        ${crmLocked ? `<label class="pf-field"><span>CRM project (fixed)</span><input id="pr-crm-locked" value="${esc(crmLocked)}" readonly aria-readonly="true" title="The CRM's own project name. It cannot be changed, so this project stays tied to it." /></label>`
-          : `<label class="pf-field"><span>CRM project</span><select id="pr-crm" aria-label="CRM project"><option value="">Not linked to a CRM project</option>${ctx.crmNames.map((n) => `<option value="${esc(n.name)}">${esc(n.name)} (${n.gifts})</option>`).join("")}</select></label>`}</div>
-        <p class="muted">${crmLocked ? "The CRM name is the project's hard link to the CRM and cannot be changed. Give it any name you like to see in OUTCOMES." : "Link it to the CRM project name it answers to. Once saved, the link is fixed. Leave it unlinked for a project made only in OUTCOMES."}</p></section>
+      <section><div class="pf-grid"><label class="pf-field"><span>Display Name</span><input id="pr-name" value="${esc(g.name ?? "")}" placeholder="For example Aghosh" required /></label>
+        ${crmLocked ? `<label class="pf-field"><span>Original Name (fixed)</span><input id="pr-crm-locked" value="${esc(crmLocked)}" readonly aria-readonly="true" title="The CRM's own project name. It cannot be changed, so this project stays tied to it." /></label>`
+          : `<label class="pf-field"><span>Original Name</span><select id="pr-crm" aria-label="Original Name"><option value="">Not linked to a CRM project</option>${ctx.crmNames.map((n) => `<option value="${esc(n.name)}">${esc(n.name)} (${n.gifts})</option>`).join("")}</select></label>`}</div>
+        <p class="muted">${crmLocked ? "The Original Name is the CRM's own project name. It is the project's hard link to the CRM and cannot be changed. Give the project any Display Name you like to see in OUTCOMES." : "Choose the CRM project name it answers to: its Original Name. Once saved, it is fixed. Leave it unlinked for a project made only in OUTCOMES."}</p></section>
       <section><h3>Benefits offered</h3><p class="muted">Tick the benefits (gift items) this project offers. A gift for a benefit it does not offer waits for a person to decide. With none ticked, it offers any.</p>
         <div class="pf-items">${(ctx.items ?? []).length ? (ctx.items ?? []).map((i) => `<label class="tick"><input type="checkbox" class="pr-item" value="${esc(i.id)}"${items.has(i.id) ? " checked" : ""} /> ${esc(i.name)}</label>`).join("") : '<span class="muted">No items yet. They appear when gifts arrive from the CRM.</span>'}</div></section>
       <section><h3>Partners / vendors</h3><p class="muted">Tick the partners (vendors) that deliver this project. They take work in the order shown: the first until it is full, then the next. Use the arrows to change the order. With none ticked, its gifts wait for a person to decide.</p>

@@ -22,11 +22,11 @@ describe("projectsPage", () => {
     expect(html).toContain("No projects yet");
     expect(html).toContain('data-pj="new"');
   });
-  it("lists the projects as a table with the name shown, the fixed CRM project, partners in order and gifts, and warns of one with no partner", () => {
+  it("lists the projects as a table with the Display Name, the fixed Original Name, partners in order and gifts, and warns of one with no partner", () => {
     const gps = [{ id: "aghosh", name: "Aghosh Homes", crmName: "Aghosh", crmNames: [], partnerIds: ["aghosh-orphan-homes", "dadyal-orphan-complex"] }, { id: "empty", name: "Orphan Care Complex", crmName: "", crmNames: [], partnerIds: [] }];
     const html = projectsPage(base({ projects: partners, giftProjects: gps, workOrders: [wo("Aghosh"), wo("Aghosh"), wo("aghosh")] }));
     expect(html).toContain('data-pj="open" data-id="aghosh"');
-    expect(html).toContain("<th>CRM project</th>");
+    expect(html).toContain("<th>Display Name</th><th>Original Name</th>");
     expect(html).toContain("<b>Aghosh Homes</b>"); // the name shown in OUTCOMES
     expect(html).toContain('title="The CRM\'s own project name, fixed">Aghosh</span>'); // the CRM's own name, kept as it is
     expect(html).toContain("Not linked"); // a project made only in OUTCOMES
@@ -66,9 +66,10 @@ describe("projectsPage", () => {
 
 describe("projectFormHtml", () => {
   const ctx = { crmNames: [{ name: "Aghosh", gifts: 22 }, { name: "Where Needed Most", gifts: 279 }], partners };
-  it("asks for the name shown, shows the CRM project fixed once there is one, and ticks the partners it has", () => {
+  it("asks for the Display Name, shows the Original Name fixed once there is one, and ticks the partners it has", () => {
     const html = projectFormHtml({ name: "Aghosh Homes", crmName: "Aghosh", crmNames: [], partnerIds: ["aghosh-orphan-homes"], notes: "A note" }, "aghosh", ctx);
-    expect(html).toContain("Name shown in OUTCOMES");
+    expect(html).toContain("Display Name");
+    expect(html).toContain("Original Name (fixed)");
     expect(html).toContain('id="pr-name" value="Aghosh Homes"');
     expect(html).toContain('id="pr-crm-locked" value="Aghosh" readonly'); // the CRM name cannot be changed
     expect(html).not.toContain('id="pr-crm"'); // so there is no choice
@@ -90,7 +91,7 @@ describe("projectFormHtml", () => {
     expect(unlinked).toContain('id="pr-crm"');
     expect(unlinked).not.toContain("pr-crm-locked");
   });
-  it("shows an older project's own name as its fixed CRM project", () => {
+  it("shows an older project's own name as its fixed Original Name", () => {
     expect(projectFormHtml({ name: "Hope", crmNames: [] }, "hope", ctx)).toContain('id="pr-crm-locked" value="Hope" readonly');
   });
   it("has no Remove button for a new project, shows an error, and never trusts text as HTML", () => {
