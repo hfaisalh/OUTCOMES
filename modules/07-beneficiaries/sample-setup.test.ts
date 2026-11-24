@@ -45,6 +45,16 @@ describe("loading the sample setup", () => {
     expect(activeIn(value.enrolments, { clusters: c }, homes.id, small.id, true)).toHaveLength(2); // full
     expect(value.giftProjects[2]?.clusters?.map((x) => x.name)).toEqual(["Sample Camp 1", "Sample Mosque Site"]);
   });
+  it("fills the capacity of every master cluster that counts places, and of every partner, in total and for each benefit", () => {
+    const { value } = load();
+    const masters = value.giftProjects.flatMap((g) => g.clusters ?? []).filter((c) => c.parentId === "");
+    expect(masters.filter((c) => c.capacity === undefined).map((c) => c.name)).toEqual(["Sample Mosque Site"]); // a community site has no places to count
+    expect(value.giftProjects.flatMap((g) => g.clusters ?? []).filter((c) => c.parentId !== "").every((c) => c.capacity === undefined)).toBe(true); // sub clusters share the total
+    for (const p of value.partners) {
+      expect(p.capacity).toBeGreaterThan(0);
+      expect(Object.values(p.benefitTerms ?? {}).every((t) => (t.capacity ?? 0) > 0 && (t.costPerUnit ?? 0) > 0)).toBe(true);
+    }
+  });
   it("covers the beneficiary scenarios: every admission decision, a possible duplicate, an inactive child, one waiting, students, a widow", () => {
     const { value } = load();
     const r = value.register.records;

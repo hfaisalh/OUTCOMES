@@ -136,10 +136,11 @@ export function loadSampleSetup(input: SampleInput): Loaded {
       { name: "Sample Home - North", label: "Home", capacity: 12, roles: "Principal, Warden", subs: [{ name: "Class 1", label: "Class" }, { name: "Class 2", label: "Class" }] },
       { name: "Sample Home - South", label: "Home", capacity: 8, subs: [{ name: "Class 1", label: "Class" }] },
       { name: "Sample Home - Small", label: "Home", capacity: 2, subs: [{ name: "Class A", label: "Class" }] }, // two places, so it fills
-      { name: "Sample Home - Closed", label: "Home", closed: true }, // takes no one
+      { name: "Sample Home - Closed", label: "Home", capacity: 10, closed: true }, // takes no one
       { name: "Sample University", label: "University", capacity: 6, roles: "Principal", subs: [{ name: "Faculty of Science", label: "Faculty", subs: [{ name: "Physics Department", label: "Department" }] }, { name: "Faculty of Arts", label: "Faculty" }] },
     ]));
-    const villages = addProject("Sample Village Projects", build, [builders].filter((x) => x !== ""), clustersFrom([{ name: "Sample Village A", label: "Village" }, { name: "Sample Village B", label: "Village" }]));
+    const villages = addProject("Sample Village Projects", build, [builders].filter((x) => x !== ""), clustersFrom([{ name: "Sample Village A", label: "Village", capacity: 6 }, { name: "Sample Village B", label: "Village", capacity: 4 }]));
+    // The mosque site has no capacity on purpose: it serves a community, not a number of places.
     const camps = addProject("Sample Relief Camps", relief, [relieft].filter((x) => x !== ""), clustersFrom([{ name: "Sample Camp 1", label: "Camp", capacity: 40 }, { name: "Sample Mosque Site", label: "Site" }]));
     const clusterCount = [homes, villages, camps].reduce((n, id) => n + (gps.find((g) => g.id === id)?.clusters?.length ?? 0), 0);
 
