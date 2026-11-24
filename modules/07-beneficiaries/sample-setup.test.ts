@@ -122,8 +122,8 @@ describe("attaching to a real project", () => {
     const quiet = real({ id: "quiet", name: "Quiet" });
     const busy = real({ id: "busy", name: "Busy" });
     const { value } = load({ giftProjects: [quiet, busy], realProjects: [{ id: "quiet", itemIds: ["I10", "I13"], itemCounts: { I10: 1, I13: 1 } }, { id: "busy", itemIds: ["I10"], itemCounts: { I10: 22 } }] });
-    expect(value.giftProjects.find((g) => g.id === "busy")?.clusters?.length).toBe(12);
-    expect(value.giftProjects.find((g) => g.id === "quiet")?.clusters).toBeUndefined();
+    expect(value.giftProjects.find((g) => g.id === "busy")?.clusters?.length).toBe(12); // the full set of scenarios goes to the busiest
+    expect(value.giftProjects.find((g) => g.id === "quiet")?.clusters?.length).toBe(6); // the other carries the items too, so it gets a home of its own (a main home and five classes), not the full set
   });
   it("leaves a real project that already has clusters alone, and makes its own project instead", () => {
     const own = real({ clusters: [{ id: "x", name: "Mine", label: "Home", parentId: "", place: "", status: "active" }] });
@@ -215,14 +215,44 @@ describe("scaled to the real gifts (DECISIONS 176)", () => {
   });
 });
 
+describe("every real project that carries sponsorship gifts gets its own home (DECISIONS 177)", () => {
+  const p = (id: string, name: string): GiftProject => ({ id, name, crmNames: [], partnerIds: [] });
+  const projects = [p("dadyal", "Dadyal Orphan Complex"), p("aghosh", "Aghosh"), p("flood", "Flood Relief")];
+  const real: SampleInput["realProjects"] = [
+    { id: "dadyal", itemIds: ["I10"], itemCounts: { I10: 30 } },
+    { id: "aghosh", itemIds: ["I10", "I13"], itemCounts: { I10: 22, I13: 3 } },
+    { id: "flood", itemIds: ["I11"], itemCounts: { I11: 4 } }, // a build item: not a sponsorship project
+  ];
+  it("gives the others a large home and children sized to their own gifts, since a gift for a project fills only that project's places", () => {
+    const { value, summary } = load({ giftProjects: projects, realProjects: real, demand: { I10: 52, I13: 3 }, whole: { I10: 3, I13: 3 } });
+    const aghosh = value.giftProjects.find((g) => g.id === "aghosh")!;
+    expect(aghosh.clusters?.map((c) => c.name)).toEqual(["Sample Home - Main", "Class 1", "Class 2", "Class 3", "Class 4", "Class 5"]);
+    expect(aghosh.clusters?.[0]?.capacity).toBe(13); // I10: 22 over 3 is 8, plus 2. I13: 3 over 3 is 1, plus 2
+    expect(aghosh.sampleAttached?.clusters).toBe(true);
+    const inProject = (id: string, item: string) => value.enrolments.records.filter((e) => e.giftProjectId === id && e.itemId === item && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Child ")).length;
+    expect(inProject("aghosh", "I10")).toBe(10);
+    expect(inProject("aghosh", "I13")).toBe(3);
+    expect(inProject("dadyal", "I10")).toBeGreaterThan(0); // the best match also keeps its home
+    expect(value.giftProjects.find((g) => g.id === "flood")?.clusters?.map((c) => c.name)).toEqual(["Sample Village A", "Sample Village B"]); // it carries a pump, so it gets villages, not a home
+    expect(summary.skipped).toEqual([]);
+  });
+  it("takes the homes and the children off every one of them again when the sample is removed", () => {
+    const loaded = load({ giftProjects: projects, realProjects: real, demand: { I10: 52, I13: 3 }, whole: { I10: 3, I13: 3 } });
+    const gone = removeSampleSetup(loaded.value);
+    expect(gone.value.giftProjects.filter((g) => g.sample !== true)).toEqual(projects);
+    expect(gone.value.register.records).toEqual([]);
+    expect(gone.value.enrolments.records).toEqual([]);
+  });
+});
+
 describe("choosing the real project by what its name means (DECISIONS 176)", () => {
   const p = (id: string, name: string): GiftProject => ({ id, name, crmNames: [], partnerIds: [] });
   it("gives the sponsorship clusters to the orphan project, not to the flood one with a few gifts of the same item", () => {
     const projects = [p("flood", "Flood Relief"), p("dadyal", "Dadyal Orphan Complex"), p("aghosh", "Aghosh")];
     const real = [{ id: "flood", itemIds: ["I10"], itemCounts: { I10: 40 } }, { id: "dadyal", itemIds: ["I10"], itemCounts: { I10: 5 } }, { id: "aghosh", itemIds: ["I10"], itemCounts: { I10: 22 } }];
     const { value } = load({ giftProjects: projects, realProjects: real });
-    expect(value.giftProjects.find((g) => g.id === "dadyal")?.clusters?.length).toBeGreaterThan(0); // "orphan" is in its name
-    expect(value.giftProjects.find((g) => g.id === "flood")?.clusters).toBeUndefined();
+    expect(value.giftProjects.find((g) => g.id === "dadyal")?.clusters?.length).toBeGreaterThan(6); // "orphan" is in its name, so it gets the full set
+    expect(value.giftProjects.find((g) => g.id === "flood")?.clusters?.map((c) => c.name)).toEqual(["Sample Home - Main", "Class 1", "Class 2", "Class 3", "Class 4", "Class 5"]); // it carries the item too, so it gets a home of its own, not the full set
   });
   it("falls back to the busiest project when no name means anything", () => {
     const projects = [p("a", "Alpha"), p("b", "Beta")];
