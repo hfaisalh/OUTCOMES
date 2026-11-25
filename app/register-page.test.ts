@@ -39,7 +39,7 @@ describe("the Beneficiaries page, month by month", () => {
     expect(html).toContain("<h1>Beneficiaries</h1>");
     expect(html).toContain('title="PRS-0001 · Dadyal"><b>Ayesha Khan</b>'); // the ID is in the tooltip, not a column
     expect(html).toContain('<td class="num">12</td>'); // born 2014-03-09, today 24/11/2026
-    expect(html).toContain('<th>Status</th>');
+    expect(html).toContain('data-regsort="status">Status');
     expect(html).not.toContain("<th>ID</th>");
     expect(html).toContain('data-bn="open" data-id="HH-0001"');
     expect(html).toContain("Not enrolled in any benefit yet");
@@ -101,6 +101,18 @@ describe("the Beneficiaries page, month by month", () => {
     expect(html).toContain("12/12");
     expect((html.match(/class="seg p"/g) ?? []).length).toBe(3 * 8); // October to May are paid, 8 months of 3 units
     expect(html).toContain(">67%</td>");
+  });
+  it("sorts by a column heading, reverses on a second click, puts empty values last, and marks the sorted heading", () => {
+    const names = (html: string): string[] => [...html.matchAll(/<td class="nm"[^>]*><b>([^<]*)<\/b>/g)].map((m) => m[1] as string);
+    const two = live({ beneficiaries: reg() });
+    expect(two.registerSort).toBeUndefined();
+    expect(registerPage(two)).toContain('data-regsort="allocated"');
+    expect(names(registerPage(live({ registerSort: { key: "allocated", dir: "asc" } })))[0]).toBe("Ayesha Khan"); // the only enrolled one has a score, the others have none and go last
+    expect(names(registerPage(live({ registerSort: { key: "name", dir: "desc" } })))[0]).toBe("Khan family");
+    expect(names(registerPage(live({ registerSort: { key: "name", dir: "asc" } })))[0]).toBe("Ayesha Khan");
+    expect(registerPage(live({ registerSort: { key: "age", dir: "asc" } }))).toContain("Age \u25B2");
+    expect(registerPage(live({ registerSort: { key: "age", dir: "desc" } }))).toContain("Age \u25BC");
+    expect(registerPage(live())).toContain('class="tablewrap regwrap"');
   });
   it("gives a beneficiary with two benefits two rows, and filters by project", () => {
     const two = live({ enrolments: { records: [enrol, { ...enrol, id: "EN-2", itemId: "I11" }], counter: 2 } });

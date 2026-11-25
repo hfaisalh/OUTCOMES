@@ -88,3 +88,19 @@ describe("the Beneficiaries page, used like a person would", () => {
     expect(shell.innerHTML).not.toContain("PRS-0002");
   });
 });
+
+describe("sorting the Beneficiaries list by a heading", () => {
+  it("sorts on a click, reverses on a second click, and keeps the arrow on the sorted heading", async () => {
+    click({ page: "beneficiaries" }, "data-page");
+    click({ bn: "new", kind: "person" }, "data-bn");
+    fill({ "rg-name": "Zainab Sorted", "rg-dob": "2012-05-05" });
+    click({ bn: "save" }, "data-bn"); await flush(); // the list needs a record to draw its headings
+    click({ regsort: "name" }, "data-regsort"); await flush();
+    expect(shell.innerHTML).toContain("Name \u25B2");
+    click({ regsort: "name" }, "data-regsort"); await flush();
+    expect(shell.innerHTML).toContain("Name \u25BC");
+    click({ regsort: "age" }, "data-regsort"); await flush();
+    expect(shell.innerHTML).toContain("Age \u25B2");
+    expect(shell.innerHTML).not.toContain("Name \u25BC");
+  });
+});

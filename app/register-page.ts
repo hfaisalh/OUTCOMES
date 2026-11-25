@@ -73,7 +73,38 @@ export function registerPage(v: View): string {
     if (r.enrolmentId === "") return false;
     return s === "gaps" ? r.cells.some((c) => c.slots.some((x) => x.status === "g")) : r.missed > 0;
   };
+  // Rule (DECISIONS 196): a click on a column heading sorts by it, a second click reverses it. Empty values go last either way, and ties keep the name order.
+  const sort = v.registerSort;
+  const sortValue = (r: (typeof impl)[number], key: string): string | number | null => {
+    const b = byId.get(r.beneficiaryId);
+    if (!b) return null;
+    const first = r.gifts[0];
+    const partner = r.partnerIds.length > 0 ? r.partnerIds.map(partnerName).join(", ") : b.partnerId !== "" ? partnerName(b.partnerId) : "";
+    switch (key) {
+      case "name": return b.name.toLowerCase();
+      case "sex": return b.gender === "" ? null : b.gender;
+      case "age": return b.kind === "person" ? ageOf(b.dob, today) : null;
+      case "partner": return partner === "" ? null : partner.toLowerCase();
+      case "project": return r.enrolmentId === "" ? null : (projects.find((p) => p.id === r.giftProjectId)?.name ?? "").toLowerCase();
+      case "benefit": return r.enrolmentId === "" ? null : (itemName.get(r.itemId) ?? r.itemId).toLowerCase();
+      case "plan": return first ? (first.once ? 1 : first.planned ? first.paid / first.planned : 0) : null;
+      case "donor": return first ? first.donor.toLowerCase() : null;
+      case "allocated": return r.enrolmentId === "" ? null : r.pct;
+      case "status": return b.status === "active" ? 1 : 0;
+      default: return null;
+    }
+  };
   const list = impl.filter((r) => matches(r) && showOk(r));
+  if (sort && sort.key !== "") {
+    const dir = sort.dir === "desc" ? -1 : 1;
+    list.sort((a, b) => {
+      const x = sortValue(a, sort.key), y = sortValue(b, sort.key);
+      if (x === null && y === null) return 0;
+      if (x === null) return 1;
+      if (y === null) return -1;
+      return (x < y ? -1 : x > y ? 1 : 0) * dir;
+    });
+  }
   const shownIds = new Set(list.map((r) => r.beneficiaryId));
   const shown = pool.filter((b) => shownIds.has(b.id));
   const where = (gpId: string): string => projects.find((p) => p.id === gpId)?.name ?? "";
@@ -96,7 +127,8 @@ export function registerPage(v: View): string {
       : `<td>${esc(where(r.giftProjectId))}</td><td>${esc(itemName.get(r.itemId) ?? r.itemId)}</td><td class="num" title="${esc(r.gifts.map((g) => `${g.donor}: ${planOf(g) || "one payment"}`).join("; "))}">${first ? planOf(first) : ""}</td><td class="dn" title="${esc(r.donors.join(", "))}">${donor}</td><td class="num" title="Unit-months paid or expected in the months shown, out of all the unit-months">${r.pct}%</td>${r.cells.map((c) => `<td class="m">${pie(c.slots, `${NAME[Number(c.month.slice(5, 7)) - 1]} ${c.month.slice(0, 4)}`)}</td>`).join("")}`;
     return `<tr class="rowlink" data-bn="open" data-id="${esc(b.id)}" tabindex="0">${lead}${rest}<td class="c st">${status}</td></tr>`;
   }).join("");
-  const head = `<thead><tr><th>Name</th><th>M/F</th><th class="num">Age</th><th>Partner</th><th>Project</th><th>Benefit</th><th>Plan</th><th>Donor</th><th class="num" title="Allocation score: the share of the months shown that a gift has paid or expects">Allocated</th>${months.map((m) => `<th class="m${m === today.slice(0, 7) ? " now" : ""}">${NAME[Number(m.slice(5, 7)) - 1]}</th>`).join("")}<th>Status</th></tr></thead>`;
+  const th = (key: string, label: string, cls = "", tip = ""): string => `<th${cls ? ` class="${cls}"` : ""}${tip ? ` title="${esc(tip)}"` : ""}><button type="button" class="sortbtn" data-regsort="${key}">${label}${sort?.key === key ? (sort.dir === "desc" ? " \u25BC" : " \u25B2") : ""}</button></th>`;
+  const head = `<thead><tr>${th("name", "Name")}${th("sex", "M/F")}${th("age", "Age", "num")}${th("partner", "Partner")}${th("project", "Project")}${th("benefit", "Benefit")}${th("plan", "Plan")}${th("donor", "Donor")}${th("allocated", "Allocated", "num", "Allocation score: the share of the months shown that a gift has paid or expects")}${months.map((m) => `<th class="m${m === today.slice(0, 7) ? " now" : ""}">${NAME[Number(m.slice(5, 7)) - 1]}</th>`).join("")}${th("status", "Status")}</tr></thead>`;
   const legend = `<p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; <span class="dot on"></span> active &nbsp; <span class="dot off"></span> inactive</p><div class="legendrow">${[...KEY, ["g", "Unfilled unit"] as [string, string]].map(([s, t]) => `<span><span class="sw ${s}"></span>${t}</span>`).join("")}</div>`;
   const sel = (x: string | undefined, val: string): string => (x === val ? " selected" : "");
   const projectSel = `<select data-regf="project" aria-label="Project"><option value="">All projects</option>${projects.map((p) => `<option value="${esc(p.id)}"${sel(f.project, p.id)}>${esc(p.name)}</option>`).join("")}</select>`;
@@ -111,6 +143,6 @@ export function registerPage(v: View): string {
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="actions"><button class="primary" data-bn="new" data-kind="person">New person</button><button data-bn="new" data-kind="household">New household</button></div>
     ${filters}
-    ${all.length === 0 ? '<div class="empty">No beneficiaries yet. Add the first person or household.</div>' : shown.length === 0 ? '<div class="empty">Nothing matches.</div>' : `${legend}<div class="tablewrap"><table class="octable regtable">${head}<tbody>${rows}</tbody></table></div>
+    ${all.length === 0 ? '<div class="empty">No beneficiaries yet. Add the first person or household.</div>' : shown.length === 0 ? '<div class="empty">Nothing matches.</div>' : `${legend}<div class="tablewrap regwrap"><table class="octable regtable">${head}<tbody>${rows}</tbody></table></div>
     <p class="muted">${shown.length} of ${all.length} beneficiaries${shown.length > MAX_ROWS ? `, the first ${MAX_ROWS} shown` : ""}.</p>`}`;
 }

@@ -800,3 +800,8 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 - Needs the **Catalogue prices export** to be loaded. Gifts already loaded pick the months up the next time the feed is read.
 - **Checked against the real export headers and the item (25/11/2026), no new export column is needed.** The prices file labels the other way of giving **"Monthly until cancelled"** (not "Instalments") with Payments blank, and says in its **"In words"** column "GBP 300.00 once (covers 12 months)". The adapter now reads "covers N months" first, then the instalment Payments count, then single payment over one monthly payment (any way of giving that is not the single payment). The ratio alone is not enough, since USD 390 / 33 is not whole. On the real files this gave the 10 Hifz Day Student one-off payments 12 months and changed nothing else (the other until-cancelled items charge the same once as monthly, so one month is right).
 
+## 196. The Beneficiaries list sorts by its headings and keeps its header and name in view (Faisal, 25/11/2026)
+
+- Click a column heading (Name, M/F, Age, Partner, Project, Benefit, Plan, Donor, Allocated, Status) to sort by it, click again to reverse. An arrow shows the sorted heading. Empty values go last either way, and the Allocated sort puts the least funded first on the first click, to find gaps.
+- The heading row and the Name column stay in view while the list scrolls (the table scrolls inside its own frame).
+
