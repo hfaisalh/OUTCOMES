@@ -19,15 +19,21 @@ describe("which stage a gift is in", () => {
     expect(at({ kind: "excluded" }).stage).toBeNull();
     expect(at({ placement: "n/a" }).stage).toBeNull();
   });
-  it("is released as each payment arrives for a living workflow: waiting is Assignment, placed is Allocation", () => {
-    expect(at({}).stage).toBe("assignment");
+  it("is released as each payment arrives for a living workflow: waiting for a partner is WO created, assigned is Assigned, placed is Allocation (DECISIONS 189)", () => {
+    expect(at({})).toEqual({ stage: "work-order", note: "Released, waiting for a partner" }); // no partner yet: not called Assigned
+    expect(at({ assignedTo: "Sample Trust" })).toEqual({ stage: "assignment", note: "Assigned to Sample Trust, waiting for a place" });
     expect(at({ placement: "placed", where: "Orphan at Partner A" })).toEqual({ stage: "allocation", note: "Orphan at Partner A" });
   });
   it("stays at Work order, funding, until a transactional gift is fully paid", () => {
     expect(at({ holdUntilPaid: true, paid: 4, planned: 10 })).toEqual({ stage: "work-order", note: "Funding, 4 of 10 paid" });
     expect(at({ holdUntilPaid: true, paid: 4, planned: null }).note).toBe("Funding, 4 of ? paid");
-    expect(at({ holdUntilPaid: true, paid: 10, planned: 10 }).stage).toBe("assignment"); // fully paid, so released
-    expect(at({ holdUntilPaid: true, kind: "one_off", paid: 1, planned: null }).stage).toBe("assignment"); // a one-off is paid in full
+    expect(at({ holdUntilPaid: true, paid: 10, planned: 10 }).note).toBe("Released, waiting for a partner"); // fully paid, so released: it now waits for a partner
+    expect(at({ holdUntilPaid: true, kind: "one_off", paid: 1, planned: null }).note).toBe("Released, waiting for a partner"); // a one-off is paid in full
+    expect(at({ holdUntilPaid: true, paid: 10, planned: 10, assignedTo: "Sample Trust" }).stage).toBe("assignment");
+  });
+  it("does not call a completed plan assigned: it holds no place (DECISIONS 189)", () => {
+    expect(at({ planStatus: "completed" })).toEqual({ stage: "work-order", note: "Plan completed, it holds no place" });
+    expect(at({ planStatus: "completed", assignedTo: "Sample Trust" }).stage).toBe("work-order"); // even if a partner was recorded before it completed
   });
   it("parks a paused or cancelled plan where it is, and a manual one at Work order", () => {
     expect(at({ planStatus: "paused" })).toMatchObject({ stage: "work-order", note: "Plan paused, parked until payments resume" });

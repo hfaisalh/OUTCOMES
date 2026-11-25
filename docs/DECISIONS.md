@@ -752,3 +752,8 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 - **The number now belongs to the benefit (the item), not the workflow.** The Benefits page has a **Units per beneficiary** column for Person(s) items, with the workflow's number as the default. An item with no number of its own takes its workflow's. Assignment (a partner's room from its children) and Allocation (a child's place) read the item's number first. It is saved as `itemUnits`.
 - **Merge:** on the Workflows page, **Merge into another workflow** moves every item of a workflow to the one chosen, **keeps the number each item had** (so its gifts do not change), and removes the emptied workflow. Nothing is lost; the four scholarship items keep 1.
 - **Wording** (child or student, "Quarterly child update") stays on the workflow for now. With one Sponsorship workflow it should become generic or per type; to be decided with the report templates.
+
+## 189. "Assigned" means a partner has been given; a completed plan holds no place (Faisal, 25/11/2026)
+
+- The Gifts list called a gift **"Assigned"** whenever it was released and waiting, even when **no partner** had been given ("Assigned to: –"). The stage **Assigned** now means a partner **has** been assigned (and the gift waits for a place). A released gift with no partner yet is still **WO created**, "Released, waiting for a partner".
+- A plan the CRM has **completed** was not handled by the stage rule, so it fell into the same state. It now shows **WO created**, "Plan completed, it holds no place", and no hourglass (it needs no place), like a paused or cancelled plan.

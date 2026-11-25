@@ -38,6 +38,8 @@ export function giftStage(i: StageInput): StageResult {
   if (i.kind === "excluded" || i.placement === "n/a") return { stage: null, note: "" };
   if (!i.hasWorkflow) return { stage: "gift", note: "Choose a workflow for its item" };
   if (i.planStatus === "cancelled") return { stage: "gift", note: "Plan cancelled, parked" };
+  // Rule (DECISIONS 189): a plan the CRM has completed holds no place, like a paused or cancelled one, so it is not called Assigned.
+  if (i.planStatus === "completed" && i.placement !== "placed") return { stage: "work-order", note: "Plan completed, it holds no place" };
   if (i.placement === "manual") return { stage: "work-order", note: "Units are set manually" };
   if (i.planStatus === "paused") return { stage: "work-order", note: "Plan paused, parked until payments resume" };
   // Rule: a gift that waits to be fully paid is funding until every payment is in. A one-off payment is already in full.
@@ -45,6 +47,7 @@ export function giftStage(i: StageInput): StageResult {
     return { stage: "work-order", note: `Funding, ${i.paid} of ${i.planned ?? "?"} paid` };
   }
   if (i.placement === "placed") return { stage: "allocation", note: i.where };
-  if (i.placement === "waiting") return { stage: "assignment", note: i.assignedTo ? `Assigned to ${i.assignedTo}, waiting for a place` : "Released, waiting for a partner" };
+  // Rule (DECISIONS 189): Assigned means a partner has been given. A released gift with no partner yet is still at WO created.
+  if (i.placement === "waiting") return i.assignedTo ? { stage: "assignment", note: `Assigned to ${i.assignedTo}, waiting for a place` } : { stage: "work-order", note: "Released, waiting for a partner" };
   return { stage: "gift", note: "" };
 }

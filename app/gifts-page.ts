@@ -214,6 +214,7 @@ function allocationContext(v: View) {
     // Rule (DECISIONS 102): a paused plan stays parked and says so. A cancelled one is parked as cancelled, and can be excluded manually until the donor pays again.
     if (g.planStatus === "paused") return waits(g, "Plan paused, parked until payments resume");
     if (g.planStatus === "cancelled") return { state: "none", who: "", partner: "", parts: null, why: "Plan cancelled, parked. Exclude it manually if it is not coming back" };
+    if (g.planStatus === "completed") return { state: "none", who: "", partner: "", parts: null, why: "Plan completed. It holds no place" };
     return waits(g, g.frameworkId === "" ? "It needs a workflow first" : "Not allocated yet. Allocation for this kind of gift is built later");
   };
 }
