@@ -22,7 +22,7 @@ import { registerPage } from "./register-page";
 import { assignmentPage } from "./assignment-page";
 import { allocatePage } from "./allocate-page";
 import { enrolmentHistoryHtml, giftHistoryHtml, type HistoryData } from "./history-window";
-import { applyPlacementAction, emptyPlacements, placementContext, type Placements } from "../modules/09-placement/placement";
+import { applyPlacementAction, emptyPlacements, placementContext, syncPlacements, type Placements } from "../modules/09-placement/placement";
 import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments, type Assignments } from "../modules/08-assignment/assignment";
 import { registerFormHtml } from "./register-form";
 import { loadSampleSetup, realProjectsFor, wholeByItem, type SampleState, removeSampleSetup, removedSummaryText, sampleSummaryText } from "../modules/07-beneficiaries/sample-setup";
@@ -1716,7 +1716,11 @@ function renderHistWindow(): void {
   const wos = view().workOrders;
   const names = new Map(wos.map((x) => [x.itemId, x.itemName]));
   const gifts = new Map(assignables(contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString() })).map((u) => [u.key, { donor: u.w.supporterName, item: u.w.itemName, payments: u.payments }]));
-  const data: HistoryData = { placements: state.placements.records, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, gifts, itemName: (id) => names.get(id) ?? id };
+  // The history shows the true state now (DECISIONS 187): a placement of a parked plan, a child who has left or a withdrawn assignment is shown as ended before a run records it.
+  const nowIso = new Date().toISOString();
+  const actx = contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: nowIso.slice(0, 10), now: nowIso, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? "") });
+  const pctx = placementContext({ assignments: state.assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, frameworks: state.frameworks, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), now: nowIso });
+  const data: HistoryData = { placements: syncPlacements(pctx, state.placements).value.records, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, gifts, itemName: (id) => names.get(id) ?? id };
   root.innerHTML = w.kind === "gift" ? giftHistoryHtml(data, w.id) : enrolmentHistoryHtml(data, w.id);
 }
 document.addEventListener("click", (e) => {

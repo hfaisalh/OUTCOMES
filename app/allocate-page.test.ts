@@ -82,6 +82,14 @@ describe("the Allocate page", () => {
     expect(html).toContain('<span class="muted">(1 unit)</span>');
     expect((html.match(/data-plc="unplace" data-key="G01"/g) ?? []).length).toBe(1); // one button takes it all back
   });
+  it("shows the true state now: a placement whose assignment was withdrawn is not counted, and a note says it will be recorded and kept (DECISIONS 187)", () => {
+    const stale = { counter: 0, records: [{ key: "G01", kind: "place" as const, enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto" as const, at: "2026-11-02T00:00:00Z" }] };
+    const html = allocatePage(view({ placements: stale, assignments: { records: [] } })); // the gift is no longer assigned
+    expect(html).toContain("<b>0</b><span>Placed in a place</span>"); // not "Now"
+    expect(html).toContain("1 placement has ended (a plan was parked, a child left, or an assignment was withdrawn). Place automatically records it, and keeps it in the history.");
+    expect(html).not.toContain('data-plc="run" disabled'); // so a person can record it
+    expect(allocatePage(view())).not.toContain("has ended");
+  });
   it("creates an outcome for a gift-first type, shown without a place", () => {
     const pump = view({ workOrders: [wo("G01", { itemId: "I11", itemName: "Small Pump" })], itemKinds: { I11: "build" }, assignments: { records: [{ key: "G01", partnerId: "trust", giftProjectId: "aghosh", itemId: "I11", parts: 1, how: "auto", at: "x" }] } });
     const html = allocatePage(pump);

@@ -108,6 +108,16 @@ describe("history: nothing is deleted (DECISIONS 186)", () => {
     expect(review.value.records[0]?.endReason).toBe("child-left");
     expect(syncPlacements(ctx(base), held()).ended).toBe(0); // nothing changed: nothing ends
   });
+  it("ends a placement whose gift is no longer assigned to a partner, and removes an outcome made from it (DECISIONS 187)", () => {
+    const placed = runPlacement(ctx({ assignments: [asg("G1", { parts: 3 }), asg("G2", { itemId: "I11" })], now: "2026-11-24T10:00:00Z" }), emptyPlacements()).value;
+    expect(placed.records.filter(isActive)).toHaveLength(2); // a child's place, and an outcome
+    // The assignments were reset: both gifts are still in scope, but neither has a partner now.
+    const withdrawn = ctx({ assignments: [], live: new Set(["G1", "G2"]), now: "2026-12-05T09:00:00Z" });
+    const r = syncPlacements(withdrawn, placed);
+    expect(r.ended).toBe(2);
+    expect(r.value.records).toEqual([expect.objectContaining({ key: "G1", kind: "place", to: "2026-12-05", endReason: "unassigned" })]); // the place is kept as history, the outcome is gone
+    expect(r.value.records.filter(isActive)).toEqual([]);
+  });
   it("gives a plan that runs again its previous child back when that child is still free", () => {
     const synced = syncPlacements(parkedCtx("paused"), held()).value; // paused: Amina ends
     const resumed = ctx({ assignments: [asg("G1", { parts: 3 })], now: "2026-12-10T09:00:00Z" });

@@ -11,7 +11,7 @@
 import { assignables, contextFrom, emptyAssignments } from "../modules/08-assignment/assignment";
 import { clusterStateOf, pathOf } from "../modules/06-projects/clusters";
 import { itemRulesOf, emptyEnrolments } from "../modules/07-beneficiaries/enrolments";
-import { emptyPlacements, fills, isActive, placementContext, suggestPlacements, type PlaceSuggestion } from "../modules/09-placement/placement";
+import { emptyPlacements, fills, isActive, placementContext, suggestPlacements, syncPlacements, type PlaceSuggestion } from "../modules/09-placement/placement";
 import { emptyRegister } from "../modules/07-beneficiaries/beneficiaries";
 import type { SavedFeatures } from "../modules/02-project-rules/kind-features";
 import { esc, type View } from "./pages";
@@ -27,8 +27,7 @@ export function allocatePage(v: View): string {
   const today = v.today ?? "2026-01-01";
   const now = `${today}T00:00:00Z`;
   const assignments = (v.assignments ?? emptyAssignments()).records;
-  const placements = v.placements ?? emptyPlacements(); // all of it, history included
-  const heldRecords = placements.records.filter(isActive); // the placements that hold a place now (DECISIONS 186)
+  const recorded = v.placements ?? emptyPlacements(); // all of it, history included
   const enrolments = (v.enrolments ?? emptyEnrolments()).records;
   const people = (v.beneficiaries ?? emptyRegister()).records;
   const actx = contextFrom({ workOrders: v.workOrders, partners, giftProjects: gps, frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now });
@@ -36,6 +35,11 @@ export function allocatePage(v: View): string {
   const unitOf = new Map(units.map((u) => [u.key, u]));
   const names = new Map(v.workOrders.map((w) => [w.itemId, w.itemName]));
   const ctx = placementContext({ assignments, assignables: units, workOrders: v.workOrders, enrolments, beneficiaries: people, giftProjects: gps, frameworks: v.frameworks ?? [], rulesOf: (i) => itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, i, names.get(i) ?? ""), now });
+  // Rule (DECISIONS 187): the page shows the true state now. A placement of a gift whose plan has been parked, whose child has left, or whose assignment was withdrawn is shown as ended even before a run records it.
+  const synced = syncPlacements(ctx, recorded);
+  const placements = synced.value;
+  const pendingEnds = synced.ended;
+  const heldRecords = placements.records.filter(isActive); // the placements that hold a place now (DECISIONS 186)
   const pname = (id: string): string => partners.find((p) => p.id === id)?.name ?? id;
   const person = (id: string): string => people.find((b) => b.id === id)?.name ?? id;
   const sug = suggestPlacements(ctx, placements);
@@ -105,7 +109,8 @@ export function allocatePage(v: View): string {
     <div class="metrics">${metric(assignments.length, "Assigned gifts")}${metric(placedCount, "Placed in a place")}${metric(outcomeCount, "Outcomes created")}${metric(waiting, "Wait, no open place", waiting ? "warn" : "")}</div>
     ${why.length ? `<p class="muted"><b>Why gifts wait:</b> ${why.map((x) => `${x.n} ${esc(x.label)}`).join(" · ")}.</p>` : ""}
     ${waitingList.length ? `<p class="muted"><b>Waiting, by project and benefit:</b> ${waitingList.map(([l, n]) => `${esc(l)} (${n})`).join(" · ")}${waitingBy.size > waitingList.length ? ` · and ${waitingBy.size - waitingList.length} more` : ""}.</p>` : ""}
-    <div class="actions"><button class="primary" data-plc="run"${ready ? "" : " disabled"}>Place automatically</button><button data-plc="reset"${placements.records.length ? "" : " disabled"}>Reset placements</button></div>
+    <div class="actions"><button class="primary" data-plc="run"${ready || pendingEnds ? "" : " disabled"}>Place automatically</button><button data-plc="reset"${placements.records.length ? "" : " disabled"}>Reset placements</button></div>
+    ${pendingEnds ? `<p class="muted">${pendingEnds} placement${pendingEnds === 1 ? " has" : "s have"} ended (a plan was parked, a child left, or an assignment was withdrawn). Place automatically records it, and keeps it in the history.</p>` : ""}
     ${assignments.length === 0 ? '<div class="empty">No gift has been assigned yet. Assign gifts to partners on the Assignment tab first.</div>' : ""}
     <div class="card"><h2>Places <span class="muted">(${fillList.length})</span></h2>${placeRows ? `<div class="tablewrap"><table><thead><tr><th>Beneficiary</th><th>Benefit</th><th>Where</th><th class="num">Units</th><th>State</th></tr></thead><tbody>${placeRows}</tbody></table></div>${fillList.length > MAX_ROWS ? `<p class="muted">The first ${MAX_ROWS} are shown.</p>` : ""}` : '<div class="empty">No place is open. Enrol approved beneficiaries in a cluster, on the cluster\'s Beneficiaries tab.</div>'}</div>
     <div class="card"><h2>Gifts <span class="muted">(${shown.length})</span></h2>${filters}
