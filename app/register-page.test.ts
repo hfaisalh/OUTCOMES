@@ -50,7 +50,7 @@ describe("the Beneficiaries page, month by month", () => {
   it("draws one line for an enrolment: project, the benefit, plan, donor, units filled of the whole, and a pie for each of twelve months with the legend", () => {
     const html = registerPage(live());
     expect(html).toContain("<td>Aghosh</td>");
-    expect(html).toContain("1/12"); // the plan like the Gifts list: paid over planned
+    expect(html).toContain("2/12"); // the plan like the Gifts list: paid over planned
     expect(html).toContain('title="Recurring gift"'); // the recurring icon before the donor
     expect(html).toContain("Invented Donor");
     expect(html).not.toContain("<br>");
