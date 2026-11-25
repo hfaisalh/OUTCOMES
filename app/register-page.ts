@@ -10,12 +10,12 @@
 
 import { ageOf, ELIGIBILITY_LABEL, filterBeneficiaries, NO_FILTER, type BeneficiaryFilter } from "../modules/07-beneficiaries/beneficiaries";
 import { implementationRows } from "../modules/07-beneficiaries/implementation";
-import { allocatable } from "../modules/04b-commitments/commitments";
+import { allocatable, oneOffCommitments } from "../modules/04b-commitments/commitments";
 import { monthsAround, perPeriodRule, type UnitStatus } from "../modules/05-outcomes/outcomes";
 import { unitsOfItem } from "../modules/02-project-rules/benefits";
 import { clusterStateOf, pathOf } from "../modules/06-projects/clusters";
 import { normName } from "../modules/07-beneficiaries/beneficiaries";
-import { icon, PLAN_ICON, SYMBOL } from "./gifts-page";
+import { icon, SYMBOL } from "./gifts-page";
 import { esc, type View } from "./pages";
 
 const MAX_ROWS = 300;
@@ -51,7 +51,10 @@ export function registerPage(v: View): string {
   const text = normName(f.text);
   const byText = filterBeneficiaries(all, f); // kind, status, admission and the text against the profile
   const pool = filterBeneficiaries(all, { ...f, text: "" }).filter((b) => (f.project ?? "") === "" || inProject.has(b.id));
-  const commitments = allocatable(v.workOrders ?? [], perPeriodRule(fws), today);
+  // Rule: every allocated gift has a plan. A single payment the allocation rules do not count per period (a scholarship) is still shown, as a plan of the months it covers.
+  const all0 = allocatable(v.workOrders ?? [], perPeriodRule(fws), today);
+  const have = new Set(all0.map((c) => c.subscriptionId));
+  const commitments = [...all0, ...oneOffCommitments(v.workOrders ?? [], () => true, today).filter((c) => !have.has(c.subscriptionId))];
   const partnerOfKey = new Map((v.assignments?.records ?? []).map((x) => [x.key, x.partnerId]));
   const partnerName = (id: string): string => (v.projects ?? []).find((p) => p.id === id)?.name ?? id;
   const impl = implementationRows({ beneficiaryIds: pool.map((b) => b.id), enrolments: v.enrolments?.records ?? [], placements: v.placements?.records ?? [], commitments, whole, partnerOf: (k) => partnerOfKey.get(k) ?? "", months, today });
@@ -68,14 +71,14 @@ export function registerPage(v: View): string {
     const s = f.show ?? "";
     if (s === "") return true;
     if (r.enrolmentId === "") return false;
-    return s === "gaps" ? r.filled < r.whole : s === "missed" ? r.missed > 0 : r.plans.some((x) => x !== "active" && x !== "one-off");
+    return s === "gaps" ? r.cells.some((c) => c.slots.some((x) => x.status === "g")) : r.missed > 0;
   };
   const list = impl.filter((r) => matches(r) && showOk(r));
   const shownIds = new Set(list.map((r) => r.beneficiaryId));
   const shown = pool.filter((b) => shownIds.has(b.id));
   const where = (gpId: string): string => projects.find((p) => p.id === gpId)?.name ?? "";
   // Plan like the Gifts list: instalments paid over planned (2/∞), with the plan's own status icon when it is not running.
-  const planOf = (g: { once: boolean; paid: number; planned: number | null; planStatus: string }): string => (g.once ? "" : `${g.paid}/${g.planned ?? "\u221E"}`);
+  const planOf = (g: { once: boolean; paid: number; planned: number | null; planStatus: string }): string => (g.once ? `${g.planned ?? 1} mo` : `${g.paid}/${g.planned ?? "\u221E"}`);
   const rows = list.slice(0, MAX_ROWS).map((r) => {
     const b = byId.get(r.beneficiaryId);
     if (!b) return "";
@@ -85,27 +88,21 @@ export function registerPage(v: View): string {
     const first = r.gifts[0];
     const more = r.gifts.length > 1 ? ` <span class="muted">+${r.gifts.length - 1}</span>` : "";
     const donor = first ? `${icon(first.once ? "one" : "rec", first.once ? SYMBOL.one : SYMBOL.recurring, first.once ? "One payment" : "Recurring gift")} ${esc(first.donor)}${more}` : "";
-    // Status icons like the Gifts list: only what is not normal, else a tick. Inactive and the plan's own status come first.
-    const st: string[] = [];
-    if (b.status !== "active") st.push(icon("muted", "\u25CB", "Inactive"));
-    for (const g of r.gifts) { const p = PLAN_ICON[g.planStatus]; if (p && !st.some((x) => x.includes(`aria-label="${p[1]}"`))) st.push(icon("muted", p[0], p[1])); }
-    if (r.missed > 0) st.push(icon("warn", SYMBOL.look, `Needs a look: a payment was missed in ${r.missed} month${r.missed === 1 ? "" : "s"}`));
-    else if (r.gifts.some((g) => g.look)) st.push(icon("warn", SYMBOL.look, "Needs a look: the gift has a problem, open it in Gifts"));
-    if (r.enrolmentId !== "" && r.filled < r.whole) st.push(icon("warn", SYMBOL.waiting, `${r.whole - r.filled} of ${r.whole} units have no gift yet`));
-    const status = st.length > 0 ? st.join("") : icon("good", SYMBOL.ok, "Ready");
+    // Status is the beneficiary's own: active (green) or inactive (red), set in the profile. A gift can pause, a beneficiary does not.
+    const status = b.status === "active" ? `<span class="dot on" title="Active" aria-label="Active"></span>` : `<span class="dot off" title="Inactive" aria-label="Inactive"></span>`;
     const lead = `<td class="nm" title="${esc([b.id, b.area].filter((x) => x !== "").join(" \u00B7 "))}"><b>${esc(b.name)}</b></td><td>${esc(sex)}</td><td class="num">${age === null ? "" : age}</td><td>${esc(partner)}</td>`;
     const rest = r.enrolmentId === ""
       ? `<td colspan="${months.length + 5}" class="muted">Not enrolled in any benefit yet</td>`
-      : `<td>${esc(where(r.giftProjectId))}</td><td>${esc(itemName.get(r.itemId) ?? r.itemId)}</td><td class="num" title="${esc(r.gifts.map((g) => `${g.donor}: ${planOf(g) || "one payment"}`).join("; "))}">${first ? planOf(first) : ""}</td><td class="dn" title="${esc(r.donors.join(", "))}">${donor}</td><td class="num">${r.filled} of ${r.whole}</td>${r.cells.map((c) => `<td class="m">${pie(c.slots, `${NAME[Number(c.month.slice(5, 7)) - 1]} ${c.month.slice(0, 4)}`)}</td>`).join("")}`;
+      : `<td>${esc(where(r.giftProjectId))}</td><td>${esc(itemName.get(r.itemId) ?? r.itemId)}</td><td class="num" title="${esc(r.gifts.map((g) => `${g.donor}: ${planOf(g) || "one payment"}`).join("; "))}">${first ? planOf(first) : ""}</td><td class="dn" title="${esc(r.donors.join(", "))}">${donor}</td><td class="num" title="Unit-months paid or expected in the months shown, out of all the unit-months">${r.pct}%</td>${r.cells.map((c) => `<td class="m">${pie(c.slots, `${NAME[Number(c.month.slice(5, 7)) - 1]} ${c.month.slice(0, 4)}`)}</td>`).join("")}`;
     return `<tr class="rowlink" data-bn="open" data-id="${esc(b.id)}" tabindex="0">${lead}${rest}<td class="c st">${status}</td></tr>`;
   }).join("");
-  const head = `<thead><tr><th>Name</th><th>M/F</th><th class="num">Age</th><th>Partner</th><th>Project</th><th>Benefit</th><th>Plan</th><th>Donor</th><th class="num">Units</th>${months.map((m) => `<th class="m${m === today.slice(0, 7) ? " now" : ""}">${NAME[Number(m.slice(5, 7)) - 1]}</th>`).join("")}<th>Status</th></tr></thead>`;
-  const legend = `<p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; ${SYMBOL.waiting} units with no gift &nbsp; ${SYMBOL.ok} ready &nbsp; ${SYMBOL.look} needs a look</p><div class="legendrow">${[...KEY, ["g", "Unfilled unit"] as [string, string]].map(([s, t]) => `<span><span class="sw ${s}"></span>${t}</span>`).join("")}</div>`;
+  const head = `<thead><tr><th>Name</th><th>M/F</th><th class="num">Age</th><th>Partner</th><th>Project</th><th>Benefit</th><th>Plan</th><th>Donor</th><th class="num" title="Allocation score: the share of the months shown that a gift has paid or expects">Allocated</th>${months.map((m) => `<th class="m${m === today.slice(0, 7) ? " now" : ""}">${NAME[Number(m.slice(5, 7)) - 1]}</th>`).join("")}<th>Status</th></tr></thead>`;
+  const legend = `<p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; <span class="dot on"></span> active &nbsp; <span class="dot off"></span> inactive</p><div class="legendrow">${[...KEY, ["g", "Unfilled unit"] as [string, string]].map(([s, t]) => `<span><span class="sw ${s}"></span>${t}</span>`).join("")}</div>`;
   const sel = (x: string | undefined, val: string): string => (x === val ? " selected" : "");
   const projectSel = `<select data-regf="project" aria-label="Project"><option value="">All projects</option>${projects.map((p) => `<option value="${esc(p.id)}"${sel(f.project, p.id)}>${esc(p.name)}</option>`).join("")}</select>`;
   const filters = `<div class="filters"><select data-regf="kind" aria-label="Kind"><option value="">People and households</option><option value="person"${sel(f.kind, "person")}>People</option><option value="household"${sel(f.kind, "household")}>Households</option></select>
     ${projectSel}
-    <select data-regf="show" aria-label="Show"><option value="">All</option><option value="gaps"${sel(f.show, "gaps")}>Gaps: units with no gift</option><option value="missed"${sel(f.show, "missed")}>Failed payments</option><option value="parked"${sel(f.show, "parked")}>Paused, cancelled or completed</option></select>
+    <select data-regf="show" aria-label="Show"><option value="">All</option><option value="gaps"${sel(f.show, "gaps")}>Gaps: not fully allocated</option><option value="missed"${sel(f.show, "missed")}>Failed payments</option></select>
     <select data-regf="status" aria-label="Status"><option value="">Any status</option><option value="active"${sel(f.status, "active")}>Active</option><option value="inactive"${sel(f.status, "inactive")}>Inactive</option></select>
     <select data-regf="eligibility" aria-label="Admission decision"><option value="">Any decision</option>${(["ready", "review", "declined"] as const).map((e) => `<option value="${e}"${sel(f.eligibility, e)}>${esc(ELIGIBILITY_LABEL[e])}</option>`).join("")}</select>
     <input data-regf="text" value="${esc(f.text)}" placeholder="Search name, ID, donor, partner, area or guardian" aria-label="Search" /></div>`;

@@ -779,3 +779,10 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 - An unfilled unit is **white**, with a thin ring round each pie so an empty slot still shows. This replaces purple (decision 191).
 - Whenever a list needs these words, it uses the Gifts list's. The icons are exported from `app/gifts-page.ts`.
 
+## 193. Beneficiary list: allocation score, simple active or inactive status, and one-off gifts get a plan (Faisal, 25/11/2026)
+
+- The **Units** column showed today's state, not the twelve months, so it is replaced by **Allocated**: the share of the unit-months in the twelve shown that a gift has **paid or expects** (a gap, a missed month and a month with nothing expected all lower it). It is in `implementation.ts`.
+- **Status** is the beneficiary's own: a green circle for active, red for inactive, set on the beneficiary (profile). Gift plan states (paused, cancelled) and "needs a look" are gift matters and are not shown here: a paused gift frees the child, who is given another gift. This replaces decision 192's status icons. The donor keeps the recurring or one payment icon.
+- **Bug fixed:** a child placed on a single payment the allocation rules do not count per period (a scholarship) showed white pies and "1 of 1", because no plan was found for it. Such a gift now gets a plan of the months it covers ("1 mo"), its paid month is coloured, and a gift that cannot be found is never counted as filling a unit. Every allocated gift has a plan.
+- The Show filter is **Gaps** (a unit with no gift in some month) and **Failed payments**.
+

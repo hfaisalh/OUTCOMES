@@ -10,6 +10,7 @@
  * - Rule: one row per active enrolment, so a child with two benefits has two rows. A beneficiary with no active enrolment has one row with no months.
  * - Rule: a unit is filled by an active placement of a gift. An ended placement holds nothing (it stays in the history window).
  * - Rule: a slot takes the status of its gift in each month (monthStatus). A unit with no gift is a gap, shown so it stands out.
+ * - Rule: the allocation score is the share of unit-months in the months shown that are paid or expected by a gift. A gap, a missed month and a month with nothing expected all lower it.
  * - Rule: the donors, plan statuses and partners are those of the gifts that fill the units, so a gap or a failed payment can be found by searching.
  */
 
@@ -35,6 +36,7 @@ export interface ImplRow {
   donors: string[]; // the donors whose gifts fill the units, once each
   plans: string[]; // the plan status of those gifts (active, paused, cancelled, completed), once each, or "one-off"
   partnerIds: string[]; // the partners the gifts are assigned to
+  pct: number; // Rule: the allocation score. The share of the unit-months shown that a gift fills and has paid or expects, 0 to 100
   missed: number; // the months shown in which a unit was missed
   cells: MonthCell[];
 }
@@ -49,7 +51,7 @@ export function implementationRows(a: { beneficiaryIds: string[]; enrolments: En
   const rows: ImplRow[] = [];
   for (const id of a.beneficiaryIds) {
     const mine = a.enrolments.filter((e) => e.beneficiaryId === id && e.status === "active");
-    if (mine.length === 0) { rows.push({ beneficiaryId: id, enrolmentId: "", giftProjectId: "", clusterId: "", itemId: "", whole: 0, filled: 0, gifts: [], donors: [], plans: [], partnerIds: [], missed: 0, cells: [] }); continue; }
+    if (mine.length === 0) { rows.push({ beneficiaryId: id, enrolmentId: "", giftProjectId: "", clusterId: "", itemId: "", whole: 0, filled: 0, gifts: [], donors: [], plans: [], partnerIds: [], pct: 0, missed: 0, cells: [] }); continue; }
     for (const e of mine) {
       const whole = Math.max(1, a.whole(e.itemId));
       // Rule: each active placement fills as many units as its parts, in the order placed.
@@ -62,10 +64,12 @@ export function implementationRows(a: { beneficiaryIds: string[]; enrolments: En
         const pid = a.partnerOf?.(p.key) ?? ""; if (pid !== "") partners.add(pid);
         for (let i = 0; i < p.parts; i++) gifts.push(c);
       }
-      const filled = Math.min(gifts.length, whole);
-      const cells = a.months.map((month) => ({ month, slots: Array.from({ length: whole }, (_, i): Slot => { const c = gifts[i]; return c ? { status: monthStatus(c, month, a.today), commitmentKey: c.subscriptionId } : { status: "g", commitmentKey: "" }; }) }));
+      const filled = Math.min(gifts.filter((g) => g !== undefined).length, whole); // a gift the CRM view cannot find fills nothing it can show
+      const cells = a.months.map((month) => ({ month, slots: Array.from({ length: whole }, (_, i): Slot => { const c = gifts[i]; return c ? { status: monthStatus(c, month, a.today), commitmentKey: c.subscriptionId } : { status: i < gifts.length ? "f" : "g", commitmentKey: "" }; }) }));
+      const funded = cells.reduce((n, m) => n + m.slots.filter((x) => x.status === "p" || x.status === "e").length, 0);
+      const pct = cells.length === 0 ? 0 : Math.round((100 * funded) / (whole * cells.length));
       const missed = cells.filter((m) => m.slots.some((x) => x.status === "m")).length;
-      rows.push({ beneficiaryId: id, enrolmentId: e.id, giftProjectId: e.giftProjectId, clusterId: e.clusterId, itemId: e.itemId, whole, filled, gifts: [...info.values()], donors: [...donors], plans: [...plans], partnerIds: [...partners], missed, cells });
+      rows.push({ beneficiaryId: id, enrolmentId: e.id, giftProjectId: e.giftProjectId, clusterId: e.clusterId, itemId: e.itemId, whole, filled, gifts: [...info.values()], pct, donors: [...donors], plans: [...plans], partnerIds: [...partners], missed, cells });
     }
   }
   return rows;

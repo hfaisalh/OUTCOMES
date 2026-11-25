@@ -55,7 +55,8 @@ describe("the Beneficiaries page, month by month", () => {
     expect(html).toContain("Invented Donor");
     expect(html).not.toContain("<br>");
     expect(html).toContain("Orphan Sponsorship Monthly");
-    expect(html).toContain('<td class="num">3 of 3</td>');
+    expect(html).toContain(">75%</td>"); // 2 months paid and 7 expected, of the 12 shown, is 9 of 12
+    expect(html).toContain('class="dot on"');
     expect((html.match(/<td class="m">/g) ?? []).length).toBe(12);
     expect(html).toContain('<th class="m now">Nov</th>');
     expect(html).toContain('class="sw p"');
@@ -69,7 +70,8 @@ describe("the Beneficiaries page, month by month", () => {
     expect(registerPage(live({ registerFilter: { ...NO_FILTER, text: "invented donor" } }))).toContain("Ayesha Khan</b>");
     expect(registerPage(live({ registerFilter: { ...NO_FILTER, text: "nobody" } }))).toContain("Nothing matches.");
     const late = registerPage(live({ workOrders: [sub(1, "2026-08-05")], registerFilter: { ...NO_FILTER, show: "missed" } }));
-    expect(late).toContain("Needs a look: a payment was missed"); // paid in August only, so September to now are missed
+    expect(late).toContain("Ayesha Khan</b>");
+    expect(registerPage(live({ registerFilter: { ...NO_FILTER, show: "missed" } }))).not.toContain("Ayesha Khan</b>"); // all paid so far, none missed // paid in August only, so September to now are missed
   });
   it("colours a month paid when a payment was made, and the ones after it expected, with one slice for each unit", () => {
     const html = registerPage(live());
@@ -79,11 +81,19 @@ describe("the Beneficiaries page, month by month", () => {
   });
   it("shows units not filled as nothing expected, and a placement that has ended holds nothing", () => {
     const part = registerPage(live({ placements: { records: [placed({ parts: 1 })], counter: 0 } }));
-    expect(part).toContain('<td class="num">1 of 3</td>');
+    expect(part).toContain('class="seg g"');
     expect(part).toContain('class="seg g"');
     const ended = registerPage(live({ placements: { records: [placed({ to: "2026-11-01", endReason: "paused" })], counter: 0 } }));
-    expect(ended).toContain('<td class="num">0 of 3</td>');
+    expect(ended).toContain(">0%</td>");
     expect(ended).not.toContain('class="seg p"');
+  });
+  it("shows a single payment the rules do not count per period (a scholarship) with a plan and its paid month, not as a gap", () => {
+    const one = sub(1, "2026-10-05", { key: "ONE1", subscriptionId: "", instalmentNumber: "", instalmentCount: "" });
+    const html = registerPage(live({ workOrders: [one], placements: { records: [placed({ key: "ONE1", parts: 3 })], counter: 0 } }));
+    expect(html).toContain("1 mo");
+    expect(html).toContain('aria-label="Oct 2026"><circle class="ring" cx="12" cy="12" r="11.7" stroke-width=".7"/><circle class="ring" cx="12" cy="12" r="6.3" stroke-width=".7"/><circle class="seg p"');
+    expect(html).toContain('title="One payment"');
+    expect(html).not.toContain('class="seg g"');
   });
   it("gives a beneficiary with two benefits two rows, and filters by project", () => {
     const two = live({ enrolments: { records: [enrol, { ...enrol, id: "EN-2", itemId: "I11" }], counter: 2 } });
