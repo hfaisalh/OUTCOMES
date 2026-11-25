@@ -38,3 +38,13 @@ To do **after** the steps that make Outcomes work end to end (beneficiary enrolm
 - Rename the code's `Project` to `Partner` and `GiftProject` to `Project` in the same pass, and remove the old partner Structure tab (replaced by clusters).
 - Do it once, mechanically, one feature at a time, with the tests green after each. No behaviour change.
 - Until then, new files keep the current layout and carry the feature name in the file name (as `register-page.ts` does), so the later move is only a relocation.
+
+## Later to-do: a layered flow chart that shows the rules and what each stage needs (25/11/2026)
+
+Take the lead from layered, editorial diagram styles (for example diagramdesign.dev), without installing anything: improve the flow chart on the Workflows page. To be done with the UX work on outcomes, since the same card serves both.
+
+- **Three layers with a switch:** **Flow** (stages, approvals, rejections, as today), **Rules** (the decisions applied at that stage, in plain words, with this workflow's own settings), **Needs** (what the stage depends on, and whether it is ready now).
+- **Click a stage** to open a card beside the chart: what it does, its rules, its needs and what happens when it fails.
+- **Needs are live**, reusing the checks we already have (the connected-end-to-end check on the Benefits page, partner eligibility, room from children), shown as a tick or a cross with a count.
+- **Built or not built** is shown on every stage (Confirmation, Review, Report and Feedback are not built yet).
+- Written from the recorded decisions and the workflow's own settings, so the chart and the system cannot disagree. Plain words only. The same card is reused on the outcomes screen, for one gift.
