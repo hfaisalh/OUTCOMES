@@ -254,6 +254,10 @@ describe("months a one-off payment covers (DECISIONS 64)", () => {
     const lines = load("export-donation-lines-sample.csv").map((l) => (l["Line ID"] === "9001" ? { ...l, Period: "One-time", "Subscription ID": "0", "Instalment no": "", "Item Bundle": "" } : l));
     const prices = [...load("export-catalogue-prices-sample.csv"), { "Item SKU": "MWF-ORP-001", Bundle: "", Quantity: "1", "Way of giving": "Instalments", "Each payment": "40", Payments: "" }];
     expect(adaptExports(lines, load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), prices).rows.find((x) => x["line_id"] === "9001")!["period_count"]).toBe("12");
+    // The real export's shape for an item that continues until cancelled: the catalogue says "covers 12 months" itself (invented item and prices).
+    const real = [...load("export-catalogue-prices-sample.csv"), { "Item SKU": "MWF-ORP-001", Bundle: "", Quantity: "1", "Way of giving": "Monthly until cancelled", "Each payment": "33", Payments: "", "In words": "GBP 33.00 a month until cancelled" }];
+    const withWords = real.map((r) => (r["Way of giving"] === "Single payment" && r["Item SKU"] === "MWF-ORP-001" && r["Bundle"] === "" ? { ...r, "Each payment": "390", "In words": "GBP 390.00 once (covers 12 months)" } : r));
+    expect(adaptExports(lines, load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), withWords).rows.find((x) => x["line_id"] === "9001")!["period_count"]).toBe("12"); // 390 / 33 is not whole, the words say 12
     const odd = [...load("export-catalogue-prices-sample.csv"), { "Item SKU": "MWF-ORP-001", Bundle: "", Quantity: "1", "Way of giving": "Instalments", "Each payment": "70", Payments: "" }];
     expect(adaptExports(lines, load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), odd).rows.find((x) => x["line_id"] === "9001")!["period_count"]).toBe(""); // 480 does not divide by 70
   });

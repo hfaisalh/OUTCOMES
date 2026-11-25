@@ -139,17 +139,20 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
     const n = pick(r, "Payments");
     if (sku !== "" && pick(r, "Way of giving") === "Instalments" && Number.isInteger(Number(n)) && Number(n) > 1 && !planLength.has(`${sku}|${pick(r, "Bundle")}`)) planLength.set(`${sku}|${pick(r, "Bundle")}`, n);
   }
-  // Rule (DECISIONS 195): an item that also offers instalments, whether it stops after a number of payments or continues until cancelled, is worth a whole plan when paid in one go. When the file
-  // gives no payment count for the instalments, the months are the single payment divided by one instalment (300 once, 25 a month, is 12 months), if that divides evenly.
+  // Rule (DECISIONS 195): an item that also offers monthly payments until cancelled is worth a whole plan when paid in one go (300 once, 25 a month, is 12 months). The catalogue says so itself in the
+  // "In words" column of the single payment row ("GBP 300.00 once (covers 12 months)"), so that is read first. When it is not there, the months are the single payment divided by one monthly or
+  // instalment payment when that divides evenly (300 / 25 = 12). The way of giving of the other row is "Instalments" or "Monthly until cancelled".
   const single = new Map<string, number>();
   const each = new Map<string, number>();
   for (const r of prices) {
     const key = `${pick(r, "Item SKU")}|${pick(r, "Bundle")}`;
     const way = pick(r, "Way of giving");
+    const covers = /covers (\d+) months?/i.exec(pick(r, "In words"));
+    if (covers && way === "Single payment" && Number(covers[1]) > 1 && !planLength.has(key)) planLength.set(key, covers[1] as string);
     const amount = Number(pick(r, "Each payment"));
     if (!Number.isFinite(amount) || amount <= 0) continue;
     if (way === "Single payment" && !single.has(key)) single.set(key, amount);
-    if (way === "Instalments" && !each.has(key)) each.set(key, amount);
+    if (way !== "Single payment" && !each.has(key)) each.set(key, amount);
   }
   for (const [key, total] of single) {
     const e = each.get(key);
