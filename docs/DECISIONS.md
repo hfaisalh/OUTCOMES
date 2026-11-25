@@ -825,3 +825,7 @@ Pumps and similar builds can be paid in a fixed number of instalments (a Small P
 ## 200. A gift paid in shares of one whole item shows its units as instalment pies (2026-11-25)
 
 A pump paid in 10 instalments showed a blue bar (0.6 / 1) in the gift window while every other plan showed green to orange pies. It now shows one pie for each instalment (green paid, orange upcoming, red missed, blue catch-up), with the count line ("0.6 of 1, whole item not paid yet") under it. `app/gifts-page.ts`.
+
+## 201. One unit items show a rounded square, and the gift window units are tidied (2026-11-25)
+
+An item of one unit has nothing to slice, so its month pies (Beneficiaries, Outcomes) and instalment pies (gift window) are rounded squares in the same green, orange, red, blue colours. The first "Units" label in the gift window is now "Parts per instalment" so it is not confused with the pie row. The pie key names only the colours that appear. A pump paid in shares says "6 of 10 instalments paid, 60% of the whole item".

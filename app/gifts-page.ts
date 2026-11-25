@@ -39,7 +39,7 @@ function unitsCell(g: GiftRow, v: View): string {
   const rule = fw.instalment;
   if (rule === undefined) return `<span class="muted">Set how an instalment counts in the workflow ${esc(fw.name)}</span>`;
   const u = unitsForCommitment(rule, { parts: c.partsPerInstalment, paid: c.paid, planned: c.planned });
-  if (rule === "share_of_whole") return u.target === null ? `<span class="muted">Count unknown</span>` : `${num(u.units)} of ${num(u.target)}${u.complete ? ` <span class="pill ready">Complete, can be delivered</span>` : ` <span class="muted">(whole item not paid yet)</span>`}`;
+  if (rule === "share_of_whole") return u.target === null ? `<span class="muted">Count unknown</span>` : `${num(u.units)} of ${num(u.target)}${u.complete ? ` <span class="pill ready">Complete, can be delivered</span>` : c.planned ? ` <span class="muted">(${c.paid} of ${c.planned} instalments paid, ${Math.round((100 * u.units) / u.target)}% of the whole item)</span>` : ` <span class="muted">(whole item not paid yet)</span>`}`;
   // Who the units go to: whole beneficiaries (dedicated) and a shared remainder, from the framework's units per beneficiary.
   const shape = allocationShape(c.partsPerInstalment, fw.unitsPerBeneficiary);
   const who = fw.unitsPerBeneficiary <= 1 ? "" : shape.dedicated > 0 ? `<div class="muted">${shape.dedicated} dedicated ${esc(fw.unit || "beneficiary")}${shape.dedicated === 1 ? "" : "s"}${shape.shared ? ` and ${shape.shared} shared part${shape.shared === 1 ? "" : "s"}` : ""} each month</div>` : `<div class="muted">${shape.shared} of ${fw.unitsPerBeneficiary} parts: shared with other donors</div>`;
@@ -63,10 +63,14 @@ function unitsVisual(g: GiftRow, v: View): string {
   const stopped = g.planStatus === "paused" || g.planStatus === "cancelled";
   const paid = new Set(c.paidMonths), caught = new Set(c.catchUpMonths);
   const pie = (cls: string, tip: string): string => {
+    used.add(cls);
+    // Rule (decision 201): one unit means a rounded square, not a pie.
+    if (slots === 1) return `<svg class="upie" viewBox="0 0 36 36" width="22" height="22" role="img" aria-label="${esc(tip)}"><title>${esc(tip)}</title><rect class="sq ${cls}" x="3" y="3" width="30" height="30" rx="9"/></svg>`;
     const R = 14, C = 2 * Math.PI * R, len = C / slots;
     const arcs = Array.from({ length: slots }, (_, i) => `<circle class="seg ${i < held ? cls : "f"}" cx="18" cy="18" r="${R}" fill="none" stroke-width="9" stroke-dasharray="${slots === 1 ? C : Math.max(len - 2, 0.5)} ${C}" stroke-dashoffset="${-i * len}" transform="rotate(-90 18 18)"/>`).join("");
     return `<svg class="upie" viewBox="0 0 36 36" width="22" height="22" role="img" aria-label="${esc(tip)}"><title>${esc(tip)}</title>${arcs}</svg>`;
   };
+  const used = new Set<string>();
   const pies = Array.from({ length: count }, (_, i) => {
     const m = plusMonths(start, i);
     if (caught.has(m)) return pie("c", `Instalment ${i + 1}, ${m}: filled by a catch-up payment`);
@@ -77,7 +81,9 @@ function unitsVisual(g: GiftRow, v: View): string {
     // Rule (DECISIONS 85, as in the Allocation month view): orange is expected. A month not paid yet, this month or later, is expected.
     return pie("e", `Instalment ${i + 1}, ${m}: ${m === now ? "due this month" : "upcoming"}`);
   }).join("");
-  const key = `<div class="ukey muted"><i class="p"></i>paid <i class="c"></i>catch-up <i class="e"></i>upcoming <i class="m"></i>missed <i class="f"></i>not this gift\u2019s units</div>`;
+  // Rule: the key names only the colours that appear, so a pump with no missed instalment does not explain red.
+  const names: [string, string][] = [["p", "paid"], ["c", "catch-up"], ["e", "upcoming"], ["m", "missed"], ["u", "nothing expected"], ["f", "not this gift\u2019s units"]];
+  const key = `<div class="ukey muted">${names.filter(([k]) => used.has(k)).map(([k, n]) => `<i class="${k}"></i>${n}`).join(" ")}</div>`;
   return `<div class="upies">${pies}</div>${key}${shares ? `<div class="muted small">${unitsCell(g, v)}</div>` : ""}`;
 }
 
@@ -353,7 +359,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Paid", progress)}
         ${row("Dates", `${esc(shortDate(g.firstPaid))}${g.lastPaid && g.lastPaid !== g.firstPaid ? ` \u2192 ${esc(shortDate(g.lastPaid))}` : ""}${g.nextDue ? `<div class="muted">next due ${esc(shortDate(g.nextDue))}</div>` : ""}`)}
         ${row("Plan status", g.planStatus ? `<span class="pill ${g.planStatus === "active" ? "ready" : "review"}">${esc(g.planStatus)}</span>` : "")}
-        ${row("Units", partsControl ? `<span class="partsrow">${partsControl}</span>${fixed ? `<div class="muted">Set manually. The CRM says ${esc(String(g.payments.find((w) => w.legacyUpload !== true) ? sentPartsOf(g.payments.find((w) => w.legacyUpload !== true) as WorkOrder) : g.parts))}.</div>` : ""}` : "")}
+        ${row("Parts per instalment", partsControl ? `<span class="partsrow">${partsControl}</span>${fixed ? `<div class="muted">Set manually. The CRM says ${esc(String(g.payments.find((w) => w.legacyUpload !== true) ? sentPartsOf(g.payments.find((w) => w.legacyUpload !== true) as WorkOrder) : g.parts))}.</div>` : ""}` : "")}
         ${row("Project chosen", esc(g.projectName))}
         ${row("Cause", esc(first?.cause ?? ""))}
         ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}

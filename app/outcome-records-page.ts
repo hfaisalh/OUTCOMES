@@ -25,6 +25,8 @@ export const NO_OUTCOME_FILTER = { text: "", project: "", type: "", show: "" as 
 // One small pie for a month: a slice for each unit of the whole outcome, coloured by what its gift did that month. A thin ring marks the edge so a white (unfilled) unit still shows.
 function pie(slots: { status: UnitStatus | "g" }[], label: string): string {
   const n = slots.length;
+  // Rule (decision 201): an item of one unit has nothing to slice, so it is a rounded square, not a pie.
+  if (n === 1) return `<svg class="mpie" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="${esc(label)}"><rect class="ring" x="1.2" y="1.2" width="21.6" height="21.6" rx="7" stroke-width=".7"/><rect class="sq ${slots[0]?.status}" x="4" y="4" width="16" height="16" rx="5"/></svg>`;
   const R = 9, C = 2 * Math.PI * R;
   const arcs = slots.map((sl, i) => { const len = C / n; return `<circle class="seg ${sl.status}" cx="12" cy="12" r="${R}" fill="none" stroke-width="6" stroke-dasharray="${n === 1 ? C : Math.max(len - 1.2, 0.5)} ${C}" stroke-dashoffset="${-i * len}" transform="rotate(-90 12 12)"/>`; });
   return `<svg class="mpie" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="${esc(label)}"><circle class="ring" cx="12" cy="12" r="11.7" stroke-width=".7"/><circle class="ring" cx="12" cy="12" r="6.3" stroke-width=".7"/>${arcs.join("")}</svg>`;

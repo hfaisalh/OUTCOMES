@@ -69,7 +69,7 @@ describe("giftsPage", () => {
     expect(pies).not.toContain("shared with other donors");
     const share = detail(mk("delivered-once"));
     expect(share).toContain("0.33 of 1");
-    expect(share).toContain("whole item not paid yet");
+    expect(share).toContain("of the whole item)");
     expect(detail(mk(""))).toContain("No workflow chosen");
     expect(detail(mk("x"), [{ ...fws[0]!, id: "x", instalment: undefined }])).toContain("Set how an instalment counts in the workflow");
   });
@@ -102,7 +102,9 @@ describe("giftsPage", () => {
     const pumpWin = giftDetailHtml(view({ workOrders: mk("delivered-once"), frameworks: fws.map((f) => (f.id === "delivered-once" ? { ...f, instalment: "share_of_whole" as const } : f)) }), "S9");
     expect(pumpWin).toContain('class="upies"');
     expect(pumpWin).not.toContain('class="ubar"');
-    expect(pumpWin).toContain("whole item not paid yet");
+    expect(pumpWin).toContain("4 of 12 instalments paid, 33% of the whole item");
+    expect(pumpWin).toContain('class="sq p"'); // one unit: rounded squares, not pies
+    expect(pumpWin).not.toContain('<i class="c">'); // the key names only colours that appear
     // an item with no workflow is still at Gift
     expect(giftListHtml(view())).toContain('class="pill stage st-gift" title="Choose a workflow for its item">Gift</span>');
   });

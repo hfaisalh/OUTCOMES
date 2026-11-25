@@ -42,7 +42,7 @@ describe("the Outcomes list", () => {
     expect((html.match(/<td class="m">/g) ?? []).length).toBe(12);
   });
   it("shows the month the gift was paid in green, and says how far funded when the gift holds fewer units than the whole", () => {
-    expect(outcomeRecordsPage(view())).toContain('aria-label="Oct 2026"><circle class="ring" cx="12" cy="12" r="11.7" stroke-width=".7"/><circle class="ring" cx="12" cy="12" r="6.3" stroke-width=".7"/><circle class="seg p"');
+    expect(outcomeRecordsPage(view())).toContain('aria-label="Oct 2026"><rect class="ring" x="1.2" y="1.2" width="21.6" height="21.6" rx="7" stroke-width=".7"/><rect class="sq p"');
     const part = outcomeRecordsPage(view({ frameworks: [{ id: "wf", unitsPerBeneficiary: 4 } as FrameworkTemplate] }));
     expect(part).toContain(">25%</td>");
     expect(part).toContain('class="seg g"');
