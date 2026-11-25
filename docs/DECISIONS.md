@@ -786,3 +786,8 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 - **Bug fixed:** a child placed on a single payment the allocation rules do not count per period (a scholarship) showed white pies and "1 of 1", because no plan was found for it. Such a gift now gets a plan of the months it covers ("1 mo"), its paid month is coloured, and a gift that cannot be found is never counted as filling a unit. Every allocated gift has a plan.
 - The Show filter is **Gaps** (a unit with no gift in some month) and **Failed payments**.
 
+## 194. A single payment for a whole plan reads as a complete plan, 12/12 (Faisal, 25/11/2026)
+
+- A one-off payment that covers a plan (a Hifz scholarship paid for a year: price 300, instalments of 25, 12 months) is shown as **12/12** in the Plan column of both the Gifts list and the Beneficiaries list, not "12 mo". A one-month one-off in the Beneficiaries list reads 1/1.
+- The months come from the CRM item's plan length (decision 64, the `Payments` column of the Catalogue prices export, sent as `period_count`). When the CRM did not send it, a payment counts as one month, so its pies show only that month. The fix for a gift is to load the Catalogue prices export, or set the months on the payment (calendar icon).
+

@@ -90,10 +90,17 @@ describe("the Beneficiaries page, month by month", () => {
   it("shows a single payment the rules do not count per period (a scholarship) with a plan and its paid month, not as a gap", () => {
     const one = sub(1, "2026-10-05", { key: "ONE1", subscriptionId: "", instalmentNumber: "", instalmentCount: "" });
     const html = registerPage(live({ workOrders: [one], placements: { records: [placed({ key: "ONE1", parts: 3 })], counter: 0 } }));
-    expect(html).toContain("1 mo");
+    expect(html).toContain("1/1");
     expect(html).toContain('aria-label="Oct 2026"><circle class="ring" cx="12" cy="12" r="11.7" stroke-width=".7"/><circle class="ring" cx="12" cy="12" r="6.3" stroke-width=".7"/><circle class="seg p"');
     expect(html).toContain('title="One payment"');
     expect(html).not.toContain('class="seg g"');
+  });
+  it("shows a single payment that covers a year as a complete plan, 12/12, all twelve months paid", () => {
+    const one = sub(1, "2026-10-05", { key: "ONE1", subscriptionId: "", instalmentNumber: "", instalmentCount: "", periodCount: 12 });
+    const html = registerPage(live({ workOrders: [one], placements: { records: [placed({ key: "ONE1", parts: 3 })], counter: 0 } }));
+    expect(html).toContain("12/12");
+    expect((html.match(/class="seg p"/g) ?? []).length).toBe(3 * 8); // October to May are paid, 8 months of 3 units
+    expect(html).toContain(">67%</td>");
   });
   it("gives a beneficiary with two benefits two rows, and filters by project", () => {
     const two = live({ enrolments: { records: [enrol, { ...enrol, id: "EN-2", itemId: "I11" }], counter: 2 } });

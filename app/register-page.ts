@@ -78,7 +78,7 @@ export function registerPage(v: View): string {
   const shown = pool.filter((b) => shownIds.has(b.id));
   const where = (gpId: string): string => projects.find((p) => p.id === gpId)?.name ?? "";
   // Plan like the Gifts list: instalments paid over planned (2/∞), with the plan's own status icon when it is not running.
-  const planOf = (g: { once: boolean; paid: number; planned: number | null; planStatus: string }): string => (g.once ? `${g.planned ?? 1} mo` : `${g.paid}/${g.planned ?? "\u221E"}`);
+  const planOf = (g: { once: boolean; paid: number; planned: number | null; planStatus: string }): string => (g.once ? `${g.paid}/${g.planned ?? 1}` : `${g.paid}/${g.planned ?? "\u221E"}`);
   const rows = list.slice(0, MAX_ROWS).map((r) => {
     const b = byId.get(r.beneficiaryId);
     if (!b) return "";

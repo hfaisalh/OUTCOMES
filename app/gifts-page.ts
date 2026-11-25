@@ -261,7 +261,7 @@ export function giftListHtml(v: View): string {
   // Rule: the plan column is the short form: paid/planned for a subscription, the months covered for a single payment.
   const planCell = (g: GiftRow): string => {
     if (g.kind === "excluded") return "";
-    if (g.kind === "one_off") return g.periodCount > 1 ? `${g.periodCount} mo` : "";
+    if (g.kind === "one_off") return g.periodCount > 1 ? `${g.periodCount}/${g.periodCount}` : ""; // a payment for a whole plan is all paid: 12/12
     const pct = g.planned ? Math.min(100, Math.round((g.paid / g.planned) * 100)) : 0;
     return `${g.paid}/${g.planned ?? "\u221E"}${g.planned ? `<div class="bar"><span style="width:${pct}%"></span></div>` : ""}`;
   };

@@ -50,7 +50,7 @@ describe("giftsPage", () => {
   });
   it("shows a single payment as its own row, and how many months it covers", () => {
     const html = giftListHtml(view({ workOrders: [{ ...base, key: "o1", subscriptionId: "", instalmentNumber: "", instalmentCount: "", periodCount: 12 }] }));
-    expect(html).toContain("12 mo");
+    expect(html).toContain("12/12");
     expect(html).toContain("One payment");
     expect(giftDetailHtml(view({ workOrders: [{ ...base, key: "o1", subscriptionId: "", instalmentNumber: "", instalmentCount: "", periodCount: 12 }] }), "once-o1")).toContain("covers 12 months");
   });
