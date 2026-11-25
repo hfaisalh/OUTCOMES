@@ -53,14 +53,11 @@ function unitsVisual(g: GiftRow, v: View): string {
   const c = g.commitment;
   const fw = c ? (v.frameworks ?? []).find((x) => x.id === c.frameworkId) : undefined;
   if (!c || !fw || fw.instalment === undefined) return unitsCell(g, v);
-  if (fw.instalment === "share_of_whole") {
-    const u = unitsForCommitment(fw.instalment, { parts: c.partsPerInstalment, paid: c.paid, planned: c.planned });
-    const pct = u.target ? Math.min(100, Math.round((u.units / u.target) * 100)) : 0;
-    return `${u.target ? `<div class="ubar"><span style="width:${pct}%"></span><b>${num(u.units)} / ${num(u.target)}</b></div>` : ""}<div class="muted small">${unitsCell(g, v)}</div>`;
-  }
+  // Rule: a gift whose instalments are shares of one whole item (a pump paid in 10) shows one pie for each instalment, the same green to orange as any plan, with the count under it.
+  const shares = fw.instalment === "share_of_whole";
   const now = (v.today ?? "2026-01-01").slice(0, 7);
-  const slots = Math.max(1, fw.unitsPerBeneficiary);
-  const held = Math.min(slots, Math.max(1, c.partsPerInstalment));
+  const slots = shares ? 1 : Math.max(1, fw.unitsPerBeneficiary);
+  const held = shares ? 1 : Math.min(slots, Math.max(1, c.partsPerInstalment));
   const start = c.paidMonths[0] ?? now;
   const count = Math.min(24, c.planned ?? Math.max(12, c.paid + 3));
   const stopped = g.planStatus === "paused" || g.planStatus === "cancelled";
@@ -81,7 +78,7 @@ function unitsVisual(g: GiftRow, v: View): string {
     return pie("e", `Instalment ${i + 1}, ${m}: ${m === now ? "due this month" : "upcoming"}`);
   }).join("");
   const key = `<div class="ukey muted"><i class="p"></i>paid <i class="c"></i>catch-up <i class="e"></i>upcoming <i class="m"></i>missed <i class="f"></i>not this gift\u2019s units</div>`;
-  return `<div class="upies">${pies}</div>${key}`;
+  return `<div class="upies">${pies}</div>${key}${shares ? `<div class="muted small">${unitsCell(g, v)}</div>` : ""}`;
 }
 
 // A small calendar icon on a payment opens a choice of how many months it pays for, with a tick to save and an undo to go back (DECISIONS 118). It is out of the way

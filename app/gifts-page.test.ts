@@ -98,6 +98,11 @@ describe("giftsPage", () => {
     // a gift whose workflow releases only when fully paid is funding at Work order
     const pump = giftListHtml(view({ workOrders: mk("delivered-once"), frameworks: fws.map((f) => (f.id === "delivered-once" ? { ...f, instalment: "share_of_whole" as const } : f)) }));
     expect(pump).toContain('class="pill stage st-work-order" title="Funding, 4 of 12 paid">WO created</span>');
+    // and its units are one green or orange pie for each instalment, with the count under them, not a blue bar
+    const pumpWin = giftDetailHtml(view({ workOrders: mk("delivered-once"), frameworks: fws.map((f) => (f.id === "delivered-once" ? { ...f, instalment: "share_of_whole" as const } : f)) }), "S9");
+    expect(pumpWin).toContain('class="upies"');
+    expect(pumpWin).not.toContain('class="ubar"');
+    expect(pumpWin).toContain("whole item not paid yet");
     // an item with no workflow is still at Gift
     expect(giftListHtml(view())).toContain('class="pill stage st-gift" title="Choose a workflow for its item">Gift</span>');
   });

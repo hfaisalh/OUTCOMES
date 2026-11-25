@@ -821,3 +821,7 @@ Found when a row in the Outcomes list opened a sponsorship gift that was also al
 ## 199. An outcome paid in instalments is funded as they arrive (2026-11-25)
 
 Pumps and similar builds can be paid in a fixed number of instalments (a Small Pump shows 10/10). Funded on the Outcomes list is now the units held times instalments paid out of planned, so 4 of 10 is 40%. A single payment, or a plan that runs until cancelled, counts as fully funded. Money is still not tracked: this counts instalments, not pounds. Pure logic in `modules/10-outcome-records/outcome-records.ts`.
+
+## 200. A gift paid in shares of one whole item shows its units as instalment pies (2026-11-25)
+
+A pump paid in 10 instalments showed a blue bar (0.6 / 1) in the gift window while every other plan showed green to orange pies. It now shows one pie for each instalment (green paid, orange upcoming, red missed, blue catch-up), with the count line ("0.6 of 1, whole item not paid yet") under it. `app/gifts-page.ts`.
