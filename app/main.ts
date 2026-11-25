@@ -61,6 +61,8 @@ import { applyKindAction, type SavedFeatures } from "../modules/02-project-rules
 import { isPageId, landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
 import { outcomesPage, listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, type Filter, type View } from "./pages";
 
+declare const __BUILD_LABEL__: string; // set at build time in vite.config.ts: version, commit and build time
+
 // Rule: the page being looked at is kept in the address (#workflows), so a reload comes back to it instead of the first page. Only known pages are used.
 function pageFromAddress(): PageId {
   try {
@@ -629,7 +631,7 @@ function draw(): void {
     : "";
   const shell = document.getElementById("shell") as HTMLElement;
   shell.innerHTML = `<div class="app">
-    <aside class="side"><div class="brand">OUTCOMES<small>Minhaj Welfare Foundation</small></div><nav class="nav">${sections}</nav><div class="foot">${state.me ? "Live data from your CRM." : "Demo with invented data. Nothing is saved."}</div></aside>
+    <aside class="side"><div class="brand">OUTCOMES<small>Minhaj Welfare Foundation</small></div><nav class="nav">${sections}</nav><div class="foot">${state.me ? "Live data from your CRM." : "Demo with invented data. Nothing is saved."}<div class="ver" title="The version of this page. If it is not the latest, refresh the page.">${esc(typeof __BUILD_LABEL__ === "string" ? __BUILD_LABEL__ : "dev")}</div></div></aside>
     <header class="top">${state.me ? `<span class="badge-demo">Signed in from the CRM${state.me.storage === "memory" ? " · TEMPORARY STORAGE, nothing is kept" : ""}</span>` : `<span class="badge-demo">Demo with invented data</span>`}
       <div class="who">${gear}${person}</div></header>
     <main class="content">${moduleTabs}${body}</main></div>`;

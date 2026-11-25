@@ -7,12 +7,25 @@
  */
 
 import { resolve } from "node:path";
+import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { defineConfig } from "vitest/config";
 
 const repoRoot = import.meta.dirname;
 
+// The version shown at the bottom of the menu: the package version, the short commit and the build time (DD/MM/YY HH:MM, UTC), so you can tell which build a page is on.
+function buildLabel(): string {
+  const version = (JSON.parse(readFileSync(resolve(repoRoot, "package.json"), "utf8")) as { version: string }).version;
+  let commit = (process.env["VERCEL_GIT_COMMIT_SHA"] ?? "").slice(0, 7);
+  if (commit === "") { try { commit = execSync("git rev-parse --short HEAD", { cwd: repoRoot }).toString().trim(); } catch { commit = "local"; } }
+  const d = new Date();
+  const p2 = (n: number): string => String(n).padStart(2, "0");
+  return `v${version} \u00B7 ${commit} \u00B7 ${p2(d.getUTCDate())}/${p2(d.getUTCMonth() + 1)}/${String(d.getUTCFullYear()).slice(2)} ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())} UTC`;
+}
+
 export default defineConfig({
   root: repoRoot,
+  define: { __BUILD_LABEL__: JSON.stringify(buildLabel()) },
   server: { open: "/app/", fs: { allow: [repoRoot] } },
   // Tests run from the repo root, not from the page folder.
   test: { root: repoRoot, include: ["modules/**/*.test.ts", "app/**/*.test.ts"] },
