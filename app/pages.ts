@@ -56,6 +56,8 @@ export interface View {
   allocFilter?: string; // the filter on the Allocate page: all, open, placed
   assignFilter?: string; // the filter on the Assignment page: all, open, assigned
   enrolments?: Enrolments; // who is enrolled in which cluster (DECISIONS 167)
+  outcomeRecFilter?: { text: string; project: string; type: string; show: "" | "underfunded" | "missed" | "ended" }; // the filters on the Outcomes list (DECISIONS 197)
+  outcomeRecSort?: { key: string; dir: "asc" | "desc" };
   registerSort?: { key: string; dir: "asc" | "desc" }; // the column the Beneficiaries list is sorted by (DECISIONS 196)
   registerFilter?: BeneficiaryFilter; // the filters on the Beneficiaries page
   projects?: Project[]; // the partners (the code still calls a partner a Project) and their structures (DECISIONS 65)

@@ -104,3 +104,14 @@ describe("sorting the Beneficiaries list by a heading", () => {
     expect(shell.innerHTML).not.toContain("Name \u25BC");
   });
 });
+
+describe("sorting and filtering the Outcomes list", () => {
+  it("sorts on a heading click and filters on a change, without error", async () => {
+    click({ page: "outcome-records" }, "data-page");
+    expect(shell.innerHTML).toContain("<h1>Outcomes</h1>");
+    click({ orsort: "funded" }, "data-orsort"); await flush();
+    expect(shell.innerHTML).toContain("<h1>Outcomes</h1>");
+    fire("change", { target: { dataset: { orf: "text" }, value: "zzz" } }); await flush();
+    expect(shell.innerHTML).toContain("<h1>Outcomes</h1>");
+  });
+});

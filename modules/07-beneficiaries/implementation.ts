@@ -14,7 +14,8 @@
  * - Rule: the donors, plan statuses and partners are those of the gifts that fill the units, so a gap or a failed payment can be found by searching.
  */
 
-import { needsLook, type Commitment } from "../04b-commitments/commitments.js";
+import { allocatable, needsLook, oneOffCommitments, type Commitment } from "../04b-commitments/commitments.js";
+import type { WorkOrder } from "../01c-crm-connector/work-orders.js";
 import { monthStatus, type UnitStatus } from "../05-outcomes/outcomes.js";
 import type { Placement } from "../09-placement/placement.js";
 import type { Enrolment } from "./enrolments.js";
@@ -45,6 +46,13 @@ export interface ImplRow {
 export function commitmentOfKey(commitments: Commitment[], key: string): Commitment | undefined {
   const id = key.startsWith("sub:") ? key.slice(4) : `once-${key}`;
   return commitments.find((c) => c.subscriptionId === id);
+}
+
+// Rule: every allocated gift has a plan. A single payment the allocation rules do not count per period (a scholarship, a pump) is still shown, as a plan of the months it covers (one when the CRM gives no length).
+export function commitmentsFor(workOrders: WorkOrder[], isPerPeriod: (frameworkId: string) => boolean, today: string): Commitment[] {
+  const base = allocatable(workOrders, isPerPeriod, today);
+  const have = new Set(base.map((c) => c.subscriptionId));
+  return [...base, ...oneOffCommitments(workOrders, () => true, today).filter((c) => !have.has(c.subscriptionId))];
 }
 
 export function implementationRows(a: { beneficiaryIds: string[]; enrolments: Enrolment[]; placements: Placement[]; commitments: Commitment[]; whole: (itemId: string) => number; partnerOf?: (key: string) => string; months: string[]; today: string }): ImplRow[] {

@@ -805,3 +805,11 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 - Click a column heading (Name, M/F, Age, Partner, Project, Benefit, Plan, Donor, Allocated, Status) to sort by it, click again to reverse. An arrow shows the sorted heading. Empty values go last either way, and the Allocated sort puts the least funded first on the first click, to find gaps.
 - The heading row and the Name column stay in view while the list scrolls (the table scrolls inside its own frame).
 
+## 197. The Outcomes list (Faisal, 25/11/2026)
+
+- A main menu entry **Outcomes** lists what gifts create where the gift comes first (a pump, a camp) or the benefit has no beneficiary (a mosque): one line for each outcome (OUT-0001), made when Allocate places the gift. It replaces the older "Outcome records" list for this purpose.
+- Columns: Outcome, Benefit, Type, Project, Partner, Donor (with the recurring or one payment icon), Plan (2/∞, 1/1, 12/12), **Funded**, twelve month pies, Stage, Status (green live, red ended). The words and icons are the Gifts list's. A row opens the gift.
+- **Funded** is the units the gift holds out of the units that make one whole outcome (a pump is 1), from the item's units (decision 188). The target is therefore taken from the item's units, not its price, for now. An outcome whose gift is cancelled, paused or completed ends and stays in the list, marked ended with the reason (decision 186).
+- Filters: project, type, **Under-funded**, **Failed payments**, **Ended**, and a search by reference, benefit, donor, partner or project. Headings sort.
+- **Not built yet:** several gifts together funding one outcome (each gift makes its own), recipients (households or lists) for the types that need them, and the stages after allocation (delivered, confirmed, reported).
+

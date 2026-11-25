@@ -22,10 +22,10 @@ export const PERMISSIONS = {
   approveRelease: "outcomes.approve_release", // a manager may approve releasing a sponsor's place after a missed payment (DECISIONS 74)
 } as const;
 
-export type PageId = "workflows" | "benefits" | "data-feed" | "data-files" | "work-orders" | "attention" | "outcomes" | "projects" | "partners" | "beneficiaries" | "outcome-list" | "assignment" | "placement" | "allocation" | "audit" | "categories" | "dashboard" | "sources" | "settings";
+export type PageId = "workflows" | "benefits" | "data-feed" | "data-files" | "work-orders" | "attention" | "outcomes" | "projects" | "partners" | "beneficiaries" | "outcome-records" | "outcome-list" | "assignment" | "placement" | "allocation" | "audit" | "categories" | "dashboard" | "sources" | "settings";
 
 // Rule: the pages a link or a reload may open. Anything else (a mistyped or old address) is ignored and the usual first page is used.
-export const PAGE_IDS: readonly PageId[] = ["workflows", "benefits", "data-feed", "data-files", "work-orders", "attention", "outcomes", "projects", "partners", "beneficiaries", "outcome-list", "assignment", "placement", "allocation", "audit", "categories", "dashboard", "sources", "settings"];
+export const PAGE_IDS: readonly PageId[] = ["workflows", "benefits", "data-feed", "data-files", "work-orders", "attention", "outcomes", "projects", "partners", "beneficiaries", "outcome-records", "outcome-list", "assignment", "placement", "allocation", "audit", "categories", "dashboard", "sources", "settings"];
 export const isPageId = (x: string): x is PageId => (PAGE_IDS as readonly string[]).includes(x);
 
 export interface MenuItem {
@@ -59,6 +59,7 @@ export const MENU: MenuItem[] = [
   { id: "projects", label: "Projects", icon: "▥", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "partners", label: "Partners", icon: "▤", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "beneficiaries", label: "Beneficiaries", icon: "☺", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
+  { id: "outcome-records", label: "Outcomes", icon: "◎", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "assignment", label: "Assignment", icon: "⇉", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "placement", label: "Allocate", icon: "⇄", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "allocation", label: "Allocate (older)", icon: "⇄", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },

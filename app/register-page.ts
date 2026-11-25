@@ -9,8 +9,7 @@
  */
 
 import { ageOf, ELIGIBILITY_LABEL, filterBeneficiaries, NO_FILTER, type BeneficiaryFilter } from "../modules/07-beneficiaries/beneficiaries";
-import { implementationRows } from "../modules/07-beneficiaries/implementation";
-import { allocatable, oneOffCommitments } from "../modules/04b-commitments/commitments";
+import { commitmentsFor, implementationRows } from "../modules/07-beneficiaries/implementation";
 import { monthsAround, perPeriodRule, type UnitStatus } from "../modules/05-outcomes/outcomes";
 import { unitsOfItem } from "../modules/02-project-rules/benefits";
 import { clusterStateOf, pathOf } from "../modules/06-projects/clusters";
@@ -51,10 +50,7 @@ export function registerPage(v: View): string {
   const text = normName(f.text);
   const byText = filterBeneficiaries(all, f); // kind, status, admission and the text against the profile
   const pool = filterBeneficiaries(all, { ...f, text: "" }).filter((b) => (f.project ?? "") === "" || inProject.has(b.id));
-  // Rule: every allocated gift has a plan. A single payment the allocation rules do not count per period (a scholarship) is still shown, as a plan of the months it covers.
-  const all0 = allocatable(v.workOrders ?? [], perPeriodRule(fws), today);
-  const have = new Set(all0.map((c) => c.subscriptionId));
-  const commitments = [...all0, ...oneOffCommitments(v.workOrders ?? [], () => true, today).filter((c) => !have.has(c.subscriptionId))];
+  const commitments = commitmentsFor(v.workOrders ?? [], perPeriodRule(fws), today);
   const partnerOfKey = new Map((v.assignments?.records ?? []).map((x) => [x.key, x.partnerId]));
   const partnerName = (id: string): string => (v.projects ?? []).find((p) => p.id === id)?.name ?? id;
   const impl = implementationRows({ beneficiaryIds: pool.map((b) => b.id), enrolments: v.enrolments?.records ?? [], placements: v.placements?.records ?? [], commitments, whole, partnerOf: (k) => partnerOfKey.get(k) ?? "", months, today });

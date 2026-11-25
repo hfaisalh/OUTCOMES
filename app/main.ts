@@ -19,6 +19,7 @@ import { partnersPage } from "./partners-page";
 import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
 import { registerPage } from "./register-page";
+import { NO_OUTCOME_FILTER, outcomeRecordsPage } from "./outcome-records-page";
 import { assignmentPage } from "./assignment-page";
 import { allocatePage } from "./allocate-page";
 import { enrolmentHistoryHtml, giftHistoryHtml, type HistoryData } from "./history-window";
@@ -107,6 +108,8 @@ const state = {
   assignments: emptyAssignments() as Assignments, // which partner each gift was assigned to (DECISIONS 170)
   assignFilter: "all", // the filter on the Assignment page
   enrolments: emptyEnrolments() as Enrolments, // who is enrolled in which cluster (DECISIONS 167)
+  outcomeRecFilter: { ...NO_OUTCOME_FILTER } as { text: string; project: string; type: string; show: "" | "underfunded" | "missed" | "ended" }, // the filters on the Outcomes list
+  outcomeRecSort: { key: "", dir: "asc" } as { key: string; dir: "asc" | "desc" },
   registerSort: { key: "", dir: "asc" } as { key: string; dir: "asc" | "desc" }, // the column the Beneficiaries list is sorted by
   registerFilter: { ...NO_REGISTER_FILTER } as BeneficiaryFilter, // the filters on the Beneficiaries page
   benWin: { open: false, id: "", kind: "person" as BeneficiaryKind }, // the beneficiary window
@@ -240,7 +243,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, assignFilter: state.assignFilter, placements: state.placements, allocFilter: state.allocFilter, registerFilter: state.registerFilter, registerSort: state.registerSort, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, assignFilter: state.assignFilter, placements: state.placements, allocFilter: state.allocFilter, registerFilter: state.registerFilter, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, itemUnits: state.itemUnits, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -603,6 +606,7 @@ function draw(): void {
     : state.page === "projects" ? projectsPage(v)
     : state.page === "partners" ? partnersPage(v)
     : state.page === "beneficiaries" ? registerPage(v)
+    : state.page === "outcome-records" ? outcomeRecordsPage(v)
     : state.page === "assignment" ? assignmentPage(v)
     : state.page === "placement" ? allocatePage(v)
     : state.page === "outcome-list" ? beneficiariesPage(v)
@@ -1833,6 +1837,21 @@ document.addEventListener("click", (e) => {
   if (!b?.dataset?.regsort) return;
   const key = b.dataset.regsort;
   state.registerSort = state.registerSort.key === key ? { key, dir: state.registerSort.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" as const };
+  draw();
+});
+// A click on a heading of the Outcomes list sorts by it; a second click reverses it.
+document.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest?.("[data-orsort]") as HTMLElement | null;
+  if (!b?.dataset?.orsort) return;
+  const key = b.dataset.orsort;
+  state.outcomeRecSort = state.outcomeRecSort.key === key ? { key, dir: state.outcomeRecSort.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" as const };
+  draw();
+});
+// The filters on the Outcomes list.
+document.addEventListener("change", (e) => {
+  const t = e.target as HTMLInputElement | HTMLSelectElement | null;
+  if (!t?.dataset?.orf) return;
+  state.outcomeRecFilter = { ...state.outcomeRecFilter, [t.dataset.orf]: t.value } as typeof state.outcomeRecFilter;
   draw();
 });
 // The filters on the Beneficiaries page.
