@@ -10,6 +10,8 @@
 
 import { ELIGIBILITY_LABEL, type Beneficiary } from "../modules/07-beneficiaries/beneficiaries";
 import { activeIn, masterOf, type Enrolment } from "../modules/07-beneficiaries/enrolments";
+import { countOfEnrolment } from "../modules/09-placement/history";
+import type { Placement } from "../modules/09-placement/placement";
 import { pathOf, type Cluster, type ClusterState } from "../modules/06-projects/clusters";
 import { esc } from "./pages";
 
@@ -19,6 +21,7 @@ export interface PeopleContext {
   items: { id: string; name: string }[]; // the benefits the project offers (all flagged items when it names none)
   beneficiaries: Beneficiary[];
   enrolments: Enrolment[];
+  placements?: Placement[]; // every placement, ended ones included, for the history button (DECISIONS 186)
 }
 
 // How many people are enrolled in a cluster and everything inside it (role holders are not counted), for the tab's count.
@@ -34,7 +37,7 @@ export function clusterPeopleHtml(state: ClusterState, c: Cluster, ctx: PeopleCo
   const rows = here.map((e) => {
     const b = name(e.beneficiaryId);
     return `<tr><td><b>${esc(b?.name ?? e.beneficiaryId)}</b> <span class="muted">${esc(e.beneficiaryId)}</span></td><td>${esc(itemName(e.itemId))}</td><td>${esc(e.role)}</td><td class="muted">${esc(e.clusterId === c.id ? "Here" : where(e.clusterId))}</td><td class="muted">${esc(e.since)}</td>
-      <td class="actcol">${moveTargets(e)}<button type="button" class="iconact" data-cl="enr-end" data-id="${esc(e.id)}" title="End this enrolment" aria-label="End the enrolment of ${esc(b?.name ?? e.beneficiaryId)}">&times;</button></td></tr>`;
+      <td class="actcol">${(() => { const n = countOfEnrolment(ctx.placements ?? [], e.id); return n > 0 ? `<button type="button" class="linkish" data-hist="enrolment" data-id="${esc(e.id)}" title="Every gift that has sponsored this child">History (${n})</button> ` : ""; })()}${moveTargets(e)}<button type="button" class="iconact" data-cl="enr-end" data-id="${esc(e.id)}" title="End this enrolment" aria-label="End the enrolment of ${esc(b?.name ?? e.beneficiaryId)}">&times;</button></td></tr>`;
   }).join("");
   // Capacity: the total belongs to the master cluster, and counts everyone inside it except role holders.
   const top = masterOf(state, c.id);

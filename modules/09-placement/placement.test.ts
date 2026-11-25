@@ -12,7 +12,7 @@ import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { GiftProject } from "../06-projects/projects";
 import type { Beneficiary } from "../07-beneficiaries/beneficiaries";
 import type { Enrolment, ItemRules } from "../07-beneficiaries/enrolments";
-import { applyPlacementAction, emptyPlacements, fills, placeManual, placementContext, placesFor, runPlacement, suggestPlacements, unplace, type PlaceContext, type Placements } from "./placement";
+import { applyPlacementAction, emptyPlacements, fills, isActive, placeManual, placementContext, placesFor, runPlacement, suggestPlacements, syncPlacements, unplace, type PlaceContext, type Placements } from "./placement";
 
 const child = (id: string, name: string, over: Partial<Beneficiary> = {}): Beneficiary => ({ id, kind: "person", name, status: "active", area: "", notes: "", dob: "", gender: "", guardian: "", guardianRelation: "", placeOfBirth: "", idNumber: "", fatherStatus: "", motherStatus: "", eligibility: "ready", eligibilityNote: "", partnerId: "", partnerRef: "", memberIds: [], ...over });
 const enr = (id: string, b: string, item = "I10", project = "aghosh", over: Partial<Enrolment> = {}): Enrolment => ({ id, beneficiaryId: b, giftProjectId: project, clusterId: "c1", itemId: item, role: "", status: "active", since: "2026-11-01", ...over });
@@ -78,6 +78,73 @@ describe("an item with no type yet (DECISIONS 178)", () => {
     const s = suggestPlacements(c, emptyPlacements());
     expect(s[0]).toMatchObject({ kind: "", blocked: "no-type", why: "The item has no type yet, so it is not known who receives it. Choose a type on the Benefits page." });
     expect(runPlacement(c, emptyPlacements())).toMatchObject({ placed: 0, outcomes: 0, waiting: 1 });
+  });
+});
+
+describe("history: nothing is deleted (DECISIONS 186)", () => {
+  const parkedCtx = (reason: "paused" | "cancelled" | "completed", over: Partial<PlaceContext> = {}): PlaceContext => ctx({ assignments: [asg("G1", { parts: 3 })], live: new Set(), parkedBy: { G1: reason }, now: "2026-12-01T09:00:00Z", ...over });
+  const held = (): Placements => runPlacement(ctx({ assignments: [asg("G1", { parts: 3 })], now: "2026-11-24T10:00:00Z" }), emptyPlacements()).value;
+  it("ends the placement of a plan that is now paused, cancelled or completed, with the day and the reason, and keeps it", () => {
+    for (const reason of ["paused", "cancelled", "completed"] as const) {
+      const r = syncPlacements(parkedCtx(reason), held());
+      expect(r.ended).toBe(1);
+      expect(r.value.records).toEqual([expect.objectContaining({ key: "G1", enrolmentId: "EN-1", at: "2026-11-24T10:00:00Z", to: "2026-12-01", endReason: reason })]);
+      expect(r.value.records.filter(isActive)).toEqual([]);
+    }
+  });
+  it("frees the child's place when its placement ends, so another gift can take it", () => {
+    const synced = syncPlacements(parkedCtx("cancelled"), held()).value;
+    const next = ctx({ assignments: [asg("G2", { parts: 3 })], now: "2026-12-01T09:00:00Z" });
+    expect(suggestPlacements(next, synced)[0]?.enrolmentId).toBe("EN-1"); // Amina is free again
+    expect(fills(next, synced)[0]).toEqual({ enrolmentId: "EN-1", used: 0, capacity: 3 });
+  });
+  it("ends the placement of a child who has left (the enrolment ended, or the child is inactive or no longer approved)", () => {
+    const base = { assignments: [asg("G1", { parts: 3 })], now: "2026-12-02T09:00:00Z" };
+    const ended = syncPlacements(ctx({ ...base, enrolments: [enr("EN-1", "B1", "I10", "aghosh", { status: "ended" }), enr("EN-2", "B2")] }), held());
+    expect(ended.value.records[0]).toMatchObject({ to: "2026-12-02", endReason: "child-left" });
+    const inactive = syncPlacements(ctx({ ...base, beneficiaries: [child("B1", "Amina", { status: "inactive" }), child("B2", "Bilal")] }), held());
+    expect(inactive.value.records[0]?.endReason).toBe("child-left");
+    const review = syncPlacements(ctx({ ...base, beneficiaries: [child("B1", "Amina", { eligibility: "review" }), child("B2", "Bilal")] }), held());
+    expect(review.value.records[0]?.endReason).toBe("child-left");
+    expect(syncPlacements(ctx(base), held()).ended).toBe(0); // nothing changed: nothing ends
+  });
+  it("gives a plan that runs again its previous child back when that child is still free", () => {
+    const synced = syncPlacements(parkedCtx("paused"), held()).value; // paused: Amina ends
+    const resumed = ctx({ assignments: [asg("G1", { parts: 3 })], now: "2026-12-10T09:00:00Z" });
+    const s = suggestPlacements(resumed, synced)[0]!;
+    expect(s).toMatchObject({ kind: "place", enrolmentId: "EN-1" });
+    expect(s.why).toBe("Takes back its previous child, Amina (0 of 3 units taken)");
+    const r = runPlacement(resumed, synced);
+    expect(r.value.records.map((p) => [p.key, p.enrolmentId, p.to ?? "now"])).toEqual([["G1", "EN-1", "2026-12-01"], ["G1", "EN-1", "now"]]); // the first period and the second, both kept
+  });
+  it("gives a new place when the previous child has been taken by another gift, and keeps the old record", () => {
+    const synced = syncPlacements(parkedCtx("paused"), held()).value;
+    const other = runPlacement(ctx({ assignments: [asg("G2", { parts: 3 })], now: "2026-12-02T09:00:00Z" }), synced).value; // G2 takes Amina
+    expect(other.records.filter(isActive).map((p) => [p.key, p.enrolmentId])).toEqual([["G2", "EN-1"]]);
+    const resumed = ctx({ assignments: [asg("G1", { parts: 3 }), asg("G2", { parts: 3 })], now: "2026-12-10T09:00:00Z" });
+    const s = suggestPlacements(resumed, other).find((x) => x.key === "G1")!;
+    expect(s.enrolmentId).toBe("EN-2"); // Bilal, a new place
+    expect(s.why).toBe("Fills a place for Bilal (0 of 3 units taken)");
+  });
+  it("does not offer the previous child back to a plan that ended for another reason", () => {
+    const left = syncPlacements(ctx({ assignments: [asg("G1", { parts: 3 })], enrolments: [enr("EN-1", "B1", "I10", "aghosh", { status: "ended" }), enr("EN-2", "B2")], now: "2026-12-02T09:00:00Z" }), held()).value;
+    const s = suggestPlacements(ctx({ assignments: [asg("G1", { parts: 3 })], now: "2026-12-03T09:00:00Z" }), left)[0]!;
+    expect(s.why).not.toContain("previous child"); // the child left: it is a new gift for a new child
+  });
+  it("counts the ended placements in the message, and a reset clears history too", () => {
+    const run = applyPlacementAction(parkedCtx("cancelled"), held(), { action: "plc-run" });
+    if (!run || "error" in run) throw new Error("run");
+    expect(run.message).toContain("1 placement ended (a plan was parked or a child left) and is kept as history.");
+    const reset = applyPlacementAction(parkedCtx("cancelled"), run.value, { action: "plc-reset" });
+    expect(reset && "value" in reset && reset.value.records).toEqual([]);
+    expect(reset && "message" in reset && reset.message).toBe("All placements were cleared, history included.");
+  });
+  it("removes an outcome that is taken back, since it never held a child, and keeps the number from being used again", () => {
+    const c = ctx({ enrolments: [], assignments: [asg("G1", { itemId: "I11" })] });
+    const first = runPlacement(c, emptyPlacements()).value;
+    const gone = unplace(first, "G1", "2026-11-25");
+    expect("value" in gone && gone.value.records).toEqual([]);
+    expect("value" in gone && gone.value.counter).toBe(1);
   });
 });
 
@@ -150,8 +217,10 @@ describe("a gift spread over several places (DECISIONS 181)", () => {
   it("takes every share back at once", () => {
     const c = ctx({ frameworks: [scholar], itemFramework: { I10: "wf-scholar" }, assignments: [asg("G1", { parts: 2 })] });
     const placed = runPlacement(c, emptyPlacements()).value;
-    const gone = unplace(placed, "G1");
-    expect("value" in gone && gone.value.records).toEqual([]);
+    const gone = unplace(placed, "G1", "2026-11-25");
+    expect("value" in gone && gone.value.records.every((p) => p.to === "2026-11-25" && p.endReason === "taken-back")).toBe(true); // ended, kept as history (DECISIONS 186)
+    expect("value" in gone && gone.value.records).toHaveLength(2);
+    expect("value" in gone && gone.value.records.filter(isActive)).toEqual([]);
   });
 });
 
@@ -179,8 +248,9 @@ describe("a person placing", () => {
     expect("value" in r && r.value.records[0]).toMatchObject({ key: "G1", kind: "place", enrolmentId: "EN-2", how: "manual" });
     const one = ctx({ assignments: [asg("G1", { parts: 2 })] });
     const moved = placeManual(one, runPlacement(one, emptyPlacements()).value, "G1", "EN-2"); // placed in Amina's, moved to Bilal's
-    expect("value" in moved && moved.value.records.find((p) => p.key === "G1")?.enrolmentId).toBe("EN-2");
-    expect("value" in moved && moved.value.records).toHaveLength(1); // moved, not copied
+    expect("value" in moved && moved.value.records.find((p) => p.key === "G1" && isActive(p))?.enrolmentId).toBe("EN-2");
+    expect("value" in moved && moved.value.records.filter(isActive)).toHaveLength(1); // moved, not copied
+    expect("value" in moved && moved.value.records.find((p) => p.key === "G1" && !isActive(p))).toMatchObject({ enrolmentId: "EN-1", to: "2026-11-24", endReason: "moved" }); // the earlier one is kept as history
   });
   it("refuses a missing gift, a place that is not open, a full place, and an outcome-creating gift", () => {
     expect(placeManual(c(), emptyPlacements(), "nope", "EN-1")).toHaveProperty("error");

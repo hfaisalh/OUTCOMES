@@ -232,4 +232,7 @@ Where an assigned gift went. Stored on the organisation's setup as `placements` 
 | `giftProjectId` | The project the place or outcome belongs to |
 | `itemId`, `parts` | The benefit, and the units the gift put in the place |
 | `how` | `auto` or `manual` (a person chose the place) |
+| `at` | When the placement started, an ISO time |
+| `to` | The day it ended, YYYY-MM-DD. Absent while it holds the place (DECISIONS 186) |
+| `endReason` | Why it ended: `paused`, `cancelled`, `completed` (the plan), `child-left`, `released` (the gift left scope), `moved`, `taken-back`. An ended placement is kept as history |
 

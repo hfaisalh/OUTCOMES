@@ -12,6 +12,7 @@
 import { filterWorkOrders, isFiltering } from "../modules/01c-crm-connector/filter";
 import { lineValue, partsOf, periodsOf, sentPartsOf, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { shortDate, shortDateTime } from "./dates";
+import { countOfGift } from "../modules/09-placement/history";
 import { iconHtml, itemIcon } from "./icons";
 import { plusMonths } from "../modules/04b-commitments/catch-up";
 import { allocatable, type Commitment } from "../modules/04b-commitments/commitments";
@@ -167,6 +168,9 @@ const projectCell = (name: string, cause = ""): string => {
 // The icon of a gift's item (DECISIONS 107): the one chosen, else a suggestion from its name, else its outcome type's icon.
 const giftIcon = (v: View, g: GiftRow, size: "sm" | "lg" = "sm"): string => iconHtml(itemIcon(g.itemId, g.itemName, v.itemIcons, (v.outcomeTypes ?? []).find((t) => g.frameworkId !== "" && t.frameworkIds.includes(g.frameworkId))?.icon ?? ""), g.itemName, size);
 
+// The key a gift's placements are kept under: "sub:" and the subscription id for a recurring gift, the line id for a one-off payment (DECISIONS 173).
+export const giftPlacementKey = (g: GiftRow): string => (g.kind === "recurring" ? `sub:${g.key}` : g.kind === "one_off" ? g.payments[0]?.key ?? "" : "");
+
 // Everything about where gifts are allocated, worked out once for the list and for the window.
 // Rule (DECISIONS 141): the stage of a gift's workflow it is in now, shown as a small pill with the reason in its tooltip. Excluded payments have none.
 function stageFor(v: View, g: GiftRow, a: { state: "placed" | "waiting" | "manual" | "none" | "n/a"; who: string; partner: string }): StageResult {
@@ -188,10 +192,10 @@ function allocationContext(v: View) {
   const waits = (g: GiftRow, why: string) => (g.manual !== "" ? { state: "manual" as const, who: "", partner: "", parts: null, why: g.manual } : { state: "waiting" as const, who: "", partner: "", parts: null, why });
   // Rule (DECISIONS 176): where a gift stands now is read from Assignment and Placement first. A recurring gift is kept under "sub:" and its subscription id, a one-off under its line id.
   const assigned = new Map((v.assignments?.records ?? []).map((a) => [a.key, a]));
-  const placed = new Map((v.placements?.records ?? []).map((p) => [p.key, p]));
+  const placed = new Map((v.placements?.records ?? []).filter((p) => p.to === undefined).map((p) => [p.key, p])); // only a placement that still holds its place (DECISIONS 186)
   const enrolled = new Map((v.enrolments?.records ?? []).map((e) => [e.id, e]));
   const personName = (id: string): string => (v.beneficiaries?.records ?? []).find((b) => b.id === id)?.name ?? id;
-  const newKey = (g: GiftRow): string => (g.kind === "recurring" ? `sub:${g.key}` : g.kind === "one_off" ? g.payments[0]?.key ?? "" : "");
+  const newKey = giftPlacementKey;
   return (g: GiftRow): { state: "placed" | "waiting" | "manual" | "none" | "n/a"; who: string; partner: string; parts: number | null; why: string; ref?: string; allocRef?: string } => {
     // A paused, cancelled or completed plan holds no place and is shown by the older rule (parked, or needing none) (DECISIONS 185).
     const nk = ["paused", "cancelled", "completed"].includes(g.planStatus) ? "" : newKey(g);
@@ -358,6 +362,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Stage", `${stagePill(stageFor(v, g, a))}${stageFor(v, g, a).note ? `<div class="muted">${esc(stageFor(v, g, a).note)}</div>` : ""}`)}
         ${row("Assigned to", a.partner ? esc(a.partner) : `<span class="muted">Not assigned to a partner yet</span>`)}
         ${row("Allocated to", allocation)}
+        ${(() => { const hk = giftPlacementKey(g); const hn = hk === "" ? 0 : countOfGift(v.placements?.records ?? [], hk); return hn > 0 ? row("Allocation history", `<button type="button" class="linkish" data-hist="gift" data-id="${esc(hk)}">View history (${hn})</button>`) : ""; })()}
         ${row("Status", `${status} ${logBtn}${markManual ? `<div class="statusact">${markManual}</div>` : ""}`)}
         ${first ? row("Credit", creditLine(first), true) : ""}
         ${row("Could belong to", link, true)}

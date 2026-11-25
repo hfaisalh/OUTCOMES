@@ -21,6 +21,7 @@ import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiarie
 import { registerPage } from "./register-page";
 import { assignmentPage } from "./assignment-page";
 import { allocatePage } from "./allocate-page";
+import { enrolmentHistoryHtml, giftHistoryHtml, type HistoryData } from "./history-window";
 import { applyPlacementAction, emptyPlacements, placementContext, type Placements } from "../modules/09-placement/placement";
 import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments, type Assignments } from "../modules/08-assignment/assignment";
 import { registerFormHtml } from "./register-form";
@@ -98,6 +99,7 @@ const state = {
   giftProjects: [] as GiftProject[], // the projects donors choose, and the partners that deliver them (DECISIONS 76)
   benFilter: { ...NO_BEN_FILTER } as BenFilter, // the filters on the Outcomes list page
   beneficiaries: emptyRegister() as Register, // the Beneficiary register (DECISIONS 163)
+  histWin: { open: false, kind: "gift" as "gift" | "enrolment", id: "" }, // the allocation history window (DECISIONS 186)
   placements: emptyPlacements() as Placements, // which place each assigned gift fills (DECISIONS 175)
   allocFilter: "all", // the filter on the Allocate page
   assignments: emptyAssignments() as Assignments, // which partner each gift was assigned to (DECISIONS 170)
@@ -1395,7 +1397,7 @@ function renderProjectWindow(error = "", draft?: Record<string, unknown>): void 
   }
   const existing = state.giftProjects.find((g) => g.id === w.id);
   const names = crmNamesOf(state.workOrders, state.giftProjects).filter((n) => n.giftProjectId === "").map((n) => ({ name: n.name, gifts: n.gifts })); // the CRM names no project has yet, to link a new project to
-  root.innerHTML = projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), people: { beneficiaries: state.beneficiaries.records, enrolments: state.enrolments.records } }, error, w.tab ?? "details");
+  root.innerHTML = projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), people: { beneficiaries: state.beneficiaries.records, enrolments: state.enrolments.records, placements: state.placements.records } }, error, w.tab ?? "details");
 }
 function closeProjectWindow(): void {
   clusterUi.node = ""; clusterUi.adding = ""; clusterUi.nodeTab = "details"; // the next project opens on its list of clusters
@@ -1703,6 +1705,29 @@ document.addEventListener("change", (e) => {
   const t = e.target as HTMLSelectElement | null;
   if (t?.dataset?.asg === "set" && t.value !== "") void outcomeChange({ action: "asg-set", key: t.dataset.key ?? "", partnerId: t.value });
   else if (t?.dataset?.asgf === "filter") { state.assignFilter = t.value; draw(); }
+});
+
+// The allocation history window (DECISIONS 186): a pop-up for one gift or one place, outside the page that is redrawn.
+function renderHistWindow(): void {
+  const w = state.histWin;
+  let root = document.getElementById("hist-root");
+  if (!w.open) { if (root) root.innerHTML = ""; return; }
+  if (!root) { root = document.createElement("div"); root.id = "hist-root"; document.body.appendChild(root); }
+  const wos = view().workOrders;
+  const names = new Map(wos.map((x) => [x.itemId, x.itemName]));
+  const gifts = new Map(assignables(contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString() })).map((u) => [u.key, { donor: u.w.supporterName, item: u.w.itemName, payments: u.payments }]));
+  const data: HistoryData = { placements: state.placements.records, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, gifts, itemName: (id) => names.get(id) ?? id };
+  root.innerHTML = w.kind === "gift" ? giftHistoryHtml(data, w.id) : enrolmentHistoryHtml(data, w.id);
+}
+document.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest?.("[data-hist]") as HTMLElement | null;
+  if (!b) return;
+  if (b.dataset.hist === "close") { state.histWin = { ...state.histWin, open: false }; return renderHistWindow(); }
+  state.histWin = { open: true, kind: b.dataset.hist === "enrolment" ? "enrolment" : "gift", id: b.dataset.id ?? "" };
+  renderHistWindow();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && state.histWin.open) { state.histWin = { ...state.histWin, open: false }; renderHistWindow(); }
 });
 
 // The Allocate page (DECISIONS 175): the buttons, the place list on each gift, and the filter.

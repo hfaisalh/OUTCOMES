@@ -124,6 +124,10 @@ describe("giftsPage", () => {
     const win = giftDetailHtml(view({ workOrders: orders, frameworks: fws, projects: partners, assignments, placements, enrolments, beneficiaries: { records: [child], counters: {} } }), "S9");
     expect(win).toContain("<span>Assigned to</span>");
     expect(win).toMatch(/<span>Assigned to<\/span>[\s\S]*Sample Trust[\s\S]*<span>Allocated to<\/span>[\s\S]*Sample Amina/);
+    // The detail window has a button to the allocation history, with the count, only when there is a history (DECISIONS 186).
+    const withHistory = giftDetailHtml(view({ workOrders: orders, frameworks: fws, projects: partners, assignments, placements, enrolments, beneficiaries: { records: [child], counters: {} } }), "S9");
+    expect(withHistory).toContain('<button type="button" class="linkish" data-hist="gift" data-id="sub:S9">View history (1)</button>');
+    expect(giftDetailHtml(view({ workOrders: orders, frameworks: fws, projects: partners, assignments }), "S9")).not.toContain("data-hist=");
     // A paused, cancelled or completed plan holds no place, whatever was recorded (DECISIONS 185).
     for (const status of ["paused", "cancelled", "completed"]) {
       const list = giftListHtml(view({ workOrders: orders.map((w) => ({ ...w, planStatus: status })), frameworks: fws, projects: partners, assignments, placements, enrolments, beneficiaries: { records: [child], counters: {} } }));

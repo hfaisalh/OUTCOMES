@@ -11,7 +11,7 @@
 import { assignables, contextFrom, emptyAssignments } from "../modules/08-assignment/assignment";
 import { clusterStateOf, pathOf } from "../modules/06-projects/clusters";
 import { itemRulesOf, emptyEnrolments } from "../modules/07-beneficiaries/enrolments";
-import { emptyPlacements, fills, placementContext, suggestPlacements, type PlaceSuggestion } from "../modules/09-placement/placement";
+import { emptyPlacements, fills, isActive, placementContext, suggestPlacements, type PlaceSuggestion } from "../modules/09-placement/placement";
 import { emptyRegister } from "../modules/07-beneficiaries/beneficiaries";
 import type { SavedFeatures } from "../modules/02-project-rules/kind-features";
 import { esc, type View } from "./pages";
@@ -27,7 +27,8 @@ export function allocatePage(v: View): string {
   const today = v.today ?? "2026-01-01";
   const now = `${today}T00:00:00Z`;
   const assignments = (v.assignments ?? emptyAssignments()).records;
-  const placements = v.placements ?? emptyPlacements();
+  const placements = v.placements ?? emptyPlacements(); // all of it, history included
+  const heldRecords = placements.records.filter(isActive); // the placements that hold a place now (DECISIONS 186)
   const enrolments = (v.enrolments ?? emptyEnrolments()).records;
   const people = (v.beneficiaries ?? emptyRegister()).records;
   const actx = contextFrom({ workOrders: v.workOrders, partners, giftProjects: gps, frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now });
@@ -40,8 +41,8 @@ export function allocatePage(v: View): string {
   const sug = suggestPlacements(ctx, placements);
   const sugOf = new Map<string, PlaceSuggestion>(sug.map((s) => [s.key, s]));
   const filter = v.allocFilter ?? "all";
-  const placedCount = new Set(placements.records.filter((p) => p.kind === "place").map((p) => p.key)).size; // a gift spread over several places counts once
-  const outcomeCount = placements.records.filter((p) => p.kind === "outcome").length;
+  const placedCount = new Set(heldRecords.filter((p) => p.kind === "place").map((p) => p.key)).size; // a gift spread over several places counts once
+  const outcomeCount = heldRecords.filter((p) => p.kind === "outcome").length;
   const waiting = sug.filter((s) => s.kind === "").length;
   const ready = sug.filter((s) => s.kind !== "").length;
   const why = Object.entries(WHY).map(([k, label]) => ({ n: sug.filter((s) => s.blocked === k).length, label })).filter((x) => x.n > 0);
@@ -74,7 +75,7 @@ export function allocatePage(v: View): string {
   // Every gift: placed, creating an outcome, or waiting.
   // A gift spread over several places has several records (DECISIONS 181): they are one row, with each child and the units it took.
   const recsByKey = new Map<string, (typeof placements.records)>();
-  for (const rec of placements.records) recsByKey.set(rec.key, [...(recsByKey.get(rec.key) ?? []), rec]);
+  for (const rec of heldRecords) recsByKey.set(rec.key, [...(recsByKey.get(rec.key) ?? []), rec]);
   const rowsAll: { key: string; rec?: (typeof placements.records)[number]; recs?: (typeof placements.records); s?: PlaceSuggestion }[] = [
     ...sug.map((s) => ({ key: s.key, s })),
     ...[...recsByKey.entries()].map(([key, recs]) => ({ key, rec: recs[0], recs })),

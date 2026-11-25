@@ -72,6 +72,14 @@ describe("the Beneficiaries tab of a cluster", () => {
     expect(clustersTabHtml(state)).not.toContain('data-tab="people"');
     clusterUi.node = ""; clusterUi.nodeTab = "details";
   });
+  it("has a history button on a place that has had a gift, with how many, and none on a place that has not (DECISIONS 186)", () => {
+    const placements = [{ key: "sub:1", kind: "place" as const, enrolmentId: "EN-0001", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 3, how: "auto" as const, at: "2026-01-01T00:00:00Z", to: "2026-03-01", endReason: "paused" as const }, { key: "sub:2", kind: "place" as const, enrolmentId: "EN-0001", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 3, how: "auto" as const, at: "2026-04-01T00:00:00Z" }];
+    const html = clusterPeopleHtml(state, state.clusters[0]!, ctx({ placements }));
+    expect(html).toContain('data-hist="enrolment" data-id="EN-0001"');
+    expect(html).toContain("History (2)");
+    expect(html).not.toContain('data-hist="enrolment" data-id="EN-0002"'); // the principal has had no gift
+    expect(clusterPeopleHtml(state, state.clusters[0]!, ctx())).not.toContain("data-hist=");
+  });
   it("never trusts a name as HTML", () => {
     const html = clusterPeopleHtml(state, state.clusters[0]!, ctx({ beneficiaries: [person("PRS-0001", "<img src=x onerror=alert(1)>")] }));
     expect(html).not.toContain("<img src=x");

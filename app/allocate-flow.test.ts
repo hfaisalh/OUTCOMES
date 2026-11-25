@@ -9,11 +9,12 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 type Handler = (e: unknown) => void;
 const handlers: Record<string, Handler[]> = {};
 const shell = { innerHTML: "" };
+const histRoot = { innerHTML: "", id: "" };
 
 beforeAll(async () => {
   vi.stubGlobal("document", {
-    getElementById: (id: string) => (id === "shell" ? shell : null),
-    createElement: () => ({}),
+    getElementById: (id: string) => (id === "shell" ? shell : id === "hist-root" ? histRoot : null),
+    createElement: () => histRoot,
     body: { appendChild() {} },
     querySelectorAll: () => [],
     addEventListener: (type: string, h: Handler) => ((handlers[type] ??= []).push(h)),
@@ -54,6 +55,20 @@ describe("Allocate, used like a person would", () => {
     click({ plc: "unplace", key }, "data-plc"); await flush();
     expect(shell.innerHTML).not.toContain(`data-plc="unplace" data-key="${key}"`);
     expect(shell.innerHTML).toContain("Place automatically");
+
+    // Taking it back did not delete it: it is in the gift's history, ended and kept (DECISIONS 186).
+    click({ hist: "gift", id: key }, "data-hist");
+    expect(histRoot.innerHTML).toContain("Allocation history");
+    expect(histRoot.innerHTML).toContain("A person took it back");
+    click({ hist: "close" }, "data-hist");
+    expect(histRoot.innerHTML).toBe("");
+
+    // Placing it again gives a second row: the first period and the second, both kept.
+    click({ plc: "run" }, "data-plc"); await flush();
+    click({ hist: "gift", id: key }, "data-hist");
+    expect((histRoot.innerHTML.match(/<tr><td><b>/g) ?? []).length).toBe(2);
+    expect(histRoot.innerHTML).toContain('<span class="pill">Now</span>');
+    click({ hist: "close" }, "data-hist");
 
     click({ plc: "reset" }, "data-plc"); await flush();
     expect(shell.innerHTML).toContain('data-plc="reset" disabled');
