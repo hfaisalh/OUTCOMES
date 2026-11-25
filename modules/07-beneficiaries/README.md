@@ -23,6 +23,10 @@ What a person types in the Beneficiaries window: a name, and for a person a date
 ## Enrolment (DECISIONS 167)
 A beneficiary is enrolled in a cluster of a project for a benefit, in a role if the cluster lists one. The type of the benefit (set on the Benefits page: who receives, who comes first) decides who it takes and whether approval comes first. Capacity is the master cluster's total. A role holder does not use up a place. A beneficiary or cluster that is enrolled cannot be removed.
 
+## The list is the month by month view (DECISIONS 190)
+
+The Beneficiaries page shows one row per active enrolment with a pie per month (a slice per unit of the whole beneficiary, coloured paid, expected, missed or nothing expected). The rule is `implementation.ts` (pure). Test: `npx vitest run modules/07-beneficiaries app/register-page.test.ts`.
+
 ## Not built yet
 - A Beneficiary import for real data (read in the browser, mapped, duplicate checked, previewed, into a local or private environment only), the open places that Allocation fills, Assignment, and Allocation rewired onto them (DECISIONS 165).
 - The partner portal: partners share updates and prerequisites there, and it becomes the beneficiary's profile lifecycle (DECISIONS 164). Siblings and parents as linked persons.

@@ -757,3 +757,11 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 
 - The Gifts list called a gift **"Assigned"** whenever it was released and waiting, even when **no partner** had been given ("Assigned to: –"). The stage **Assigned** now means a partner **has** been assigned (and the gift waits for a place). A released gift with no partner yet is still **WO created**, "Released, waiting for a partner".
 - A plan the CRM has **completed** was not handled by the stage rule, so it fell into the same state. It now shows **WO created**, "Plan completed, it holds no place", and no hourglass (it needs no place), like a paused or cancelled plan.
+
+## 190. The Beneficiaries list is the month by month view of the implementation of gifts (Faisal, 25/11/2026)
+
+- The Beneficiaries list showed profile fields (age, area, guardian). What is wanted is to see **what is happening with each beneficiary**, so the list now **is** the month by month view, inside the list and not a separate page. The profile fields live in the window a row opens.
+- One row for each **active enrolment** (a child with two benefits has two rows); a beneficiary with no enrolment has one row that says so. Columns: ID, name (with kind, age, area under it), where (project and cluster), benefit, units filled of the whole, then twelve months (5 back, this one, 6 ahead).
+- Each month is a small pie with **a slice for each unit** that makes one whole beneficiary (3 for an orphan). A slice takes the status of the gift that fills it: paid (green), expected (orange), missed (red), nothing expected (grey). An empty unit and a placement that has ended are grey; the history window keeps the past.
+- A **project** filter is added to kind, status, admission and search. The pure rule lives in `modules/07-beneficiaries/implementation.ts`; the old Month by month tab stays until nothing reads it.
+

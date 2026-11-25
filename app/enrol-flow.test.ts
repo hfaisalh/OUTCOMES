@@ -96,7 +96,7 @@ describe("enrolling in a cluster, used like a person would", () => {
     click({ bn: "remove" }, "data-bn"); await flush();
     expect(benRoot.innerHTML).toContain("is enrolled 1 time");
     click({ bn: "cancel" }, "data-bn");
-    expect(shell.innerHTML).toMatch(/PRS-0001[\s\S]*?<td class="num">1<\/td>/); // the Enrolled column
+    expect(shell.innerHTML).toMatch(/PRS-0001[\s\S]*?<td class="num">\d+ of \d+<\/td>/); // the enrolment row, with the units filled
 
     click({ page: "projects" }, "data-page");
     click({ pj: "open", id: "aghosh" }, "data-pj");

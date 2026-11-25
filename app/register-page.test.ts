@@ -11,6 +11,9 @@ import { registerPage } from "./register-page";
 import { registerFormHtml } from "./register-form";
 import { addBeneficiary, emptyRegister, NO_FILTER, type Register } from "../modules/07-beneficiaries/beneficiaries";
 import type { View } from "./pages";
+import type { WorkOrder } from "../modules/01c-crm-connector/work-orders";
+import type { FrameworkTemplate } from "../modules/02-project-rules/categories";
+import type { Placement } from "../modules/09-placement/placement";
 
 const ok = (r: { value: Register } | { error: string }): Register => { if ("error" in r) throw new Error(r.error); return r.value; };
 const reg = (): Register => {
@@ -20,21 +23,63 @@ const reg = (): Register => {
 };
 const view = (over: Partial<View> = {}): View => ({ beneficiaries: reg(), today: "2026-11-24", ...over }) as View;
 
-describe("the Beneficiaries page", () => {
-  it("lists each record with its ID, kind, age or size, area and guardian or members, and opens it on a click", () => {
+const sub = (n: number, paid: string, over: Partial<WorkOrder> = {}): WorkOrder => ({
+  key: `L${n}`, lineId: `L${n}`, transactionRef: `T${n}`, paidDate: paid, supporterId: "S1", supporterName: "Invented Donor", group: "", itemId: "I10", itemName: "Orphan Sponsorship Monthly", amount: 30, quantity: 1,
+  intention: "", subscriptionId: "SUB1", instalmentNumber: String(n), instalmentCount: "12", frameworkId: "wf", categoryId: "sponsorship", status: "ready", projectName: "Aghosh", planStatus: "active", ...over,
+}) as WorkOrder;
+const fw = { id: "wf", unitsPerBeneficiary: 3 } as FrameworkTemplate;
+const gp = { id: "aghosh", name: "Aghosh", crmNames: [], partnerIds: [], clusters: [{ id: "c1", name: "Class 1", label: "Class", parentId: "", place: "", status: "active" as const }] };
+const enrol = { id: "EN-1", beneficiaryId: "PRS-0001", giftProjectId: "aghosh", clusterId: "c1", itemId: "I10", role: "", status: "active" as const, since: "2026-09-01" };
+const placed = (over: Partial<Placement> = {}): Placement => ({ key: "sub:SUB1", kind: "place", enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 3, how: "auto", at: "x", ...over });
+const live = (over: Partial<View> = {}): View => view({ workOrders: [sub(1, "2026-09-05"), sub(2, "2026-10-05")], frameworks: [fw], giftProjects: [gp], enrolments: { records: [enrol], counter: 1 }, placements: { records: [placed()], counter: 0 }, ...over });
+
+describe("the Beneficiaries page, month by month", () => {
+  it("shows each beneficiary with the ID, name, kind and where, and opens the profile on a click", () => {
     const html = registerPage(view());
     expect(html).toContain("<h1>Beneficiaries</h1>");
     expect(html).toContain('<span class="refbox">PRS-0001</span>');
-    expect(html).toContain("12 yrs"); // born 2014-03-09, today 24/11/2026
-    expect(html).toContain("Samina Khan");
-    expect(html).toContain('<td class="num">1</td>'); // the household has one person listed
-    expect(html).toContain("Ayesha Khan"); // the household's member by name
+    expect(html).toContain("Person · 12 yrs · Dadyal"); // born 2014-03-09, today 24/11/2026
+    expect(html).toContain("Ayesha Khan");
     expect(html).toContain('data-bn="open" data-id="HH-0001"');
-    expect(html).toContain("<th>Admission</th>");
-    expect(html).toContain("Not checked");
+    expect(html).toContain("Not enrolled in any benefit yet");
+    expect(html).not.toContain("<th>Guardian or members</th>");
     expect(html).toContain('data-bn="new" data-kind="person"');
     expect(html).toContain('data-bn="new" data-kind="household"');
   });
+  it("draws one row for an enrolment: where, the benefit, units filled of the whole, and a pie for each of twelve months with the legend", () => {
+    const html = registerPage(live());
+    expect(html).toContain("Aghosh › Class 1");
+    expect(html).toContain("Orphan Sponsorship Monthly");
+    expect(html).toContain('<td class="num">3 of 3</td>');
+    expect((html.match(/<td class="m">/g) ?? []).length).toBe(12);
+    expect(html).toContain('<th class="m now">Nov</th>');
+    expect(html).toContain('class="sw p"');
+    expect(html).toContain("Nothing expected");
+  });
+  it("colours a month paid when a payment was made, and the ones after it expected, with one slice for each unit", () => {
+    const html = registerPage(live());
+    expect(html).toContain('aria-label="Sep 2026"><circle class="seg p"');
+    expect((html.match(/aria-label="Oct 2026">(<circle class="seg p"[^>]*\/>){3}/g) ?? []).length).toBe(1);
+    expect(html).toContain('class="seg e"'); // a later month of a plan that still runs
+  });
+  it("shows units not filled as nothing expected, and a placement that has ended holds nothing", () => {
+    const part = registerPage(live({ placements: { records: [placed({ parts: 1 })], counter: 0 } }));
+    expect(part).toContain('<td class="num">1 of 3</td>');
+    expect(part).toContain('class="seg f"');
+    const ended = registerPage(live({ placements: { records: [placed({ to: "2026-11-01", endReason: "paused" })], counter: 0 } }));
+    expect(ended).toContain('<td class="num">0 of 3</td>');
+    expect(ended).not.toContain('class="seg p"');
+  });
+  it("gives a beneficiary with two benefits two rows, and filters by project", () => {
+    const two = live({ enrolments: { records: [enrol, { ...enrol, id: "EN-2", itemId: "I11" }], counter: 2 } });
+    expect((registerPage(two).match(/data-id="PRS-0001"/g) ?? []).length).toBe(2);
+    expect(registerPage(live({ registerFilter: { ...NO_FILTER, project: "aghosh" } }))).not.toContain("Bilal Raza");
+    expect(registerPage(live({ registerFilter: { ...NO_FILTER, project: "aghosh" } }))).toContain("Ayesha Khan");
+    expect(registerPage(live())).toContain('<option value="aghosh">Aghosh</option>');
+  });
+});
+
+describe("the Beneficiaries page, filters", () => {
   it("filters by kind, status and text, and says so when nothing matches or nothing is there", () => {
     expect(registerPage(view({ registerFilter: { ...NO_FILTER, kind: "household" } }))).not.toContain("Bilal Raza");
     expect(registerPage(view({ registerFilter: { ...NO_FILTER, text: "mirpur" } }))).not.toContain("Ayesha Khan</b>");
