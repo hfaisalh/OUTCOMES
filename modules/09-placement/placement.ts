@@ -188,7 +188,10 @@ export function syncPlacements(ctx: PlaceContext, existing: Placements): { value
   // Rule (DECISIONS 187): a placement cannot outlive its assignment. When a gift is no longer assigned to a partner (it was taken back, or the assignments were reset), its place ends as unassigned, and an outcome made from it is
   // removed, since an outcome never held a child.
   const assigned = new Set(ctx.assignments.map((a) => a.key));
-  const dropped = existing.records.filter((p) => p.kind === "outcome" && isActive(p) && ctx.live.has(p.key) && !assigned.has(p.key));
+  // Rule: an outcome is also removed when its item is no longer a gift-first or no-beneficiary type, or when the same gift now fills a place.
+  const placedKeys = new Set(existing.records.filter((p) => p.kind === "place" && isActive(p)).map((p) => p.key));
+  const stillOutcome = (itemId: string): boolean => { const r = ctx.rulesOf(itemId); return !r || r.first === "gift" || r.receiver === "none"; };
+  const dropped = existing.records.filter((p) => p.kind === "outcome" && isActive(p) && ctx.live.has(p.key) && (!assigned.has(p.key) || placedKeys.has(p.key) || !stillOutcome(p.itemId)));
   const kept = existing.records.filter((p) => !dropped.includes(p));
   const r = endRecords(kept, (p) => {
     if (!ctx.live.has(p.key)) return ctx.parkedBy[p.key] ?? "released";
@@ -223,6 +226,8 @@ export function placeManual(ctx: PlaceContext, existing: Placements, key: string
   if (!a) return { error: "That gift has not been assigned to a partner yet." };
   const rules = ctx.rulesOf(a.itemId);
   if (rules && (rules.first === "gift" || rules.receiver === "none")) return { error: "This gift creates an outcome. It does not fill a place." };
+  // Rule: a gift that fills a place is no longer an outcome, so any outcome it made earlier (before its item was a beneficiary type) is removed.
+  existing = { ...existing, records: existing.records.filter((p) => !(p.key === key && p.kind === "outcome" && isActive(p))) };
   const others = existing.records.filter((p) => p.key !== key || !isActive(p)); // the gift's own active placements leave the count while it is moved
   const option = placesFor(ctx, a, others).find((o) => o.enrolmentId === enrolmentId);
   if (!option) return { error: "That place is not open for this gift: it must be an approved beneficiary enrolled for this benefit in the right project." };

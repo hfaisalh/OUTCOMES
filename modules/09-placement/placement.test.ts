@@ -274,6 +274,13 @@ describe("a person placing", () => {
     expect("value" in moved && moved.value.records.filter(isActive)).toHaveLength(1); // moved, not copied
     expect("value" in moved && moved.value.records.find((p) => p.key === "G1" && !isActive(p))).toMatchObject({ enrolmentId: "EN-1", to: "2026-11-24", endReason: "moved" }); // the earlier one is kept as history
   });
+  it("removes an outcome record the gift made earlier when it is placed in a child, and when sync finds the item is now a child type", () => {
+    const stale: Placements = { counter: 1, records: [{ key: "G1", kind: "outcome", enrolmentId: "", outcomeRef: "OUT-0001", giftProjectId: "", itemId: "I10", parts: 2, how: "auto", at: "2026-11-01" }] };
+    const r = placeManual(ctx({ assignments: [asg("G1", { parts: 2 })] }), stale, "G1", "EN-1");
+    expect("value" in r && r.value.records.filter(isActive).map((p) => p.kind)).toEqual(["place"]);
+    const synced = syncPlacements(ctx({ assignments: [asg("G1", { parts: 2 })] }), stale);
+    expect(synced.value.records.filter(isActive)).toHaveLength(0); // I10 is a child type, so the outcome is dropped
+  });
   it("refuses a missing gift, a place that is not open, a full place, and an outcome-creating gift", () => {
     expect(placeManual(c(), emptyPlacements(), "nope", "EN-1")).toHaveProperty("error");
     expect(placeManual(c(), emptyPlacements(), "G1", "EN-99")).toHaveProperty("error");

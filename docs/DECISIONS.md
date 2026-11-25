@@ -813,3 +813,7 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 - Filters: project, type, **Under-funded**, **Failed payments**, **Ended**, and a search by reference, benefit, donor, partner or project. Headings sort.
 - **Not built yet:** several gifts together funding one outcome (each gift makes its own), recipients (households or lists) for the types that need them, and the stages after allocation (delivered, confirmed, reported).
 
+
+## 198. A gift is either an outcome or a place, never both (2026-11-25)
+
+Found when a row in the Outcomes list opened a sponsorship gift that was also allocated to a child. An outcome record made while the item had no beneficiary rules stayed live after the gift was placed in a child, so the gift showed in both lists. Rule: placing a gift in a child removes any outcome it made earlier, and sync drops an outcome whose item is now a child type or whose gift now fills a place. Pure logic in `modules/09-placement/placement.ts`, tested.
