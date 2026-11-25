@@ -8,7 +8,7 @@
  *
  * Rules:
  * - Rule: one row for each outcome placement. A gift for a gift-first or no-beneficiary type creates one outcome (decision 175). One that has ended stays in the list, marked ended, with the reason.
- * - Rule: funded is the units the gift holds out of the units that make one whole outcome (a pump is 1, a house may be more), at most 100. It is not about the months.
+ * - Rule: funded is the units the gift holds out of the units that make one whole outcome (a pump is 1, a house may be more), at most 100. A gift paid in a fixed number of instalments counts only the share paid so far (decision 199).
  * - Rule: the months show what the gift did each month (paid, expected, missed, nothing expected), one slice for each unit of the whole outcome, as on the Beneficiaries list.
  * - Rule: stages after allocation (delivered, confirmed by the partner, reported) are not built yet, so a live outcome says "Allocated".
  * Not built yet: gifts that together fund one outcome (each gift makes its own for now), and recipients (households or lists) for the types that need them.
@@ -48,7 +48,9 @@ export function outcomeRows(a: { placements: Placement[]; commitments: Commitmen
     // Rule: an ended outcome holds nothing, so its months show nothing expected.
     const held = live && c ? Math.min(p.parts, whole) : 0;
     const cells = a.months.map((month) => ({ month, slots: Array.from({ length: whole }, (_, i): Slot => (i < held && c ? { status: monthStatus(c, month, a.today), commitmentKey: c.subscriptionId } : { status: i < p.parts && c ? "f" : "g", commitmentKey: "" })) }));
-    const funded = Math.min(100, Math.round((100 * p.parts) / whole));
+    // Rule (decision 199): a gift paid in a fixed number of instalments funds the outcome as the instalments arrive, so funded is the share paid out of planned. A single payment, or a plan that runs until cancelled, counts as fully funded.
+    const instalmentShare = c && c.once !== true && c.planned !== null && c.planned > 0 ? Math.min(1, c.paid / c.planned) : 1;
+    const funded = Math.min(100, Math.round((100 * p.parts * instalmentShare) / whole));
     const fundedUnits = cells.reduce((n, m) => n + m.slots.filter((x) => x.status === "p" || x.status === "e").length, 0);
     rows.push({
       ref: p.outcomeRef, key: p.key, itemId: p.itemId, giftProjectId: p.giftProjectId, partnerId: a.partnerOf(p.key),

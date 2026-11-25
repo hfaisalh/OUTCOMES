@@ -817,3 +817,7 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 ## 198. A gift is either an outcome or a place, never both (2026-11-25)
 
 Found when a row in the Outcomes list opened a sponsorship gift that was also allocated to a child. An outcome record made while the item had no beneficiary rules stayed live after the gift was placed in a child, so the gift showed in both lists. Rule: placing a gift in a child removes any outcome it made earlier, and sync drops an outcome whose item is now a child type or whose gift now fills a place. Pure logic in `modules/09-placement/placement.ts`, tested.
+
+## 199. An outcome paid in instalments is funded as they arrive (2026-11-25)
+
+Pumps and similar builds can be paid in a fixed number of instalments (a Small Pump shows 10/10). Funded on the Outcomes list is now the units held times instalments paid out of planned, so 4 of 10 is 40%. A single payment, or a plan that runs until cancelled, counts as fully funded. Money is still not tracked: this counts instalments, not pounds. Pure logic in `modules/10-outcome-records/outcome-records.ts`.

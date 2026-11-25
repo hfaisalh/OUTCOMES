@@ -31,6 +31,12 @@ describe("outcomeRows", () => {
     expect(r.funded).toBe(25);
     expect(r.cells[0]?.slots.map((s) => s.status)).toEqual(["p", "g", "g", "g"]); // the other three units have no gift
   });
+  it("funds an outcome as its fixed instalments arrive, and counts a plan that runs until cancelled as fully funded (decision 199)", () => {
+    const part = { ...sub, planned: 10, paid: 4 } as unknown as Commitment;
+    expect(outcomeRows({ ...base, commitments: [part] })[0]?.funded).toBe(40);
+    expect(outcomeRows({ ...base, commitments: [{ ...part, paid: 10 } as Commitment] })[0]?.funded).toBe(100);
+    expect(outcomeRows(base)[0]?.funded).toBe(100); // planned null: until cancelled
+  });
   it("keeps an ended outcome with the date and the reason, and it holds nothing", () => {
     const r = outcomeRows({ ...base, placements: [out({ to: "2026-11-20", endReason: "cancelled" })] })[0]!;
     expect(r).toMatchObject({ live: false, endedOn: "2026-11-20", why: "The plan was cancelled" });
