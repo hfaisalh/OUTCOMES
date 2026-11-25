@@ -47,6 +47,7 @@ export interface PlaceContext {
   beneficiaries: Beneficiary[];
   giftProjects: GiftProject[];
   frameworks: FrameworkTemplate[];
+  live: Set<string>; // the assignments still in scope: a gift of a paused, cancelled or completed plan holds no place (DECISIONS 185)
   itemFramework: Record<string, string>; // the workflow each item is in, from its gifts, to know the units that make one whole beneficiary
   rulesOf: (itemId: string) => ItemRules | undefined;
   now: string; // ISO time
@@ -56,7 +57,9 @@ export interface PlaceContext {
 export function placementContext(a: { assignments: Assignment[]; assignables: Assignable[]; workOrders: { itemId: string; frameworkId?: string }[]; enrolments: Enrolment[]; beneficiaries: Beneficiary[]; giftProjects: GiftProject[]; frameworks: FrameworkTemplate[]; rulesOf: (itemId: string) => ItemRules | undefined; now: string }): PlaceContext {
   const itemFramework: Record<string, string> = {};
   for (const w of a.workOrders) if ((w.frameworkId ?? "") !== "" && itemFramework[w.itemId] === undefined) itemFramework[w.itemId] = w.frameworkId as string;
-  return { assignments: a.assignments, assignables: a.assignables, enrolments: a.enrolments, beneficiaries: a.beneficiaries, giftProjects: a.giftProjects, frameworks: a.frameworks, itemFramework, rulesOf: a.rulesOf, now: a.now };
+  // The gifts still in scope. When no list of gifts is given (a caller that only has assignments), every assignment counts.
+  const live = new Set(a.assignables.length > 0 ? a.assignables.map((u) => u.key) : a.assignments.map((x) => x.key));
+  return { assignments: a.assignments.filter((x) => live.has(x.key)), live, assignables: a.assignables, enrolments: a.enrolments, beneficiaries: a.beneficiaries, giftProjects: a.giftProjects, frameworks: a.frameworks, itemFramework, rulesOf: a.rulesOf, now: a.now };
 }
 
 export type Blocked = "" | "no-places" | "full" | "no-project-places" | "no-type";
@@ -77,7 +80,7 @@ type Result = { value: Placements } | { error: string };
 // How many units make one whole beneficiary of an item, from the workflow its gifts are in (3 parts for an orphan, 1 for a scholarship). 1 when it is not known.
 const wholeOf = (ctx: PlaceContext, itemId: string): number => Math.max(1, ctx.frameworks.find((f) => f.id === ctx.itemFramework[itemId])?.unitsPerBeneficiary ?? 1);
 
-const used = (records: Placement[], enrolmentId: string): number => records.filter((p) => p.enrolmentId === enrolmentId).reduce((n, p) => n + p.parts, 0);
+const used = (records: Placement[], enrolmentId: string, live?: Set<string>): number => records.filter((p) => p.enrolmentId === enrolmentId && (!live || live.has(p.key))).reduce((n, p) => n + p.parts, 0);
 
 // The places a gift could fill, in the order they are tried, with the room in each.
 export function placesFor(ctx: PlaceContext, a: Assignment, records: Placement[]): PlaceOption[] {
@@ -91,7 +94,7 @@ export function placesFor(ctx: PlaceContext, a: Assignment, records: Placement[]
   return ctx.enrolments
     .filter((e) => e.status === "active" && e.role === "" && e.itemId === a.itemId && inProject(e.giftProjectId))
     .filter((e) => { const b = byId.get(e.beneficiaryId); return !!b && b.status === "active" && (b.kind !== "person" || b.eligibility === "ready"); })
-    .map((e): PlaceOption => { const u = used(records, e.id); return { enrolmentId: e.id, beneficiaryId: e.beneficiaryId, name: byId.get(e.beneficiaryId)?.name ?? e.beneficiaryId, giftProjectId: e.giftProjectId, clusterId: e.clusterId, used: u, capacity: whole, fits: u + a.parts <= whole }; })
+    .map((e): PlaceOption => { const u = used(records, e.id, ctx.live); return { enrolmentId: e.id, beneficiaryId: e.beneficiaryId, name: byId.get(e.beneficiaryId)?.name ?? e.beneficiaryId, giftProjectId: e.giftProjectId, clusterId: e.clusterId, used: u, capacity: whole, fits: u + a.parts <= whole }; })
     // Rule (DECISIONS 183): the assigned partner's own children first, since a partner's room is its own children. Then the lowest fill, then the earliest enrolled.
     .sort((x, y) => Number(byId.get(y.beneficiaryId)?.partnerId === a.partnerId) - Number(byId.get(x.beneficiaryId)?.partnerId === a.partnerId) || x.used - y.used || x.enrolmentId.localeCompare(y.enrolmentId));
 }
@@ -174,7 +177,7 @@ export interface PlaceFill { enrolmentId: string; used: number; capacity: number
 export function fills(ctx: PlaceContext, existing: Placements): PlaceFill[] {
   return ctx.enrolments
     .filter((e) => e.status === "active" && e.role === "" && (ctx.rulesOf(e.itemId)?.first ?? "beneficiary") === "beneficiary" && (ctx.rulesOf(e.itemId)?.receiver ?? "person") !== "none")
-    .map((e) => ({ enrolmentId: e.id, used: used(existing.records, e.id), capacity: wholeOf(ctx, e.itemId) }));
+    .map((e) => ({ enrolmentId: e.id, used: used(existing.records, e.id, ctx.live), capacity: wholeOf(ctx, e.itemId) }));
 }
 
 /**

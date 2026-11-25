@@ -124,6 +124,12 @@ describe("giftsPage", () => {
     const win = giftDetailHtml(view({ workOrders: orders, frameworks: fws, projects: partners, assignments, placements, enrolments, beneficiaries: { records: [child], counters: {} } }), "S9");
     expect(win).toContain("<span>Assigned to</span>");
     expect(win).toMatch(/<span>Assigned to<\/span>[\s\S]*Sample Trust[\s\S]*<span>Allocated to<\/span>[\s\S]*Sample Amina/);
+    // A paused, cancelled or completed plan holds no place, whatever was recorded (DECISIONS 185).
+    for (const status of ["paused", "cancelled", "completed"]) {
+      const list = giftListHtml(view({ workOrders: orders.map((w) => ({ ...w, planStatus: status })), frameworks: fws, projects: partners, assignments, placements, enrolments, beneficiaries: { records: [child], counters: {} } }));
+      expect(list).not.toContain("Sample Amina");
+      expect(list).not.toMatch(/class="pill stage st-allocation"/);
+    }
     // A placement whose place is gone is not a placement: the gift is assigned and waiting for a place again.
     const stale = giftListHtml(view({ workOrders: orders, frameworks: fws, projects: partners, assignments, placements, enrolments: { counter: 0, records: [] }, beneficiaries: { records: [], counters: {} } }));
     expect(stale).toContain('title="Assigned to Sample Trust, waiting for a place">Assigned</span>');

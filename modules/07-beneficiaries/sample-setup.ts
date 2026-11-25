@@ -156,7 +156,12 @@ export function loadSampleSetup(input: SampleInput): Loaded {
         for (const rp of input.realProjects) {
           const gp = gps.find((g) => g.id === rp.id);
           if (!gp || gp.sample === true || used.has(rp.id) || (gp.clusters ?? []).length === 0 || !rp.itemIds.some((i) => wanted.has(i))) continue;
-          if (existing(rp)) used.add(rp.id);
+          if (existing(rp)) {
+            used.add(rp.id);
+            // Rule (DECISIONS 185): the invented children belong to the sample partners, so those partners must deliver for the project, or their children could never be used. Its own clusters are untouched.
+            const adds = partnerIds.filter((id) => !gp.partnerIds.includes(id));
+            gps = gps.map((g) => (g.id === rp.id ? { ...g, partnerIds: [...g.partnerIds, ...adds], sampleAttached: { partnerIds: adds, clusters: false } } : g));
+          }
         }
       }
       // Rule (DECISIONS 182): the scenario clusters (the full home, the closed home, the university, the villages, the camp) are always the sample's own projects, never put on a real project. A real project is only

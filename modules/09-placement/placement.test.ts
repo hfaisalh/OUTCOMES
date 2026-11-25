@@ -21,10 +21,12 @@ const aghosh: GiftProject = { id: "aghosh", name: "Aghosh", crmNames: [], partne
 const other: GiftProject = { id: "other", name: "Other", crmNames: [], partnerIds: ["backup"], itemIds: ["I10"] };
 const wf: FrameworkTemplate = { id: "wf-orphan", unitsPerBeneficiary: 3 } as FrameworkTemplate;
 const rules: Record<string, ItemRules> = { I10: { first: "beneficiary", receiver: "person", kindLabel: "Person(s)" }, I11: { first: "gift", receiver: "household", kindLabel: "Build" }, I12: { first: "gift", receiver: "none", kindLabel: "Waqf" } };
-const ctx = (over: Partial<PlaceContext> = {}): PlaceContext => ({
+// The gifts in scope are the assignments given, unless a test says otherwise.
+const withLive = (c: PlaceContext, over: Partial<PlaceContext>): PlaceContext => ({ ...c, live: over.live ?? new Set(c.assignments.map((x) => x.key)) });
+const ctx = (over: Partial<PlaceContext> = {}): PlaceContext => withLive({
   ...placementContext({ assignments: [], assignables: [], workOrders: [{ itemId: "I10", frameworkId: "wf-orphan" }], enrolments: [enr("EN-1", "B1"), enr("EN-2", "B2")], beneficiaries: [child("B1", "Amina"), child("B2", "Bilal")], giftProjects: [aghosh, other], frameworks: [wf], rulesOf: (i) => rules[i], now: "2026-11-24T10:00:00Z" }),
   ...over,
-});
+}, over);
 
 describe("filling an open place", () => {
   it("fills the place with the lowest fill first, so more children are sponsored, then the earliest enrolled", () => {
@@ -76,6 +78,20 @@ describe("an item with no type yet (DECISIONS 178)", () => {
     const s = suggestPlacements(c, emptyPlacements());
     expect(s[0]).toMatchObject({ kind: "", blocked: "no-type", why: "The item has no type yet, so it is not known who receives it. Choose a type on the Benefits page." });
     expect(runPlacement(c, emptyPlacements())).toMatchObject({ placed: 0, outcomes: 0, waiting: 1 });
+  });
+});
+
+describe("a gift of a parked plan holds no place (DECISIONS 185)", () => {
+  it("frees the child's place when the plan is cancelled, and does not place the gift again", () => {
+    const first = runPlacement(ctx({ assignments: [asg("G1", { parts: 3 })] }), emptyPlacements()).value; // G1 fills Amina
+    const parked = ctx({ assignments: [asg("G1", { parts: 3 }), asg("G2", { parts: 3 })], live: new Set(["G2"]) }); // G1's plan is now cancelled
+    expect(fills(parked, first)).toEqual([{ enrolmentId: "EN-1", used: 0, capacity: 3 }, { enrolmentId: "EN-2", used: 0, capacity: 3 }]);
+    expect(suggestPlacements(parked, first).map((x) => x.key)).toEqual(["G2", "G1"].filter((k) => k === "G2")); // only the gift still in scope
+    expect(suggestPlacements(parked, first)[0]?.enrolmentId).toBe("EN-1"); // Amina is free for it
+  });
+  it("keeps only the assignments still in scope when it builds the context from the gifts", () => {
+    const keep = placementContext({ assignments: [asg("G1"), asg("G2")], assignables: [{ key: "G2", w: {} as never, payments: 1, parts: 1 }], workOrders: [], enrolments: [], beneficiaries: [], giftProjects: [], frameworks: [], rulesOf: () => undefined, now: "x" });
+    expect(keep.assignments.map((a) => a.key)).toEqual(["G2"]);
   });
 });
 

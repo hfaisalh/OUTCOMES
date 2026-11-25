@@ -272,6 +272,11 @@ describe("a real project with clusters of its own keeps them and is filled (DECI
     expect(kids.every((e) => e.clusterId === "class-1")).toBe(true); // in its first class
     expect(summary.ownClusters).toBe(1);
     expect(summary.skipped).toEqual([]);
+    // Every invented child belongs to a partner that delivers for the project, or its room could never be used (DECISIONS 185).
+    const owners = new Set(kids.map((e) => value.register.records.find((b) => b.id === e.beneficiaryId)?.partnerId));
+    expect(owners.size).toBeGreaterThan(1); // more than one partner has children there
+    expect([...owners].every((id) => aghosh.partnerIds.includes(id as string))).toBe(true);
+    expect(aghosh.sampleAttached?.partnerIds.length).toBeGreaterThan(0);
   });
   it("never passes the cluster's own total, and says nothing is lost when it is small", () => {
     const { value } = load({ giftProjects: [own(5), { id: "dadyal", name: "Dadyal Orphan Complex", crmNames: [], partnerIds: [] }], realProjects: real, demand: { I10: 20 }, whole: { I10: 3 } });

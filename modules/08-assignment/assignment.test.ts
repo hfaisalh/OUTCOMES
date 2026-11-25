@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorkOrder } from "../01c-crm-connector/work-orders";
 import type { GiftProject, Project } from "../06-projects/projects";
-import { applyAssignmentAction, assignables, contextFrom, demandByItem, assignManual, emptyAssignments, hasRoom, loads, projectOfOrder, runAssignment, suggestAssignments, toAssign, unassign, type AssignContext, type Assignments } from "./assignment";
+import { applyAssignmentAction, assignables, contextFrom, demandByItem, liveRecords, assignManual, emptyAssignments, hasRoom, loads, projectOfOrder, runAssignment, suggestAssignments, toAssign, unassign, type AssignContext, type Assignments } from "./assignment";
 
 const wo = (key: string, over: Partial<WorkOrder> = {}): WorkOrder => ({
   key, lineId: key, transactionRef: `T-${key}`, paidDate: `2026-10-${key.slice(-2).padStart(2, "0")}`, supporterId: "S1", supporterName: "Invented Donor", group: "", itemId: "I10", itemName: "Orphan Sponsorship Monthly", amount: 30, quantity: 1,
@@ -68,6 +68,29 @@ describe("which partner a gift goes to", () => {
     expect(s.map((x) => x.key)).toEqual(["G05", "G01", "G02", "G03", "G04"]);
     expect(s[0]?.urgent).toBe(true);
     expect(s[0]?.partnerId).toBe("trust"); // the urgent one gets the trust's room first
+  });
+});
+
+describe("a parked plan holds no place (DECISIONS 185)", () => {
+  const plan = (status: string) => [1, 2, 3].map((n) => wo(`P${n}`, { subscriptionId: "SUB-P", instalmentNumber: String(n), instalmentCount: "12", planStatus: status }));
+  it("does not assign a plan that is paused, cancelled or completed, and does assign an active or pending one", () => {
+    for (const status of ["paused", "cancelled", "completed"]) expect(assignables(ctx({ workOrders: plan(status) }))).toEqual([]);
+    for (const status of ["active", "pending", "past_due", ""]) expect(assignables(ctx({ workOrders: plan(status) })).map((u) => u.key)).toEqual(["sub:SUB-P"]);
+  });
+  it("reads the plan's newest status, so a plan that has resumed is assigned again", () => {
+    const lines = [wo("P1", { subscriptionId: "SUB-P", paidDate: "2026-01-01", planStatus: "paused" }), wo("P2", { subscriptionId: "SUB-P", paidDate: "2026-02-01", planStatus: "active" })];
+    expect(assignables(ctx({ workOrders: lines })).map((u) => u.key)).toEqual(["sub:SUB-P"]);
+  });
+  it("leaves the assignment of a parked plan on record but does not let it use up the partner's room", () => {
+    const parked = plan("cancelled");
+    const rec = { key: "sub:SUB-P", partnerId: "trust", giftProjectId: "aghosh", itemId: "I10", parts: 3, how: "auto" as const, at: "x" };
+    const c = ctx({ workOrders: [...parked, wo("G9")] });
+    const s = suggestAssignments(c, { records: [rec] });
+    expect(s[0]?.partnerId).toBe("trust"); // the trust's room of 3 is not used by the cancelled plan's 3 units
+    expect(liveRecords(c, [rec])).toEqual([]);
+    expect(loads([trust], { records: [rec] }, c).find((l) => l.itemId === "I10")?.taken).toBe(0);
+    const resumed = ctx({ workOrders: plan("active") });
+    expect(liveRecords(resumed, [rec])).toEqual([rec]); // it counts again when the plan runs again
   });
 });
 

@@ -193,7 +193,8 @@ function allocationContext(v: View) {
   const personName = (id: string): string => (v.beneficiaries?.records ?? []).find((b) => b.id === id)?.name ?? id;
   const newKey = (g: GiftRow): string => (g.kind === "recurring" ? `sub:${g.key}` : g.kind === "one_off" ? g.payments[0]?.key ?? "" : "");
   return (g: GiftRow): { state: "placed" | "waiting" | "manual" | "none" | "n/a"; who: string; partner: string; parts: number | null; why: string; ref?: string; allocRef?: string } => {
-    const nk = newKey(g);
+    // A paused, cancelled or completed plan holds no place and is shown by the older rule (parked, or needing none) (DECISIONS 185).
+    const nk = ["paused", "cancelled", "completed"].includes(g.planStatus) ? "" : newKey(g);
     const asg = nk !== "" ? assigned.get(nk) : undefined;
     const plc = nk !== "" ? placed.get(nk) : undefined;
     // A placement whose place no longer exists (the child was removed) is not a placement: the gift is assigned and waiting for a place again.

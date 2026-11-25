@@ -8,6 +8,7 @@
  * (the types and partner rules only). Pure functions: no database, no screen, so the rules can be ported to Salesforce (Apex) or another stack.
  *
  * Rules:
+ * - Rule (DECISIONS 185): a plan that is paused, cancelled or completed is parked: it is not assigned, and an assignment it already had stops using up the partner's room until the plan runs again.
  * - Which gifts (DECISIONS 172): work orders that are ready (routed to a workflow), not excluded, not a custom amount (those are done by hand), and not already assigned. A recurring gift is ONE assignment, however many
  *   payments it has: all the payments of a subscription go to the same partner, and it takes its units (the parts of one instalment) once. A one-off payment is its own assignment.
  * - Which partners (DECISIONS 154): a gift for a project goes to that project's partners in the project's order. The project must offer the benefit. A gift with no project, or a blank or "Where Needed Most" one,
@@ -110,6 +111,9 @@ export function projectOfOrder(w: WorkOrder, gps: GiftProject[]): GiftProject | 
 
 // What is assigned as one: a recurring gift (all the payments of a subscription, one assignment) or a one-off payment. `w` is the payment that stands for it (the earliest), `payments` how many there are, and
 // `parts` the units it takes: the parts of one instalment, not of every payment (DECISIONS 172).
+// Plans the CRM has paused, cancelled or completed do not hold a place (DECISIONS 185).
+export const PARKED_PLANS: readonly string[] = ["paused", "cancelled", "completed"];
+
 export interface Assignable { key: string; w: WorkOrder; payments: number; parts: number }
 
 // Rule (DECISIONS 173): a recurring gift is kept under "sub:" and its subscription id, so it can never be mistaken for a one-off payment whose line id has the same value.
@@ -130,10 +134,16 @@ export function assignables(ctx: AssignContext): Assignable[] {
   for (const [sub, lines] of bySub) {
     const sorted = [...lines].sort((a, b) => a.paidDate.localeCompare(b.paidDate) || a.key.localeCompare(b.key));
     const first = sorted[0] as WorkOrder;
+    // The plan's own status is the same on every line and is refreshed at each import: the newest line that has one.
+    const status = [...sorted].reverse().find((l) => l.planStatus !== undefined)?.planStatus ?? "";
+    if (PARKED_PLANS.includes(status)) continue;
     out.push({ key: subKey(sub), w: first, payments: lines.length, parts: partsPerInstalment(first) });
   }
   return out.sort((a, b) => Number(ctx.urgent.has(b.key) || ctx.urgent.has(b.w.key)) - Number(ctx.urgent.has(a.key) || ctx.urgent.has(a.w.key)) || a.w.paidDate.localeCompare(b.w.paidDate) || a.key.localeCompare(b.key));
 }
+
+// The assignments that still count: those of a gift that is still in scope. An assignment of a parked plan stays on record but does not use up room (DECISIONS 185).
+export const liveRecords = (ctx: AssignContext, records: Assignment[]): Assignment[] => { const live = new Set(assignables(ctx).map((u) => u.key)); return records.filter((a) => live.has(a.key)); };
 
 // How many units each item needs a partner for (DECISIONS 174): the parts of every assignable, by item. The sample setup uses it to give its general partner enough room for the real gifts.
 export function demandByItem(ctx: AssignContext): Record<string, number> {
@@ -194,7 +204,7 @@ function considered(ctx: AssignContext, w: WorkOrder): { gp: GiftProject | undef
  * Works out where every gift that needs a partner would go, in order, counting the room each partner has left as the run goes. Changes nothing: the result is only the suggestion for each.
  */
 export function suggestAssignments(ctx: AssignContext, existing: Assignments): Suggestion[] {
-  const running: Assignment[] = [...existing.records];
+  const running: Assignment[] = [...liveRecords(ctx, existing.records)]; // a parked plan does not use up room
   const out: Suggestion[] = [];
   for (const unit of toAssign(ctx, existing)) {
     const { w, parts } = unit;
@@ -239,11 +249,12 @@ export function assignManual(ctx: AssignContext, existing: Assignments, key: str
   if (current && !ctx.reassignOf(w.frameworkId ?? "")) return { error: "Reassigning is switched off for this workflow." };
   const p = eligiblePartners(ctx.partners, w.itemId, ctx.today).find((x) => x.id === partnerId);
   if (!p) return { error: "That partner is not eligible for this item: it must be active, with its due diligence approved and in date, and deliver the item." };
-  const others = existing.records.filter((a) => a.key !== key);
+  const keep = existing.records.filter((a) => a.key !== key); // every other assignment stays on record, parked ones too
+  const others = liveRecords(ctx, keep); // but only those still in scope use up room
   const room = roomFor(ctx, p, w.itemId, unit.parts, others, projectOfOrder(w, ctx.giftProjects)?.id ?? "");
   if (!room.ok) return { error: `${p.name} cannot take it: ${room.why}.` };
   const gp = projectOfOrder(w, ctx.giftProjects);
-  return { value: { records: [...others, { key, partnerId, giftProjectId: gp?.id ?? "", itemId: w.itemId, parts: unit.parts, how: "manual", at: ctx.now }] } };
+  return { value: { records: [...keep, { key, partnerId, giftProjectId: gp?.id ?? "", itemId: w.itemId, parts: unit.parts, how: "manual", at: ctx.now }] } };
 }
 
 export function unassign(existing: Assignments, key: string): Result {
@@ -256,11 +267,12 @@ export function unassign(existing: Assignments, key: string): Result {
 export interface Load { partnerId: string; itemId: string; capacity: number | undefined; derived?: number; taken: number }
 export function loads(partners: Project[], existing: Assignments, ctx?: AssignContext): Load[] {
   const out: Load[] = [];
+  const records = ctx ? liveRecords(ctx, existing.records) : existing.records; // a parked plan does not use up room (DECISIONS 185)
   for (const p of partners) {
-    const items = new Set([...(p.itemIds ?? []), ...existing.records.filter((a) => a.partnerId === p.id).map((a) => a.itemId)]);
+    const items = new Set([...(p.itemIds ?? []), ...records.filter((a) => a.partnerId === p.id).map((a) => a.itemId)]);
     for (const itemId of items) {
       const d = ctx?.derived?.(p, itemId, "");
-      out.push({ partnerId: p.id, itemId, capacity: capacityFor(p, itemId), ...(d !== undefined ? { derived: d } : {}), taken: taken(existing.records, p.id, itemId) });
+      out.push({ partnerId: p.id, itemId, capacity: capacityFor(p, itemId), ...(d !== undefined ? { derived: d } : {}), taken: taken(records, p.id, itemId) });
     }
   }
   return out;
