@@ -15,6 +15,7 @@ import { monthsAround, perPeriodRule, type UnitStatus } from "../modules/05-outc
 import { unitsOfItem } from "../modules/02-project-rules/benefits";
 import { clusterStateOf, pathOf } from "../modules/06-projects/clusters";
 import { normName } from "../modules/07-beneficiaries/beneficiaries";
+import { icon, PLAN_ICON, SYMBOL } from "./gifts-page";
 import { esc, type View } from "./pages";
 
 const MAX_ROWS = 300;
@@ -27,7 +28,9 @@ function pie(slots: { status: UnitStatus | "g" }[], label: string): string {
   if (n === 0) return "";
   const R = 9, C = 2 * Math.PI * R;
   const arcs = slots.map((sl, i) => { const len = C / n; return `<circle class="seg ${sl.status}" cx="12" cy="12" r="${R}" fill="none" stroke-width="6" stroke-dasharray="${n === 1 ? C : Math.max(len - 1.2, 0.5)} ${C}" stroke-dashoffset="${-i * len}" transform="rotate(-90 12 12)"/>`; });
-  return `<svg class="mpie" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="${esc(label)}">${arcs.join("")}</svg>`;
+  // A thin ring marks the edge so an unfilled (white) unit still shows as an empty slot.
+  const rings = `<circle class="ring" cx="12" cy="12" r="11.7" stroke-width=".7"/><circle class="ring" cx="12" cy="12" r="6.3" stroke-width=".7"/>`;
+  return `<svg class="mpie" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="${esc(label)}">${rings}${arcs.join("")}</svg>`;
 }
 
 export function registerPage(v: View): string {
@@ -71,23 +74,33 @@ export function registerPage(v: View): string {
   const shownIds = new Set(list.map((r) => r.beneficiaryId));
   const shown = pool.filter((b) => shownIds.has(b.id));
   const where = (gpId: string): string => projects.find((p) => p.id === gpId)?.name ?? "";
-  const PLAN: Record<string, string> = { active: "Active", paused: "Paused", cancelled: "Cancelled", completed: "Completed", "one-off": "One-off", pending: "Pending", past_due: "Past due" };
+  // Plan like the Gifts list: instalments paid over planned (2/∞), with the plan's own status icon when it is not running.
+  const planOf = (g: { once: boolean; paid: number; planned: number | null; planStatus: string }): string => (g.once ? "" : `${g.paid}/${g.planned ?? "\u221E"}`);
   const rows = list.slice(0, MAX_ROWS).map((r) => {
     const b = byId.get(r.beneficiaryId);
     if (!b) return "";
     const age = b.kind === "person" ? ageOf(b.dob, today) : null;
     const sex = b.kind === "person" ? (b.gender === "female" ? "F" : b.gender === "male" ? "M" : "") : "";
     const partner = r.partnerIds.length > 0 ? r.partnerIds.map(partnerName).join(", ") : b.partnerId !== "" ? partnerName(b.partnerId) : "";
-    const plan = r.plans.map((x) => PLAN[x] ?? x).join(", ");
-    const donors = r.donors.length > 2 ? `${r.donors.slice(0, 2).join(", ")} +${r.donors.length - 2}` : r.donors.join(", ");
-    const lead = `<td class="act ${b.status === "active" ? "on" : "off"}" title="${b.status === "active" ? "Active" : "Inactive"}">${b.status === "active" ? "●" : "○"}</td><td class="nm" title="${esc([b.id, b.area].filter((x) => x !== "").join(" · "))}"><b>${esc(b.name)}</b></td><td>${esc(sex)}</td><td class="num">${age === null ? "" : age}</td><td>${esc(partner)}</td>`;
+    const first = r.gifts[0];
+    const more = r.gifts.length > 1 ? ` <span class="muted">+${r.gifts.length - 1}</span>` : "";
+    const donor = first ? `${icon(first.once ? "one" : "rec", first.once ? SYMBOL.one : SYMBOL.recurring, first.once ? "One payment" : "Recurring gift")} ${esc(first.donor)}${more}` : "";
+    // Status icons like the Gifts list: only what is not normal, else a tick. Inactive and the plan's own status come first.
+    const st: string[] = [];
+    if (b.status !== "active") st.push(icon("muted", "\u25CB", "Inactive"));
+    for (const g of r.gifts) { const p = PLAN_ICON[g.planStatus]; if (p && !st.some((x) => x.includes(`aria-label="${p[1]}"`))) st.push(icon("muted", p[0], p[1])); }
+    if (r.missed > 0) st.push(icon("warn", SYMBOL.look, `Needs a look: a payment was missed in ${r.missed} month${r.missed === 1 ? "" : "s"}`));
+    else if (r.gifts.some((g) => g.look)) st.push(icon("warn", SYMBOL.look, "Needs a look: the gift has a problem, open it in Gifts"));
+    if (r.enrolmentId !== "" && r.filled < r.whole) st.push(icon("warn", SYMBOL.waiting, `${r.whole - r.filled} of ${r.whole} units have no gift yet`));
+    const status = st.length > 0 ? st.join("") : icon("good", SYMBOL.ok, "Ready");
+    const lead = `<td class="nm" title="${esc([b.id, b.area].filter((x) => x !== "").join(" \u00B7 "))}"><b>${esc(b.name)}</b></td><td>${esc(sex)}</td><td class="num">${age === null ? "" : age}</td><td>${esc(partner)}</td>`;
     const rest = r.enrolmentId === ""
       ? `<td colspan="${months.length + 5}" class="muted">Not enrolled in any benefit yet</td>`
-      : `<td>${esc(where(r.giftProjectId))}</td><td>${esc(itemName.get(r.itemId) ?? r.itemId)}</td><td>${esc(plan)}${r.missed > 0 ? ` <span class="pill unrouted" title="Months with a missed payment">${r.missed} missed</span>` : ""}</td><td class="dn" title="${esc(r.donors.join(", "))}">${esc(donors)}</td><td class="num">${r.filled} of ${r.whole}</td>${r.cells.map((c) => `<td class="m">${pie(c.slots, `${NAME[Number(c.month.slice(5, 7)) - 1]} ${c.month.slice(0, 4)}`)}</td>`).join("")}`;
-    return `<tr class="rowlink" data-bn="open" data-id="${esc(b.id)}" tabindex="0">${lead}${rest}</tr>`;
+      : `<td>${esc(where(r.giftProjectId))}</td><td>${esc(itemName.get(r.itemId) ?? r.itemId)}</td><td class="num" title="${esc(r.gifts.map((g) => `${g.donor}: ${planOf(g) || "one payment"}`).join("; "))}">${first ? planOf(first) : ""}</td><td class="dn" title="${esc(r.donors.join(", "))}">${donor}</td><td class="num">${r.filled} of ${r.whole}</td>${r.cells.map((c) => `<td class="m">${pie(c.slots, `${NAME[Number(c.month.slice(5, 7)) - 1]} ${c.month.slice(0, 4)}`)}</td>`).join("")}`;
+    return `<tr class="rowlink" data-bn="open" data-id="${esc(b.id)}" tabindex="0">${lead}${rest}<td class="c st">${status}</td></tr>`;
   }).join("");
-  const head = `<thead><tr><th title="Active or inactive"></th><th>Name</th><th>M/F</th><th class="num">Age</th><th>Partner</th><th>Project</th><th>Benefit</th><th>Plan</th><th>Donor</th><th class="num">Units</th>${months.map((m) => `<th class="m${m === today.slice(0, 7) ? " now" : ""}">${NAME[Number(m.slice(5, 7)) - 1]}</th>`).join("")}</tr></thead>`;
-  const legend = `<div class="legendrow">${[...KEY, ["g", "Unfilled unit"] as [string, string]].map(([s, t]) => `<span><span class="sw ${s}"></span>${t}</span>`).join("")}</div>`;
+  const head = `<thead><tr><th>Name</th><th>M/F</th><th class="num">Age</th><th>Partner</th><th>Project</th><th>Benefit</th><th>Plan</th><th>Donor</th><th class="num">Units</th>${months.map((m) => `<th class="m${m === today.slice(0, 7) ? " now" : ""}">${NAME[Number(m.slice(5, 7)) - 1]}</th>`).join("")}<th>Status</th></tr></thead>`;
+  const legend = `<p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; ${SYMBOL.waiting} units with no gift &nbsp; ${SYMBOL.ok} ready &nbsp; ${SYMBOL.look} needs a look</p><div class="legendrow">${[...KEY, ["g", "Unfilled unit"] as [string, string]].map(([s, t]) => `<span><span class="sw ${s}"></span>${t}</span>`).join("")}</div>`;
   const sel = (x: string | undefined, val: string): string => (x === val ? " selected" : "");
   const projectSel = `<select data-regf="project" aria-label="Project"><option value="">All projects</option>${projects.map((p) => `<option value="${esc(p.id)}"${sel(f.project, p.id)}>${esc(p.name)}</option>`).join("")}</select>`;
   const filters = `<div class="filters"><select data-regf="kind" aria-label="Kind"><option value="">People and households</option><option value="person"${sel(f.kind, "person")}>People</option><option value="household"${sel(f.kind, "household")}>Households</option></select>

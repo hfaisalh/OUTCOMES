@@ -39,7 +39,7 @@ describe("the Beneficiaries page, month by month", () => {
     expect(html).toContain("<h1>Beneficiaries</h1>");
     expect(html).toContain('title="PRS-0001 · Dadyal"><b>Ayesha Khan</b>'); // the ID is in the tooltip, not a column
     expect(html).toContain('<td class="num">12</td>'); // born 2014-03-09, today 24/11/2026
-    expect(html).toContain('title="Active">●');
+    expect(html).toContain('<th>Status</th>');
     expect(html).not.toContain("<th>ID</th>");
     expect(html).toContain('data-bn="open" data-id="HH-0001"');
     expect(html).toContain("Not enrolled in any benefit yet");
@@ -50,7 +50,8 @@ describe("the Beneficiaries page, month by month", () => {
   it("draws one line for an enrolment: project, the benefit, plan, donor, units filled of the whole, and a pie for each of twelve months with the legend", () => {
     const html = registerPage(live());
     expect(html).toContain("<td>Aghosh</td>");
-    expect(html).toContain("<td>Active</td>");
+    expect(html).toContain("1/12"); // the plan like the Gifts list: paid over planned
+    expect(html).toContain('title="Recurring gift"'); // the recurring icon before the donor
     expect(html).toContain("Invented Donor");
     expect(html).not.toContain("<br>");
     expect(html).toContain("Orphan Sponsorship Monthly");
@@ -68,12 +69,12 @@ describe("the Beneficiaries page, month by month", () => {
     expect(registerPage(live({ registerFilter: { ...NO_FILTER, text: "invented donor" } }))).toContain("Ayesha Khan</b>");
     expect(registerPage(live({ registerFilter: { ...NO_FILTER, text: "nobody" } }))).toContain("Nothing matches.");
     const late = registerPage(live({ workOrders: [sub(1, "2026-08-05")], registerFilter: { ...NO_FILTER, show: "missed" } }));
-    expect(late).toContain("missed</span>"); // paid in August only, so September to now are missed
+    expect(late).toContain("Needs a look: a payment was missed"); // paid in August only, so September to now are missed
   });
   it("colours a month paid when a payment was made, and the ones after it expected, with one slice for each unit", () => {
     const html = registerPage(live());
-    expect(html).toContain('aria-label="Sep 2026"><circle class="seg p"');
-    expect((html.match(/aria-label="Oct 2026">(<circle class="seg p"[^>]*\/>){3}/g) ?? []).length).toBe(1);
+    expect(html).toContain('aria-label="Sep 2026"><circle class="ring" cx="12" cy="12" r="11.7" stroke-width=".7"/><circle class="ring" cx="12" cy="12" r="6.3" stroke-width=".7"/><circle class="seg p"');
+    expect((html.match(/aria-label="Oct 2026">(<circle class="ring"[^>]*\/>){2}(<circle class="seg p"[^>]*\/>){3}/g) ?? []).length).toBe(1);
     expect(html).toContain('class="seg e"'); // a later month of a plan that still runs
   });
   it("shows units not filled as nothing expected, and a placement that has ended holds nothing", () => {

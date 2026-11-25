@@ -772,3 +772,10 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 - **Plan** is the status of the gift that fills the units (active, paused, cancelled, completed, one-off), with a red "n missed" tag when a month shown was missed. **Donor** is the donor whose gift fills the units (two shown, "+n" for more).
 - The search finds by name, ID, area, guardian, **donor, partner or project**. A new **Show** filter keeps only gaps, only failed payments, or only paused, cancelled or completed plans.
 
+## 192. The Beneficiaries list uses the Gifts list's words and icons (Faisal, 25/11/2026)
+
+- **Plan** reads like the Gifts list: instalments paid over planned (**2/∞**). **Status** is a column of icons at the end, the same ones as Gifts: only what is not normal is shown, else a tick. Inactive, a paused, cancelled or completed plan, and **needs a look** (a missed payment, or a problem on the gift) use the Gifts icons; a unit with no gift shows the waiting hourglass.
+- The donor has the **recurring** or **one payment** icon before the name, as in Gifts. The active or inactive dot column is gone (inactive is in Status).
+- An unfilled unit is **white**, with a thin ring round each pie so an empty slot still shows. This replaces purple (decision 191).
+- Whenever a list needs these words, it uses the Gifts list's. The icons are exported from `app/gifts-page.ts`.
+

@@ -11,7 +11,7 @@ import type { Commitment } from "../04b-commitments/commitments";
 import type { Enrolment } from "./enrolments";
 import type { Placement } from "../09-placement/placement";
 
-const c = { subscriptionId: "SUB1", planStatus: "active", state: "open", paidMonths: ["2026-10"], nextDue: "2026-11-05", planned: 12, paid: 1, planPaid: 1 } as unknown as Commitment;
+const c = { subscriptionId: "SUB1", planStatus: "active", state: "open", paidMonths: ["2026-10"], supporterName: "Invented Donor", conflict: false, partsVary: false, gaps: [], startsLate: false, legacyOpening: false, nextDue: "2026-11-05", planned: 12, paid: 1, planPaid: 1 } as unknown as Commitment;
 const e = (id: string, itemId: string): Enrolment => ({ id, beneficiaryId: "B1", giftProjectId: "p", clusterId: "c", itemId, role: "", status: "active", since: "2026-09-01" });
 const pl = (over: Partial<Placement> = {}): Placement => ({ key: "sub:SUB1", kind: "place", enrolmentId: "E1", outcomeRef: "", giftProjectId: "p", itemId: "I1", parts: 2, how: "auto", at: "x", ...over });
 const base = { beneficiaryIds: ["B1"], enrolments: [e("E1", "I1")], placements: [pl()], commitments: [c], whole: () => 3, months: ["2026-10", "2026-12"], today: "2026-11-24" };
@@ -24,6 +24,12 @@ describe("implementationRows", () => {
     expect(r?.cells[0]?.slots.map((s) => s.status)).toEqual(["p", "p", "g"]); // October was paid, the third unit has no gift (a gap)
     expect(r?.cells[1]?.slots[0]?.status).toBe("e"); // December is expected
     expect(r?.cells[1]?.slots[2]?.commitmentKey).toBe("");
+  });
+  it("says who gave, whether it is recurring, how far the plan is, and the partner and donors for searching", () => {
+    const [r] = implementationRows({ ...base, partnerOf: () => "trust" });
+    expect(r?.gifts).toEqual([{ donor: "Invented Donor", once: false, paid: 1, planned: 12, planStatus: "active", look: false }]);
+    expect(r?.donors).toEqual(["Invented Donor"]);
+    expect(r?.partnerIds).toEqual(["trust"]);
   });
   it("gives a beneficiary with two benefits two rows, and one who is not enrolled a single row with no months", () => {
     expect(implementationRows({ ...base, enrolments: [e("E1", "I1"), e("E2", "I2")] }).length).toBe(2);
