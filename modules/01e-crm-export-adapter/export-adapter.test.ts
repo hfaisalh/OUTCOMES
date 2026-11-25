@@ -250,6 +250,13 @@ describe("months a one-off payment covers (DECISIONS 64)", () => {
   it("gives a single payment the length of the item's instalment plan for its bundle", () => {
     expect(oneOff({ "Item Bundle": "Sponsor an Orphan" })["period_count"]).toBe("12");
   });
+  it("works the months out from the single payment and one instalment when the file gives no payment count, as for an item that also continues until cancelled (DECISIONS 195)", () => {
+    const lines = load("export-donation-lines-sample.csv").map((l) => (l["Line ID"] === "9001" ? { ...l, Period: "One-time", "Subscription ID": "0", "Instalment no": "", "Item Bundle": "" } : l));
+    const prices = [...load("export-catalogue-prices-sample.csv"), { "Item SKU": "MWF-ORP-001", Bundle: "", Quantity: "1", "Way of giving": "Instalments", "Each payment": "40", Payments: "" }];
+    expect(adaptExports(lines, load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), prices).rows.find((x) => x["line_id"] === "9001")!["period_count"]).toBe("12");
+    const odd = [...load("export-catalogue-prices-sample.csv"), { "Item SKU": "MWF-ORP-001", Bundle: "", Quantity: "1", "Way of giving": "Instalments", "Each payment": "70", Payments: "" }];
+    expect(adaptExports(lines, load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), odd).rows.find((x) => x["line_id"] === "9001")!["period_count"]).toBe(""); // 480 does not divide by 70
+  });
   it("leaves it blank when the bundle has no instalment plan, and for a recurring line", () => {
     expect(oneOff({ "Item Bundle": "" })["period_count"]).toBe("");
     expect(byLine("9002")["period_count"]).toBe("");

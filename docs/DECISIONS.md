@@ -791,3 +791,11 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 - A one-off payment that covers a plan (a Hifz scholarship paid for a year: price 300, instalments of 25, 12 months) is shown as **12/12** in the Plan column of both the Gifts list and the Beneficiaries list, not "12 mo". A one-month one-off in the Beneficiaries list reads 1/1.
 - The months come from the CRM item's plan length (decision 64, the `Payments` column of the Catalogue prices export, sent as `period_count`). When the CRM did not send it, a payment counts as one month, so its pies show only that month. The fix for a gift is to load the Catalogue prices export, or set the months on the payment (calendar icon).
 
+## 195. A one-off payment of an item that also offers instalments covers a whole plan (Faisal, 25/11/2026)
+
+- In the CRM catalogue an item has a **price for each way of giving**: a single payment (Hifz Scholarship 300) and instalments (25 a month, 12 instalments, which may also continue until cancelled). Paying the single price buys the whole plan, so the **300 is a 12 month one-off payment, not a subscription**. This corrects decision 64(a), which skipped any item that continues until cancelled.
+- The months a one-off covers are, in order: the instalment plan's payment count when the catalogue prices file gives it (more than 1); else the single payment divided by one instalment when it divides evenly (300 / 25 = 12). Whether the instalments also continue until cancelled does not matter for a one-off.
+- **Bundles are quantity multipliers**, not instalment multipliers: the unit value stays the same and the bundle packs it in a quantity. They set the parts of a gift (decision 51) and do not change the months. A bundle is matched with its own prices row, so a bundle with its own plan length keeps it.
+- Items that are not paid per period (a pump) are still not given months (decision 64(d)). The scholarship is a "share of a whole" item, so the Beneficiaries list shows its months (the list uses the months for any placed one-off).
+- Needs the **Catalogue prices export** to be loaded. Gifts already loaded pick the months up the next time the feed is read.
+

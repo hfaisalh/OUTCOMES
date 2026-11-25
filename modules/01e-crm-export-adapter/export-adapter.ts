@@ -139,6 +139,23 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
     const n = pick(r, "Payments");
     if (sku !== "" && pick(r, "Way of giving") === "Instalments" && Number.isInteger(Number(n)) && Number(n) > 1 && !planLength.has(`${sku}|${pick(r, "Bundle")}`)) planLength.set(`${sku}|${pick(r, "Bundle")}`, n);
   }
+  // Rule (DECISIONS 195): an item that also offers instalments, whether it stops after a number of payments or continues until cancelled, is worth a whole plan when paid in one go. When the file
+  // gives no payment count for the instalments, the months are the single payment divided by one instalment (300 once, 25 a month, is 12 months), if that divides evenly.
+  const single = new Map<string, number>();
+  const each = new Map<string, number>();
+  for (const r of prices) {
+    const key = `${pick(r, "Item SKU")}|${pick(r, "Bundle")}`;
+    const way = pick(r, "Way of giving");
+    const amount = Number(pick(r, "Each payment"));
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    if (way === "Single payment" && !single.has(key)) single.set(key, amount);
+    if (way === "Instalments" && !each.has(key)) each.set(key, amount);
+  }
+  for (const [key, total] of single) {
+    const e = each.get(key);
+    const months = e ? total / e : 0;
+    if (!planLength.has(key) && Number.isInteger(months) && months > 1 && months <= 60) planLength.set(key, String(months));
+  }
   const customItems = customAmountItems(catalogue); // items the donor chooses the amount of (DECISIONS 129)
   const unknownBundles = new Set<string>();
   let bundleLines = 0;
