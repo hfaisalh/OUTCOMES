@@ -37,24 +37,38 @@ describe("the Beneficiaries page, month by month", () => {
   it("shows each beneficiary with the ID, name, kind and where, and opens the profile on a click", () => {
     const html = registerPage(view());
     expect(html).toContain("<h1>Beneficiaries</h1>");
-    expect(html).toContain('<span class="refbox">PRS-0001</span>');
-    expect(html).toContain("Person · 12 yrs · Dadyal"); // born 2014-03-09, today 24/11/2026
-    expect(html).toContain("Ayesha Khan");
+    expect(html).toContain('title="PRS-0001 · Dadyal"><b>Ayesha Khan</b>'); // the ID is in the tooltip, not a column
+    expect(html).toContain('<td class="num">12</td>'); // born 2014-03-09, today 24/11/2026
+    expect(html).toContain('title="Active">●');
+    expect(html).not.toContain("<th>ID</th>");
     expect(html).toContain('data-bn="open" data-id="HH-0001"');
     expect(html).toContain("Not enrolled in any benefit yet");
     expect(html).not.toContain("<th>Guardian or members</th>");
     expect(html).toContain('data-bn="new" data-kind="person"');
     expect(html).toContain('data-bn="new" data-kind="household"');
   });
-  it("draws one row for an enrolment: where, the benefit, units filled of the whole, and a pie for each of twelve months with the legend", () => {
+  it("draws one line for an enrolment: project, the benefit, plan, donor, units filled of the whole, and a pie for each of twelve months with the legend", () => {
     const html = registerPage(live());
-    expect(html).toContain("Aghosh › Class 1");
+    expect(html).toContain("<td>Aghosh</td>");
+    expect(html).toContain("<td>Active</td>");
+    expect(html).toContain("Invented Donor");
+    expect(html).not.toContain("<br>");
     expect(html).toContain("Orphan Sponsorship Monthly");
     expect(html).toContain('<td class="num">3 of 3</td>');
     expect((html.match(/<td class="m">/g) ?? []).length).toBe(12);
     expect(html).toContain('<th class="m now">Nov</th>');
     expect(html).toContain('class="sw p"');
-    expect(html).toContain("Nothing expected");
+    expect(html).toContain("Unfilled unit");
+  });
+  it("shows a unit with no gift in its own colour so a gap stands out, and finds gaps, failed payments and donors", () => {
+    const part = registerPage(live({ placements: { records: [placed({ parts: 2 })], counter: 0 } }));
+    expect(part).toContain('class="seg g"');
+    expect(registerPage(live({ registerFilter: { ...NO_FILTER, show: "gaps" } }))).not.toContain("Ayesha Khan</b>");
+    expect(registerPage(live({ placements: { records: [placed({ parts: 2 })], counter: 0 }, registerFilter: { ...NO_FILTER, show: "gaps" } }))).toContain("Ayesha Khan</b>");
+    expect(registerPage(live({ registerFilter: { ...NO_FILTER, text: "invented donor" } }))).toContain("Ayesha Khan</b>");
+    expect(registerPage(live({ registerFilter: { ...NO_FILTER, text: "nobody" } }))).toContain("Nothing matches.");
+    const late = registerPage(live({ workOrders: [sub(1, "2026-08-05")], registerFilter: { ...NO_FILTER, show: "missed" } }));
+    expect(late).toContain("missed</span>"); // paid in August only, so September to now are missed
   });
   it("colours a month paid when a payment was made, and the ones after it expected, with one slice for each unit", () => {
     const html = registerPage(live());
@@ -65,7 +79,7 @@ describe("the Beneficiaries page, month by month", () => {
   it("shows units not filled as nothing expected, and a placement that has ended holds nothing", () => {
     const part = registerPage(live({ placements: { records: [placed({ parts: 1 })], counter: 0 } }));
     expect(part).toContain('<td class="num">1 of 3</td>');
-    expect(part).toContain('class="seg f"');
+    expect(part).toContain('class="seg g"');
     const ended = registerPage(live({ placements: { records: [placed({ to: "2026-11-01", endReason: "paused" })], counter: 0 } }));
     expect(ended).toContain('<td class="num">0 of 3</td>');
     expect(ended).not.toContain('class="seg p"');

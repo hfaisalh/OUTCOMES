@@ -183,7 +183,7 @@ export function removeBeneficiary(reg: Register, id: string, held = 0): Result {
   return { value: { ...reg, records: reg.records.filter((x) => x.id !== id) }, id };
 }
 
-export interface BeneficiaryFilter { kind: "" | BeneficiaryKind; status: "" | BeneficiaryStatus; text: string; eligibility?: "" | Eligibility; project?: string /* a project id: those enrolled in it, applied by the page (DECISIONS 190) */ }
+export interface BeneficiaryFilter { kind: "" | BeneficiaryKind; status: "" | BeneficiaryStatus; text: string; eligibility?: "" | Eligibility; show?: "" | "gaps" | "missed" | "parked"; project?: string /* a project id: those enrolled in it, applied by the page (DECISIONS 190) */ }
 export const NO_FILTER: BeneficiaryFilter = { kind: "", status: "", text: "" };
 
 // The records that match a filter: the kind, the status, and a text found in the name, ID, national ID, partner reference, area or guardian, and the eligibility decision. Sorted by name.

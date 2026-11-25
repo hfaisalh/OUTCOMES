@@ -303,3 +303,5 @@ select:not([multiple]):focus-visible{outline:2px solid var(--accent);outline-off
 /* The beneficiary window: the list of persons to tick for a household scrolls when long. */
 .rg-members{border:1px solid var(--line);border-radius:10px;padding:8px 12px;max-height:200px;overflow:auto}.rg-members legend{font-size:13px;color:var(--muted);padding:0 4px}
 .rg-member-row{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:14px;color:var(--text,inherit)}.rg-member-row input{width:auto}.rg-same{display:flex;align-items:center;gap:8px}.rg-same input{width:auto}
+
+.mpie .seg.g{stroke:#8e6bd8}.sw.g{background:#8e6bd8}.regtable td,.regtable th{white-space:nowrap}.regtable td.nm{max-width:200px;overflow:hidden;text-overflow:ellipsis}.regtable td.dn{max-width:170px;overflow:hidden;text-overflow:ellipsis}.regtable .act{font-size:15px}.regtable .act.on{color:#1f8a4c}.regtable .act.off{color:#9aa3b2}

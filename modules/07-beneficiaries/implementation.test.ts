@@ -21,7 +21,7 @@ describe("implementationRows", () => {
     const [r] = implementationRows(base);
     expect(r?.filled).toBe(2);
     expect(r?.whole).toBe(3);
-    expect(r?.cells[0]?.slots.map((s) => s.status)).toEqual(["p", "p", "f"]); // October was paid, the third unit has no gift
+    expect(r?.cells[0]?.slots.map((s) => s.status)).toEqual(["p", "p", "g"]); // October was paid, the third unit has no gift (a gap)
     expect(r?.cells[1]?.slots[0]?.status).toBe("e"); // December is expected
     expect(r?.cells[1]?.slots[2]?.commitmentKey).toBe("");
   });

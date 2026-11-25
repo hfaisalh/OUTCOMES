@@ -9,7 +9,8 @@
  * Rules:
  * - Rule: one row per active enrolment, so a child with two benefits has two rows. A beneficiary with no active enrolment has one row with no months.
  * - Rule: a unit is filled by an active placement of a gift. An ended placement holds nothing (it stays in the history window).
- * - Rule: a slot takes the status of its gift in each month (monthStatus). An empty unit is nothing expected.
+ * - Rule: a slot takes the status of its gift in each month (monthStatus). A unit with no gift is a gap, shown so it stands out.
+ * - Rule: the donors, plan statuses and partners are those of the gifts that fill the units, so a gap or a failed payment can be found by searching.
  */
 
 import type { Commitment } from "../04b-commitments/commitments.js";
@@ -17,7 +18,8 @@ import { monthStatus, type UnitStatus } from "../05-outcomes/outcomes.js";
 import type { Placement } from "../09-placement/placement.js";
 import type { Enrolment } from "./enrolments.js";
 
-export interface Slot { status: UnitStatus; commitmentKey: string } // "" key when no gift fills the unit
+export type SlotStatus = UnitStatus | "g"; // g: the unit has no gift (a gap)
+export interface Slot { status: SlotStatus; commitmentKey: string } // "" key when no gift fills the unit
 export interface MonthCell { month: string; slots: Slot[] }
 export interface ImplRow {
   beneficiaryId: string;
@@ -27,6 +29,10 @@ export interface ImplRow {
   itemId: string;
   whole: number; // the units that make one whole beneficiary
   filled: number; // the units live gifts fill
+  donors: string[]; // the donors whose gifts fill the units, once each
+  plans: string[]; // the plan status of those gifts (active, paused, cancelled, completed), once each, or "one-off"
+  partnerIds: string[]; // the partners the gifts are assigned to
+  missed: number; // the months shown in which a unit was missed
   cells: MonthCell[];
 }
 
@@ -36,22 +42,26 @@ export function commitmentOfKey(commitments: Commitment[], key: string): Commitm
   return commitments.find((c) => c.subscriptionId === id);
 }
 
-export function implementationRows(a: { beneficiaryIds: string[]; enrolments: Enrolment[]; placements: Placement[]; commitments: Commitment[]; whole: (itemId: string) => number; months: string[]; today: string }): ImplRow[] {
+export function implementationRows(a: { beneficiaryIds: string[]; enrolments: Enrolment[]; placements: Placement[]; commitments: Commitment[]; whole: (itemId: string) => number; partnerOf?: (key: string) => string; months: string[]; today: string }): ImplRow[] {
   const rows: ImplRow[] = [];
   for (const id of a.beneficiaryIds) {
     const mine = a.enrolments.filter((e) => e.beneficiaryId === id && e.status === "active");
-    if (mine.length === 0) { rows.push({ beneficiaryId: id, enrolmentId: "", giftProjectId: "", clusterId: "", itemId: "", whole: 0, filled: 0, cells: [] }); continue; }
+    if (mine.length === 0) { rows.push({ beneficiaryId: id, enrolmentId: "", giftProjectId: "", clusterId: "", itemId: "", whole: 0, filled: 0, donors: [], plans: [], partnerIds: [], missed: 0, cells: [] }); continue; }
     for (const e of mine) {
       const whole = Math.max(1, a.whole(e.itemId));
       // Rule: each active placement fills as many units as its parts, in the order placed.
       const gifts: (Commitment | undefined)[] = [];
+      const donors = new Set<string>(), plans = new Set<string>(), partners = new Set<string>();
       for (const p of a.placements.filter((x) => x.to === undefined && x.enrolmentId === e.id)) {
         const c = commitmentOfKey(a.commitments, p.key);
+        if (c) { donors.add(c.supporterName); plans.add(c.once ? "one-off" : c.planStatus || "active"); }
+        const pid = a.partnerOf?.(p.key) ?? ""; if (pid !== "") partners.add(pid);
         for (let i = 0; i < p.parts; i++) gifts.push(c);
       }
       const filled = Math.min(gifts.length, whole);
-      const cells = a.months.map((month) => ({ month, slots: Array.from({ length: whole }, (_, i): Slot => { const c = gifts[i]; return c ? { status: monthStatus(c, month, a.today), commitmentKey: c.subscriptionId } : { status: "f", commitmentKey: "" }; }) }));
-      rows.push({ beneficiaryId: id, enrolmentId: e.id, giftProjectId: e.giftProjectId, clusterId: e.clusterId, itemId: e.itemId, whole, filled, cells });
+      const cells = a.months.map((month) => ({ month, slots: Array.from({ length: whole }, (_, i): Slot => { const c = gifts[i]; return c ? { status: monthStatus(c, month, a.today), commitmentKey: c.subscriptionId } : { status: "g", commitmentKey: "" }; }) }));
+      const missed = cells.filter((m) => m.slots.some((x) => x.status === "m")).length;
+      rows.push({ beneficiaryId: id, enrolmentId: e.id, giftProjectId: e.giftProjectId, clusterId: e.clusterId, itemId: e.itemId, whole, filled, donors: [...donors], plans: [...plans], partnerIds: [...partners], missed, cells });
     }
   }
   return rows;

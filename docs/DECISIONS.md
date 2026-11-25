@@ -765,3 +765,10 @@ Addendum to 171 (Faisal, 24/11/2026): after the recurring fix (172) the real gif
 - Each month is a small pie with **a slice for each unit** that makes one whole beneficiary (3 for an orphan). A slice takes the status of the gift that fills it: paid (green), expected (orange), missed (red), nothing expected (grey). An empty unit and a placement that has ended are grey; the history window keeps the past.
 - A **project** filter is added to kind, status, admission and search. The pure rule lives in `modules/07-beneficiaries/implementation.ts`; the old Month by month tab stays until nothing reads it.
 
+## 191. The Beneficiaries list is one line per row, built to find gaps, donors and failed payments (Faisal, 25/11/2026)
+
+- Columns: active or inactive icon, name, M/F, age, partner, project, benefit, plan, donor, units filled of whole, twelve month pies. The **ID** is no longer a column (it is in the name's tooltip, in the profile, and searchable). One line only, nothing wraps.
+- A unit with **no gift** (a gap) has its own colour (purple), because grey blended into the background. The legend says "Unfilled unit". Grey now means only "nothing expected" for a unit that has a gift.
+- **Plan** is the status of the gift that fills the units (active, paused, cancelled, completed, one-off), with a red "n missed" tag when a month shown was missed. **Donor** is the donor whose gift fills the units (two shown, "+n" for more).
+- The search finds by name, ID, area, guardian, **donor, partner or project**. A new **Show** filter keeps only gaps, only failed payments, or only paused, cancelled or completed plans.
+
