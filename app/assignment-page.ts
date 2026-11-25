@@ -22,7 +22,7 @@ export function assignmentPage(v: View): string {
   const existing = v.assignments ?? emptyAssignments();
   const today = v.today ?? "2026-01-01";
   const names = new Map(v.workOrders.map((w) => [w.itemId, w.itemName]));
-  const ctx = contextFrom({ workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now: `${today}T00:00:00Z`, enrolments: v.enrolments?.records ?? [], beneficiaries: v.beneficiaries?.records ?? [], rulesOf: (i) => itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, i, names.get(i) ?? "") });
+  const ctx = contextFrom({ workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now: `${today}T00:00:00Z`, enrolments: v.enrolments?.records ?? [], beneficiaries: v.beneficiaries?.records ?? [], rulesOf: (i) => itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, i, names.get(i) ?? ""), itemUnits: v.itemUnits });
   const pname = (id: string): string => partners.find((p) => p.id === id)?.name ?? id;
   const units = new Map(assignables(ctx).map((u) => [u.key, u])); // a recurring gift is one row, however many payments it has (DECISIONS 172)
   const suggestions = suggestAssignments(ctx, existing);

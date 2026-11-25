@@ -50,13 +50,13 @@ import { PERMISSIONS } from "./menu";
 import { dataFeedPage, dataFilesPage } from "./data-page";
 import { benefitsPage } from "./benefits-page";
 import { unitPie, workflowsPage } from "./workflows-page";
-import { addStarterWorkflows, addTask, assignToWorkflow, linkStarterTypes, removeTask, removeWorkflow, setTask, setUnitRule, setFlag, setConfirm, addStage, setStage, removeStage, moveStage, setAssign, suggestWorkflowFor, unassignItem } from "../modules/02-project-rules/workflows";
+import { mergeWorkflow, addStarterWorkflows, addTask, assignToWorkflow, linkStarterTypes, removeTask, removeWorkflow, setTask, setUnitRule, setFlag, setConfirm, addStage, setStage, removeStage, moveStage, setAssign, suggestWorkflowFor, unassignItem } from "../modules/02-project-rules/workflows";
 import { createMapping } from "./mapping-controller";
 import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { ensureRefs } from "../modules/05-outcomes/refs";
 import { checkingHtml, signinHtml } from "./signin-page";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
-import { setItemKind } from "../modules/02-project-rules/benefits";
+import { setItemKind, setItemUnits } from "../modules/02-project-rules/benefits";
 import { applyKindAction, type SavedFeatures } from "../modules/02-project-rules/kind-features";
 import { isPageId, landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
 import { outcomesPage, listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, type Filter, type View } from "./pages";
@@ -114,6 +114,7 @@ const state = {
   itemIcons: {} as Record<string, string>, // the icon chosen for an item (DECISIONS 107)
   kindSel: "", // the kind the Benefits page shows (DECISIONS 146)
   kindFeatures: {} as Record<string, unknown>, // the features of the kinds a person changed (DECISIONS 146)
+  itemUnits: {} as Record<string, number>, // the units that make one whole beneficiary, by item (DECISIONS 188)
   itemKinds: {} as Record<string, string>, // the kind of benefit chosen for an item (DECISIONS 143)
   idCounters: {} as Record<string, number>, // the last number used for each ID prefix (DECISIONS 105)
   outcomeTypes: starterOutcomeTypes() as OutcomeType[], // the kinds of outcome and their profile fields (DECISIONS 103)
@@ -167,7 +168,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
-    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.enrolments = o.enrolments ?? state.enrolments; state.assignments = o.assignments ?? state.assignments; state.placements = o.placements ?? state.placements; state.itemIcons = o.itemIcons ?? state.itemIcons; }).catch(() => undefined);
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.itemUnits = o.itemUnits ?? state.itemUnits; state.enrolments = o.enrolments ?? state.enrolments; state.assignments = o.assignments ?? state.assignments; state.placements = o.placements ?? state.placements; state.itemIcons = o.itemIcons ?? state.itemIcons; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
     state.message = "";
   } catch (e) {
@@ -237,7 +238,7 @@ function view(): View {
   const flaggedItems = [...items.values()];
   return {
     workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, assignFilter: state.assignFilter, placements: state.placements, allocFilter: state.allocFilter, registerFilter: state.registerFilter, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
-    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
+    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, itemUnits: state.itemUnits, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
 }
@@ -272,6 +273,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.outcomeTypes = r.outcomeTypes ?? state.outcomeTypes;
       state.idCounters = r.idCounters ?? state.idCounters;
       state.beneficiaries = r.beneficiaries ?? state.beneficiaries;
+      state.itemUnits = r.itemUnits ?? state.itemUnits;
       state.enrolments = r.enrolments ?? state.enrolments;
       state.assignments = r.assignments ?? state.assignments;
       state.placements = r.placements ?? state.placements;
@@ -315,7 +317,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "asg-run": case "asg-confirm": case "asg-set": case "asg-unassign": case "asg-reset": { // Assignment (DECISIONS 170): the same pure rule the server uses.
           const wosA = view().workOrders;
           const namesA = new Map(wosA.map((w) => [w.itemId, w.itemName]));
-          const ctx = contextFrom({ workOrders: wosA, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString(), enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, namesA.get(itemId) ?? "") });
+          const ctx = contextFrom({ workOrders: wosA, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString(), enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, namesA.get(itemId) ?? ""), itemUnits: state.itemUnits });
           const r = applyAssignmentAction(ctx, state.assignments, body);
           if (!r) { error = "That request is not understood."; break; }
           if ("error" in r) { error = r.error; break; }
@@ -327,8 +329,8 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
           const wos = view().workOrders;
           const names2 = new Map(wos.map((w) => [w.itemId, w.itemName]));
           const nowIso = new Date().toISOString();
-          const actx = contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: nowIso.slice(0, 10), now: nowIso, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names2.get(itemId) ?? "") });
-          const pctx = placementContext({ assignments: state.assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, frameworks: state.frameworks, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names2.get(itemId) ?? ""), now: nowIso });
+          const actx = contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: nowIso.slice(0, 10), now: nowIso, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names2.get(itemId) ?? ""), itemUnits: state.itemUnits });
+          const pctx = placementContext({ assignments: state.assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, frameworks: state.frameworks, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names2.get(itemId) ?? ""), now: nowIso, itemUnits: state.itemUnits });
           const r = applyPlacementAction(pctx, state.placements, body);
           if (!r) { error = "That request is not understood."; break; }
           if ("error" in r) { error = r.error; break; }
@@ -340,7 +342,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
           const cur = { partners: state.projects, giftProjects: state.giftProjects, partnerTypes: state.partnerTypes, register: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, placements: state.placements };
           let next: SampleState = cur;
           if (body["action"] === "sample-load") {
-            const r = loadSampleSetup({ items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), realProjects: realProjectsFor(state.giftProjects, state.workOrders), whole: wholeByItem(view().workOrders, state.frameworks), demand: demandByItem(contextFrom({ workOrders: view().workOrders, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString() })), itemKinds: state.itemKinds, kindFeatures: state.kindFeatures as SavedFeatures, ...cur, today: new Date().toISOString().slice(0, 10) });
+            const r = loadSampleSetup({ items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), realProjects: realProjectsFor(state.giftProjects, state.workOrders), whole: wholeByItem(view().workOrders, state.frameworks, state.itemUnits), demand: demandByItem(contextFrom({ workOrders: view().workOrders, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString() })), itemKinds: state.itemKinds, kindFeatures: state.kindFeatures as SavedFeatures, ...cur, today: new Date().toISOString().slice(0, 10) });
             if ("error" in r) { error = r.error; break; }
             next = r.value; state.message = sampleSummaryText(r.summary);
           } else {
@@ -355,6 +357,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "approve-release": { const due = releaseApprovals(state.allocations, commitments, state.frameworks, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy).find((x) => x.commitmentKey === str("commitmentKey")); if (!due) error = "That place is not due for release."; else state.allocations = releaseAllocation(state.allocations, due.commitmentKey); break; }
         case "release": state.allocations = releaseAllocation(state.allocations, str("commitmentKey")); break;
         case "item-icon": { const icon = str("icon"); const next = { ...state.itemIcons }; if (icon === "") delete next[str("itemId")]; else next[str("itemId")] = icon; state.itemIcons = next; break; }
+        case "item-units": { const r = setItemUnits(state.itemUnits, str("itemId"), body["units"]); if ("error" in r) error = r.error; else state.itemUnits = r.value; break; }
         case "item-kind": { const r = setItemKind(state.itemKinds, str("itemId"), str("kind")); if ("error" in r) error = r.error; else state.itemKinds = r.value; break; }
         default: {
           // Projects (DECISIONS 65): the same pure rule the server uses.
@@ -884,6 +887,22 @@ document.addEventListener("click", (e) => {
   if (action === "dup-framework" && el.dataset.id) {
     state.frameworks = duplicateFramework(state.frameworks, el.dataset.id).value;
     afterConfig(false);
+  }
+  // Merge a workflow into another (DECISIONS 188): its items move, each keeps its own units per beneficiary, and the emptied workflow is removed.
+  if (action === "merge-framework" && el.dataset.id) {
+    const into = (document.getElementById("wf-merge-to") as HTMLSelectElement | null)?.value ?? "";
+    const r = mergeWorkflow(setupNow(), state.itemUnits, el.dataset.id, into);
+    if (r.error) { state.message = r.error; return draw(); }
+    const { setup, itemUnits, moved } = r.value;
+    state.categories = setup.categories; state.itemCategories = setup.itemMap; state.itemFramework = setup.itemFramework; state.frameworks = setup.frameworks;
+    state.workflowSel = { ...state.workflowSel, id: into };
+    void (async () => {
+      for (const [id, units] of Object.entries(itemUnits)) if (state.itemUnits[id] !== units) await outcomeChange({ action: "item-units", itemId: id, units });
+      afterConfig();
+      state.message = `Merged: ${moved} item${moved === 1 ? "" : "s"} moved, and the old workflow removed.`;
+      draw();
+    })();
+    return;
   }
   if (action === "remove-framework" && el.dataset.id) {
     const r = removeWorkflow(setupNow(), el.dataset.id);
@@ -1580,6 +1599,7 @@ document.addEventListener("change", (e) => {
   // An unrouted gift: choose a workflow for its item, and the item moves into it (DECISIONS 131).
   if (t.dataset?.assignWf !== undefined) { if (t.value !== "") moveItem(t.dataset.assignWf, t.value); return; }
   // How a unit supports an outcome (DECISIONS 131).
+  if (t.dataset?.itemUnits !== undefined) { void outcomeChange({ action: "item-units", itemId: t.dataset.itemUnits, units: (t as HTMLInputElement).value }); return; }
   if (t.dataset?.wfToggle !== undefined) { moveItem(t.dataset.wfToggle, (t as HTMLInputElement).checked ? (t.dataset.wf ?? "") : ""); return; }
   if (t.dataset?.wfShares !== undefined || t.dataset?.wfFull !== undefined) {
     const id = (t.dataset.wfShares ?? t.dataset.wfFull) as string;
@@ -1718,8 +1738,8 @@ function renderHistWindow(): void {
   const gifts = new Map(assignables(contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString() })).map((u) => [u.key, { donor: u.w.supporterName, item: u.w.itemName, payments: u.payments }]));
   // The history shows the true state now (DECISIONS 187): a placement of a parked plan, a child who has left or a withdrawn assignment is shown as ended before a run records it.
   const nowIso = new Date().toISOString();
-  const actx = contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: nowIso.slice(0, 10), now: nowIso, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? "") });
-  const pctx = placementContext({ assignments: state.assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, frameworks: state.frameworks, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), now: nowIso });
+  const actx = contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: nowIso.slice(0, 10), now: nowIso, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), itemUnits: state.itemUnits });
+  const pctx = placementContext({ assignments: state.assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, frameworks: state.frameworks, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), now: nowIso, itemUnits: state.itemUnits });
   const data: HistoryData = { placements: syncPlacements(pctx, state.placements).value.records, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, gifts, itemName: (id) => names.get(id) ?? id };
   root.innerHTML = w.kind === "gift" ? giftHistoryHtml(data, w.id) : enrolmentHistoryHtml(data, w.id);
 }

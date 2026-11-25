@@ -110,6 +110,12 @@ describe("room from a partner's own children (DECISIONS 183)", () => {
     expect(c.derived?.(trust, "I10", "aghosh")).toBe(0); // it gave no child
     expect(c.derived?.(builders, "I11", "")).toBeUndefined(); // not a sponsorship benefit: the typed capacity applies
   });
+  it("takes the item's own units per beneficiary before its workflow's: a whole sponsorship of 1 in a workflow of 3 (DECISIONS 188)", () => {
+    const base = { orders: [orders[0]!], partners: [lapsed, builders, backup], enrolments: [enr("E1", "B1"), enr("E2", "B2")], beneficiaries: [kid("B1", "backup"), kid("B2", "backup")] };
+    expect(build(base).derived?.(backup, "I10", "aghosh")).toBe(6); // two children, 3 units each: the workflow's number
+    const own = contextFrom({ workOrders: base.orders, partners: base.partners, giftProjects: [aghosh], frameworks: wfs, outcomeTypes: [], today: "2026-11-24", now: "x", enrolments: base.enrolments, beneficiaries: base.beneficiaries, rulesOf: (i) => (i === "I10" ? person : undefined), itemUnits: { I10: 1 } });
+    expect(own.derived?.(backup, "I10", "aghosh")).toBe(2); // the item says one whole beneficiary is 1 unit
+  });
   it("sends a gift to a partner that has a child, and skips one with no child of its own, however much it could hold", () => {
     const c = build({ orders: [orders[0]!], enrolments: [enr("E1", "B1")], beneficiaries: [kid("B1", "backup")] });
     const s = suggestAssignments(c, emptyAssignments())[0]!;

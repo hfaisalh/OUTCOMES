@@ -25,6 +25,7 @@
 
 import type { Assignable, Assignment } from "../08-assignment/assignment.js";
 import type { FrameworkTemplate } from "../02-project-rules/categories.js";
+import { unitsOfItem } from "../02-project-rules/benefits.js";
 import type { GiftProject } from "../06-projects/projects.js";
 import type { Beneficiary } from "../07-beneficiaries/beneficiaries.js";
 import type { Enrolment, ItemRules } from "../07-beneficiaries/enrolments.js";
@@ -60,13 +61,14 @@ export interface PlaceContext {
   frameworks: FrameworkTemplate[];
   live: Set<string>; // the assignments still in scope: a gift of a paused, cancelled or completed plan holds no place (DECISIONS 185)
   parkedBy: Record<string, EndReason>; // for a gift whose plan is paused, cancelled or completed: which, so its placement ends with that reason (DECISIONS 186)
+  itemUnits: Record<string, number>; // the units that make one whole beneficiary, by item, when an item has its own number (DECISIONS 188)
   itemFramework: Record<string, string>; // the workflow each item is in, from its gifts, to know the units that make one whole beneficiary
   rulesOf: (itemId: string) => ItemRules | undefined;
   now: string; // ISO time
 }
 
 // Builds the context from what the callers hold. The workflow of an item is the one its gifts are routed under.
-export function placementContext(a: { assignments: Assignment[]; assignables: Assignable[]; workOrders: { itemId: string; frameworkId?: string; subscriptionId?: string; paidDate?: string; planStatus?: string }[]; enrolments: Enrolment[]; beneficiaries: Beneficiary[]; giftProjects: GiftProject[]; frameworks: FrameworkTemplate[]; rulesOf: (itemId: string) => ItemRules | undefined; now: string }): PlaceContext {
+export function placementContext(a: { assignments: Assignment[]; assignables: Assignable[]; workOrders: { itemId: string; frameworkId?: string; subscriptionId?: string; paidDate?: string; planStatus?: string }[]; enrolments: Enrolment[]; beneficiaries: Beneficiary[]; giftProjects: GiftProject[]; frameworks: FrameworkTemplate[]; rulesOf: (itemId: string) => ItemRules | undefined; now: string; itemUnits?: Record<string, number> }): PlaceContext {
   const itemFramework: Record<string, string> = {};
   for (const w of a.workOrders) if ((w.frameworkId ?? "") !== "" && itemFramework[w.itemId] === undefined) itemFramework[w.itemId] = w.frameworkId as string;
   // The gifts still in scope. When no list of gifts is given (a caller that only has assignments), every assignment counts.
@@ -79,7 +81,7 @@ export function placementContext(a: { assignments: Assignment[]; assignables: As
     const status = [...lines].sort((x, y) => x.paidDate.localeCompare(y.paidDate)).at(-1)?.planStatus ?? "";
     if (status === "paused" || status === "cancelled" || status === "completed") parkedBy[`sub:${sub}`] = status;
   }
-  return { assignments: a.assignments.filter((x) => live.has(x.key)), live, parkedBy, assignables: a.assignables, enrolments: a.enrolments, beneficiaries: a.beneficiaries, giftProjects: a.giftProjects, frameworks: a.frameworks, itemFramework, rulesOf: a.rulesOf, now: a.now };
+  return { assignments: a.assignments.filter((x) => live.has(x.key)), live, parkedBy, itemUnits: a.itemUnits ?? {}, assignables: a.assignables, enrolments: a.enrolments, beneficiaries: a.beneficiaries, giftProjects: a.giftProjects, frameworks: a.frameworks, itemFramework, rulesOf: a.rulesOf, now: a.now };
 }
 
 export type Blocked = "" | "no-places" | "full" | "no-project-places" | "no-type";
@@ -98,7 +100,7 @@ export interface PlaceSuggestion {
 type Result = { value: Placements } | { error: string };
 
 // How many units make one whole beneficiary of an item, from the workflow its gifts are in (3 parts for an orphan, 1 for a scholarship). 1 when it is not known.
-const wholeOf = (ctx: PlaceContext, itemId: string): number => Math.max(1, ctx.frameworks.find((f) => f.id === ctx.itemFramework[itemId])?.unitsPerBeneficiary ?? 1);
+const wholeOf = (ctx: PlaceContext, itemId: string): number => unitsOfItem(ctx.itemUnits, itemId, ctx.frameworks.find((f) => f.id === ctx.itemFramework[itemId])?.unitsPerBeneficiary ?? 1); // the item's own number, else its workflow's (DECISIONS 188)
 
 const used = (records: Placement[], enrolmentId: string, live?: Set<string>): number => records.filter((p) => isActive(p) && p.enrolmentId === enrolmentId && (!live || live.has(p.key))).reduce((n, p) => n + p.parts, 0);
 

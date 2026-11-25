@@ -41,3 +41,19 @@ describe("kinds of benefit", () => {
     expect(setItemKind({}, "", "build")).toEqual({ error: "That item was not found." });
   });
 });
+
+describe("units that make one whole beneficiary (DECISIONS 188)", () => {
+  it("is a whole number from 1 to 20 on the item, and empty or 0 takes it back", async () => {
+    const { setItemUnits, unitsOfItem } = await import("./benefits");
+    let u = (setItemUnits({}, "I10", 3) as { value: Record<string, number> }).value;
+    u = (setItemUnits(u, "I13", "1") as { value: Record<string, number> }).value;
+    expect(u).toEqual({ I10: 3, I13: 1 });
+    expect((setItemUnits(u, "I10", "") as { value: Record<string, number> }).value).toEqual({ I13: 1 });
+    expect((setItemUnits(u, "I10", 0) as { value: Record<string, number> }).value).toEqual({ I13: 1 });
+    for (const bad of [-1, 2.5, 21, "abc"]) expect(setItemUnits(u, "I10", bad)).toHaveProperty("error");
+    expect(setItemUnits(u, "", 3)).toHaveProperty("error");
+    expect(unitsOfItem(u, "I10", 5)).toBe(3); // the item's own number
+    expect(unitsOfItem(u, "I99", 5)).toBe(5); // else the workflow's
+    expect(unitsOfItem(undefined, "I99", 0)).toBe(1); // never under 1
+  });
+});

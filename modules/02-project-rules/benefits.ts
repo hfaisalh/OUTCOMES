@@ -65,3 +65,16 @@ export function setItemKind(itemKinds: Record<string, string>, itemId: string, k
   if (kind === "") delete next[itemId]; else next[itemId] = kind;
   return { value: next };
 }
+
+// Rule (DECISIONS 188): the units that make one whole beneficiary belong to the benefit (the item), not to its workflow. Orphan sponsorship is 3 parts shared by donors, a scholarship is 1. An item with no number of
+// its own takes its workflow's. Whole numbers from 1 to 20. Empty takes the item's own number back.
+export const MAX_ITEM_UNITS = 20;
+export function setItemUnits(itemUnits: Record<string, number>, itemId: string, units: unknown): { value: Record<string, number> } | { error: string } {
+  if (itemId === "" || itemId.length > 200) return { error: "That item was not found." };
+  const raw = typeof units === "number" ? String(units) : typeof units === "string" ? units.trim() : "";
+  if (raw === "" || raw === "0") { const { [itemId]: _gone, ...rest } = itemUnits; return { value: rest }; }
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > MAX_ITEM_UNITS) return { error: `Units per beneficiary is a whole number from 1 to ${MAX_ITEM_UNITS}, or empty to use the workflow's.` };
+  return { value: { ...itemUnits, [itemId]: n } };
+}
+export const unitsOfItem = (itemUnits: Record<string, number> | undefined, itemId: string, fallback: number): number => Math.max(1, itemUnits?.[itemId] ?? fallback);

@@ -282,3 +282,28 @@ export function removeWorkflow(s: Setup, id: string): Changed<Setup> {
   if (n > 0) return { value: s, error: `${n} item${n === 1 ? " is" : "s are"} in this workflow. Drag ${n === 1 ? "it" : "them"} out first, to Unassigned or to another workflow.` };
   return { value: { ...s, frameworks: s.frameworks.filter((f) => f.id !== id), categories: s.categories.filter((c) => c.id !== autoCategoryId(id)).map((c) => (c.frameworkId === id ? { ...c, frameworkId: "" } : c)) } };
 }
+
+/**
+ * Rule (DECISIONS 188): merge one workflow into another. Two workflows that follow the same flow and differ only in how many units make one beneficiary (Sponsorship: shared parts is 3, Sponsorship: whole is 1) do not need to
+ * be two. Every item in `fromId` moves to `intoId`. An item whose workflow gave a different number of units keeps that number as its own (itemUnits), so nothing about its gifts changes. Then the emptied workflow is
+ * removed. Returns the new setup, the item numbers to keep, and how many items moved.
+ */
+export function mergeWorkflow(s: Setup, itemUnits: Record<string, number>, fromId: string, intoId: string): { value: { setup: Setup; itemUnits: Record<string, number>; moved: number }; error?: string } {
+  const empty = { setup: s, itemUnits, moved: 0 };
+  const from = s.frameworks.find((f) => f.id === fromId);
+  const into = s.frameworks.find((f) => f.id === intoId);
+  if (!from || !into) return { value: empty, error: "That workflow was not found." };
+  if (fromId === intoId) return { value: empty, error: "Choose a different workflow to merge into." };
+  let setup = s;
+  const units = { ...itemUnits };
+  const items = itemsInWorkflow(s, fromId);
+  for (const id of items) {
+    const r = assignToWorkflow(setup, id, intoId);
+    if (r.error) return { value: empty, error: r.error };
+    setup = r.value;
+    if (from.unitsPerBeneficiary !== into.unitsPerBeneficiary && units[id] === undefined) units[id] = from.unitsPerBeneficiary; // keep what the old workflow gave it
+  }
+  const removed = removeWorkflow(setup, fromId);
+  if (removed.error) return { value: empty, error: removed.error };
+  return { value: { setup: removed.value, itemUnits: units, moved: items.length } };
+}

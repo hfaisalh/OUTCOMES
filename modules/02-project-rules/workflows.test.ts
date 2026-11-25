@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { isFrameworkTemplate, type FrameworkTemplate } from "./categories";
 import { starterOutcomeTypes } from "../05-outcomes/outcome-types";
-import { addStage, assignOf, confirmDaysOf, setConfirm, flagOf, setFlag, moveStage, removeStage, setAssign, setStage, totalDays, assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, setUnitRule, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, suggestWorkflowFor } from "./workflows";
+import { mergeWorkflow, addStage, assignOf, confirmDaysOf, setConfirm, flagOf, setFlag, moveStage, removeStage, setAssign, setStage, totalDays, assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, setUnitRule, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, suggestWorkflowFor } from "./workflows";
 
 const fw = (over: Partial<FrameworkTemplate> = {}): FrameworkTemplate => ({ id: "w", name: "Orphan sponsorship", unit: "orphan", cycle: "quarterly", reportType: "Quarterly orphan update", instalment: "per_period", unitsPerBeneficiary: 3, ...over });
 const ok = (r: { frameworks: FrameworkTemplate[] } | { error: string }): FrameworkTemplate[] => { if ("error" in r) throw new Error(r.error); return r.frameworks; };
@@ -164,5 +164,38 @@ describe("assigned for implementation (DECISIONS 137)", () => {
     expect(isFrameworkTemplate(f)).toBe(true);
     expect(setConfirm([fw()], "w", { days: 61 })).toHaveProperty("error");
     expect(setConfirm([fw()], "w", { days: 1.5 })).toHaveProperty("error");
+  });
+});
+
+describe("merging two workflows that differ only in units per beneficiary (DECISIONS 188)", () => {
+  const parts = fw({ id: "sponsorship-shared-parts", name: "Sponsorship: shared parts", unitsPerBeneficiary: 3 });
+  const whole = fw({ id: "sponsorship-whole", name: "Sponsorship: whole", unitsPerBeneficiary: 1 });
+  const setup = () => {
+    let s = { categories: [], itemMap: {}, frameworks: [parts, whole], itemFramework: {} } as import("./categories").Setup;
+    for (const [item, w] of [["I10", "sponsorship-shared-parts"], ["I13", "sponsorship-whole"], ["I20", "sponsorship-whole"]] as const) s = assignToWorkflow(s, item, w).value;
+    return s;
+  };
+  it("moves every item to the other workflow, keeps each item's own units, and removes the emptied workflow", () => {
+    const r = mergeWorkflow(setup(), {}, "sponsorship-whole", "sponsorship-shared-parts");
+    expect(r.error).toBeUndefined();
+    expect(r.value.moved).toBe(2);
+    expect(itemsInWorkflow(r.value.setup, "sponsorship-shared-parts").sort()).toEqual(["I10", "I13", "I20"]);
+    expect(r.value.setup.frameworks.map((f) => f.id)).toEqual(["sponsorship-shared-parts"]); // the whole workflow is gone
+    expect(r.value.itemUnits).toEqual({ I13: 1, I20: 1 }); // they keep what the old workflow gave them, so their gifts do not change
+  });
+  it("keeps a number an item already has, and adds none when the two workflows agree", () => {
+    expect(mergeWorkflow(setup(), { I13: 2 }, "sponsorship-whole", "sponsorship-shared-parts").value.itemUnits).toEqual({ I13: 2, I20: 1 });
+    const same = { ...setup(), frameworks: [parts, { ...whole, unitsPerBeneficiary: 3 }] };
+    expect(mergeWorkflow(same, {}, "sponsorship-whole", "sponsorship-shared-parts").value.itemUnits).toEqual({});
+  });
+  it("refuses a missing workflow, the same workflow, and changes nothing", () => {
+    expect(mergeWorkflow(setup(), {}, "nope", "sponsorship-shared-parts").error).toBe("That workflow was not found.");
+    expect(mergeWorkflow(setup(), {}, "sponsorship-whole", "sponsorship-whole").error).toBe("Choose a different workflow to merge into.");
+    const s = setup();
+    expect(mergeWorkflow(s, {}, "sponsorship-whole", "nope").value.setup).toBe(s);
+  });
+  it("merges an empty workflow too, moving nothing", () => {
+    const empty = { categories: [], itemMap: {}, frameworks: [parts, whole], itemFramework: {} } as import("./categories").Setup;
+    expect(mergeWorkflow(empty, {}, "sponsorship-whole", "sponsorship-shared-parts").value.moved).toBe(0);
   });
 });

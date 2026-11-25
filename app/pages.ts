@@ -66,6 +66,7 @@ export interface View {
   categories: Category[];
   frameworks?: FrameworkTemplate[]; // framework templates (DECISIONS 59)
   itemIcons?: Record<string, string>; // the icon chosen for an item (DECISIONS 107)
+  itemUnits?: Record<string, number>; // the units that make one whole beneficiary, by item (DECISIONS 188)
   itemKinds?: Record<string, string>; // the kind of benefit chosen for an item (DECISIONS 143)
   kindFeatures?: Record<string, unknown>; // the features of the kinds a person changed (DECISIONS 146)
   kindSel?: string; // the kind the Benefits page shows (DECISIONS 146)

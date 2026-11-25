@@ -158,6 +158,18 @@ describe("history: nothing is deleted (DECISIONS 186)", () => {
   });
 });
 
+describe("the item's own units per beneficiary (DECISIONS 188)", () => {
+  it("takes the item's number before its workflow's: one whole child is 1 unit for a scholarship in a workflow of 3", () => {
+    const c = ctx({ itemUnits: { I10: 1 }, assignments: [asg("G1", { parts: 1 }), asg("G2", { parts: 1 }), asg("G3", { parts: 1 })] });
+    const s = suggestPlacements(c, emptyPlacements());
+    expect(s.map((x) => [x.key, x.kind])).toEqual([["G1", "place"], ["G2", "place"], ["G3", ""]]); // two children of 1 unit each: the third gift waits
+    expect(fills(c, runPlacement(c, emptyPlacements()).value)).toEqual([{ enrolmentId: "EN-1", used: 1, capacity: 1 }, { enrolmentId: "EN-2", used: 1, capacity: 1 }]);
+  });
+  it("uses the workflow's number when the item has none", () => {
+    expect(fills(ctx({ assignments: [asg("G1")] }), emptyPlacements())[0]?.capacity).toBe(3);
+  });
+});
+
 describe("a gift of a parked plan holds no place (DECISIONS 185)", () => {
   it("frees the child's place when the plan is cancelled, and does not place the gift again", () => {
     const first = runPlacement(ctx({ assignments: [asg("G1", { parts: 3 })] }), emptyPlacements()).value; // G1 fills Amina

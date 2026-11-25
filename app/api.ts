@@ -103,6 +103,7 @@ export interface OutcomesReply {
   assignments?: Assignments;
   placements?: Placements;
   itemIcons?: Record<string, string>;
+  itemUnits?: Record<string, number>;
   itemKinds?: Record<string, string>;
   kindFeatures?: Record<string, unknown>;
   warning?: string;

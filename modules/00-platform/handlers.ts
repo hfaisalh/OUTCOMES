@@ -32,7 +32,7 @@ import { applyDecision, buildAttention } from "../04-triage/triage.js";
 import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
 import { backfillFrameworks, deriveParts, reapplyFrameworks, rerouteUnrouted, runPickup } from "./pickup.js";
 import { defaultConfig, setupOf, type OrgConfig, type Store } from "./store.js";
-import { setItemKind } from "../02-project-rules/benefits.js";
+import { setItemKind, setItemUnits } from "../02-project-rules/benefits.js";
 import { autoCreateProjects } from "../06-projects/projects.js";
 import { applyKindAction, type SavedFeatures } from "../02-project-rules/kind-features.js";
 import { applyBeneficiaryAction, emptyRegister } from "../07-beneficiaries/beneficiaries.js";
@@ -373,8 +373,8 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (itemId === "" || itemId.length > 200 || (icon !== "" && !ICON_IDS.includes(icon))) return fail("That icon was not found.");
       const next = { ...(config.itemIcons ?? {}) };
       if (icon === "") delete next[itemId]; else next[itemId] = icon;
-      await d.store.putConfig(org, { ...config, itemIcons: next, itemKinds: config.itemKinds ?? {}, kindFeatures: config.kindFeatures ?? {} });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: next, itemKinds: config.itemKinds ?? {}, kindFeatures: config.kindFeatures ?? {} });
+      await d.store.putConfig(org, { ...config, itemIcons: next, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {} });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: next, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {} });
     }
     // The kind of benefit chosen for an item (DECISIONS 143). An empty kind takes the choice back, so the name's suggestion shows again.
     if (b["action"] === "item-kind") {
@@ -387,26 +387,26 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     if (typeof b["action"] === "string" && b["action"].startsWith("asg-")) {
       const wosA = await d.store.listWorkOrders(org);
       const namesA = new Map(wosA.map((w) => [w.itemId, w.itemName]));
-      const ctx = contextFrom({ workOrders: wosA, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesA.get(itemId) ?? "") });
+      const ctx = contextFrom({ workOrders: wosA, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesA.get(itemId) ?? ""), itemUnits: config.itemUnits });
       const r = applyAssignmentAction(ctx, assignments, b);
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
       assignments = r.value;
       await d.store.putConfig(org, { ...config, assignments });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, kindFeatures: config.kindFeatures ?? {}, ...(r.message ? { warning: r.message } : {}) });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...(r.message ? { warning: r.message } : {}) });
     }
     // Placement, the rewired Allocation (DECISIONS 175): the same pure rule the demo uses. An assigned gift fills an open place (an enrolment) or creates an outcome. Results are separate records, so they can be reset.
     if (typeof b["action"] === "string" && b["action"].startsWith("plc-")) {
       const wos = await d.store.listWorkOrders(org);
       const names = new Map(wos.map((w) => [w.itemId, w.itemName]));
-      const actx = contextFrom({ workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? "") });
-      const ctx = placementContext({ assignments: assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: enrolments.records, beneficiaries: beneficiaries.records, giftProjects, frameworks: fw, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), now: at });
+      const actx = contextFrom({ workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), itemUnits: config.itemUnits });
+      const ctx = placementContext({ assignments: assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: enrolments.records, beneficiaries: beneficiaries.records, giftProjects, frameworks: fw, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), now: at, ...(config.itemUnits ? { itemUnits: config.itemUnits } : {}) });
       const r = applyPlacementAction(ctx, placements, b);
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
       placements = r.value;
       await d.store.putConfig(org, { ...config, placements });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, kindFeatures: config.kindFeatures ?? {}, ...(r.message ? { warning: r.message } : {}) });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...(r.message ? { warning: r.message } : {}) });
     }
     // The sample setup (DECISIONS 168): invented partners, projects, clusters, beneficiaries and enrolments, loaded and removed as one.
     if (b["action"] === "sample-load" || b["action"] === "sample-remove") {
@@ -416,7 +416,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (b["action"] === "sample-load") {
         const wos = await d.store.listWorkOrders(org);
         const seen = new Map(wos.map((w) => [w.itemId, w.itemName]));
-        const r = loadSampleSetup({ items: [...seen.entries()].map(([id, name]) => ({ id, name })), realProjects: realProjectsFor(giftProjects, wos), demand: demandByItem(contextFrom({ workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at })), whole: wholeByItem(wos, fw), itemKinds: config.itemKinds ?? {}, kindFeatures: (config.kindFeatures ?? {}) as SavedFeatures, ...state, today: at.slice(0, 10) });
+        const r = loadSampleSetup({ items: [...seen.entries()].map(([id, name]) => ({ id, name })), realProjects: realProjectsFor(giftProjects, wos), demand: demandByItem(contextFrom({ workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at })), whole: wholeByItem(wos, fw, config.itemUnits), itemKinds: config.itemKinds ?? {}, kindFeatures: (config.kindFeatures ?? {}) as SavedFeatures, ...state, today: at.slice(0, 10) });
         if ("error" in r) return fail(r.error);
         next = r.value; message = sampleSummaryText(r.summary);
       } else {
@@ -427,7 +427,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (next.assignments) assignments = next.assignments;
       if (next.placements) placements = next.placements;
       await d.store.putConfig(org, { ...config, projects, giftProjects, partnerTypes, beneficiaries, enrolments, assignments, placements });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, kindFeatures: config.kindFeatures ?? {}, warning: message });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, warning: message });
     }
     // The Beneficiary register (DECISIONS 163) and enrolments (DECISIONS 167): the same pure rules the demo uses. A beneficiary that is enrolled cannot be removed.
     if (typeof b["action"] === "string" && b["action"].startsWith("ben-")) {
@@ -436,7 +436,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if ("error" in r) return fail(r.error);
       beneficiaries = r.value;
       await d.store.putConfig(org, { ...config, beneficiaries });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, kindFeatures: config.kindFeatures ?? {} });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {} });
     }
     if (typeof b["action"] === "string" && b["action"].startsWith("enr-")) {
       const names = new Map((await d.store.listWorkOrders(org)).map((w) => [w.itemId, w.itemName]));
@@ -445,7 +445,14 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if ("error" in r) return fail(r.error);
       enrolments = r.value;
       await d.store.putConfig(org, { ...config, enrolments });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, kindFeatures: config.kindFeatures ?? {} });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {} });
+    }
+    // The units that make one whole beneficiary of an item (DECISIONS 188). An empty number takes the item's own back, so its workflow's applies.
+    if (b["action"] === "item-units") {
+      const r = setItemUnits(config.itemUnits ?? {}, str("itemId"), b["units"]);
+      if ("error" in r) return fail(r.error);
+      await d.store.putConfig(org, { ...config, itemUnits: r.value });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: r.value, kindFeatures: config.kindFeatures ?? {} });
     }
     // The features of a kind of benefit (DECISIONS 146): the same pure rule the demo uses.
     if (typeof b["action"] === "string" && b["action"].startsWith("kf-")) {
@@ -453,14 +460,14 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
       await d.store.putConfig(org, { ...config, kindFeatures: r.value });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, kindFeatures: r.value });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: r.value });
     }
     // Outcome types (DECISIONS 103): the same pure rule the demo uses. A type that outcomes already use cannot be removed.
     // The outcome types the starting workflows need, linked to those workflows that exist (DECISIONS 130).
     if (b["action"] === "ot-starters") {
       outcomeTypes = withPrefixes(linkStarterTypes(outcomeTypes, fw.map((f) => f.id)));
       await d.store.putConfig(org, { ...config, outcomeTypes });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, kindFeatures: config.kindFeatures ?? {} });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {} });
     }
     if (typeof b["action"] === "string" && b["action"].startsWith("ot-")) {
       const used = [...new Set(outcomes.map((o) => o.outcomeTypeId ?? "").filter((x) => x !== ""))];
@@ -469,7 +476,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if ("error" in r) return fail(r.error);
       outcomeTypes = r.types;
       await d.store.putConfig(org, { ...config, outcomeTypes });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, kindFeatures: config.kindFeatures ?? {} });
+      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {} });
     }
     switch (b["action"]) {
       case "add": {
@@ -572,5 +579,5 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   } else if (settle()) {
     await d.store.putConfig(org, { ...config, outcomes, allocations, outcomeTypes, idCounters });
   }
-  return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, kindFeatures: config.kindFeatures ?? {}, ...extra });
+  return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...extra });
 }

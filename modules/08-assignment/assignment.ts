@@ -27,6 +27,7 @@
 
 import { partsOf, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import type { FrameworkTemplate } from "../02-project-rules/categories.js";
+import { unitsOfItem } from "../02-project-rules/benefits.js";
 import { assignOf, flagOf } from "../02-project-rules/workflows.js";
 import { typeForFramework } from "../05-outcomes/outcome-types.js";
 import type { Beneficiary } from "../07-beneficiaries/beneficiaries.js";
@@ -75,7 +76,7 @@ export interface Suggestion {
 type Result = { value: Assignments } | { error: string };
 
 // Builds the context from what the callers hold: each workflow gives its Assignment setting (automatic or suggest) and its Reassign switch.
-export function contextFrom(a: { workOrders: WorkOrder[]; partners: Project[]; giftProjects: GiftProject[]; frameworks: FrameworkTemplate[]; outcomeTypes: OutcomeType[]; urgent?: Set<string>; today: string; now: string; enrolments?: Enrolment[]; beneficiaries?: Beneficiary[]; rulesOf?: (itemId: string) => ItemRules | undefined }): AssignContext {
+export function contextFrom(a: { workOrders: WorkOrder[]; partners: Project[]; giftProjects: GiftProject[]; frameworks: FrameworkTemplate[]; outcomeTypes: OutcomeType[]; urgent?: Set<string>; today: string; now: string; enrolments?: Enrolment[]; beneficiaries?: Beneficiary[]; rulesOf?: (itemId: string) => ItemRules | undefined; itemUnits?: Record<string, number> }): AssignContext {
   const fw = (id: string): FrameworkTemplate | undefined => a.frameworks.find((f) => f.id === id);
   // Rule (DECISIONS 183): the units a partner's own children give for a benefit. One whole child is the units of its workflow (3 for an orphan, 1 for a scholarship).
   const itemFramework: Record<string, string> = {};
@@ -83,7 +84,7 @@ export function contextFrom(a: { workOrders: WorkOrder[]; partners: Project[]; g
   const derived: AssignContext["derived"] = a.rulesOf && a.enrolments && a.beneficiaries ? (p, itemId, giftProjectId) => {
     const rules = a.rulesOf?.(itemId);
     if (!rules || rules.first !== "beneficiary" || rules.receiver === "none") return undefined;
-    const whole = Math.max(1, fw(itemFramework[itemId] ?? "")?.unitsPerBeneficiary ?? 1);
+    const whole = unitsOfItem(a.itemUnits, itemId, fw(itemFramework[itemId] ?? "")?.unitsPerBeneficiary ?? 1); // the item's own number, else its workflow's (DECISIONS 188)
     const byId = new Map((a.beneficiaries ?? []).map((b) => [b.id, b]));
     const inScope = (gpId: string): boolean => {
       if (giftProjectId !== "") return gpId === giftProjectId; // a gift for a project: that project's children

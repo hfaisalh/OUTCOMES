@@ -222,6 +222,7 @@ describe("scaled to the real gifts (DECISIONS 176)", () => {
   });
   it("works out the units of one whole beneficiary for each item from its workflow", () => {
     expect(wholeByItem([{ itemId: "I10", frameworkId: "orphan" }, { itemId: "I11", frameworkId: "pump" }, { itemId: "I12" }], [{ id: "orphan", unitsPerBeneficiary: 3 }, { id: "pump", unitsPerBeneficiary: 1 }])).toEqual({ I10: 3, I11: 1 });
+    expect(wholeByItem([{ itemId: "I10", frameworkId: "orphan" }], [{ id: "orphan", unitsPerBeneficiary: 3 }], { I10: 1 })).toEqual({ I10: 1 }); // the item's own number wins (DECISIONS 188)
   });
 });
 

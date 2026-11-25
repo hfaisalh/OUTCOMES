@@ -63,8 +63,8 @@ export function realProjectsFor(gps: GiftProject[], workOrders: { projectName?: 
 }
 
 // The units that make one whole beneficiary for each item, from the workflow its gifts are routed under (3 parts for an orphan, 1 for a scholarship).
-export function wholeByItem(workOrders: { itemId: string; frameworkId?: string }[], frameworks: { id: string; unitsPerBeneficiary: number }[]): Record<string, number> {
-  const out: Record<string, number> = {};
+export function wholeByItem(workOrders: { itemId: string; frameworkId?: string }[], frameworks: { id: string; unitsPerBeneficiary: number }[], itemUnits: Record<string, number> = {}): Record<string, number> {
+  const out: Record<string, number> = { ...itemUnits }; // an item's own number first (DECISIONS 188), then its workflow's
   for (const w of workOrders) {
     if (out[w.itemId] !== undefined || (w.frameworkId ?? "") === "") continue;
     const u = frameworks.find((f) => f.id === w.frameworkId)?.unitsPerBeneficiary;

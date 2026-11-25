@@ -34,7 +34,7 @@ export function allocatePage(v: View): string {
   const units = assignables(actx);
   const unitOf = new Map(units.map((u) => [u.key, u]));
   const names = new Map(v.workOrders.map((w) => [w.itemId, w.itemName]));
-  const ctx = placementContext({ assignments, assignables: units, workOrders: v.workOrders, enrolments, beneficiaries: people, giftProjects: gps, frameworks: v.frameworks ?? [], rulesOf: (i) => itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, i, names.get(i) ?? ""), now });
+  const ctx = placementContext({ assignments, assignables: units, workOrders: v.workOrders, enrolments, beneficiaries: people, giftProjects: gps, frameworks: v.frameworks ?? [], rulesOf: (i) => itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, i, names.get(i) ?? ""), now, itemUnits: v.itemUnits });
   // Rule (DECISIONS 187): the page shows the true state now. A placement of a gift whose plan has been parked, whose child has left, or whose assignment was withdrawn is shown as ended even before a run records it.
   const synced = syncPlacements(ctx, recorded);
   const placements = synced.value;

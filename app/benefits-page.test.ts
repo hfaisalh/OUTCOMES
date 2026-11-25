@@ -6,6 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { starterFrameworks } from "./demo-data";
 import { benefitsPage } from "./benefits-page";
 import type { View } from "./pages";
 
@@ -65,6 +66,16 @@ describe("the Benefits page", () => {
     expect(html).toContain("blocked, with a message saying the beneficiary already exists");
     expect(html).toContain('<option value="reallocate" selected>');
     expect(benefitsPage(view({ kindSel: "build" }))).toContain('<option value="unallocated" selected>');
+  });
+  it("has a Units per beneficiary column: a number for a Person(s) item, the workflow's as the default, and a dash for any other type (DECISIONS 188)", () => {
+    const html = benefitsPage(view());
+    expect(html).toContain("<th>Units per beneficiary</th>");
+    expect(html).toMatch(/data-item-units="I2"/); // Orphan Sponsorship is Person(s)
+    expect(html).not.toMatch(/data-item-units="I1"/); // Small Pump is a build
+    expect(html).not.toMatch(/data-item-units="I3"/); // Mystery Gift has no type
+    const own = benefitsPage(view({ itemUnits: { I2: 1 } }));
+    expect(own).toMatch(/data-item-units="I2" value="1"/);
+    expect(benefitsPage(view({ itemFramework: { I2: "sponsorship-shared-parts" }, frameworks: starterFrameworks() }))).toMatch(/data-item-units="I2" value="" placeholder="3"/); // empty: the workflow's number is the default
   });
   it("shows a kind a person changed, and offers to reset it", () => {
     const changed = { build: { what: "Mine", props: { location: false, sensitive: true, eligibility: false, onBehalf: false, receiver: "", first: "gift" }, fields: [{ id: "x", label: "Only field", type: "text", required: false, inReport: false }] } };

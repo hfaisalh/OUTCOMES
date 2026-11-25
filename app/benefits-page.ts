@@ -21,6 +21,13 @@ export function benefitsPage(v: View): string {
   const fws = v.frameworks ?? [];
   const setup = { categories: v.categories, itemMap: v.itemCategories, frameworks: fws, itemFramework: v.itemFramework ?? {} };
   const workflowOf = (id: string): string => fws.find((f) => f.id === resolveFrameworkId(setup, id))?.name ?? "";
+  // Rule (DECISIONS 188): the units that make one whole beneficiary belong to the benefit. Shown for a type where the beneficiary comes first (Person(s)), with the workflow's number as the default.
+  const unitsCell = (id: string, kind: string): string => {
+    if (kind !== "person") return '<span class="muted">\u2013</span>';
+    const own = v.itemUnits?.[id];
+    const dflt = fws.find((f) => f.id === resolveFrameworkId(setup, id))?.unitsPerBeneficiary;
+    return `<input class="num-in" type="number" min="1" max="20" step="1" data-item-units="${esc(id)}" value="${own ?? ""}" placeholder="${dflt ?? ""}" aria-label="Units that make one beneficiary" title="Units that make one whole beneficiary: 3 for an orphan shared by donors, 1 for a scholarship. Empty uses the workflow's${dflt !== undefined ? ` (${dflt})` : ""}."> ${own === undefined && dflt !== undefined ? `<span class="muted" title="From the workflow">workflow</span>` : ""}`;
+  };
   // Rule (DECISIONS 156): each item is checked to be connected end to end. Custom Amount items are left for later.
   const customIds = new Set((v.workOrders ?? []).filter((w) => w.customAmount === true).map((w) => w.itemId));
   const ready = itemReadiness({ items, workflowOf: (id) => resolveFrameworkId(setup, id), typeOf: (id, name) => kindOf(kinds, id, name).kind, customItemIds: customIds, partners: v.projects ?? [], giftProjects: v.giftProjects ?? [], today: v.today ?? "2026-01-01" });
@@ -30,6 +37,7 @@ export function benefitsPage(v: View): string {
     const k = kindOf(kinds, i.id, i.name);
     const options = `<option value=""${k.chosen ? "" : " selected"}>${k.kind ? `Suggested: ${esc(KINDS.find((x) => x.id === k.kind)?.label ?? "")}` : "Choose a type"}</option>${KINDS.map((x) => `<option value="${x.id}"${k.chosen && k.kind === x.id ? " selected" : ""}>${esc(x.label)}</option>`).join("")}`;
     return `<tr><td class="c">${iconHtml(itemIcon(i.id, i.name, v.itemIcons ?? {}), i.name)}</td><td>${esc(i.name)}</td><td><select data-kind-item="${esc(i.id)}" aria-label="Type of ${esc(i.name)}">${options}</select>${k.chosen || !k.kind ? "" : ` <span class="muted" title="Suggested from the name. Choose it to keep it.">suggested</span>`}</td><td class="muted">${esc(workflowOf(i.id)) || "No workflow"}</td>
+      <td>${unitsCell(i.id, k.kind)}</td>
       <td title="${esc(r.projects.join(", "))}">${r.projects.length ? `${r.projects.length} project${r.projects.length === 1 ? "" : "s"}` : r.openProjects ? `<span class="muted">${r.openProjects} open</span>` : "\u2013"}</td>
       <td title="${esc(r.partners.join(", "))}">${r.partners.length ? `${r.partners.length} partner${r.partners.length === 1 ? "" : "s"}` : "\u2013"}</td>
       <td>${r.custom ? `<span class="muted" title="Custom amounts are dealt with separately, later">custom, later</span>` : r.ready ? `<span class="pill ok" title="Connected: workflow, type and a partner">Ready</span>` : `<span class="pill review" title="${esc(r.missing.join(", "))}">${esc(r.missing.join(", "))}</span>`}</td></tr>`;
@@ -64,6 +72,6 @@ export function benefitsPage(v: View): string {
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <section class="card"><h2>Items <span class="muted">(${items.length})</span></h2>
       <p class="muted">${chosen} chosen, ${items.length - chosen - none} suggested, ${none} to choose. <b>${sum.ready} of ${sum.checked}</b> items are connected end to end (workflow, type and a partner that can take them)${sum.custom ? `, and ${sum.custom} custom amount item${sum.custom === 1 ? "" : "s"} left for later` : ""}. The type is set once and flows through the work order. Change it here if a suggestion is wrong.</p>
-      <div class="tablewrap"><table class="subtable"><thead><tr><th class="c"></th><th>Item (benefit)</th><th>Type</th><th>Workflow</th><th>Projects</th><th>Partners</th><th>Connected</th></tr></thead><tbody>${rows.join("") || `<tr><td colspan="7" class="muted">No items yet. They appear when gifts arrive from the CRM.</td></tr>`}</tbody></table></div></section>
+      <div class="tablewrap"><table class="subtable"><thead><tr><th class="c"></th><th>Item (benefit)</th><th>Type</th><th>Workflow</th><th>Units per beneficiary</th><th>Projects</th><th>Partners</th><th>Connected</th></tr></thead><tbody>${rows.join("") || `<tr><td colspan="8" class="muted">No items yet. They appear when gifts arrive from the CRM.</td></tr>`}</tbody></table></div></section>
     <div class="wf-layout">${kindList}${kindDetail}</div>`;
 }

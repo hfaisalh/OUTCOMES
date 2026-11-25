@@ -236,3 +236,10 @@ Where an assigned gift went. Stored on the organisation's setup as `placements` 
 | `to` | The day it ended, YYYY-MM-DD. Absent while it holds the place (DECISIONS 186) |
 | `endReason` | Why it ended: `paused`, `cancelled`, `completed` (the plan), `child-left`, `released` (the gift left scope), `moved`, `taken-back`. An ended placement is kept as history |
 
+## Item units per beneficiary (DECISIONS 188)
+Stored on the organisation's setup as `itemUnits`, by CRM item id.
+
+| Field | Meaning |
+|---|---|
+| `itemUnits[itemId]` | The units that make one whole beneficiary of this benefit: 3 for an orphan shared by donors, 1 for a scholarship. A whole number from 1 to 20. Absent: the workflow's `unitsPerBeneficiary` |
+
