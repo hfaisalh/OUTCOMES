@@ -829,3 +829,7 @@ A pump paid in 10 instalments showed a blue bar (0.6 / 1) in the gift window whi
 ## 201. One unit items show a rounded square, and the gift window units are tidied (2026-11-25)
 
 An item of one unit has nothing to slice, so its month pies (Beneficiaries, Outcomes) and instalment pies (gift window) are rounded squares in the same green, orange, red, blue colours. The first "Units" label in the gift window is now "Parts per instalment" so it is not confused with the pie row. The pie key names only the colours that appear. A pump paid in shares says "6 of 10 instalments paid, 60% of the whole item".
+
+## 202. Confirmation rules (2026-11-25)
+
+Built as pure logic first (`modules/11-confirmation`). The partner has the workflow's days (3 if none) from the day of assignment to confirm or reject. A rejection needs a reason and sends the gift back to Assignment. An answer belongs to one assignment to one partner, so reassigning gives the new partner a fresh wait. A partner past its due day is late but can still answer. Open question for the wiring step: whether Placement should wait until a gift is confirmed (decision 139 says yes, but it would stop today's demo placements until each gift is confirmed, so it will be a switch on the workflow).
