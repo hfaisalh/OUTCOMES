@@ -845,3 +845,7 @@ Agreed with Faisal. MWF releases work to partners in batches, tracks work orders
 Agreed but not built yet: a batch is Complete (and closes by itself) when every work order in it is complete, or by hand for odd cases. A partner may accept a batch with work orders not yet covered, with a deadline of X days to build the records, after which the work order is transferred to another partner (a reassign with a reason, counted on the first partner's health score). Partners with prefilled stock are confirmed on their behalf with a notice. Confirmation has a per-workflow switch, off for now.
 
 Parked by Faisal: orphan sponsorship (it differs), and the rule for the 50% advance. Money is not held here: OUTCOMES would only record when an advance or final payment is due.
+
+## 204. "Room" becomes "Available capacity", one number (2026-11-26)
+
+"Room" and "from its children" were misleading, and the number shown (what the partner has registered) was not the one that counted when a ceiling was lower. The Assignment page table is now **Available capacity with each partner**: the columns are Available capacity, Assigned and Remaining. Available capacity is one number, what the partner can take now. Where the partner's configuration allows a number it follows in brackets, for example `3 (allowed 3)`. For a benefit where the beneficiary comes first, hovering shows how many are registered. The wording about "children" is gone from the candidate reasons, since the benefit already says whether it is for people, an activity or a build.

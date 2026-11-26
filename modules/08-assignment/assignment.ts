@@ -175,11 +175,11 @@ export function roomFor(ctx: AssignContext, p: Project, itemId: string, parts: n
   const d = ctx.derived?.(p, itemId, giftProjectId);
   if (d === undefined) return hasRoom(p, itemId, parts, records);
   const used = giftProjectId !== "" ? takenIn(records, p.id, itemId, giftProjectId) : taken(records, p.id, itemId);
-  if (d === 0) return { ok: false, why: "no approved child of its own is enrolled for this benefit" };
-  if (used + parts > d) return { ok: false, why: `its children are full: ${used} of ${d} units taken, needs ${parts}` };
+  if (d === 0) return { ok: false, why: "it has no available capacity for this benefit yet: nothing approved and enrolled" };
+  if (used + parts > d) return { ok: false, why: `its available capacity is full: ${used} of ${d} units taken, needs ${parts}` };
   const ceiling = capacityFor(p, itemId); // a typed capacity may hold the partner below what it has registered
   if (ceiling !== undefined && taken(records, p.id, itemId) + parts > ceiling) return { ok: false, why: `at its own ceiling: ${taken(records, p.id, itemId)} of ${ceiling} units taken, needs ${parts}` };
-  return { ok: true, why: `${d - used} of ${d} units free, from its children` };
+  return { ok: true, why: `${d - used} of ${d} units free` };
 }
 
 // Does a partner have room for this many more units of an item? No capacity set means no limit.

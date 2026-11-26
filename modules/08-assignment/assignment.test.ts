@@ -120,7 +120,7 @@ describe("room from a partner's own children (DECISIONS 183)", () => {
     const c = build({ orders: [orders[0]!], enrolments: [enr("E1", "B1")], beneficiaries: [kid("B1", "backup")] });
     const s = suggestAssignments(c, emptyAssignments())[0]!;
     expect(s.partnerId).toBe("backup"); // the trust has a typed capacity of 3 but no child, so it has no room
-    expect(s.candidates.map((x) => [x.name, x.ok, x.why])).toEqual([["Trust", false, "no approved child of its own is enrolled for this benefit"], ["Backup", true, "3 of 3 units free, from its children"]]);
+    expect(s.candidates.map((x) => [x.name, x.ok, x.why])).toEqual([["Trust", false, "it has no available capacity for this benefit yet: nothing approved and enrolled"], ["Backup", true, "3 of 3 units free"]]);
   });
   it("fills a partner's children and then moves on: one child is three units", () => {
     const c = build({ orders: ["G01", "G02", "G03", "G04"].map((k) => wo(k, { frameworkId: "wf-sponsor" })), enrolments: [enr("E1", "B1"), enr("E2", "B2")], beneficiaries: [kid("B1", "backup"), kid("B2", "trust")] });

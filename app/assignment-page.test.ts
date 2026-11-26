@@ -89,9 +89,9 @@ describe("the Assignment page", () => {
       enrolments: { records: [{ id: "EN-1", beneficiaryId: "B1", giftProjectId: "aghosh", clusterId: "c", itemId: "I10", role: "", status: "active", since: "x" }], counter: 1 },
     });
     const html = assignmentPage(sponsor);
-    expect(html).toContain('3 <span class="muted">from its children</span>'); // one child is three units
-    expect(html).toContain("<li>Trust: no room (no approved child of its own is enrolled for this benefit)</li>");
-    expect(html).toContain("<li>Backup: has room (3 of 3 units free, from its children)</li>");
+    expect(html).toContain('<span title="3 registered for this benefit">3</span>'); // one child is three units, shown as a number
+    expect(html).toContain("<li>Trust: no room (it has no available capacity for this benefit yet: nothing approved and enrolled)</li>");
+    expect(html).toContain("<li>Backup: has room (3 of 3 units free)</li>");
     expect(html).toContain("Goes to Backup");
   });
   it("never trusts a name as HTML", () => {

@@ -40,10 +40,14 @@ export function assignmentPage(v: View): string {
   const metric = (n: number, label: string, cls = ""): string => `<div class="metric${cls ? ` ${cls}` : ""}"><b>${n}</b><span>${esc(label)}</span></div>`;
   const rooms = loads(partners.filter((p) => (p.itemIds ?? []).length > 0 || existing.records.some((a) => a.partnerId === p.id)), existing, ctx);
   const itemName = (id: string): string => v.workOrders.find((w) => w.itemId === id)?.itemName ?? id;
-  // Rule (DECISIONS 183): for a sponsorship benefit the room is the partner's own enrolled children, and a typed capacity is only a ceiling. Other benefits use the typed capacity.
+  // Rule (DECISIONS 183): for a sponsorship benefit the available capacity is what the partner has registered, and a typed capacity is only a ceiling. Other benefits use the typed capacity.
   const roomRows = rooms.map((l) => {
     const room = l.derived !== undefined ? (l.capacity === undefined ? l.derived : Math.min(l.derived, l.capacity)) : l.capacity;
-    return `<tr><td>${esc(pname(l.partnerId))}</td><td>${esc(itemName(l.itemId))}</td><td class="num">${l.derived !== undefined ? `${l.derived} <span class="muted">from its children${l.capacity !== undefined ? `, ceiling ${l.capacity}` : ""}</span>` : l.capacity ?? "no limit"}</td><td class="num">${l.taken}</td><td class="num">${room === undefined ? "" : Math.max(0, room - l.taken)}</td></tr>`;
+    // Rule: the column is Available capacity, one number: what the partner can take now. Where the partner's own settings allow a number, it follows in brackets. For a benefit where the beneficiary comes first, the number is what the
+    // partner has registered, held down by the allowed number if lower (hover shows the registered number).
+    const allowed = l.derived !== undefined && l.capacity !== undefined ? ` <span class="muted">(allowed ${l.capacity})</span>` : "";
+    const cell = room === undefined ? "no limit" : (l.derived !== undefined ? `<span title="${l.derived} registered for this benefit">${room}</span>` : `${room}`) + allowed;
+    return `<tr><td>${esc(pname(l.partnerId))}</td><td>${esc(itemName(l.itemId))}</td><td class="num">${cell}</td><td class="num">${l.taken}</td><td class="num">${room === undefined ? "" : Math.max(0, room - l.taken)}</td></tr>`;
   }).join("");
 
   // Rule (DECISIONS 203): a batch is a rolling label on each partner's assignments, and a work order is covered once it has a place or an outcome. The count is what the partner and MWF both look at.
@@ -85,7 +89,7 @@ export function assignmentPage(v: View): string {
     <div class="metrics">${metric(toAssign(ctx, existing).length, "Need a partner")}${metric(toGo + suggested, "Have a partner ready")}${metric(existing.records.length, "Assigned")}${metric(waiting, "Wait, no partner with room", waiting ? "warn" : "")}</div>
     ${why.length ? `<p class="muted"><b>Why gifts wait:</b> ${why.map((x) => `${x.n} ${esc(x.label)}`).join(" · ")}.</p>` : ""}
     <div class="actions"><button class="primary" data-asg="run">Assign automatically</button><button data-asg="confirm"${suggested + toGo ? "" : " disabled"}>Confirm all suggestions</button><button data-asg="reset"${existing.records.length ? "" : " disabled"}>Reset assignments</button></div>
-    <div class="card"><h2>Room left with each partner</h2>${rooms.length ? `<table><thead><tr><th>Partner</th><th>Benefit</th><th class="num">Room</th><th class="num">Assigned</th><th class="num">Free</th></tr></thead><tbody>${roomRows}</tbody></table>` : '<div class="empty">No partner delivers a benefit yet. Add partners on the Partners page.</div>'}</div>
+    <div class="card"><h2>Available capacity with each partner</h2>${rooms.length ? `<table><thead><tr><th>Partner</th><th>Benefit</th><th class="num">Available capacity</th><th class="num">Assigned</th><th class="num">Remaining</th></tr></thead><tbody>${roomRows}</tbody></table>` : '<div class="empty">No partner delivers a benefit yet. Add partners on the Partners page.</div>'}</div>
     ${batchCard}
     <div class="card"><h2>Gifts <span class="muted">(${shown.length})</span></h2>${filters}
       ${rows ? `<div class="tablewrap"><table><thead><tr><th>Gift</th><th>Project</th><th class="num">Units</th><th>Partner</th><th class="num">Batch</th><th>Why</th></tr></thead><tbody>${rows}</tbody></table></div>${shown.length > MAX_ROWS ? `<p class="muted">The first ${MAX_ROWS} are shown.</p>` : ""}` : '<div class="empty">No gifts here. Gifts appear when they are released and have a workflow.</div>'}</div>`;
