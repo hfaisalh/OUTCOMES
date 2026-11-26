@@ -26,7 +26,8 @@ function buildLabel(): string {
 export default defineConfig({
   root: repoRoot,
   define: { __BUILD_LABEL__: JSON.stringify(buildLabel()) },
-  server: { open: "/app/", fs: { allow: [repoRoot] } },
+  // Rule: npm run dev opens the page for a person. A check run by a tool sets OUTCOMES_NO_OPEN=1 so no tab opens in their browser.
+  server: { open: process.env["OUTCOMES_NO_OPEN"] ? false : "/app/", fs: { allow: [repoRoot] } },
   // Tests run from the repo root, not from the page folder.
   test: { root: repoRoot, include: ["modules/**/*.test.ts", "app/**/*.test.ts"] },
   build: {
