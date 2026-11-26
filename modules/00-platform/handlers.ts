@@ -387,7 +387,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     if (typeof b["action"] === "string" && b["action"].startsWith("asg-")) {
       const wosA = await d.store.listWorkOrders(org);
       const namesA = new Map(wosA.map((w) => [w.itemId, w.itemName]));
-      const ctx = contextFrom({ workOrders: wosA, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesA.get(itemId) ?? ""), itemUnits: config.itemUnits });
+      const ctx = contextFrom({ workOrders: wosA, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesA.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: placements.stock });
       const r = applyAssignmentAction(ctx, assignments, b);
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
@@ -399,7 +399,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     if (typeof b["action"] === "string" && b["action"].startsWith("plc-")) {
       const wos = await d.store.listWorkOrders(org);
       const names = new Map(wos.map((w) => [w.itemId, w.itemName]));
-      const actx = contextFrom({ workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), itemUnits: config.itemUnits });
+      const actx = contextFrom({ workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: placements.stock });
       const ctx = placementContext({ assignments: assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: enrolments.records, beneficiaries: beneficiaries.records, giftProjects, frameworks: fw, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), now: at, ...(config.itemUnits ? { itemUnits: config.itemUnits } : {}) });
       const r = applyPlacementAction(ctx, placements, b);
       if (!r) return fail("That request is not understood.");

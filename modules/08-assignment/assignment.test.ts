@@ -289,3 +289,13 @@ describe("batches on new assignments (DECISIONS 203)", () => {
     expect(r.value.records.map((a) => a.batch)).toEqual([1, 1, 2]);
   });
 });
+
+describe("capacity from parked outcomes (DECISIONS 209)", () => {
+  it("gives a partner with parked outcomes for a gift-first benefit that many whole outcomes of capacity, and none when it has none", () => {
+    const rulesOf = (id: string) => (id === "I10" ? { first: "gift" as const, receiver: "household" as const, kindLabel: "Build" } : undefined);
+    const stock = [{ id: "STK-0001", partnerId: "trust", giftProjectId: "aghosh", clusterId: "c", itemId: "I10", name: "Chak 5", at: "x" }, { id: "STK-0002", partnerId: "trust", giftProjectId: "aghosh", clusterId: "c", itemId: "I10", name: "Dhok 2", at: "x" }];
+    const c = contextFrom({ workOrders: [wo("G01")], partners: [trust, backup], giftProjects: [aghosh], frameworks: [], outcomeTypes: [], today: "2026-11-24", now: "2026-11-24T10:00:00Z", enrolments: [], beneficiaries: [], rulesOf, stock });
+    expect(c.derived?.(trust, "I10", "aghosh")).toBe(2);
+    expect(c.derived?.(backup, "I10", "aghosh")).toBeUndefined(); // no parked outcomes: its typed capacity applies as before
+  });
+});

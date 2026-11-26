@@ -145,6 +145,31 @@ describe("the Clusters tab, one cluster", () => {
   });
 });
 
+describe("parked outcomes in a cluster (DECISIONS 209)", () => {
+  const stock = [{ id: "STK-0001", partnerId: "trust", giftProjectId: "p", clusterId: "physics", itemId: "I11", name: "Chak 5 pump", at: "2026-11-01T00:00:00Z" }, { id: "STK-0002", partnerId: "trust", giftProjectId: "p", clusterId: "physics", itemId: "I11", name: "Dhok 2 pump", at: "2026-11-02T00:00:00Z" }];
+  const ctx = { projectId: "p", items: [{ id: "I11", name: "Small Pump" }], beneficiaries: [], enrolments: [], stock, stockItems: [{ id: "I11", name: "Small Pump" }], partners: [{ id: "trust", name: "Sample Trust" }], placements: [{ key: "sub:S1", kind: "outcome" as const, enrolmentId: "", outcomeRef: "OUT-0001", stockId: "STK-0001", giftProjectId: "p", itemId: "I11", parts: 1, how: "auto" as const, at: "x" }] };
+  it("lists what is parked in the cluster and inside it, free or used by an outcome, and lets a free one be removed", () => {
+    reset();
+    clusterUi.node = "science"; clusterUi.nodeTab = "people"; // the stock is in Physics, inside Science
+    const html = clustersTabHtml(home, "", ctx);
+    expect(html).toContain("Parked outcomes in Science");
+    expect(html).toContain("<b>Chak 5 pump</b>");
+    expect(html).toContain("Used by OUT-0001");
+    expect(html).toContain('data-cl="stock-rm" data-id="STK-0002"'); // free: can be removed
+    expect(html).not.toContain('data-cl="stock-rm" data-id="STK-0001"'); // used: cannot
+    reset();
+  });
+  it("offers a form with the benefits that can be parked and the project's partners, and says so when there are none", () => {
+    reset();
+    clusterUi.node = "science"; clusterUi.nodeTab = "people";
+    const html = clustersTabHtml(home, "", ctx);
+    expect(html).toContain('id="st-name"');
+    expect(html).toContain('data-cl="stock-add" data-id="science"');
+    expect(clustersTabHtml(home, "", { ...ctx, stockItems: [] })).toContain("nothing to park here");
+    reset();
+  });
+});
+
 describe("the project window with tabs", () => {
   const ctx = { crmNames: [], partners: [], items: [] };
   it("has Details and Clusters tabs for a saved project, and none for a new one", () => {

@@ -867,3 +867,12 @@ Update (2026-11-26): the first version only covered tables inside a `tablewrap`,
 ## 208. One frame for every list (2026-11-26)
 
 Supersedes 207. Floating headings that stick to the window gave three different behaviours (the whole page scrolled on Gifts, a framed box on Beneficiaries and Outcomes, and tables standing alone or inside a white card), and the heading showed rows slipping under it. Now every list has the same frame: the heading row stays in view while the rows scroll inside a box that is as tall as the screen allows below the top bar, so a short list is not stretched. The box is a white curved card unless the list already sits in one. The page itself scrolls as normal around the boxes. `app/list-frames.ts` adds the frame to every table that has a heading row when a page is drawn, so a new list gets it without any page repeating the markup. Tables inside windows are not touched. A table with no heading row (a plain facts table) is not a list.
+
+## 209. Parked outcomes: a partner loads stock ahead of any gift (2026-11-26)
+
+Agreed with Faisal. A partner may load, in a cluster of a project, the outcomes it is ready to deliver for a benefit where the gift comes first or there is no beneficiary (a pump site, a house plot, a mosque). Each is a **parked outcome** (STK-0001) with a name, a benefit, a partner, a project and a cluster.
+- Rule: when a gift is assigned to a partner, it takes that partner's oldest free parked outcome for the same benefit (in the gift's project when it has one). The outcome made from the gift (OUT-0001) records which one it took. With none free, an outcome is made from the gift as before.
+- Rule: a parked outcome is used while a placement holds it, and is free again when that placement ends or is taken back. A used one cannot be removed.
+- Rule: a partner with parked outcomes for a benefit has that many whole outcomes of capacity for it, so it shows in Registered on the Assignment page, a flag appears when it is full, and Assignment sends gifts to partners with free stock. A partner with none parked keeps its typed capacity.
+- Where: the cluster window, Beneficiaries tab, under Parked outcomes (add and remove). Stored with the placements (`stock` and `stockCounter`), so it is saved and sent with them. A reset of placements keeps the stock.
+- Not built yet: requiring stock before a gift can be assigned (a work order with no stock would wait, "waiting for outcome records"), more details on a parked outcome (area, contact, photo), and loading many at once from a file.

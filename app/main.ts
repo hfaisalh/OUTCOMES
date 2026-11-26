@@ -324,7 +324,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "asg-run": case "asg-confirm": case "asg-set": case "asg-unassign": case "asg-reset": { // Assignment (DECISIONS 170): the same pure rule the server uses.
           const wosA = view().workOrders;
           const namesA = new Map(wosA.map((w) => [w.itemId, w.itemName]));
-          const ctx = contextFrom({ workOrders: wosA, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString(), enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, namesA.get(itemId) ?? ""), itemUnits: state.itemUnits });
+          const ctx = contextFrom({ workOrders: wosA, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString(), enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, namesA.get(itemId) ?? ""), itemUnits: state.itemUnits, stock: state.placements.stock });
           const r = applyAssignmentAction(ctx, state.assignments, body);
           if (!r) { error = "That request is not understood."; break; }
           if ("error" in r) { error = r.error; break; }
@@ -336,7 +336,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
           const wos = view().workOrders;
           const names2 = new Map(wos.map((w) => [w.itemId, w.itemName]));
           const nowIso = new Date().toISOString();
-          const actx = contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: nowIso.slice(0, 10), now: nowIso, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names2.get(itemId) ?? ""), itemUnits: state.itemUnits });
+          const actx = contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: nowIso.slice(0, 10), now: nowIso, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names2.get(itemId) ?? ""), itemUnits: state.itemUnits, stock: state.placements.stock });
           const pctx = placementContext({ assignments: state.assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, frameworks: state.frameworks, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names2.get(itemId) ?? ""), now: nowIso, itemUnits: state.itemUnits });
           const r = applyPlacementAction(pctx, state.placements, body);
           if (!r) { error = "That request is not understood."; break; }
@@ -1425,7 +1425,7 @@ function renderProjectWindow(error = "", draft?: Record<string, unknown>): void 
   }
   const existing = state.giftProjects.find((g) => g.id === w.id);
   const names = crmNamesOf(state.workOrders, state.giftProjects).filter((n) => n.giftProjectId === "").map((n) => ({ name: n.name, gifts: n.gifts })); // the CRM names no project has yet, to link a new project to
-  root.innerHTML = projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), people: { beneficiaries: state.beneficiaries.records, enrolments: state.enrolments.records, placements: state.placements.records } }, error, w.tab ?? "details");
+  root.innerHTML = projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), people: { beneficiaries: state.beneficiaries.records, enrolments: state.enrolments.records, placements: state.placements.records, stock: state.placements.stock ?? [], stockItemIds: view().flaggedItems.filter((i) => { const r = itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, i.id, i.name); return !!r && (r.first === "gift" || r.receiver === "none"); }).map((i) => i.id) } }, error, w.tab ?? "details");
 }
 function closeProjectWindow(): void {
   clusterUi.node = ""; clusterUi.adding = ""; clusterUi.nodeTab = "details"; // the next project opens on its list of clusters
@@ -1694,6 +1694,8 @@ document.addEventListener("click", (e) => {
     case "goto": clusterUi.node = id; clusterUi.adding = ""; clusterUi.nodeTab = "details"; return clusterView(); // "" goes back to the tree
     case "enr-add": return clusterRequestThen("Enrolled.", { action: "enr-add", beneficiaryId: val("en-ben"), clusterId: id, itemId: val("en-item"), role: val("en-role") });
     case "enr-end": return clusterRequestThen("Enrolment ended.", { action: "enr-end", id });
+    case "stock-add": return clusterRequestThen("Parked outcome added.", { action: "plc-stock-add", clusterId: id, itemId: val("st-item"), partnerId: val("st-partner"), name: val("st-name") });
+    case "stock-rm": return clusterRequestThen("Parked outcome removed.", { action: "plc-stock-remove", id });
     case "node-tab": clusterUi.nodeTab = b.dataset.tab === "inside" ? "inside" : b.dataset.tab === "people" ? "people" : "details"; clusterUi.adding = ""; return clusterView();
     case "node-save": return clusterRequestThen("Saved.", { action: "cluster-set", clusterId: id, name: val("cn-name"), label: val("cn-label"), place: val("cn-place"), roles: val("cn-roles"), status: val("cn-status"), ...(document.getElementById("cn-capacity") ? { capacity: val("cn-capacity") } : {}) });
     case "cluster-add": { // Rule: capacity belongs to the master cluster only, so a sub cluster is sent none.
@@ -1747,7 +1749,7 @@ function renderHistWindow(): void {
   const gifts = new Map(assignables(contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString() })).map((u) => [u.key, { donor: u.w.supporterName, item: u.w.itemName, payments: u.payments }]));
   // The history shows the true state now (DECISIONS 187): a placement of a parked plan, a child who has left or a withdrawn assignment is shown as ended before a run records it.
   const nowIso = new Date().toISOString();
-  const actx = contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: nowIso.slice(0, 10), now: nowIso, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), itemUnits: state.itemUnits });
+  const actx = contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: nowIso.slice(0, 10), now: nowIso, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), itemUnits: state.itemUnits, stock: state.placements.stock });
   const pctx = placementContext({ assignments: state.assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, frameworks: state.frameworks, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), now: nowIso, itemUnits: state.itemUnits });
   const data: HistoryData = { placements: syncPlacements(pctx, state.placements).value.records, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, gifts, itemName: (id) => names.get(id) ?? id };
   root.innerHTML = w.kind === "gift" ? giftHistoryHtml(data, w.id) : enrolmentHistoryHtml(data, w.id);

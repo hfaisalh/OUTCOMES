@@ -27,6 +27,7 @@ import type { Assignable, Assignment } from "../08-assignment/assignment.js";
 import type { FrameworkTemplate } from "../02-project-rules/categories.js";
 import { unitsOfItem } from "../02-project-rules/benefits.js";
 import type { GiftProject } from "../06-projects/projects.js";
+import { addStock, freeStock, removeStock, usedStock, type StockItem } from "./stock.js";
 import type { Beneficiary } from "../07-beneficiaries/beneficiaries.js";
 import type { Enrolment, ItemRules } from "../07-beneficiaries/enrolments.js";
 
@@ -41,6 +42,7 @@ export interface Placement {
   kind: "place" | "outcome"; // a place filled, or an outcome created from the gift
   enrolmentId: string; // the place filled, "" for an outcome
   outcomeRef: string; // the outcome created, "" for a place
+  stockId?: string; // the parked outcome it took (DECISIONS 209), absent when the outcome was made new from the gift
   giftProjectId: string;
   itemId: string;
   parts: number;
@@ -49,7 +51,7 @@ export interface Placement {
   to?: string; // the day it ended, YYYY-MM-DD. Absent while it holds the place
   endReason?: EndReason; // why it ended
 }
-export interface Placements { records: Placement[]; counter: number }
+export interface Placements { records: Placement[]; counter: number; stock?: StockItem[]; stockCounter?: number } // stock: the parked outcomes partners have loaded (DECISIONS 209)
 export const emptyPlacements = (): Placements => ({ records: [], counter: 0 });
 
 export interface PlaceContext {
@@ -87,6 +89,8 @@ export function placementContext(a: { assignments: Assignment[]; assignables: As
 export type Blocked = "" | "no-places" | "full" | "no-project-places" | "no-type";
 export interface PlaceOption { enrolmentId: string; beneficiaryId: string; name: string; giftProjectId: string; clusterId: string; used: number; capacity: number; fits: boolean }
 export interface PlaceSuggestion {
+  stockId?: string; // the parked outcome the gift would take (DECISIONS 209)
+  stockName?: string;
   key: string;
   itemId: string;
   parts: number;
@@ -128,11 +132,15 @@ export function suggestPlacements(ctx: PlaceContext, existing: Placements): Plac
   const running: Placement[] = [...existing.records];
   const done = new Set(existing.records.filter(isActive).map((p) => p.key)); // a gift whose placement has ended is no longer placed
   const out: PlaceSuggestion[] = [];
+  const takenStock = usedStock(existing.records); // parked outcomes used already, and those promised earlier in this run
   for (const a of [...ctx.assignments].filter((x) => !done.has(x.key)).sort((x, y) => x.at.localeCompare(y.at) || x.key.localeCompare(y.key))) {
     const rules = ctx.rulesOf(a.itemId);
     // Rule: a gift for a type where the gift comes first, or with no beneficiary, creates an outcome. It needs no place.
     if (rules && (rules.first === "gift" || rules.receiver === "none")) {
-      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "outcome", enrolmentId: "", shares: [], blocked: "", options: [], why: rules.receiver === "none" ? "Creates an outcome for a community: it has no beneficiary." : "Creates an outcome. Its recipients are enrolled after." });
+      // Rule (DECISIONS 209): the partner's own parked outcome for the benefit is taken first. With none free, an outcome is made from the gift.
+      const parked = freeStock(existing.stock ?? [], takenStock, a.partnerId, a.itemId, a.giftProjectId);
+      if (parked) takenStock.add(parked.id);
+      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "outcome", enrolmentId: "", shares: [], blocked: "", options: [], ...(parked ? { stockId: parked.id, stockName: parked.name } : {}), why: parked ? `Takes the parked outcome ${parked.name}.` : rules.receiver === "none" ? "Creates an outcome for a community: it has no beneficiary." : "Creates an outcome. Its recipients are enrolled after." });
       continue;
     }
     // Rule (DECISIONS 178): an item with no type yet cannot say who receives it, so its gift waits and says so, instead of looking for a child that cannot exist.
@@ -214,10 +222,10 @@ export function runPlacement(ctx: PlaceContext, existing: Placements): { value: 
   for (const s of suggestPlacements(ctx, synced.value)) {
     const a = ctx.assignments.find((x) => x.key === s.key) as Assignment;
     if (s.kind === "place") { records = [...records, ...s.shares.map((sh): Placement => ({ key: s.key, kind: "place", enrolmentId: sh.enrolmentId, outcomeRef: "", giftProjectId: ctx.enrolments.find((e) => e.id === sh.enrolmentId)?.giftProjectId ?? a.giftProjectId, itemId: s.itemId, parts: sh.parts, how: "auto", at: start }))]; placed++; }
-    else if (s.kind === "outcome") { counter++; records = [...records, { key: s.key, kind: "outcome", enrolmentId: "", outcomeRef: `OUT-${String(counter).padStart(4, "0")}`, giftProjectId: a.giftProjectId, itemId: s.itemId, parts: s.parts, how: "auto", at: start }]; outcomes++; }
+    else if (s.kind === "outcome") { counter++; records = [...records, { key: s.key, kind: "outcome", enrolmentId: "", outcomeRef: `OUT-${String(counter).padStart(4, "0")}`, ...(s.stockId ? { stockId: s.stockId } : {}), giftProjectId: a.giftProjectId, itemId: s.itemId, parts: s.parts, how: "auto", at: start }]; outcomes++; }
     else waiting++;
   }
-  return { value: { records, counter }, placed, outcomes, waiting, ended: synced.ended };
+  return { value: { ...synced.value, records, counter }, placed, outcomes, waiting, ended: synced.ended };
 }
 
 // Rule: a person places a gift in a chosen place that is open and fits. A gift that already has a place is moved.
@@ -265,7 +273,9 @@ export function applyPlacementAction(ctx: PlaceContext, existing: Placements, bo
     }
     case "plc-set": return placeManual(ctx, existing, str("key"), str("enrolmentId"));
     case "plc-unplace": return unplace(existing, str("key"), ctx.now.slice(0, 10));
-    case "plc-reset": return { value: emptyPlacements(), message: "All placements were cleared, history included." };
+    case "plc-reset": return { value: { ...emptyPlacements(), ...(existing.stock ? { stock: existing.stock, stockCounter: existing.stockCounter ?? 0 } : {}) }, message: `All placements were cleared, history included.${existing.stock?.length ? " Parked outcomes were kept." : ""}` };
+    case "plc-stock-add": { const r = addStock(existing, { partnerId: str("partnerId"), giftProjectId: str("giftProjectId"), clusterId: str("clusterId"), itemId: str("itemId"), name: str("name") }, ctx.now); return "error" in r ? r : { value: r.value, message: "Parked outcome added." }; }
+    case "plc-stock-remove": { const r = removeStock(existing, str("id"), usedStock(existing.records.filter((p) => p.to === undefined))); return "error" in r ? r : { value: r.value, message: "Parked outcome removed." }; }
     default: return null;
   }
 }

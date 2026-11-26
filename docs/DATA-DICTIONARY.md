@@ -251,3 +251,12 @@ Stored on the organisation's setup as `itemUnits`, by CRM item id.
 | `batch` (on an assignment) | The partner's batch the assignment belongs to. Numbered per partner from 1. A new one starts after every `batchSize` assignments. Never changes once given |
 | `batchSize` (on a partner) | How many work orders make one batch for that partner. 10 when empty |
 | covered | A work order that has an active place (a child enrolled for it) or an outcome made for it |
+
+## Parked outcomes (DECISIONS 209)
+
+| Field | Meaning |
+|---|---|
+| `id` (on a parked outcome) | STK-0001, permanent, never reused |
+| `partnerId`, `giftProjectId`, `clusterId`, `itemId` | The partner that will deliver it, and the project, cluster and benefit it is parked in |
+| `name` | What the partner calls it, for example the village or the site |
+| `stockId` (on a placement) | The parked outcome an outcome took. Absent when the outcome was made new from the gift |

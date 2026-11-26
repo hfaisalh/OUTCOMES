@@ -206,7 +206,7 @@ function allocationContext(v: View) {
     const asg = nk !== "" ? assigned.get(nk) : undefined;
     const plc = nk !== "" ? placed.get(nk) : undefined;
     // A placement whose place no longer exists (the child was removed) is not a placement: the gift is assigned and waiting for a place again.
-    if (asg && plc && (plc.kind === "outcome" || enrolled.has(plc.enrolmentId))) return { state: "placed", who: plc.kind === "outcome" ? plc.outcomeRef : personName(enrolled.get(plc.enrolmentId)?.beneficiaryId ?? ""), partner: partnerName(asg.partnerId) || "No partner", parts: null, why: "", ...(asg.batch !== undefined ? { batch: asg.batch } : {}) };
+    if (asg && plc && (plc.kind === "outcome" || enrolled.has(plc.enrolmentId))) return { state: "placed", who: plc.kind === "outcome" ? plc.outcomeRef + ((v.placements?.stock ?? []).find((s) => s.id === plc.stockId)?.name ? ` \u00B7 ${(v.placements?.stock ?? []).find((s) => s.id === plc.stockId)?.name}` : "") : personName(enrolled.get(plc.enrolmentId)?.beneficiaryId ?? ""), partner: partnerName(asg.partnerId) || "No partner", parts: null, why: "", ...(asg.batch !== undefined ? { batch: asg.batch } : {}) };
     if (asg) return { state: "waiting", who: "", partner: partnerName(asg.partnerId) || "A partner", parts: null, why: `Assigned to ${partnerName(asg.partnerId) || "a partner"}, waiting for a place`, ...(asg.batch !== undefined ? { batch: asg.batch } : {}) };
     if (g.allocationKey === "") return { state: "n/a", who: "", partner: "", parts: null, why: "" };
     if (keys.has(g.allocationKey)) {

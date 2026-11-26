@@ -22,6 +22,7 @@ import { needsLook } from "../04b-commitments/commitments.js";
 
 export interface OutcomeRow {
   ref: string; // OUT-0001
+  stockId: string; // the parked outcome it took, "" when it was made new from the gift (DECISIONS 209)
   key: string; // the gift (assignment) it came from
   itemId: string;
   giftProjectId: string;
@@ -53,7 +54,7 @@ export function outcomeRows(a: { placements: Placement[]; commitments: Commitmen
     const funded = Math.min(100, Math.round((100 * p.parts * instalmentShare) / whole));
     const fundedUnits = cells.reduce((n, m) => n + m.slots.filter((x) => x.status === "p" || x.status === "e").length, 0);
     rows.push({
-      ref: p.outcomeRef, key: p.key, itemId: p.itemId, giftProjectId: p.giftProjectId, partnerId: a.partnerOf(p.key),
+      ref: p.outcomeRef, stockId: p.stockId ?? "", key: p.key, itemId: p.itemId, giftProjectId: p.giftProjectId, partnerId: a.partnerOf(p.key),
       gift: c ? { donor: c.supporterName, once: c.once === true, paid: c.paid, planned: c.planned, planStatus: c.planStatus || "active", look: needsLook(c) } : undefined,
       parts: p.parts, whole, funded, live, since: p.at.slice(0, 10), endedOn: p.to ?? "", why: p.to === undefined ? "" : p.endReason ? END_LABEL[p.endReason as EndReason] : "Ended",
       pct: cells.length === 0 ? 0 : Math.round((100 * fundedUnits) / (whole * cells.length)),

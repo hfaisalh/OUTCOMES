@@ -314,3 +314,44 @@ describe("fill and the page's requests", () => {
     expect(applyPlacementAction(c, run.value, { action: "asg-run" })).toBeNull();
   });
 });
+
+describe("parked outcomes, the partner's own stock (DECISIONS 209)", () => {
+  const parked = (): Placements => {
+    let p: Placements = emptyPlacements();
+    for (const name of ["Chak 5 pump", "Dhok 2 pump"]) {
+      const r = applyPlacementAction(ctx(), p, { action: "plc-stock-add", partnerId: "trust", giftProjectId: "aghosh", clusterId: "c1", itemId: "I11", name });
+      if (!r || "error" in r) throw new Error("stock add failed");
+      p = r.value;
+    }
+    return p;
+  };
+  it("loads parked outcomes with their own numbers, and refuses a nameless one", () => {
+    expect(parked().stock?.map((s) => [s.id, s.name])).toEqual([["STK-0001", "Chak 5 pump"], ["STK-0002", "Dhok 2 pump"]]);
+    expect(applyPlacementAction(ctx(), emptyPlacements(), { action: "plc-stock-add", partnerId: "trust", itemId: "I11", name: " " })).toHaveProperty("error");
+  });
+  it("lets a gift take the oldest free parked outcome of its partner, and a second gift the next, then makes new ones", () => {
+    const c = ctx({ enrolments: [], assignments: [asg("G1", { itemId: "I11" }), asg("G2", { itemId: "I11" }), asg("G3", { itemId: "I11" })] });
+    const r = runPlacement(c, parked());
+    expect(r.value.records.map((p) => [p.key, p.stockId])).toEqual([["G1", "STK-0001"], ["G2", "STK-0002"], ["G3", undefined]]); // the third has none free, so its outcome is made from the gift
+    expect(suggestPlacements(c, parked())[0]?.why).toBe("Takes the parked outcome Chak 5 pump.");
+    expect(r.value.stock).toHaveLength(2); // the stock list is kept
+  });
+  it("frees a parked outcome again when its placement is taken back, and will not remove one that is used", () => {
+    const c = ctx({ enrolments: [], assignments: [asg("G1", { itemId: "I11" })] });
+    const placed = runPlacement(c, parked()).value;
+    expect(applyPlacementAction(c, placed, { action: "plc-stock-remove", id: "STK-0001" })).toEqual({ error: "A gift has taken that outcome, so it cannot be removed." });
+    const back = unplace(placed, "G1", "2026-11-25");
+    if ("error" in back) throw new Error(back.error);
+    const removed = applyPlacementAction(c, back.value, { action: "plc-stock-remove", id: "STK-0001" });
+    expect(removed && "value" in removed && removed.value.stock?.map((s) => s.id)).toEqual(["STK-0002"]);
+  });
+  it("does not give a gift another partner's parked outcome, or one for another benefit", () => {
+    const c = ctx({ enrolments: [], assignments: [asg("G1", { itemId: "I11", partnerId: "other" }), asg("G2", { itemId: "I12" })] });
+    expect(runPlacement(c, parked()).value.records.map((p) => p.stockId)).toEqual([undefined, undefined]);
+  });
+  it("keeps the parked outcomes when everything else is reset", () => {
+    const r = applyPlacementAction(ctx(), parked(), { action: "plc-reset" });
+    expect(r && "value" in r && r.value.stock).toHaveLength(2);
+  });
+});
+

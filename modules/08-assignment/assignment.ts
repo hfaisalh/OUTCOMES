@@ -34,6 +34,7 @@ import type { Beneficiary } from "../07-beneficiaries/beneficiaries.js";
 import type { Enrolment, ItemRules } from "../07-beneficiaries/enrolments.js";
 import type { OutcomeType } from "../05-outcomes/outcome-types.js";
 import { batchSizeOf, labelBatches } from "./batches.js";
+import { stockCount, type StockItem } from "../09-placement/stock.js";
 import { capacityFor, crmMatchNames, eligiblePartners, isGeneralProjectName, projectOffers, projectVendors, type GiftProject, type Project } from "../06-projects/projects.js";
 
 export interface Assignment {
@@ -78,13 +79,18 @@ export interface Suggestion {
 type Result = { value: Assignments } | { error: string };
 
 // Builds the context from what the callers hold: each workflow gives its Assignment setting (automatic or suggest) and its Reassign switch.
-export function contextFrom(a: { workOrders: WorkOrder[]; partners: Project[]; giftProjects: GiftProject[]; frameworks: FrameworkTemplate[]; outcomeTypes: OutcomeType[]; urgent?: Set<string>; today: string; now: string; enrolments?: Enrolment[]; beneficiaries?: Beneficiary[]; rulesOf?: (itemId: string) => ItemRules | undefined; itemUnits?: Record<string, number> }): AssignContext {
+export function contextFrom(a: { workOrders: WorkOrder[]; partners: Project[]; giftProjects: GiftProject[]; frameworks: FrameworkTemplate[]; outcomeTypes: OutcomeType[]; urgent?: Set<string>; today: string; now: string; enrolments?: Enrolment[]; beneficiaries?: Beneficiary[]; rulesOf?: (itemId: string) => ItemRules | undefined; itemUnits?: Record<string, number>; stock?: StockItem[] }): AssignContext {
   const fw = (id: string): FrameworkTemplate | undefined => a.frameworks.find((f) => f.id === id);
   // Rule (DECISIONS 183): the units a partner's own children give for a benefit. One whole child is the units of its workflow (3 for an orphan, 1 for a scholarship).
   const itemFramework: Record<string, string> = {};
   for (const w of a.workOrders) if ((w.frameworkId ?? "") !== "" && itemFramework[w.itemId] === undefined) itemFramework[w.itemId] = w.frameworkId as string;
   const derived: AssignContext["derived"] = a.rulesOf && a.enrolments && a.beneficiaries ? (p, itemId, giftProjectId) => {
     const rules = a.rulesOf?.(itemId);
+    // Rule (DECISIONS 209): for a benefit where the gift comes first, or with no beneficiary, a partner that has parked outcomes has that many whole outcomes of capacity. With none parked, its typed capacity applies as before.
+    if (rules && (rules.first === "gift" || rules.receiver === "none")) {
+      const n = stockCount(a.stock ?? [], p.id, itemId, giftProjectId);
+      return n > 0 ? n * unitsOfItem(a.itemUnits, itemId, fw(itemFramework[itemId] ?? "")?.unitsPerBeneficiary ?? 1) : undefined;
+    }
     if (!rules || rules.first !== "beneficiary" || rules.receiver === "none") return undefined;
     const whole = unitsOfItem(a.itemUnits, itemId, fw(itemFramework[itemId] ?? "")?.unitsPerBeneficiary ?? 1); // the item's own number, else its workflow's (DECISIONS 188)
     const byId = new Map((a.beneficiaries ?? []).map((b) => [b.id, b]));
