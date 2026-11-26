@@ -37,7 +37,7 @@ describe("Assignment, used like a person would", () => {
 
     click({ page: "assignment" }, "data-page");
     expect(shell.innerHTML).toContain("<h1>Assignment</h1>");
-    expect(shell.innerHTML).toContain("Available capacity with each partner");
+    expect(shell.innerHTML).toContain("Capacity with each partner");
     expect(shell.innerHTML).toContain("Sample Orphan Care Trust");
     expect(shell.innerHTML).toContain("Orphan Sponsorship Monthly");
     expect(shell.innerHTML).toMatch(/Suggested: Sample Orphan Care Trust|Will be assigned automatically/);
@@ -51,7 +51,7 @@ describe("Assignment, used like a person would", () => {
     expect(shell.innerHTML).toContain("Confirmed 2 suggestions.");
     expect(shell.innerHTML).not.toContain('data-asg="reset" disabled');
     expect(shell.innerHTML).toContain('<span class="pill">Assigned</span>');
-    expect(shell.innerHTML).toContain('(allowed 3)</span></td><td class="num">1</td><td class="num">2</td>'); // the trust: its own children give the room, a ceiling of 3, one taken, two free (DECISIONS 183)
+    expect(shell.innerHTML).toContain('<td class="num">3</td><td class="num">1</td><td class="num">2</td>'); // the trust: its own children give the room, a ceiling of 3, one taken, two free (DECISIONS 183)
     expect(shell.innerHTML).not.toContain("Sample Lapsed Partner</option>"); // a lapsed partner is never offered
 
     const key = shell.innerHTML.match(/data-asg="unassign" data-key="([^"]+)"/)?.[1] ?? "";

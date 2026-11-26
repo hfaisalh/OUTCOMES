@@ -34,7 +34,7 @@ describe("the Assignment page", () => {
   });
   it("shows the room left with each partner, and the first partner each gift would go to, with the reason", () => {
     const html = assignmentPage(view());
-    expect(html).toContain("<td>Trust</td><td>Small Pump</td><td class=\"num\">1</td><td class=\"num\">0</td><td class=\"num\">1</td>");
+    expect(html).toContain("<td>Trust</td><td>Small Pump</td><td class=\"num\"><span class=\"muted\">\u2013</span></td><td class=\"num\">1</td><td class=\"num\">0</td><td class=\"num\">1</td>");
     expect(html).toContain("Goes to Trust (1 of 1 units free)");
     expect(html).toContain("Goes to Backup (5 of 5 units free)"); // the trust is full after the first gift
     expect(html).toContain("Will be assigned automatically");
@@ -79,6 +79,21 @@ describe("the Assignment page", () => {
     expect(ready).toContain('data-key="G01"');
     expect(ready).not.toContain('data-key="G03"');
   });
+  it("says how many registered units wait beyond the allowed capacity once the partner is full, so capacity can be raised (decision 206)", () => {
+    const kid = { id: "B1", kind: "person", name: "B1", status: "active", eligibility: "ready", partnerId: "backup" } as never;
+    const v = view({
+      workOrders: [wo("G01", { itemId: "I10", itemName: "Orphan Sponsorship Monthly" })], frameworks: [{ id: "wf", assign: "auto", unitsPerBeneficiary: 3 } as FrameworkTemplate],
+      projects: [partner("backup", "Backup", 5, { itemIds: ["I10"], benefitTerms: { I10: { capacity: 1 } } })],
+      giftProjects: [{ id: "aghosh", name: "Aghosh Home", crmNames: [], partnerIds: ["backup"] }],
+      beneficiaries: { records: [kid], counters: {} },
+      enrolments: { records: [{ id: "EN-1", beneficiaryId: "B1", giftProjectId: "aghosh", clusterId: "c", itemId: "I10", role: "", status: "active", since: "x" }], counter: 1 },
+      assignments: { records: [{ key: "G01", partnerId: "backup", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto", at: "2026-11-01T00:00:00Z" }] },
+    } as Partial<View>);
+    const html = assignmentPage(v);
+    expect(html).toContain('<td class="num">3</td><td class="num">1</td><td class="num">1</td><td class="num">0</td>'); // registered 3, allowed 1, assigned 1, none remaining
+    expect(html).toContain("2 waiting beyond allowed");
+    expect(assignmentPage({ ...v, assignments: { records: [] } })).not.toContain("waiting beyond allowed"); // not full, so no flag
+  });
   it("shows a partner's room for a sponsorship benefit as its own children, apart from any ceiling, and sends a gift only to a partner that has a child", () => {
     const kid = (id: string, partnerId: string) => ({ id, kind: "person", name: id, status: "active", eligibility: "ready", partnerId }) as never;
     const sponsor = view({
@@ -89,7 +104,7 @@ describe("the Assignment page", () => {
       enrolments: { records: [{ id: "EN-1", beneficiaryId: "B1", giftProjectId: "aghosh", clusterId: "c", itemId: "I10", role: "", status: "active", since: "x" }], counter: 1 },
     });
     const html = assignmentPage(sponsor);
-    expect(html).toContain('<span title="3 registered for this benefit">3</span>'); // one child is three units, shown as a number
+    expect(html).toContain('<td class="num">3</td>'); // one child is three units, shown as a number
     expect(html).toContain("<li>Trust: no room (it has no available capacity for this benefit yet: nothing approved and enrolled)</li>");
     expect(html).toContain("<li>Backup: has room (3 of 3 units free)</li>");
     expect(html).toContain("Goes to Backup");

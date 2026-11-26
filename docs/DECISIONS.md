@@ -853,3 +853,7 @@ Parked by Faisal: orphan sponsorship (it differs), and the rule for the 50% adva
 ## 205. The top bar and the menu stay in view, and the version sits on the top bar (2026-11-26)
 
 The version label was at the bottom of the menu, so a long page had to be scrolled to read it. The top bar now stays at the top of the window and carries the version on its right, and the menu stays in view with its own scroll when it is long. On a narrow screen the menu is not fixed. `app/theme.css`, `app/main.ts`.
+
+## 206. Capacity table shows registered, allowed and what waits beyond (2026-11-26)
+
+Supersedes the single number of 204. Partners may load beneficiaries and outcomes before any work is assigned, so the Assignment page now keeps the two numbers apart: **Registered** (what the partner has loaded for the benefit: people enrolled, for a benefit where the beneficiary comes first), **Allowed** (the capacity set on the partner, or no limit), **Assigned** and **Remaining** (the lower of registered and allowed, less assigned). When a partner has registered more than it is allowed and is full, a flag says "N waiting beyond allowed", so capacity can be raised where there is a pipeline and other partners are full. Registered shows a dash for benefits that have no loaded stock yet (outcomes parked in a partner's cluster are not built).
