@@ -19,6 +19,7 @@ import type { GiftProject, Node, Project } from "../06-projects/projects.js";
 import type { Register } from "../07-beneficiaries/beneficiaries.js";
 import type { Enrolments } from "../07-beneficiaries/enrolments.js";
 import type { Assignments } from "../08-assignment/assignment.js";
+import type { Confirmations } from "../11-confirmation/confirmation.js";
 import type { Placements } from "../09-placement/placement.js";
 import { migrateSetup, type Category, type FrameworkTemplate, type ItemMap, type Setup } from "../02-project-rules/categories.js";
 import type { AuditRecord } from "../01f-batch-audit/audit.js";
@@ -44,6 +45,7 @@ export interface OrgConfig {
   itemIcons?: Record<string, string>; // the icon chosen for an item, by item id. Absent: the icon is suggested from the name (DECISIONS 107)
   placements?: Placements; // which place each assigned gift fills, or which outcome it created, kept apart from the gifts so a test run can be reset (DECISIONS 175)
   assignments?: Assignments; // which partner each gift was assigned to, kept apart from the gifts so a test run can be reset (DECISIONS 170)
+  confirmations?: Confirmations; // the partners' answers to assignments: confirmed or rejected, with who and why (DECISIONS 231)
   enrolments?: Enrolments; // who is enrolled in which cluster, for which benefit (DECISIONS 167)
   beneficiaries?: Register; // the Beneficiary register: persons and households (DECISIONS 163)
   idCounters?: Record<string, number>; // the last number used for each ID prefix, so an ID is never used twice (DECISIONS 105)

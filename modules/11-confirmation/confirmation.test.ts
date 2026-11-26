@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { addDays, confirm, confirmationOf, emptyConfirmations, reject, type ConfirmAssignment } from "./confirmation";
+import { addDays, applyConfirmationAction, confirm, confirmationOf, confirmOnBehalf, emptyConfirmations, reject, type ConfirmAssignment } from "./confirmation";
 
 const a: ConfirmAssignment = { key: "sub:S1", partnerId: "trust", at: "2026-11-20T09:00:00Z" };
 
@@ -56,5 +56,33 @@ describe("reassigning", () => {
     const r = confirm(emptyConfirmations(), a, "Sample Officer", "2026-11-21T10:00:00Z");
     if ("error" in r) throw new Error(r.error);
     expect(confirmationOf({ ...a, at: "2026-12-01T09:00:00Z" }, r.value.records, 3, "2026-12-01").state).toBe("waiting");
+  });
+});
+
+describe("on the partner's behalf (DECISIONS 231)", () => {
+  const stockItem = { id: "PK-1", partnerId: "trust", giftProjectId: "gp", clusterId: "c", itemId: "I1", name: "Pump 1", at: "2026-11-01T00:00:00Z" };
+  const asg = { key: "sub:S1", partnerId: "trust", at: "2026-11-20T09:00:00Z", itemId: "I1", giftProjectId: "gp" };
+  it("confirms an assignment for a partner holding a parked outcome ready for the benefit, marked as done for it", () => {
+    const r = confirmOnBehalf(emptyConfirmations(), [asg], [stockItem], [], "2026-11-20T09:01:00Z");
+    expect(r.added).toBe(1);
+    expect(r.value.records[0]).toMatchObject({ answer: "confirmed", onBehalf: true });
+    expect(confirmationOf(asg, r.value.records, 3, "2026-11-21").state).toBe("confirmed");
+  });
+  it("leaves a partner with no parked outcome waiting, one whose parked outcome is taken, and one already answered", () => {
+    expect(confirmOnBehalf(emptyConfirmations(), [asg], [], [], "x").added).toBe(0);
+    expect(confirmOnBehalf(emptyConfirmations(), [asg], [stockItem], [{ stockId: "PK-1" }], "x").added).toBe(0); // the only one is used
+    const answered = confirm(emptyConfirmations(), asg, "Sam", "2026-11-20T10:00:00Z");
+    expect("value" in answered && confirmOnBehalf(answered.value, [asg], [stockItem], [], "2026-11-20T11:00:00Z").added).toBe(0);
+  });
+});
+
+describe("the requests the page makes", () => {
+  const asg = { key: "sub:S1", partnerId: "trust", at: "2026-11-20T09:00:00Z" };
+  it("confirms and rejects by key, a rejection needing its reason, and ignores requests that are not about confirmation", () => {
+    const ok = applyConfirmationAction(emptyConfirmations(), [asg], { action: "cnf-confirm", key: "sub:S1" }, "Sam", "2026-11-21T00:00:00Z");
+    expect(ok && "value" in ok && ok.value.records).toHaveLength(1);
+    expect(applyConfirmationAction(emptyConfirmations(), [asg], { action: "cnf-reject", key: "sub:S1", reason: " " }, "Sam", "x")).toEqual({ error: "Say why the partner cannot take it, so another partner can be chosen." });
+    expect(applyConfirmationAction(emptyConfirmations(), [asg], { action: "cnf-confirm", key: "nope" }, "Sam", "x")).toMatchObject({ error: expect.any(String) });
+    expect(applyConfirmationAction(emptyConfirmations(), [asg], { action: "asg-run" }, "Sam", "x")).toBeNull();
   });
 });

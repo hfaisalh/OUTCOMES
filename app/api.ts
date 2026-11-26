@@ -21,6 +21,7 @@ import type { Category, FrameworkTemplate, ItemMap } from "../modules/02-project
 import type { Register } from "../modules/07-beneficiaries/beneficiaries";
 import type { Enrolments } from "../modules/07-beneficiaries/enrolments";
 import type { Assignments } from "../modules/08-assignment/assignment";
+import type { Confirmations } from "../modules/11-confirmation/confirmation";
 import type { Placements } from "../modules/09-placement/placement";
 
 export interface Me {
@@ -101,6 +102,7 @@ export interface OutcomesReply {
   beneficiaries?: Register;
   enrolments?: Enrolments;
   assignments?: Assignments;
+  confirmations?: Confirmations;
   placements?: Placements;
   itemIcons?: Record<string, string>;
   itemUnits?: Record<string, number>;

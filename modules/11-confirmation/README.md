@@ -8,6 +8,8 @@
 
 **Decisions.** DECISIONS 139 (Confirm is a process between Assignment and Allocation), 202 (these rules).
 
-**Built.** The rules and their tests only. Not built yet: storage and the server, the Confirmation page (a waiting list with late partners first), the workflow's days setting, and holding Placement until a gift is confirmed.
+**Built.** The rules and their tests; storage (`confirmations` in the saved setup, returned with every answer); the server and demo requests `cnf-confirm`, `cnf-reject` and `cnf-reset` (one pure function, `applyConfirmationAction`); on-behalf confirmation for a partner holding a parked outcome ready for the benefit (`confirmOnBehalf`, DECISIONS 231); the Confirmation page (tiles that filter, late first, Confirm and Reject for a person); the workflow's days setting (already on the workflow, Confirmation stage). Clearing assignments clears the answers.
+
+**Not built, on purpose.** Holding Placement until a gift is confirmed (Allocate still works on any assigned gift). Moving a late gift automatically: a late answer is advised only (the page says how many days late and points to Assignment), by agreement. Skipping the rejecting partner when the automatic rule runs again: a rejected gift stays assigned until a person chooses another partner.
 
 **How to test.** `npx vitest run modules/11-confirmation`. Tests use invented data and double as examples.

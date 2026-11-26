@@ -38,6 +38,7 @@ import { applyKindAction, type SavedFeatures } from "../02-project-rules/kind-fe
 import { applyBeneficiaryAction, emptyRegister } from "../07-beneficiaries/beneficiaries.js";
 import { applyPlacementAction, emptyPlacements, placementContext } from "../09-placement/placement.js";
 import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments } from "../08-assignment/assignment.js";
+import { applyConfirmationAction, confirmOnBehalf, emptyConfirmations } from "../11-confirmation/confirmation.js";
 import { loadSampleSetup, realProjectsFor, wholeByItem, type SampleState, removeSampleSetup, sampleSummaryText, removedSummaryText } from "../07-beneficiaries/sample-setup.js";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf } from "../07-beneficiaries/enrolments.js";
 
@@ -350,6 +351,9 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   let enrolments = config.enrolments ?? emptyEnrolments(); // who is enrolled where (DECISIONS 167)
   let placements = config.placements ?? emptyPlacements(); // which place each assigned gift fills (DECISIONS 175)
   let assignments = config.assignments ?? emptyAssignments(); // which partner each gift was assigned to (DECISIONS 170)
+  let confirmations = config.confirmations ?? emptyConfirmations(); // the partners' answers to those assignments (DECISIONS 231)
+  // Rule: every answer carries the whole picture (all the records the page draws from), so a page never has to ask twice. The few things an answer changes are passed in `over`.
+  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...over });
   // Rule (DECISIONS 105): every outcome and allocation has an ID. Any without one are given one here, so older ones get theirs too.
   const settle = (): boolean => {
     const r = ensureRefs({ outcomes, allocations, counters: idCounters }, outcomeTypes, config.allocationPrefix);
@@ -365,6 +369,8 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     const commitments = () => d.store.listWorkOrders(org).then((w) => allocatable(w, perPeriodRule(fw), new Date(d.nowMs()).toISOString().slice(0, 10)));
     const at = new Date(d.nowMs()).toISOString();
     const fail = (error: string) => json(400, { error });
+    // Rule (DECISIONS 231): a partner holding a parked outcome ready for the gift's benefit is confirmed for. Run after anything that changes assignments or stock.
+    const settleConfirmations = (): void => { confirmations = confirmOnBehalf(confirmations, assignments.records, placements.stock ?? [], placements.records, at).value; };
 
     // The icon chosen for an item (DECISIONS 107). An empty icon takes the choice back, so the name's suggestion shows again.
     if (b["action"] === "item-icon") {
@@ -374,14 +380,14 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       const next = { ...(config.itemIcons ?? {}) };
       if (icon === "") delete next[itemId]; else next[itemId] = icon;
       await d.store.putConfig(org, { ...config, itemIcons: next, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {} });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: next, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {} });
+      return reply({ itemIcons: next });
     }
     // The kind of benefit chosen for an item (DECISIONS 143). An empty kind takes the choice back, so the name's suggestion shows again.
     if (b["action"] === "item-kind") {
       const r = setItemKind(config.itemKinds ?? {}, str("itemId"), str("kind"));
       if ("error" in r) return fail(r.error);
       await d.store.putConfig(org, { ...config, itemKinds: r.value, kindFeatures: config.kindFeatures ?? {} });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: r.value, kindFeatures: config.kindFeatures ?? {} });
+      return reply({ itemKinds: r.value });
     }
     // Assignment (DECISIONS 170): the same pure rule the demo uses. The workflow decides automatic or suggested, and whether a person may reassign. Results are separate records, so they can be reset.
     if (typeof b["action"] === "string" && b["action"].startsWith("asg-")) {
@@ -392,8 +398,10 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
       assignments = r.value;
-      await d.store.putConfig(org, { ...config, assignments });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...(r.message ? { warning: r.message } : {}) });
+      if (b["action"] === "asg-reset") confirmations = emptyConfirmations(); // no assignments, so no answers
+      settleConfirmations();
+      await d.store.putConfig(org, { ...config, assignments, confirmations });
+      return reply({ ...(r.message ? { warning: r.message } : {}) });
     }
     // Placement, the rewired Allocation (DECISIONS 175): the same pure rule the demo uses. An assigned gift fills an open place (an enrolment) or creates an outcome. Results are separate records, so they can be reset.
     if (typeof b["action"] === "string" && b["action"].startsWith("plc-")) {
@@ -405,8 +413,18 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
       placements = r.value;
-      await d.store.putConfig(org, { ...config, placements });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...(r.message ? { warning: r.message } : {}) });
+      settleConfirmations(); // new parked outcomes can confirm waiting assignments
+      await d.store.putConfig(org, { ...config, placements, confirmations });
+      return reply({ ...(r.message ? { warning: r.message } : {}) });
+    }
+    // Confirmation (DECISIONS 231): a person answers for the partner, confirming or rejecting an assigned gift. The same pure rule the demo uses.
+    if (typeof b["action"] === "string" && b["action"].startsWith("cnf-")) {
+      const r = applyConfirmationAction(confirmations, assignments.records, b, a.claims.name, at);
+      if (!r) return fail("That request is not understood.");
+      if ("error" in r) return fail(r.error);
+      confirmations = r.value;
+      await d.store.putConfig(org, { ...config, confirmations });
+      return reply({ ...(r.message ? { warning: r.message } : {}) });
     }
     // The sample setup (DECISIONS 168): invented partners, projects, clusters, beneficiaries and enrolments, loaded and removed as one.
     if (b["action"] === "sample-load" || b["action"] === "sample-remove") {
@@ -427,7 +445,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (next.assignments) assignments = next.assignments;
       if (next.placements) placements = next.placements;
       await d.store.putConfig(org, { ...config, projects, giftProjects, partnerTypes, beneficiaries, enrolments, assignments, placements });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, warning: message });
+      return reply({ warning: message });
     }
     // The Beneficiary register (DECISIONS 163) and enrolments (DECISIONS 167): the same pure rules the demo uses. A beneficiary that is enrolled cannot be removed.
     if (typeof b["action"] === "string" && b["action"].startsWith("ben-")) {
@@ -436,7 +454,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if ("error" in r) return fail(r.error);
       beneficiaries = r.value;
       await d.store.putConfig(org, { ...config, beneficiaries });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {} });
+      return reply();
     }
     if (typeof b["action"] === "string" && b["action"].startsWith("enr-")) {
       const names = new Map((await d.store.listWorkOrders(org)).map((w) => [w.itemId, w.itemName]));
@@ -445,14 +463,14 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if ("error" in r) return fail(r.error);
       enrolments = r.value;
       await d.store.putConfig(org, { ...config, enrolments });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {} });
+      return reply();
     }
     // The units that make one whole beneficiary of an item (DECISIONS 188). An empty number takes the item's own back, so its workflow's applies.
     if (b["action"] === "item-units") {
       const r = setItemUnits(config.itemUnits ?? {}, str("itemId"), b["units"]);
       if ("error" in r) return fail(r.error);
       await d.store.putConfig(org, { ...config, itemUnits: r.value });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: r.value, kindFeatures: config.kindFeatures ?? {} });
+      return reply({ itemUnits: r.value });
     }
     // The features of a kind of benefit (DECISIONS 146): the same pure rule the demo uses.
     if (typeof b["action"] === "string" && b["action"].startsWith("kf-")) {
@@ -460,14 +478,14 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
       await d.store.putConfig(org, { ...config, kindFeatures: r.value });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: r.value });
+      return reply({ kindFeatures: r.value });
     }
     // Outcome types (DECISIONS 103): the same pure rule the demo uses. A type that outcomes already use cannot be removed.
     // The outcome types the starting workflows need, linked to those workflows that exist (DECISIONS 130).
     if (b["action"] === "ot-starters") {
       outcomeTypes = withPrefixes(linkStarterTypes(outcomeTypes, fw.map((f) => f.id)));
       await d.store.putConfig(org, { ...config, outcomeTypes });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {} });
+      return reply();
     }
     if (typeof b["action"] === "string" && b["action"].startsWith("ot-")) {
       const used = [...new Set(outcomes.map((o) => o.outcomeTypeId ?? "").filter((x) => x !== ""))];
@@ -476,7 +494,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if ("error" in r) return fail(r.error);
       outcomeTypes = r.types;
       await d.store.putConfig(org, { ...config, outcomeTypes });
-      return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {} });
+      return reply();
     }
     switch (b["action"]) {
       case "add": {
@@ -579,5 +597,5 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   } else if (settle()) {
     await d.store.putConfig(org, { ...config, outcomes, allocations, outcomeTypes, idCounters });
   }
-  return json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...extra });
+  return reply({ ...extra });
 }
