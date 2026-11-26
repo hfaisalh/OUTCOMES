@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { commitmentOfKey, implementationRows } from "./implementation";
+import { commitmentOfKey, giftKeyOfPlacementKey, implementationRows } from "./implementation";
 import type { Commitment } from "../04b-commitments/commitments";
 import type { Enrolment } from "./enrolments";
 import type { Placement } from "../09-placement/placement";
@@ -41,5 +41,12 @@ describe("implementationRows", () => {
     expect(implementationRows({ ...base, placements: [pl({ to: "2026-11-01", endReason: "paused" })] })[0]?.filled).toBe(0);
     expect(commitmentOfKey([c], "sub:SUB1")).toBe(c);
     expect(commitmentOfKey([c], "nope")).toBeUndefined();
+  });
+});
+
+describe("the gift a placement key names", () => {
+  it("is the subscription for sub:, and once- plus the line for a one-off, so a line id equal to a subscription id opens the right gift", () => {
+    expect(giftKeyOfPlacementKey("sub:104")).toBe("104");
+    expect(giftKeyOfPlacementKey("104")).toBe("once-104"); // a one-off line numbered 104 is not subscription 104
   });
 });

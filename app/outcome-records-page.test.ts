@@ -26,6 +26,11 @@ const view = (over: Partial<View> = {}): View => ({
 }) as View;
 
 describe("the Outcomes list", () => {
+  it("opens a one-off outcome's gift as once-<line>, even when a subscription has the same number as the line (the wrong gift opened before)", () => {
+    const html = outcomeRecordsPage(view({ workOrders: [wo(104, "2026-10-05", { key: "104", lineId: "104" })], placements: { records: [out({ key: "104" })], counter: 1 }, assignments: { records: [{ key: "104", partnerId: "builders", giftProjectId: "villages", itemId: "I20", parts: 1, how: "auto", at: "x" }] } }));
+    expect(html).toContain('data-gift-open="once-104"');
+    expect(html).not.toContain('data-gift-open="104"');
+  });
   it("shows one line for each outcome with its reference, benefit, project, partner, donor, plan, funded and stage", () => {
     const html = outcomeRecordsPage(view());
     expect(html).toContain("<h1>Outcomes</h1>");

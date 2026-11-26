@@ -46,9 +46,12 @@ export interface ImplRow {
 
 // Rule: a placement key names a gift: "sub:<id>" is a subscription, anything else is a one-off payment line.
 export function commitmentOfKey(commitments: Commitment[], key: string): Commitment | undefined {
-  const id = key.startsWith("sub:") ? key.slice(4) : `once-${key}`;
-  return commitments.find((c) => c.subscriptionId === id);
+  return commitments.find((c) => c.subscriptionId === giftKeyOfPlacementKey(key));
 }
+
+// Rule: the key of the gift a placement belongs to, as the Gifts list names it: the subscription id, or "once-" and the line id for a one-off payment.
+// A line id can look exactly like a subscription id (both can be 104), so a one-off must never be passed on without its "once-".
+export const giftKeyOfPlacementKey = (key: string): string => (key.startsWith("sub:") ? key.slice(4) : `once-${key}`);
 
 // Rule: every allocated gift has a plan. A single payment the allocation rules do not count per period (a scholarship, a pump) is still shown, as a plan of the months it covers (one when the CRM gives no length).
 export function commitmentsFor(workOrders: WorkOrder[], isPerPeriod: (frameworkId: string) => boolean, today: string): Commitment[] {
