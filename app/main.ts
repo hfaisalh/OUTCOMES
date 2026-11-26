@@ -598,6 +598,7 @@ function redrawLists(): void {
 // The Other sources page (field mapping) lives in the shell and keeps its own state (DECISIONS 93).
 const mapping = createMapping(() => draw());
 
+let lastListSig = "";
 function draw(): void {
   // Rule (DECISIONS 91): until a session is found, or the demo is chosen, only the sign-in screen is shown.
   if (state.gate !== "app") {
@@ -659,6 +660,9 @@ function draw(): void {
       <div class="who">${gear}${person}</div></header>
     <main class="content">${moduleTabs}${frameLists(body)}</main></div>`;
   void role;
+  // Motion (DECISIONS 220): the first rows of the Gifts list ease in when the list itself changes (page, tab, tile, column filter or sort), not on every redraw or keystroke.
+  const sig = `${state.page}|${state.filter}|${JSON.stringify(state.giftColFilters)}|${JSON.stringify(state.giftSort ?? "")}`;
+  if (sig !== lastListSig) { lastListSig = sig; if (!reducedMotion()) document.querySelector?.(".giftlist")?.classList.add("rows-in"); }
   // The partner window sits outside the page, so it is drawn again from the new state, except on the profile tab, which keeps what is being typed.
   if (state.partnerWin.open && state.partnerWin.tab !== "profile") renderPartnerWindow();
   renderGiftWindow();
@@ -666,17 +670,32 @@ function draw(): void {
 
 // ---- The gift details window (DECISIONS 78) ----
 // A pop-up outside the redrawn page. It is drawn again from the new state after every change, and closes itself when the gift is no longer there.
+// Motion (DECISIONS 220): the window eases in when it OPENS and out when it closes, and is not replayed when it is redrawn after a change inside it.
+// Rule: exits are shorter than entrances, only transform and opacity move, and a person who asks the system for less motion gets none.
+const reducedMotion = (): boolean => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+let giftClosing: ReturnType<typeof setTimeout> | undefined;
 function renderGiftWindow(): void {
   let root = document.getElementById("gift-root");
-  if (state.giftWin.key === "") { state.giftWin.log = false; if (root) root.innerHTML = ""; return; }
+  if (state.giftWin.key === "") {
+    state.giftWin.log = false;
+    if (!root || root.innerHTML === "" || giftClosing !== undefined) return;
+    if (reducedMotion()) { root.innerHTML = ""; return; }
+    root.classList.add("gw-out");
+    giftClosing = setTimeout(() => { giftClosing = undefined; if (state.giftWin.key === "") root!.innerHTML = ""; root!.classList.remove("gw-out"); }, 130);
+    return;
+  }
   if (!root) {
     root = document.createElement("div");
     root.id = "gift-root";
     document.body.appendChild(root);
   }
+  // Opening again while it is still closing cancels the close, so the animation can always be interrupted.
+  if (giftClosing !== undefined) { clearTimeout(giftClosing); giftClosing = undefined; root.classList.remove("gw-out"); root.innerHTML = ""; }
+  const opening = root.innerHTML === "";
   const html = giftDetailHtml(view(), state.giftWin.key, state.giftWin.log);
   if (html === "") state.giftWin.key = "";
   root.innerHTML = html;
+  root.classList.toggle("gw-in", opening && html !== "" && !reducedMotion());
 }
 document.addEventListener("click", (e) => {
   const t = e.target as HTMLElement;

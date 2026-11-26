@@ -422,3 +422,28 @@ button.metric.tile:focus-visible{outline:2px solid var(--accent,#2b3f9e);outline
 .fgrid.one .f>span{display:none}
 .pf-body.gw .fgrid .f{font-size:13px}.pf-body.gw .fgrid .f>span{font-size:11px}
 .pf-body.gw table td,.pf-body.gw table th{padding-top:4px;padding-bottom:4px}
+
+/* Motion (DECISIONS 220). Lessons taken from the framer-motion-animator skill and built in plain CSS, since the app has no React: springs for arrivals, stagger for lists, exits shorter than entrances, transform and opacity only, no replay on redraw, nothing when the system asks for reduced motion. */
+:root{--spring:cubic-bezier(.22,1.2,.36,1);--ease-out:cubic-bezier(.2,.8,.2,1)}
+@keyframes gw-fade{from{opacity:0}to{opacity:1}}
+@keyframes gw-pop{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes gw-rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes gw-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes gw-leave{to{opacity:0;transform:translateY(6px) scale(.985)}}
+@keyframes gw-leave-bg{to{opacity:0}}
+.gw-in .pf-overlay{animation:gw-fade .16s var(--ease-out) both}
+.gw-in .pf-box{animation:gw-pop .26s var(--spring) both}
+.gw-in .gw-hero,.gw-in .gw-units,.gw-in .gw-cols>.gw-card,.gw-in .pf-body.gw>section:last-child{animation:gw-rise .26s var(--ease-out) both}
+.gw-in .gw-hero{animation-delay:.05s}.gw-in .gw-units{animation-delay:.08s}
+.gw-in .gw-cols>.gw-card:nth-child(1){animation-delay:.11s}.gw-in .gw-cols>.gw-card:nth-child(2){animation-delay:.14s}.gw-in .gw-cols>.gw-card:nth-child(3){animation-delay:.17s}
+.gw-in .pf-body.gw>section:last-child{animation-delay:.2s}
+.gw-in .gw-hero .bar>span{transform-origin:left;animation:gw-grow .5s var(--ease-out) .2s both}
+.gw-out .pf-overlay{animation:gw-leave-bg .12s ease-in both;pointer-events:none}
+.gw-out .pf-box{animation:gw-leave .12s ease-in both}
+/* List rows: the first twelve arrive one after another, then the rest are simply there. Press feedback on what can be pressed. */
+@keyframes row-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.giftlist.rows-in tbody tr.grow:nth-child(-n+12){animation:row-in .22s var(--ease-out) both}
+.giftlist.rows-in tbody tr.grow:nth-child(2){animation-delay:.02s}.giftlist.rows-in tbody tr.grow:nth-child(3){animation-delay:.04s}.giftlist.rows-in tbody tr.grow:nth-child(4){animation-delay:.06s}.giftlist.rows-in tbody tr.grow:nth-child(5){animation-delay:.08s}.giftlist.rows-in tbody tr.grow:nth-child(6){animation-delay:.1s}.giftlist.rows-in tbody tr.grow:nth-child(7){animation-delay:.12s}.giftlist.rows-in tbody tr.grow:nth-child(8){animation-delay:.14s}.giftlist.rows-in tbody tr.grow:nth-child(9){animation-delay:.16s}.giftlist.rows-in tbody tr.grow:nth-child(10){animation-delay:.18s}.giftlist.rows-in tbody tr.grow:nth-child(11){animation-delay:.2s}.giftlist.rows-in tbody tr.grow:nth-child(12){animation-delay:.22s}
+button.metric.tile,.chipbtn,.fbtn,.pf-box button{transition:transform .12s var(--ease-out),border-color .15s,background-color .15s}
+button.metric.tile:active,.chipbtn:active,.pf-box button:active{transform:scale(.97)}
+@media (prefers-reduced-motion:reduce){.gw-in *,.gw-out *,.giftlist.rows-in tbody tr,.gw-in .pf-overlay,.gw-out .pf-overlay,.gw-in .pf-box,.gw-out .pf-box{animation:none!important}button:active{transform:none!important}}
