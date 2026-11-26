@@ -24,7 +24,7 @@ const RULE_PATHS: Record<string, [string, string]> = {
   report: ['<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>', "Rule: tasks and the donor report"],
 };
 
-const W = 104, SW = 96, H = 56, GAP = 28, Y = 52, X0 = 8;
+const W = 104, H = 56, GAP = 28, Y = 52, X0 = 8;
 const ROOM = 30; // extra length of an arrow that carries an approved tick, so the line runs in and out of it
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 

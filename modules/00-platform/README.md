@@ -16,7 +16,9 @@ The server side of OUTCOMES: signing people in from the CRM (DECISIONS 32), stor
 | File | What it does |
 |---|---|
 | `launch-token.ts` | Signs and checks tokens. Launch tokens live 2 minutes at most, sessions one hour |
-| `handlers.ts` | The endpoints as plain functions: launch, logout, me, config, work orders, pick-up |
+| `http.ts` | The shared pieces of every endpoint: request and response shapes, the dependencies, JSON and text answers, who is signed in, the permission check |
+| `handlers.ts` | The endpoints as plain functions: launch, logout, me, config, work orders, pick-up, import, audits, triage, exclude |
+| `outcomes-handler.ts` | The Outcomes endpoint, the largest: outcomes, projects, partners, the Beneficiary register, enrolments, assignment, confirmation, progress, placement. Answers every request with the whole picture (`reply`) |
 | `store.ts` | The storage interface, and a memory version for tests and demos |
 | `pg-store.ts`, `../../sql/001_init.sql` | The Postgres version and its tables |
 | `OWNER_PASSPHRASE` sign-in, `/api/import`, `/api/audits` | Owner sign-in until the CRM sign-in exists, uploads of CRM export files, and the audit history (DECISIONS 43) |

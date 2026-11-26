@@ -7,7 +7,6 @@
 
 import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../modules/02-project-rules/categories";
-import { starterOutcomeTypes } from "../modules/05-outcomes/outcome-types";
 import { flowChart } from "./workflow-flowchart";
 
 const fw = (over: Partial<FrameworkTemplate> = {}): FrameworkTemplate => ({ id: "w", name: "Orphan sponsorship", unit: "orphan", cycle: "quarterly", reportType: "Quarterly orphan update", instalment: "per_period", unitsPerBeneficiary: 3, ...over });

@@ -14,7 +14,7 @@
  */
 
 import type { WorkOrder } from "../01c-crm-connector/work-orders.js";
-import { partsOf, periodsOf, sentPartsOf } from "../01c-crm-connector/work-orders.js";
+import { partsOf, sentPartsOf } from "../01c-crm-connector/work-orders.js";
 import { suggestCatchUps, suggestPartFixes, type CatchUp, type PartFix } from "./catch-up.js";
 import { buildCommitments, needsLook, ONCE_PREFIX, type Commitment, type Suggestion } from "./commitments.js";
 

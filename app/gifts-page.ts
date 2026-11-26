@@ -26,7 +26,7 @@ import { giftRows, type GiftRow } from "../modules/04b-commitments/gifts";
 import { giftStage, STAGE_TITLES, type StageResult } from "../modules/04b-commitments/stage";
 import { allocationShape, unitsForCommitment } from "../modules/02-project-rules/categories";
 import { perPeriodRule, takesCapacity } from "../modules/05-outcomes/outcomes";
-import { creditLine, criteriaFor, esc, filterBar, listBase, MAX_ROWS, metric, workflowPicker, type Filter, type View } from "./pages";
+import { creditLine, criteriaFor, esc, filterBar, listBase, MAX_ROWS, workflowPicker, type Filter, type View } from "./pages";
 
 const num = (n: number) => String(Math.round(n * 100) / 100);
 // Rule: a value is for reference only (OUTCOMES does not manage money). The CRM feed gives no currency, so none is shown.
@@ -525,8 +525,6 @@ function tabCounts(v: View): Record<string, number> {
 }
 
 export function giftsPage(v: View): string {
-  const live = v.workOrders.filter((w) => w.status !== "excluded");
-  const count = (s: string) => v.workOrders.filter((w) => w.status === s).length;
   const counts = tabCounts(v);
   const tab = (id: Filter, label: string) => `<button data-filter="${id}" class="${v.filter === id ? "on" : ""}" aria-pressed="${v.filter === id ? "true" : "false"}">${label} <span class="cnt">${counts[id] ?? 0}</span></button>`;
   const base = listBase(v, "main");

@@ -8,7 +8,7 @@
  */
 
 import { CYCLE_LABELS, type Cycle, type FrameworkTemplate } from "../modules/02-project-rules/categories";
-import { assignOf, confirmDaysOf, flagOf, outcomeName, totalDays, unitModeOf } from "../modules/02-project-rules/workflows";
+import { assignOf, confirmDaysOf, flagOf, totalDays, unitModeOf } from "../modules/02-project-rules/workflows";
 import { typeForFramework, type OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { flowChart } from "./workflow-flowchart";
 import { ICONS, iconHtml, itemIcon } from "./icons";

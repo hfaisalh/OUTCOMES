@@ -12,7 +12,6 @@ import { ageOf, ELIGIBILITY_LABEL, filterBeneficiaries, NO_FILTER, type Benefici
 import { commitmentsFor, implementationRows } from "../modules/07-beneficiaries/implementation";
 import { monthsAround, perPeriodRule, type UnitStatus } from "../modules/05-outcomes/outcomes";
 import { unitsOfItem } from "../modules/02-project-rules/benefits";
-import { clusterStateOf, pathOf } from "../modules/06-projects/clusters";
 import { normName } from "../modules/07-beneficiaries/beneficiaries";
 import { icon, SYMBOL } from "./gifts-page";
 import { SYM } from "./symbols";

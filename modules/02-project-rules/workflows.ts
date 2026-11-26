@@ -16,7 +16,7 @@
  */
 
 import type { Changed, Cycle, FrameworkTemplate, ImplStage, InstalmentRule, Setup, WorkflowTask } from "./categories.js";
-import { CYCLE_LABELS, resolveFrameworkId } from "./categories.js";
+import { resolveFrameworkId } from "./categories.js";
 import { typeForFramework, type OutcomeType } from "../05-outcomes/outcome-types.js";
 
 export type { WorkflowTask };
@@ -56,8 +56,6 @@ export function setUnitRule(frameworks: FrameworkTemplate[], id: string, units: 
   });
 }
 
-const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
-const lower = (s: string): string => s.charAt(0).toLowerCase() + s.slice(1);
 
 // ---- Tasks ----
 const taskId = (label: string, taken: string[]): string => {

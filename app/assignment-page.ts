@@ -30,7 +30,6 @@ export function assignmentPage(v: View): string {
   const pname = (id: string): string => partners.find((p) => p.id === id)?.name ?? id;
   const units = new Map(assignables(ctx).map((u) => [u.key, u])); // a recurring gift is one row, however many payments it has (DECISIONS 172)
   const suggestions = suggestAssignments(ctx, existing);
-  const sugOf = new Map<string, Suggestion>(suggestions.map((s) => [s.key, s]));
   const waiting = suggestions.filter((s) => s.partnerId === "").length;
   const suggested = suggestions.filter((s) => s.partnerId !== "" && s.mode === "suggest").length;
   const toGo = suggestions.filter((s) => s.partnerId !== "" && s.mode === "auto").length;

@@ -21,6 +21,7 @@ import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
 import { registerPage } from "./register-page";
 import { NO_OUTCOME_FILTER, outcomeRecordsPage } from "./outcome-records-page";
+import { installListEvents, placePopover } from "./list-events";
 import { progressPage } from "./progress-page";
 import { confirmationPage, type ConfirmFilter } from "./confirmation-page";
 import { assignmentPage } from "./assignment-page";
@@ -1980,108 +1981,5 @@ document.addEventListener("keydown", (e) => {
   if (row && e.key === "Enter") { state.benWin = { open: true, id: row.dataset.id ?? "", kind: "person" }; renderBenWindow(); }
 });
 
-// ---- Tools on every list (DECISIONS 222): sort by a heading, filter by value, choose columns ----
-document.addEventListener("click", (e) => {
-  const t = e.target as HTMLElement;
-  const at = (a: string): [string, number] | null => { const el = t.closest(`[${a}]`) as HTMLElement | null; if (!el) return null; const [k, c] = (el.getAttribute(a) ?? "").split("|"); return [k ?? "", Number(c ?? 0)]; };
-  const tt = state.tt;
-  const sort = at("data-tt-sort");
-  if (sort) { const [k, col] = sort; const cur = tt.sort[k]; tt.sort[k] = cur?.col === col ? (cur.dir === "asc" ? { col, dir: "desc" } : undefined) : { col, dir: "asc" }; return draw(); }
-  const filt = at("data-tt-filter");
-  if (filt) { const [k, col] = filt; tt.open = tt.open?.kind === "filter" && tt.open.key === k && tt.open.col === col ? null : { key: k, kind: "filter", col }; return draw(); }
-  const cols = t.closest("[data-tt-cols]") as HTMLElement | null;
-  if (cols) { const k = cols.dataset.ttCols ?? ""; tt.open = tt.open?.kind === "cols" && tt.open.key === k ? null : { key: k, kind: "cols", col: 0 }; return draw(); }
-  const clr = at("data-tt-clearcol");
-  if (clr) { const [k, col] = clr; (tt.filters[k] ??= {})[col] = []; return draw(); }
-  const reset = t.closest("[data-tt-reset]") as HTMLElement | null;
-  if (reset) { const k = reset.dataset.ttReset ?? ""; delete tt.filters[k]; delete tt.sort[k]; delete tt.hidden[k]; return draw(); }
-  if (t.closest("[data-tt-done]")) { tt.open = null; return draw(); }
-});
-document.addEventListener("change", (e) => {
-  const t = e.target as HTMLInputElement;
-  const v = t.getAttribute?.("data-tt-val"), c = t.getAttribute?.("data-tt-col");
-  if (v) { const [k, col] = v.split("|"); const f = ((state.tt.filters[k!] ??= {})); const cur = f[Number(col)] ?? []; f[Number(col)] = t.checked ? [...cur, t.value] : cur.filter((x) => x !== t.value); return draw(); }
-  if (c) { const [k, col] = c.split("|"); const h = state.tt.hidden[k!] ?? []; state.tt.hidden[k!] = t.checked ? h.filter((x) => x !== Number(col)) : [...h, Number(col)]; return draw(); }
-});
-
-// The tiles above the Beneficiaries list choose what to show (DECISIONS 224): all, gaps, or failed payments.
-document.addEventListener("click", (e) => {
-  const b = (e.target as HTMLElement).closest?.("[data-regshow]") as HTMLElement | null;
-  if (!b) return;
-  const mode = b.dataset.regshow ?? "";
-  state.registerFilter = { ...state.registerFilter, show: state.registerFilter.show === mode ? "" : (mode as BeneficiaryFilter["show"]) };
-  draw();
-});
-
-// The tiles above the Outcomes list choose what to show (DECISIONS 224).
-document.addEventListener("click", (e) => {
-  const b = (e.target as HTMLElement).closest?.("[data-orshow]") as HTMLElement | null;
-  if (!b) return;
-  const mode = (b.dataset.orshow ?? "") as typeof state.outcomeRecFilter.show;
-  state.outcomeRecFilter = { ...state.outcomeRecFilter, show: state.outcomeRecFilter.show === mode ? "" : mode };
-  draw();
-});
-
-// Tiles on Assignment and Allocate choose what to show (DECISIONS 226); pressing the same tile again shows all.
-document.addEventListener("click", (e) => {
-  const b = (e.target as HTMLElement).closest?.("[data-tile]") as HTMLElement | null;
-  if (!b) return;
-  const [which, id] = (b.dataset.tile ?? "").split(":");
-  if (which === "asg") state.assignFilter = state.assignFilter === id ? "all" : id!;
-  else if (which === "alloc") state.allocFilter = state.allocFilter === id ? "all" : id!;
-  else if (which === "prg") state.prgFilter = state.prgFilter === id ? "all" : id!;
-  else if (which === "cnf") state.cnfFilter = state.cnfFilter === id ? "all" : (id as ConfirmFilter);
-  else return;
-  draw();
-});
-
-// ---- The drop-down panel of the lists (DECISIONS 229): it sits under the button that opened it, closes on a click outside or Escape, and its search box narrows a long list as you type ----
-function placePopover(): void {
-  const pop = document.querySelector?.(".vpop") as HTMLElement | null;
-  if (!pop) return;
-  const anchor = (document.querySelector?.('.fbtn[aria-pressed="true"], [aria-expanded="true"][data-gcols], [aria-expanded="true"][data-tt-cols]') ?? null) as HTMLElement | null;
-  if (!anchor) return;
-  const r = anchor.getBoundingClientRect();
-  const w = pop.offsetWidth || 240;
-  pop.style.top = `${Math.round(r.bottom + 4)}px`;
-  pop.style.left = `${Math.round(Math.max(8, Math.min(r.left, window.innerWidth - w - 8)))}px`;
-}
-function closePopover(): boolean {
-  if (!document.querySelector?.(".vpop")) return false;
-  state.giftFiltOpen = ""; state.giftColsOpen = false; state.tt.open = null;
-  return true;
-}
-if (typeof window !== "undefined") { window.addEventListener("scroll", placePopover, true); window.addEventListener("resize", placePopover); }
-document.addEventListener("click", (e) => {
-  const t = e.target as HTMLElement;
-  if (t.closest?.(".vpop, .fbtn, [data-gcols], [data-tt-cols], [data-gfilt], [data-tt-filter]")) return;
-  if (closePopover()) draw();
-});
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && closePopover()) draw(); });
-document.addEventListener("input", (e) => {
-  const t = e.target as HTMLInputElement | null;
-  if (!t?.dataset?.vpopSearch) return;
-  const q = t.value.trim().toLowerCase();
-  t.closest(".vpop")?.querySelectorAll<HTMLElement>(".vpop-item").forEach((l) => { l.hidden = q !== "" && !(l.textContent ?? "").toLowerCase().includes(q); });
-});
-
-// The buttons on the Confirmation page (DECISIONS 231): a person confirms or rejects for the partner. A rejection needs its reason, which the rule checks.
-document.addEventListener("click", (e) => {
-  const b = (e.target as HTMLElement).closest?.("[data-cnf]") as HTMLElement | null;
-  if (!b) return;
-  const key = b.dataset.key ?? "";
-  if (b.dataset.cnf === "confirm") return void outcomeChange({ action: "cnf-confirm", key });
-  const reason = (document.querySelector?.(`[data-cnf-reason="${key.replace(/"/g, "")}"]`) as HTMLInputElement | null)?.value ?? "";
-  void outcomeChange({ action: "cnf-reject", key, reason });
-});
-
-// The buttons on the Progress page and the Batches card (DECISIONS 232): take the next step of a gift, take one back, close or reopen a batch.
-document.addEventListener("click", (e) => {
-  const b = (e.target as HTMLElement).closest?.("[data-prg]") as HTMLElement | null;
-  if (!b) return;
-  const d = b.dataset;
-  if (d.prg === "next") return void outcomeChange({ action: "prg-next", key: d.key });
-  if (d.prg === "undo") return void outcomeChange({ action: "prg-undo", key: d.key });
-  if (d.prg === "close") return void outcomeChange({ action: "prg-close-batch", partnerId: d.partner, batch: Number(d.batch) });
-  if (d.prg === "open") return void outcomeChange({ action: "prg-open-batch", partnerId: d.partner, batch: Number(d.batch) });
-});
+// ---- Events of the lists: sort, filter, columns, tiles, the drop-down panel, and the buttons of Confirmation and Progress (app/list-events.ts) ----
+installListEvents({ state, draw, outcomeChange });

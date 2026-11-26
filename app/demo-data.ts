@@ -14,7 +14,6 @@ import type { FeedRow } from "../modules/01c-crm-connector/feed";
 import feedCsv from "../samples/crm-feed-sample.csv?raw";
 import { addCategory, setKeywords, type Category, type FrameworkTemplate, type Setup } from "../modules/02-project-rules/categories";
 import { ROLES } from "../modules/00-platform/roles";
-import { PERMISSIONS as P } from "./menu";
 
 export const demoFeedRows = (): FeedRow[] => toRecords(parseCsv(feedCsv)).records;
 

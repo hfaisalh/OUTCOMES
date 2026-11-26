@@ -43,7 +43,6 @@ export function allocatePage(v: View): string {
   const pname = (id: string): string => partners.find((p) => p.id === id)?.name ?? id;
   const person = (id: string): string => people.find((b) => b.id === id)?.name ?? id;
   const sug = suggestPlacements(ctx, placements);
-  const sugOf = new Map<string, PlaceSuggestion>(sug.map((s) => [s.key, s]));
   const filter = v.allocFilter ?? "all";
   const placedCount = new Set(heldRecords.filter((p) => p.kind === "place").map((p) => p.key)).size; // a gift spread over several places counts once
   const outcomeCount = heldRecords.filter((p) => p.kind === "outcome").length;
