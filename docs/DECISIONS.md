@@ -897,3 +897,13 @@ Faisal's rule: a list row is one line. A cell that holds too much goes to a pop-
 ## 213. One white state: unfilled (2026-11-26)
 
 "Nothing expected" (grey) and "Unfilled unit" (white) were confusing. Faisal: when a gift's period ends, the allocation expires, and that period is simply unfilled. So there is now one white state, **Unfilled**: a unit with no gift, or whose gift expects nothing that month (before it began, after it ended, or while the plan is paused or cancelled). The legend on Beneficiaries and Outcomes is Paid, Expected, Missed, Unfilled. The Gaps filter now means a unit with no gift this month or later, so history before a gift began does not make every beneficiary a gap. The allocation score and Funded are unchanged (they count only paid or expected). The gift window's own pies keep their grey "not this gift's units" slices, which is a different thing (the other units of a multi-unit pie). `modules/07-beneficiaries/implementation.ts`, `modules/10-outcome-records/outcome-records.ts`.
+
+## 214. Gifts page, first design pass with ui-ux-pro-max and frontend-design (2026-11-26)
+
+A review of the Gifts page against the two design skills (the existing look is kept, no new identity). Changes:
+- The intro is one short line, and the long line of nine symbols is a disclosure ("Key to the symbols"). The list starts higher. Every symbol still has its own tooltip.
+- The bulk bar (Exclude, Restore, Clear) appears only once something is ticked, and stays under the top bar while the list scrolls. It no longer shows three greyed buttons all the time.
+- Headings sort: Donor, Item, Project, Plan, Value, Paid, Next. A second click reverses, empty values go last, and `aria-sort` says which way for a screen reader. Stage, Assigned to and Allocated to are not sortable yet (they come from other records).
+- Number columns use tabular figures and align right, so digits line up.
+- Visible keyboard focus on the new controls.
+Left for later passes: a column chooser (the list has 14 columns), a filter summary line, and metrics tiles with one shape.

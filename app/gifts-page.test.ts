@@ -40,7 +40,7 @@ describe("giftsPage", () => {
     expect(html).toContain("3/10");
     expect(html).toContain('data-keys="s1 s2 s3"'); // one tick box takes every payment
     expect(html).toContain('data-gift-open="S9"'); // a click opens the details
-    expect(html).not.toContain("<details"); // the payments are in the window, not the row
+    expect(html.replace(/<details class="keydrop">.*?<\/details>/s, "")).not.toContain("<details"); // the payments are in the window, not the row (the key to the symbols is the only disclosure)
     const detail = giftDetailHtml(view({ workOrders: orders }), "S9");
     expect(detail).toContain("3 of 10");
     expect(detail).toContain("Payments (3)");
@@ -220,7 +220,7 @@ describe("giftsPage", () => {
       sub(1, { key: "e1", subscriptionId: "SE", projectName: "Where Needed Most", cause: "Where Most Needed" }),
     ] }));
     expect(html).toContain('<span class="muted" title="Where Most Needed. No project was chosen: the gift is for its item">No project</span>'); // the cause is itself general: it says No project, not General
-    expect(html).toContain("<th>Project</th>");
+    expect(html).toContain('data-gsort="project">Project</button></th>');
     expect(html).toContain('title="Aghosh. Cause: Orphan Care">Aghosh'); // a named project is shown, its cause is in the tooltip
     expect(html).toContain('<span class="muted">Water for All</span>'); // general: the cause instead
     expect(html).toContain('<span class="muted">Educare</span>'); // blank: the cause instead
@@ -350,4 +350,23 @@ describe("giftsPage", () => {
     // any other price of any other item is simply the item's unit
     expect(giftDetailHtml(view({ workOrders: [{ ...base, key: "N1", subscriptionId: "SN1", amount: 42 } as WorkOrder] }), "SN1")).not.toContain("Allocate manually.</b>");
   });
+
+  it("sorts by a heading, reverses on a second click, puts empty values last, and says so with aria-sort (decision 214)", () => {
+    const rows = [sub(1, { supporterName: "Zara" }), sub(2, { supporterName: "Amir" })].map((w) => ({ ...w, subscriptionId: `S${w.instalmentNumber}` }));
+    const names = (html: string): string[] => [...html.matchAll(/class="clip" title="(Amir|Zara) /g)].map((m) => m[1] as string);
+    const asc = giftListHtml(view({ workOrders: rows, giftSort: { key: "donor", dir: "asc" } }));
+    expect(names(asc)).toEqual(["Amir", "Zara"]);
+    expect(asc).toContain('aria-sort="ascending"');
+    expect(names(giftListHtml(view({ workOrders: rows, giftSort: { key: "donor", dir: "desc" } })))).toEqual(["Zara", "Amir"]);
+    expect(giftListHtml(view({ workOrders: rows }))).toContain('aria-sort="none"');
+  });
+  it("shows the bulk bar only once something is ticked, and keeps the key to the symbols in a disclosure (decision 214)", () => {
+    const rows = [sub(1)];
+    expect(giftListHtml(view({ workOrders: rows }))).not.toContain('class="bulkbar"');
+    const ticked = giftListHtml(view({ workOrders: rows, selected: [rows[0]!.key] }));
+    expect(ticked).toContain('class="bulkbar"');
+    expect(ticked).toContain('data-bulk="exclude">Exclude selected');
+    expect(giftListHtml(view({ workOrders: rows }))).toContain("<summary>Key to the symbols</summary>");
+  });
 });
+
