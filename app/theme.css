@@ -516,3 +516,17 @@ button.metric.tile:active,.chipbtn:active,.pf-box button:active{transform:scale(
 
 /* Download or erase one beneficiary's data (DECISIONS 240): closed until opened, the erase button is the only red thing. */
 .rg-danger{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-top:6px}.rg-danger summary{cursor:pointer;font-weight:600;font-size:14px}.rg-dangerrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.rg-dangerrow input{flex:1 1 160px;min-width:0}.rg-dangerrow .danger{margin:0;border:1px solid #d23b3b;color:#d23b3b;background:none;border-radius:8px;padding:6px 12px}.rg-dangerrow .danger:hover{background:rgba(210,59,59,.1)}
+
+/* The beneficiary window (DECISIONS 241): the gift window's look. Cards in two columns when the window is wide, one when narrow; fields in two columns inside a card. */
+.pf-box:has(.rg-body){max-width:900px}
+.rg-body{gap:8px}.rg-cols{grid-template-columns:1fr}
+@container (min-width:640px){.rg-cols{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.rg-col{display:grid;gap:8px;align-content:start;min-width:0}
+.rg-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px}@container (max-width:460px){.rg-grid{grid-template-columns:1fr}}
+.rg-grid label{display:grid;gap:2px;font-size:12px;color:#475569;min-width:0}.rg-grid label.w{grid-column:1/-1}
+.rg-grid input,.rg-grid select{font:inherit;font-size:13px;color:var(--text,inherit);width:100%;padding:5px 9px;min-width:0}
+.rg-card .rg-members{border:0;padding:0;margin:0;max-height:220px;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:0 12px}
+.rg-body>.rg-same,.rg-body>.rg-danger{margin:0}.rg-foot{font-size:12px;margin:2px 0 0}
+.rg-danger{padding:6px 12px}.rg-danger[open]{padding-bottom:10px}
+.gw-in .rg-col>.gw-card{animation:gw-rise .26s var(--ease-out) both}.gw-in .rg-col:nth-child(1)>.gw-card:nth-child(1){animation-delay:.11s}.gw-in .rg-col:nth-child(2)>.gw-card:nth-child(1){animation-delay:.14s}.gw-in .rg-col:nth-child(1)>.gw-card:nth-child(2){animation-delay:.17s}.gw-in .rg-col:nth-child(2)>.gw-card:nth-child(2){animation-delay:.2s}
+.pf-body .rg-card{margin-top:0}.rg-danger p{font-size:12px;margin:6px 0}.rg-danger summary{font-size:13px}
