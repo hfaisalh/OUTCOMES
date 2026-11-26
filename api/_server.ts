@@ -22,6 +22,7 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { apiReader, apiReporter, ConnectorError, type CrmReader, type CrmReporter } from "../modules/01c-crm-connector/reader.js";
 import type { Deps, HttpRequest, HttpResponse } from "../modules/00-platform/handlers.js";
+import { withConflictRetry } from "../modules/00-platform/http.js";
 import { mockFeed } from "../modules/01d-mock-crm/mock-crm.js";
 import { pgStore } from "../modules/00-platform/pg-store.js";
 import { memoryStore, type OrgConfig, type Store } from "../modules/00-platform/store.js";
@@ -113,7 +114,7 @@ export function node(handler: (req: HttpRequest, d: Deps) => Promise<HttpRespons
       body: req.method === "GET" ? undefined : await readBody(req),
     };
     try {
-      send(await handler(request, d));
+      send(await withConflictRetry(handler, request, d)); // a clash with another person's save is retried on the fresh setup (DECISIONS 235)
     } catch {
       send({ status: 500, body: { error: "Something went wrong on the server. Try again, and tell the developers if it keeps happening." } });
     }

@@ -45,7 +45,8 @@ describe("runPickup", () => {
     const store = await setup();
     const deps = { store, reader: rowsReader(sampleRows()), reporter, nowIso: "2026-11-19T09:00:00Z" };
     await runPickup("mwf", deps);
-    await store.putConfig("mwf", { ...config(), itemMap: { ...config().itemMap, I14: "qurbani" } });
+    const saved = (await store.getConfig("mwf"))!; // a change is made from what was read (DECISIONS 235)
+    await store.putConfig("mwf", { ...saved, itemMap: { ...saved.itemMap, I14: "qurbani" } });
     const again = await runPickup("mwf", { ...deps, nowIso: "2026-11-19T10:00:00Z" });
     expect(again.rerouted).toBe(1);
     expect((await store.listWorkOrders("mwf")).find((w) => w.lineId === "L008")?.status).toBe("ready");

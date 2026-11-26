@@ -9,7 +9,7 @@
 import { PERMISSIONS as P } from "../../app/menu.js";
 import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
 import { readCookie, SESSION_COOKIE, verifyToken, type Claims } from "./launch-token.js";
-import type { OrgConfig, Store } from "./store.js";
+import { ConflictError, type OrgConfig, type Store } from "./store.js";
 
 export interface HttpRequest {
   method: string;
@@ -51,4 +51,16 @@ export function need(req: HttpRequest, d: Deps, perm: string): { claims: Claims 
   if (!claims) return { response: json(401, { error: "Please open OUTCOMES from the CRM to sign in." }) };
   if (!claims.perms.includes(P.access) || !claims.perms.includes(perm)) return { response: json(403, { error: "Your CRM role does not allow this." }) };
   return { claims };
+}
+
+// Rule (DECISIONS 235): if someone saved the setup between this request reading it and writing it, the whole request is run again on the fresh setup (up to 3 times), so the person never sees it. Only after that is it refused with 409.
+export async function withConflictRetry(handler: (req: HttpRequest, d: Deps) => Promise<HttpResponse>, req: HttpRequest, d: Deps): Promise<HttpResponse> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await handler(req, d);
+    } catch (e) {
+      if (!(e instanceof ConflictError)) throw e;
+      if (attempt >= 3) return json(409, { error: e.message });
+    }
+  }
 }

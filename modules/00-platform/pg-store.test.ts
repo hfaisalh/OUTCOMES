@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { pgStore, type Query } from "./pg-store";
-import { defaultConfig } from "./store";
+import { ConflictError, defaultConfig } from "./store";
 
 function fake() {
   const calls: { sql: string; params: unknown[] }[] = [];
@@ -15,7 +15,8 @@ function fake() {
   const query: Query = async (sql, params) => {
     calls.push({ sql, params });
     if (sql.startsWith("INSERT INTO used_launch")) return used.has(params[0] as string) ? [] : (used.add(params[0] as string), [{ jti: params[0] }]);
-    if (sql.startsWith("SELECT config")) return [{ config: defaultConfig() }];
+    if (sql.startsWith("SELECT config")) return [{ config: defaultConfig(), version: 3 }];
+    if (sql.startsWith("INSERT INTO org_config") || sql.startsWith("UPDATE org_config")) return [{ version: 4 }];
     return [];
   };
   return { query, calls };
@@ -49,6 +50,22 @@ describe("pgStore", () => {
       expect(c.params[0]).toBe("mwf");
       expect(c.sql).toContain("org = $1".slice(0, 0) + "$1");
     }
+  });
+
+  it("saves a setup only at the version it was read at, and refuses a stale one (DECISIONS 235)", async () => {
+    const { query, calls } = fake();
+    const s = pgStore(query);
+    const read = (await s.getConfig("mwf"))!;
+    expect(read.version).toBe(3);
+    await s.putConfig("mwf", read);
+    const update = calls.find((c) => c.sql.startsWith("UPDATE org_config"))!;
+    expect(update.sql).toContain("version = $3");
+    expect(update.params[2]).toBe(3);
+    expect(update.params[1]).not.toContain("version"); // kept in its own column, not in the document
+    expect(read.version).toBe(4);
+    const stale = pgStore(async () => []); // the database matched no row: someone saved first
+    await expect(stale.putConfig("mwf", { ...defaultConfig(), version: 3 })).rejects.toBeInstanceOf(ConflictError);
+    await expect(stale.putConfig("mwf", defaultConfig())).rejects.toBeInstanceOf(ConflictError); // a first save when a row already exists
   });
 
   it("returns what the database holds", async () => {

@@ -33,6 +33,7 @@ export type CrmSetting = { kind: "none" } | { kind: "demo" } | { kind: "upload" 
 
 // Everything an organisation sets up in OUTCOMES.
 export interface OrgConfig {
+  version?: number; // which saved copy this is (DECISIONS 235). Set by the store when read and checked when saved, never kept in the setup itself. Absent: a setup that has never been saved
   categories: Category[];
   itemMap: ItemMap;
   frameworks?: FrameworkTemplate[]; // framework templates (DECISIONS 59). Absent in a setup saved before them
@@ -83,6 +84,7 @@ export interface RunInfo {
 
 export interface Store {
   getConfig(org: string): Promise<OrgConfig | null>;
+  // Rule (DECISIONS 235): saved only if no one has saved since it was read (config.version), otherwise ConflictError. On success config.version is the new version.
   putConfig(org: string, config: OrgConfig): Promise<void>;
   listWorkOrders(org: string): Promise<WorkOrder[]>;
   saveWorkOrders(org: string, orders: WorkOrder[]): Promise<void>; // add or replace, by key
@@ -99,6 +101,14 @@ export interface Store {
   useLaunchId(jti: string, expiresAtSeconds: number, nowSeconds: number): Promise<boolean>; // true the first time only
 }
 
+// Thrown when a setup was changed by someone else between being read and being saved.
+export class ConflictError extends Error {
+  constructor() {
+    super("Someone else changed this at the same moment. Reload and try again.");
+    this.name = "ConflictError";
+  }
+}
+
 // How many audit records are kept per organisation. Older ones are dropped.
 export const KEEP_AUDITS = 100;
 
@@ -111,7 +121,7 @@ export const setupOf = (c: OrgConfig): Setup => migrateSetup({ categories: c.cat
 export const defaultConfig = (): OrgConfig => ({ categories: [], itemMap: {}, frameworks: [], itemFramework: {}, usesFrameworks: true, feed: MWF_FEED, crm: { kind: "none" } });
 
 export function memoryStore(): Store {
-  const configs = new Map<string, OrgConfig>();
+  const configs = new Map<string, { config: OrgConfig; version: number }>();
   const orders = new Map<string, Map<string, WorkOrder>>(); // org to key to work order
   const reviews = new Map<string, ReviewItem[]>();
   const runs = new Map<string, RunInfo>();
@@ -119,8 +129,18 @@ export function memoryStore(): Store {
   const triage = new Map<string, Record<string, TriageMark>>();
   const launchIds = new Map<string, number>();
   return {
-    async getConfig(org) { return configs.get(org) ?? null; },
-    async putConfig(org, config) { configs.set(org, structuredClone(config)); },
+    async getConfig(org) {
+      const held = configs.get(org);
+      return held ? { ...structuredClone(held.config), version: held.version } : null;
+    },
+    async putConfig(org, config) {
+      const held = configs.get(org);
+      if ((held?.version ?? undefined) !== config.version) throw new ConflictError(); // same rule as the database: the version read must still be current
+      const { version: _read, ...body } = structuredClone(config);
+      const next = (held?.version ?? 0) + 1;
+      configs.set(org, { config: body, version: next });
+      config.version = next;
+    },
     async listWorkOrders(org) { return [...(orders.get(org)?.values() ?? [])].map((w) => ({ ...w })); },
     async saveWorkOrders(org, list) {
       const m = orders.get(org) ?? new Map<string, WorkOrder>();

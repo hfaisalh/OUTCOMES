@@ -12,7 +12,7 @@
 import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js";
 import type { AuditRecord } from "../01f-batch-audit/audit.js";
 import type { TriageMark } from "../04-triage/triage.js";
-import { KEEP_AUDITS, type OrgConfig, type RunInfo, type Store } from "./store.js";
+import { ConflictError, KEEP_AUDITS, type OrgConfig, type RunInfo, type Store } from "./store.js";
 
 export type Query = (sql: string, params: unknown[]) => Promise<Record<string, unknown>[]>;
 
@@ -22,9 +22,18 @@ export function pgStore(query: Query): Store {
     return rows[0] ? (rows[0][column] as T) : null;
   };
   return {
-    getConfig: (org) => one<OrgConfig>("SELECT config FROM org_config WHERE org = $1", org, "config"),
+    async getConfig(org) {
+      const row = (await query("SELECT config, version FROM org_config WHERE org = $1", [org]))[0];
+      return row ? { ...(row["config"] as OrgConfig), version: Number(row["version"] ?? 0) } : null;
+    },
+    // Rule (DECISIONS 235): a setup read at version N is saved only while the database is still at N. A first save only adds the row if no one else has.
     async putConfig(org, config) {
-      await query("INSERT INTO org_config (org, config) VALUES ($1, $2) ON CONFLICT (org) DO UPDATE SET config = EXCLUDED.config", [org, JSON.stringify(config)]);
+      const { version, ...body } = config; // the version lives in its own column, not inside the document
+      const rows = version === undefined
+        ? await query("INSERT INTO org_config (org, config, version) VALUES ($1, $2, 1) ON CONFLICT (org) DO NOTHING RETURNING version", [org, JSON.stringify(body)])
+        : await query("UPDATE org_config SET config = $2, version = version + 1 WHERE org = $1 AND version = $3 RETURNING version", [org, JSON.stringify(body), version]);
+      if (rows.length === 0) throw new ConflictError();
+      config.version = Number(rows[0]!["version"]);
     },
     async listWorkOrders(org) {
       const rows = await query("SELECT data FROM work_orders WHERE org = $1 ORDER BY key", [org]);
