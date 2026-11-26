@@ -12,6 +12,7 @@
 import { filterWorkOrders, isFiltering } from "../modules/01c-crm-connector/filter";
 import { lineValue, partsOf, periodsOf, sentPartsOf, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { shortDate, shortDateTime } from "./dates";
+import { SYM } from "./symbols";
 import { batchSizeOf, labelBatches } from "../modules/08-assignment/batches";
 import { countOfGift } from "../modules/09-placement/history";
 import { iconHtml, itemIcon } from "./icons";
@@ -158,13 +159,18 @@ export function sortGifts(rows: GiftRow[], sort: { key: string; dir: "asc" | "de
   return [...rows].sort((x, y) => { const a = val(x), b = val(y); if (empty(a) || empty(b)) return Number(empty(a)) - Number(empty(b)); return (a < b ? -1 : a > b ? 1 : 0) * sign; });
 }
 
-function listData(v: View) {
-  const base = listBase(v, "main");
+// Rule (DECISIONS 216): the tiles count what the search filters leave, whatever the tab, so they stay the same when a tile or a tab is chosen and can be used to move between them. The list itself follows the tab.
+function listData(v: View, tab = true) {
+  const w = tab ? v : { ...v, filter: "all" as const };
+  const base = listBase(w, "main");
   const c = criteriaFor(v, "main");
   const payments = filterWorkOrders(base, c);
   let rows = giftRows(payments, v.workOrders, new Set(v.review.map((r) => r.key)));
-  if (v.filter === "look") rows = rows.filter((r) => r.needsLook);
-  if (v.filter === "manual") rows = rows.filter((r) => r.manual !== "");
+  if (w.filter === "look") rows = rows.filter((r) => r.needsLook);
+  if (w.filter === "manual") rows = rows.filter((r) => r.manual !== "");
+  if (w.filter === "waiting") { const where = allocationContext(v); rows = rows.filter((r) => where(r).state === "waiting"); }
+  if (w.filter === "stopped") rows = rows.filter((r) => ["cancelled", "paused", "completed"].includes(r.planStatus));
+  if (w.filter === "attention") rows = rows.filter((r) => r.needsLook || r.inReview || r.unrouted);
   return { base, c, rows: sortGifts(rows, v.giftSort) };
 }
 
@@ -243,9 +249,9 @@ function allocationContext(v: View) {
 }
 
 // Symbols (DECISIONS 78). Each has a plain-words tooltip, and the window says it all in words.
-export const SYMBOL = { manual: "\u270B", recurring: "\u21BB", one: "\u2460", unlinked: "\u21BB?", excluded: "\u26D4", ok: "\u2714", unrouted: "\u2298", look: "\u26A0", review: "\u2691", waiting: "\u23F3", info: "\u24D8" };
-export const icon = (cls: string, glyph: string, tip: string) => `<span class="gi ${cls}" title="${esc(tip)}" aria-label="${esc(tip)}">${glyph}</span>`;
-export const PLAN_ICON: Record<string, [string, string]> = { paused: ["\u23F8", "Plan paused"], cancelled: ["\u2715", "Plan cancelled"], past_due: ["\u23F0", "Plan past due"], pending: ["\u2026", "Plan pending"], completed: ["\u25A0", "Plan completed"] };
+export const SYMBOL = { manual: SYM.manual, recurring: SYM.recurring, one: SYM.one, unlinked: `${SYM.recurring}?`, excluded: SYM.excluded, ok: SYM.ok, unrouted: SYM.unrouted, look: SYM.look, review: SYM.review, waiting: SYM.waiting, info: SYM.info };
+export const icon = (cls: string, glyph: string, tip: string) => `<span class="gi ${cls}" role="img" title="${esc(tip)}" aria-label="${esc(tip)}">${glyph}</span>`;
+export const PLAN_ICON: Record<string, [string, string]> = { paused: [SYM.paused, "Plan paused"], cancelled: [SYM.cancelled, "Plan cancelled"], past_due: [SYM.pastDue, "Plan past due"], pending: [SYM.pending, "Plan pending"], completed: [SYM.completed, "Plan completed"] };
 
 const kindIcon = (g: GiftRow): string =>
   g.kind === "recurring" ? icon("rec", SYMBOL.recurring, "Recurring gift")
@@ -281,7 +287,7 @@ export function giftListHtml(v: View): string {
     <button data-bulk="exclude">Exclude selected</button><button data-bulk="restore">Restore selected</button><button data-bulk="clear">Clear selection</button></div>`;
   // Rule (DECISIONS 215): each filter that is on is a chip that can be removed on its own, with a count of what is shown and a way to clear them all, so it is never a mystery why a list is short. A chip says its filter in words.
   const itemNames = new Map(base.map((w) => [w.itemId, w.itemName]));
-  const chipOf = (key: string, text: string): string => `<button type="button" class="chip" data-action="clear-filter" data-scope="main" data-key="${key}" aria-label="Remove the filter ${esc(text)}">${esc(text)} <span aria-hidden="true">&times;</span></button>`;
+  const chipOf = (key: string, text: string): string => `<button type="button" class="chip" data-action="clear-filter" data-scope="main" data-key="${key}" aria-label="Remove the filter ${esc(text)}">${esc(text)} ${SYM.close}</button>`;
   const on = [
     c.text !== "" ? chipOf("text", `Search: ${c.text}`) : "", c.itemId !== "" ? chipOf("itemId", `Item: ${itemNames.get(c.itemId) ?? c.itemId}`) : "",
     c.kind !== "any" ? chipOf("kind", `Type: ${({ recurring: "Recurring", oneoff: "One-off", custom: "Custom amount" } as Record<string, string>)[c.kind] ?? c.kind}`) : "",
@@ -292,7 +298,7 @@ export function giftListHtml(v: View): string {
   const colPick = v.giftColsOpen ? `<div class="colbox" role="group" aria-label="Columns shown">${GIFT_COLUMNS.map(([id, label]) => `<label><input type="checkbox" data-gcol="${id}"${hidden.has(id) ? "" : " checked"}> ${esc(label)}</label>`).join("")}<button type="button" class="linkish" data-gcols="reset">Back to the usual columns</button></div>` : "";
   if (base.length === 0) return `<div class="empty">No gifts in this list.</div>`;
   // Rule (DECISIONS 214): the key of symbols sits in a disclosure, so the list starts higher. Every symbol also has its own tooltip.
-  const key = `<details class="keydrop"><summary>Key to the symbols</summary><p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; ${SYMBOL.manual} allocate manually &nbsp; ${SYMBOL.waiting} waiting for allocation &nbsp; ${SYMBOL.ok} ready &nbsp; ${SYMBOL.look} needs a look &nbsp; ${SYMBOL.review} held for review &nbsp; ${SYMBOL.unrouted} unrouted &nbsp; ${SYMBOL.excluded} excluded. Click a row for its details.</p></details>`;
+  const key = `<details class="keydrop"><summary>${SYM.info} Key to the symbols</summary><p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; ${SYMBOL.manual} allocate manually &nbsp; ${SYMBOL.waiting} waiting for allocation &nbsp; ${SYMBOL.ok} ready &nbsp; ${SYMBOL.look} needs a look &nbsp; ${SYMBOL.review} held for review &nbsp; ${SYMBOL.unrouted} unrouted &nbsp; ${SYMBOL.excluded} excluded. Click a row for its details.</p></details>`;
 
   // Rule: the plan column is the short form: paid/planned for a subscription, the months covered for a single payment.
   const planCell = (g: GiftRow): string => {
@@ -333,17 +339,19 @@ export function giftListHtml(v: View): string {
       ["alloc", `<td class="clip">${allocCell(g)}</td>`],
       ["status", `<td class="c st">${statusIcons(g)}${g.kind === "excluded" && first ? `<button data-excl="${esc(first.key)}" data-excl-action="restore" title="${esc(reason || "Excluded")}">Restore</button>` : ""}</td>`],
     ];
-    return `<tr class="grow${g.kind === "excluded" ? " off" : ""}" data-gift-open="${esc(g.key)}" tabindex="0" title="Open the details">${cells.filter(([id]) => !hidden.has(id)).map(([, html]) => html).join("")}</tr>`;
+    // A row that needs a person has a short amber edge, and a ticked row is shaded. The icons in its Status cell say why, so the edge is never the only signal.
+    const attn = g.kind !== "excluded" && (g.needsLook || g.inReview || g.unrouted);
+    return `<tr class="grow${g.kind === "excluded" ? " off" : ""}${attn ? " attn" : ""}${ticked ? " sel" : ""}" data-gift-open="${esc(g.key)}" tabindex="0" title="Open the details">${cells.filter(([id]) => !hidden.has(id)).map(([, html]) => html).join("")}</tr>`;
   };
   // A sortable heading is a button, and says which way it is sorted for a screen reader (aria-sort).
   const sort = v.giftSort;
-  const th = (id: string, label: string, cls = ""): string => `<th${cls ? ` class="${cls}"` : ""} aria-sort="${sort?.key === id ? (sort.dir === "desc" ? "descending" : "ascending") : "none"}"><button type="button" class="sortbtn" data-gsort="${id}">${label}${sort?.key === id ? (sort.dir === "desc" ? " \u25BC" : " \u25B2") : ""}</button></th>`;
+  const th = (id: string, label: string, cls = ""): string => `<th${cls ? ` class="${cls}"` : ""} aria-sort="${sort?.key === id ? (sort.dir === "desc" ? "descending" : "ascending") : "none"}"><button type="button" class="sortbtn" data-gsort="${id}">${label}${sort?.key === id ? (sort.dir === "desc" ? SYM.sortDown : SYM.sortUp) : ""}</button></th>`;
   const heads: [string, string][] = [
     ["select", `<th><input type="checkbox" data-selall="main" title="Tick all shown" aria-label="Select all shown"${allTicked ? " checked" : ""}></th>`], ["kind", "<th></th>"], ["recid", "<th>Rec. ID</th>"],
     ["donor", th("donor", "Donor")], ["item", th("item", "Item")], ["project", th("project", "Project")], ["plan", th("plan", "Plan", "num")], ["value", th("value", "Value", "num")], ["paid", th("paid", "Paid", "num")], ["next", th("next", "Next", "num")],
     ["stage", "<th>Stage</th>"], ["assigned", "<th>Assigned to</th>"], ["alloc", "<th>Allocated to</th>"], ["status", "<th>Status</th>"],
   ];
-  const tools = `<div class="listtools"><div class="chips">${chips}</div><div class="toolbtns"><button type="button" class="chipbtn" data-gcols="toggle" aria-expanded="${v.giftColsOpen ? "true" : "false"}">Columns</button>${key}</div></div>${colPick}`;
+  const tools = `<div class="listtools"><div class="chips">${chips}</div><div class="toolbtns"><button type="button" class="chipbtn" data-gcols="toggle" aria-expanded="${v.giftColsOpen ? "true" : "false"}">${SYM.columns} Columns</button>${key}</div></div>${colPick}`;
   return `${bulk}${note}${tools}${rows.length === 0 ? `<div class="empty">No gifts match the filters.<br><button type="button" data-action="clear-filters" data-scope="main">Clear the filters</button></div>` : `<div class="tablewrap"><table class="giftlist"><thead><tr>${heads.filter(([id]) => !hidden.has(id)).map(([, html]) => html).join("")}</tr></thead><tbody>${shown.map(row).join("")}</tbody></table></div>`}`;
 }
 
@@ -421,7 +429,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
 
 // The tiles above the list (DECISIONS 97): they count what the list below shows, so they change with the tab and the filters.
 export function giftMetricsHtml(v: View): string {
-  const { rows } = listData(v);
+  const { rows } = listData(v, false);
   const where = allocationContext(v);
   const payments = rows.flatMap((g) => g.payments);
   const currencies = [...new Set(payments.map((w) => w.currency ?? ""))];
@@ -436,25 +444,35 @@ export function giftMetricsHtml(v: View): string {
   // Rule (DECISIONS 215): five tiles of one shape: the number, what it counts, and a line of detail under it. Recurring and one-off are the detail of Gifts, the three stopped plan statuses are one tile, and everything that
   // needs a person (a look, a review or a workflow) is Review. A tile that needs action is amber.
   const stopped = status("cancelled") + status("paused") + status("completed");
-  return `<div class="metric"><b>${rows.length}</b><span>Gifts</span><div class="smrow">${small(recurring, "recurring")}${small(count((g) => g.kind === "one_off"), "one payments")}</div></div>
+  // Rule (DECISIONS 216): a tile that counts a group of gifts is a button that shows just that group (and says it is pressed), so the page's summary is also its quickest way to the gifts that need a person.
+  const tile = (filter: string, cls: string, inner: string): string => `<button type="button" class="metric tile${cls}" data-filter="${filter}" aria-pressed="${v.filter === filter ? "true" : "false"}">${inner}</button>`;
+  return `${tile("all", "", `<b>${rows.length}</b><span>Gifts</span><div class="smrow">${small(recurring, "recurring")}${small(count((g) => g.kind === "one_off"), "one payments")}</div>`)}
     <div class="metric"><b>${value}</b><span>Value</span><div class="smrow">${small(payments.length, "payments")}</div></div>
-    <div class="metric${waiting ? " warn" : ""}"><b>${waiting}</b><span>Unallocated</span><div class="smrow">${small(count((g) => where(g).state === "placed"), "allocated")}${small(count((g) => where(g).state === "manual"), "manual")}${small(count((g) => where(g).state === "none"), "need none")}</div></div>
-    <div class="metric"><b>${stopped}</b><span>Plans stopped</span><div class="smrow">${small(status("cancelled"), "cancelled")}${small(status("paused"), "paused")}${small(status("completed"), "completed")}</div></div>
-    <div class="metric${review ? " warn" : ""}"><b>${review}</b><span>Review</span><div class="smrow">${small(count((g) => g.unrouted), "unrouted")}${small(count((g) => g.inReview), "held")}${small(count((g) => g.needsLook), "a look")}</div></div>`;
+    ${tile("waiting", waiting ? " warn" : "", `<b>${waiting}</b><span>Unallocated</span><div class="smrow">${small(count((g) => where(g).state === "placed"), "allocated")}${small(count((g) => where(g).state === "manual"), "manual")}${small(count((g) => where(g).state === "none"), "need none")}</div>`)}
+    ${tile("stopped", "", `<b>${stopped}</b><span>Plans stopped</span><div class="smrow">${small(status("cancelled"), "cancelled")}${small(status("paused"), "paused")}${small(status("completed"), "completed")}</div>`)}
+    ${tile("attention", review ? " warn" : "", `<b>${review}</b><span>Review</span><div class="smrow">${small(count((g) => g.unrouted), "unrouted")}${small(count((g) => g.inReview), "held")}${small(count((g) => g.needsLook), "a look")}</div>`)}`;
+}
+
+// The number of gifts behind each tab, under the search filters (DECISIONS 216), so a tab says what is in it before it is chosen.
+function tabCounts(v: View): Record<string, number> {
+  const live = filterWorkOrders(v.workOrders.filter((w) => w.status !== "excluded"), criteriaFor(v, "main"));
+  const rows = giftRows(live, v.workOrders, new Set(v.review.map((r) => r.key)));
+  return { all: rows.length, unrouted: rows.filter((g) => g.unrouted).length, review: rows.filter((g) => g.inReview).length, look: rows.filter((g) => g.needsLook).length, manual: rows.filter((g) => g.manual !== "").length, excluded: v.workOrders.filter((w) => w.status === "excluded").length };
 }
 
 export function giftsPage(v: View): string {
   const live = v.workOrders.filter((w) => w.status !== "excluded");
   const count = (s: string) => v.workOrders.filter((w) => w.status === s).length;
-  const tab = (id: Filter, label: string) => `<button data-filter="${id}" class="${v.filter === id ? "on" : ""}">${label}</button>`;
+  const counts = tabCounts(v);
+  const tab = (id: Filter, label: string) => `<button data-filter="${id}" class="${v.filter === id ? "on" : ""}" aria-pressed="${v.filter === id ? "true" : "false"}">${label} <span class="cnt">${counts[id] ?? 0}</span></button>`;
   const base = listBase(v, "main");
   return `
-    <h1>Gifts</h1>
+    <div class="pagehead"><h1>Gifts</h1><span class="muted pickup">${v.live && v.run?.ok ? `Last pick-up ${esc(shortDateTime(v.run.at))} UTC. ` : ""}Gifts come in under <a data-page="data-feed">Data</a>${v.live ? "" : ", where the demo can be refreshed and your own files loaded"}.</span></div>
     <p class="sub">Every gift from the CRM that needs feedback. A subscription is one row, a single payment is one row. Click a row for its payments.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics" data-list="main-metrics">${giftMetricsHtml(v)}</div>
-    <div class="tabrow"><div class="tabs">${TABS.map(([id, label]) => tab(id, label)).join("")}${tab("excluded", `Excluded (${count("excluded")})`)}</div>
-    <span class="muted pickup">${v.live && v.run?.ok ? `Last pick-up ${esc(shortDateTime(v.run.at))} UTC. ` : ""}Gifts are brought in under <a data-page="data-feed">Data</a>${v.live ? "" : ", where the demo can be refreshed and your own files loaded"}.</span></div>
+    <div class="tabrow"><div class="tabs">${TABS.map(([id, label]) => tab(id, label)).join("")}${tab("excluded", "Excluded")}</div>
+</div>
     ${filterBar(v, "main", base)}<div class="card" data-list="main">${giftListHtml(v)}</div>
     ${v.review.length ? `<div class="card"><h2>Held for review</h2><p class="muted">These changed in the CRM after the work order was made. Nothing was changed automatically.</p><table><tbody>${v.review.map((r) => `<tr><td>${esc(r.key)}</td><td>${esc(r.message)}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
 }

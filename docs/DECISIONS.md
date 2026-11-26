@@ -915,3 +915,17 @@ Checked with ui-ux-pro-max searches (filter chips must wrap and keep their label
 - **Column chooser.** A "Columns" button opens a box of ticks for Rec. ID, Project, Plan, Value, Paid, Next, Stage, Assigned to and Allocated to. Rec. ID and Value are hidden to begin with. The tick box, type icon, Donor, Item and Status always show. The choice is kept in this browser only (browser storage, guarded, with the usual columns as the fallback). "Back to the usual columns" resets it.
 - **Tiles.** Five tiles of one shape: the number, what it counts, and a line of detail. Gifts (recurring and one payments), Value (payments), Unallocated (allocated, manual, need none), Plans stopped (cancelled, paused, completed) and Review (unrouted, held, a look). Replaces the six tiles of decision 99.
 Not done: a saved view (a named set of filters and columns), and tiles that filter the list when clicked.
+
+## 216. Gifts page overhaul with both design skills (2026-11-26)
+
+Method: ui-ux-pro-max's design-system generator (run with density 8, variance 2, motion 2) and focused searches, then frontend-design's plan, review and critique, then a look at the result in a browser. Both pointed to the same direction, which is also what the app already is: **Data-Dense Dashboard** layout (tight padding, sticky headers, KPI tiles, sortable tables) in the **Minimal Swiss** style with **Inter**. So this is a refinement and not a new identity. Not taken: the generator's dark palette, Fira fonts and landing-page pattern, which do not suit a light, working admin page.
+What changed:
+- **One icon family.** The status symbols were Unicode characters, and the hand, the no-entry sign and the alarm clock were drawn as coloured emoji on a Mac. They are now one set of inline SVG icons with the same round stroke (`app/symbols.ts`), also used by the Beneficiaries and Outcomes lists. Each standalone icon has a role and a text label. Sort arrows, the chip close, search, columns and info use the same set.
+- **Tiles are filters.** Gifts, Unallocated, Plans stopped and Review are buttons that show just that group, say which is pressed, and keep their numbers when chosen (they count the search filters only, not the tab). New quick filters: waiting, stopped, attention.
+- **Tabs carry counts**, and say which is chosen.
+- **Header.** The pick-up note moved beside the title, which freed a row.
+- **Rows.** A row that needs a person has a short amber edge (the Status icons still say why, so the edge is never the only signal), and a ticked row is shaded.
+- **Search box** has an icon and uses the full width. Selects are not clipped. Plan bars align with their numbers.
+- Smaller tiles, and the small counts inside an amber tile stay neutral.
+Earlier this session (214, 215): sortable headings, bulk bar on ticking, key in a disclosure, filter chips, column chooser, tiles of one shape.
+Left for later: the gift window (same icon family applies already, but its layout is not redesigned), dark mode (the skills ask for light and dark designed together), and saved views.

@@ -11,6 +11,7 @@ import { MWF_CRM_CONFIG, readFeed } from "../modules/01c-crm-connector/feed";
 import { planWorkOrders, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { suggestAll } from "../modules/02-project-rules/categories";
 import { demoCategories, demoFeedRows, starterFrameworks } from "./demo-data";
+import { SYM } from "./symbols";
 import { giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shortDate, shownGiftKeys } from "./gifts-page";
 import type { View } from "./pages";
 
@@ -202,7 +203,7 @@ describe("giftsPage", () => {
     // the page holds the tiles in a place that is redrawn with the list, and the pick-up note sits beside the tabs
     const page = giftsPage(view({ workOrders: orders }));
     expect(page).toContain('data-list="main-metrics"');
-    expect(page).toMatch(/class="tabrow"[\s\S]*Gifts are brought in under/);
+    expect(page).toMatch(/class="pagehead"[\s\S]*Gifts come in under/); // the pick-up note sits beside the title
   });
   it("shows an icon beside the item, chosen or suggested from its name (DECISIONS 107)", () => {
     const html = giftListHtml(view({ workOrders: [sub(1, { itemName: "Small Pump", itemId: "I9" })] }));
@@ -243,7 +244,7 @@ describe("giftsPage", () => {
     const custom = [1, 2].map((n) => sub(n, { key: `m${n}`, subscriptionId: "SM", frameworkId: "sponsorship-shared-parts", amount: 40, partsManual: "A custom amount: 40 is not the price of a part (35)" }));
     const v = (over: Partial<View> = {}) => view({ workOrders: [...clean, ...custom], frameworks: fws, ...over });
     const html = giftListHtml(v());
-    expect(html).toContain("\u270B"); // the hand symbol, not the hourglass, on the custom gift
+    expect(html).toContain(SYM.manual); // the manual symbol, not the hourglass, on the custom gift
     expect(html).toContain("Allocate manually. A custom amount: 40 is not the price of a part (35)");
     expect(html).toContain("allocate manually"); // in the key
     // the Manual tab shows only that gift, and the filter finds its payments
@@ -297,7 +298,7 @@ describe("giftsPage", () => {
     expect(win).toContain('1 of <span class="inf" title="Continues until cancelled"');
     expect(win).toContain("2 of ");
     expect(win).toContain("Set manually. The CRM says");
-    expect(win).toContain("\u270B"); // the hand icon, not the word
+    expect(win).toContain(SYM.manual); // the manual icon, not the word
     expect(win).not.toMatch(/by hand/i);
     expect(giftListHtml(view({ workOrders: open }))).not.toMatch(/by hand/i);
   });
@@ -366,7 +367,7 @@ describe("giftsPage", () => {
     const ticked = giftListHtml(view({ workOrders: rows, selected: [rows[0]!.key] }));
     expect(ticked).toContain('class="bulkbar"');
     expect(ticked).toContain('data-bulk="exclude">Exclude selected');
-    expect(giftListHtml(view({ workOrders: rows }))).toContain("<summary>Key to the symbols</summary>");
+    expect(giftListHtml(view({ workOrders: rows }))).toContain("Key to the symbols</summary>");
   });
 
   it("shows each filter that is on as a chip that can be removed alone, with a way to clear them all (decision 215)", () => {
@@ -403,6 +404,33 @@ describe("giftsPage", () => {
     expect(open).toContain('data-gcol="plan" checked');
     expect(open).toContain('data-gcol="value">'); // hidden to begin with, so not ticked
     expect(open).toContain('data-gcols="reset"');
+  });
+
+  it("draws every symbol as one SVG family and never as a character that a computer may draw as an emoji (decision 216)", () => {
+    const html = giftListHtml(view({ workOrders: [sub(1), sub(2, { planStatus: "cancelled" })] })) + giftDetailHtml(view({ workOrders: [sub(1)] }), "S9");
+    expect(html).toContain('class="sym"');
+    expect(html).toContain('role="img"');
+    for (const emoji of ["\u270B", "\u26D4", "\u23F0", "\u2691", "\u26A0", "\u2714", "\u23F8", "\u23F3"]) expect(html).not.toContain(emoji);
+  });
+
+  it("makes the tiles buttons that show just their group, says which is pressed, and keeps the numbers the same when one is chosen (decision 216)", () => {
+    const orders = [sub(1, { planStatus: "paused", subscriptionId: "A" }), sub(1, { planStatus: "active", subscriptionId: "B" }), sub(1, { planStatus: "cancelled", subscriptionId: "C" })]; // three different gifts
+    const all = giftMetricsHtml(view({ workOrders: orders }));
+    expect(all).toContain('data-filter="stopped" aria-pressed="false"');
+    expect(all).toContain('data-filter="waiting"');
+    expect(all).toContain('data-filter="attention"');
+    expect(all).toContain('data-filter="all" aria-pressed="true"');
+    const stopped = giftMetricsHtml(view({ workOrders: orders, filter: "stopped" }));
+    expect(stopped).toContain('data-filter="stopped" aria-pressed="true"');
+    expect(stopped).toMatch(/<b>3<\/b><span>Gifts<\/span>/); // the totals do not collapse to the chosen group
+    const listed = giftListHtml(view({ workOrders: orders, filter: "stopped" }));
+    expect((listed.match(/data-gift-open=/g) ?? []).length).toBe(2); // the paused and the cancelled one
+  });
+  it("shows how many gifts are behind each tab, and which tab is chosen (decision 216)", () => {
+    const orders = [sub(1, { subscriptionId: "A" }), sub(1, { subscriptionId: "B" })];
+    const page = giftsPage(view({ workOrders: orders, filter: "all" }));
+    expect(page).toMatch(/data-filter="all" class="on" aria-pressed="true">All <span class="cnt">2<\/span>/);
+    expect(page).toMatch(/data-filter="manual" class="" aria-pressed="false">Manual <span class="cnt">0<\/span>/);
   });
 });
 

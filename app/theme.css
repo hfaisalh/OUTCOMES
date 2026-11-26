@@ -360,3 +360,41 @@ select:not([multiple]):focus-visible{outline:2px solid var(--accent);outline-off
 .colbox label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
 .metrics .metric{display:flex;flex-direction:column;justify-content:flex-start;min-height:88px}
 .metrics .metric .smrow{margin-top:auto}
+
+/* One icon family (decision 216): inline SVG, round stroke, the colour and size of the text around it */
+.sym{width:1.1em;height:1.1em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.18em;flex:none}
+.gi{display:inline-flex;align-items:center;justify-content:center;min-width:1.2em;font-size:15px;line-height:1}
+.gi .sym{width:1.05em;height:1.05em}
+
+/* Tiles that filter, and tabs with counts (decision 216) */
+button.metric.tile{font:inherit;text-align:left;cursor:pointer;color:inherit;transition:border-color .15s,background-color .15s}
+button.metric.tile:hover{border-color:var(--accent,#2b3f9e)}
+button.metric.tile[aria-pressed="true"]{border-color:var(--accent,#2b3f9e);background:var(--accent-bg);box-shadow:inset 0 -2px 0 var(--accent,#2b3f9e)}
+button.metric.tile:focus-visible{outline:2px solid var(--accent,#2b3f9e);outline-offset:2px}
+.tabs button .cnt{display:inline-block;margin-left:4px;font-size:11px;font-variant-numeric:tabular-nums;color:var(--muted)}
+.tabs button.on .cnt{color:inherit;opacity:.85}
+@media (prefers-reduced-motion:reduce){button.metric.tile{transition:none}}
+
+/* Gifts page overhaul (decision 216): header, search box, row states and density, from the Data-Dense Dashboard and Minimal Swiss guidance */
+.pagehead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}.pagehead .pickup{font-size:12px}
+.searchbox{position:relative;display:inline-flex;align-items:center}
+.searchbox .sym{position:absolute;left:9px;pointer-events:none;color:var(--muted)}
+.searchbox input{padding-left:30px}
+.chip .sym{width:.9em;height:.9em;opacity:.7}.chipbtn .sym,.keydrop summary .sym{width:1em;height:1em;margin-right:2px}
+.sortbtn .sym{width:.9em;height:.9em;margin-left:3px}
+.giftlist tr.grow{transition:background-color .12s}
+.giftlist tr.grow.attn td:first-child{box-shadow:inset 3px 0 0 var(--warn,#c47a00)}
+.giftlist tr.grow.sel{background:var(--accent-bg)}
+.giftlist th{position:sticky;top:0}
+@media (prefers-reduced-motion:reduce){.giftlist tr.grow{transition:none}}
+
+/* Gifts page overhaul, after looking at it (decision 216) */
+.metric.warn > b{color:var(--warn)}.metric.warn .sm b{color:var(--text)}
+.metrics{gap:10px}
+.metrics .metric{min-height:0;padding:10px 14px}.metrics .metric > b{font-size:22px;line-height:1.15}
+.metrics .metric .smrow{margin-top:2px}
+.listtools .chips:empty{min-height:0}.listtools{margin:0 0 4px}
+.filters .searchbox{flex:1 1 280px;min-width:220px}.filters .searchbox input{width:100%}
+.filters select{min-width:0;text-overflow:ellipsis}
+.giftlist td.num .bar{margin-left:auto}
+.filters select{max-width:176px}

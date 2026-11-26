@@ -20,6 +20,7 @@ import { autoAllocate, fillOf, holdingReport, monthsAround, perPeriodRule, timel
 import { allocOptions, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
 import type { BenFilter } from "./beneficiaries-page";
 import { shortDate, shortDateTime } from "./dates";
+import { SYM } from "./symbols";
 import { ICONS, iconHtml, itemIcon } from "./icons";
 import type { OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { allocatable, buildCommitments, needsLook, type Commitment } from "../modules/04b-commitments/commitments";
@@ -30,7 +31,7 @@ import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-or
 import type { RunInfo } from "../modules/00-platform/store";
 import { allocationShape, CYCLE_LABELS, groupItems, INSTALMENT_LABELS, missingFramework, unitsForCommitment, type Category, type Cycle, type FrameworkTemplate, type InstalmentRule, type ItemInfo } from "../modules/02-project-rules/categories";
 
-export type Filter = "all" | "ready" | "unrouted" | "review" | "look" | "manual" | "excluded";
+export type Filter = "all" | "ready" | "unrouted" | "review" | "look" | "manual" | "excluded" | "waiting" | "stopped" | "attention"; // waiting, stopped and attention are the quick filters the Gifts tiles give (DECISIONS 216)
 
 export interface View {
   workOrders: WorkOrder[];
@@ -157,7 +158,7 @@ export const creditLine = (w: WorkOrder): string => {
 export function listBase(v: View, id: string): WorkOrder[] {
   if (id === "main") {
     const reviewKeys = new Set(v.review.map((r) => r.key));
-    return v.workOrders.filter((w) => (v.filter === "all" || v.filter === "look" || v.filter === "manual" ? w.status !== "excluded" : v.filter === "review" ? reviewKeys.has(w.key) && w.status !== "excluded" : w.status === v.filter));
+    return v.workOrders.filter((w) => (["all", "look", "manual", "waiting", "stopped", "attention"].includes(v.filter) ? w.status !== "excluded" : v.filter === "review" ? reviewKeys.has(w.key) && w.status !== "excluded" : w.status === v.filter));
   }
   const i = (v.attention ?? []).find((x) => `a:${x.id}` === id);
   return i ? attentionBase(v, i) : [];
@@ -187,7 +188,7 @@ export function filterBar(v: View, id: string, base: WorkOrder[]): string {
   const opt = (value: string, label: string, cur: string) => `<option value="${esc(value)}"${value === cur ? " selected" : ""}>${esc(label)}</option>`;
   const d = `data-scope="${esc(id)}"`;
   return `<div class="card filters">
-    <input type="search" data-f="text" ${d} placeholder="Search donor, item, reference, subscription" title="Search line id, order reference, supporter, item or subscription" value="${esc(c.text)}">
+    <span class="searchbox">${SYM.search}<input type="search" data-f="text" ${d} placeholder="Search donor, item, reference, subscription" title="Search line id, order reference, supporter, item or subscription" aria-label="Search" value="${esc(c.text)}"></span>
     <select data-f="itemId" ${d}><option value="">All items</option>${[...items].sort((a, b) => a[1].localeCompare(b[1])).map(([k, name]) => opt(k, name, c.itemId)).join("")}</select>
     ${id === "main" ? "" : `<select data-f="status" ${d}>${opt("", "Any status", c.status)}${opt("unrouted", "Unrouted", c.status)}${opt("ready", "Ready", c.status)}${opt("excluded", "Excluded", c.status)}</select>`}
     <select data-f="legacy" ${d}>${opt("", "Legacy: included", c.legacy)}${opt("only", "Legacy only", c.legacy)}${opt("hide", "No legacy", c.legacy)}</select>
