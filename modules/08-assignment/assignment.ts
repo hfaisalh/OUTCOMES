@@ -33,6 +33,7 @@ import { typeForFramework } from "../05-outcomes/outcome-types.js";
 import type { Beneficiary } from "../07-beneficiaries/beneficiaries.js";
 import type { Enrolment, ItemRules } from "../07-beneficiaries/enrolments.js";
 import type { OutcomeType } from "../05-outcomes/outcome-types.js";
+import { batchSizeOf, labelBatches } from "./batches.js";
 import { capacityFor, crmMatchNames, eligiblePartners, isGeneralProjectName, projectOffers, projectVendors, type GiftProject, type Project } from "../06-projects/projects.js";
 
 export interface Assignment {
@@ -43,6 +44,7 @@ export interface Assignment {
   parts: number; // the units it takes from the partner's room
   how: "auto" | "manual";
   at: string; // ISO time
+  batch?: number; // the partner's batch it belongs to (DECISIONS 203), given when it is assigned
 }
 export interface Assignments { records: Assignment[] }
 export const emptyAssignments = (): Assignments => ({ records: [] });
@@ -222,6 +224,9 @@ export function suggestAssignments(ctx: AssignContext, existing: Assignments): S
   return out;
 }
 
+// Rule (DECISIONS 203): every new assignment takes its partner's current batch, so the work can be tracked and invoiced in groups. Nothing waits for a batch to fill.
+const labelFor = (ctx: AssignContext, records: Assignment[]): Assignment[] => labelBatches(records, (id) => batchSizeOf(ctx.partners.find((p) => p.id === id)));
+
 /**
  * Rule: runs Assignment. A gift whose workflow is set to automatic and that has a partner with room is assigned at once. The others stay as suggestions for a person. Returns the new records, and how many were
  * assigned and how many are left.
@@ -234,7 +239,7 @@ export function runAssignment(ctx: AssignContext, existing: Assignments): { valu
     if (s.mode === "auto") { records = [...records, { key: s.key, partnerId: s.partnerId, giftProjectId: s.projectId, itemId: s.itemId, parts: s.parts, how: "auto", at: ctx.now }]; assigned++; }
     else suggested++;
   }
-  return { value: { records }, assigned, suggested, waiting };
+  return { value: { records: labelFor(ctx, records) }, assigned, suggested, waiting };
 }
 
 /**
@@ -255,7 +260,7 @@ export function assignManual(ctx: AssignContext, existing: Assignments, key: str
   const room = roomFor(ctx, p, w.itemId, unit.parts, others, projectOfOrder(w, ctx.giftProjects)?.id ?? "");
   if (!room.ok) return { error: `${p.name} cannot take it: ${room.why}.` };
   const gp = projectOfOrder(w, ctx.giftProjects);
-  return { value: { records: [...keep, { key, partnerId, giftProjectId: gp?.id ?? "", itemId: w.itemId, parts: unit.parts, how: "manual", at: ctx.now }] } };
+  return { value: { records: labelFor(ctx, [...keep, { key, partnerId, giftProjectId: gp?.id ?? "", itemId: w.itemId, parts: unit.parts, how: "manual", at: ctx.now }]) } };
 }
 
 export function unassign(existing: Assignments, key: string): Result {
@@ -294,7 +299,7 @@ export function applyAssignmentAction(ctx: AssignContext, existing: Assignments,
       let records = existing.records;
       let n = 0;
       for (const s of suggestAssignments(ctx, existing)) if (s.partnerId !== "") { records = [...records, { key: s.key, partnerId: s.partnerId, giftProjectId: s.projectId, itemId: s.itemId, parts: s.parts, how: "manual", at: ctx.now }]; n++; }
-      return { value: { records }, message: `Confirmed ${n} suggestion${n === 1 ? "" : "s"}.` };
+      return { value: { records: labelFor(ctx, records) }, message: `Confirmed ${n} suggestion${n === 1 ? "" : "s"}.` };
     }
     case "asg-set": return assignManual(ctx, existing, str("key"), str("partnerId"));
     case "asg-unassign": return unassign(existing, str("key"));

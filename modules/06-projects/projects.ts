@@ -85,6 +85,7 @@ export interface Project {
   benefitTerms?: Record<string, BenefitTerms>; // for an item it delivers: its own capacity and the agreed cost per unit (DECISIONS 149)
   capacity?: number; // how many jobs it can take at once, set by hand, then adjusted by how it performs
   capacityNote?: string;
+  batchSize?: number; // how many work orders make one batch for this partner, 10 when not set (DECISIONS 203)
   reportVia?: string; // how it sends updates (email, WhatsApp, portal)
   reportContact?: string;
   language?: string;
@@ -474,6 +475,9 @@ export function savePartner(s: ProjectState, raw: Record<string, unknown>, id: s
   const capText = text(raw["capacity"], 10);
   const cap = capText === "" ? undefined : Number(capText);
   if (cap !== undefined && (!Number.isInteger(cap) || cap < 0 || cap > 100000)) return { value: s, error: "Capacity is a whole number of jobs, or leave it empty." };
+  const batchText = text(raw["batchSize"], 6);
+  const batchSize = batchText === "" ? undefined : Number(batchText);
+  if (batchSize !== undefined && (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 1000)) return { value: s, error: "Batch size is a whole number of work orders, 1 or more, or leave it empty for 10." };
   const draft: Project = { ...(existing ?? { id: uniqueId(name, new Set(s.projects.map((p) => p.id))), aliases: [], levels: [], types: [] }), name, type, status, ddStatus, ...(ddReview !== "" ? { ddReview } : {}) };
   if (status === "active" && !isActivePartner({ ...draft, status: "active" }, today)) return { value: s, error: ddStatus !== "approved" ? "A partner can only be made active once its due diligence is approved." : "The due diligence approval is past its review date. Update the review date first." };
   const contacts = (Array.isArray(raw["contacts"]) ? raw["contacts"] : []).slice(0, 20).map((c): PartnerContact => { const x = (c ?? {}) as Record<string, unknown>; return { name: text(x["name"], 100), position: text(x["position"], 100), phone: text(x["phone"], 40), mobile: text(x["mobile"], 40), email: text(x["email"], 120), handles: text(x["handles"], 100) }; }).filter((c) => Object.values(c).some((v) => v !== ""));
@@ -493,8 +497,8 @@ export function savePartner(s: ProjectState, raw: Record<string, unknown>, id: s
   const customIn = (raw["custom"] ?? {}) as Record<string, unknown>;
   const custom = Object.fromEntries(s.partnerFields.map((f) => [f, text(customIn[f], 300)]).filter(([, v]) => v !== ""));
   const optional = { officialName: text(raw["officialName"], 150), reference: text(raw["reference"], 60), parent: text(raw["parent"], 150), established, partnershipStart, countries: text(raw["countries"], 200), regions: text(raw["regions"], 300), capacityNote: text(raw["capacityNote"], 200), registrationNumber: text(raw["registrationNumber"], 60), legalStatus: text(raw["legalStatus"], 80), sectors: text(raw["sectors"], 200), fundingNote: text(raw["fundingNote"], 200), safeguardingLead: text(raw["safeguardingLead"], 100), safeguardingContact: text(raw["safeguardingContact"], 150), reportVia: text(raw["reportVia"], 100), reportContact: text(raw["reportContact"], 150), language: text(raw["language"], 60), media: text(raw["media"], 400), ddReference: text(raw["ddReference"], 100), notes: text(raw["notes"], 1000) };
-  const { officialName: _o, reference: _r, parent: _pa, established: _e, partnershipStart: _ps, countries: _c, regions: _re, capacityNote: _cn, registrationNumber: _rn, legalStatus: _ls, sectors: _se, fundingNote: _fn, safeguardingLead: _sl, safeguardingContact: _sc, fundingMethod: _fm, reportVia: _rv, reportContact: _rc, language: _l, media: _m, ddReference: _dr, notes: _n, capacity: _cap, contacts: _ct, documents: _d, itemIds: _i, benefitTerms: _bt, custom: _cu, ...base } = draft;
-  const saved: Project = { ...base, ...Object.fromEntries(Object.entries(optional).filter(([, v]) => v !== "")), ...(cap !== undefined ? { capacity: cap } : {}), ...(fundingMethod !== "" ? { fundingMethod } : {}), ...(contacts.length ? { contacts } : {}), ...(documents.length ? { documents } : {}), ...(itemIds.length ? { itemIds } : {}), ...(Object.keys(benefitTerms).length ? { benefitTerms } : {}), ...(Object.keys(custom).length ? { custom } : {}) };
+  const { officialName: _o, reference: _r, parent: _pa, established: _e, partnershipStart: _ps, countries: _c, regions: _re, capacityNote: _cn, registrationNumber: _rn, legalStatus: _ls, sectors: _se, fundingNote: _fn, safeguardingLead: _sl, safeguardingContact: _sc, fundingMethod: _fm, reportVia: _rv, reportContact: _rc, language: _l, media: _m, ddReference: _dr, notes: _n, capacity: _cap, batchSize: _bs, contacts: _ct, documents: _d, itemIds: _i, benefitTerms: _bt, custom: _cu, ...base } = draft;
+  const saved: Project = { ...base, ...Object.fromEntries(Object.entries(optional).filter(([, v]) => v !== "")), ...(cap !== undefined ? { capacity: cap } : {}), ...(batchSize !== undefined ? { batchSize } : {}), ...(fundingMethod !== "" ? { fundingMethod } : {}), ...(contacts.length ? { contacts } : {}), ...(documents.length ? { documents } : {}), ...(itemIds.length ? { itemIds } : {}), ...(Object.keys(benefitTerms).length ? { benefitTerms } : {}), ...(Object.keys(custom).length ? { custom } : {}) };
   // A new partner may start with the levels and types of another.
   const source = existing ? undefined : s.projects.find((p) => p.id === copyFrom);
   const withStructure: Project = source ? { ...saved, levels: source.levels.map((l) => ({ ...l })), types: source.types.map((t) => ({ ...t })) } : saved;

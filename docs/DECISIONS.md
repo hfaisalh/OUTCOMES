@@ -833,3 +833,15 @@ An item of one unit has nothing to slice, so its month pies (Beneficiaries, Outc
 ## 202. Confirmation rules (2026-11-25)
 
 Built as pure logic first (`modules/11-confirmation`). The partner has the workflow's days (3 if none) from the day of assignment to confirm or reject. A rejection needs a reason and sends the gift back to Assignment. An answer belongs to one assignment to one partner, so reassigning gives the new partner a fresh wait. A partner past its due day is late but can still answer. Open question for the wiring step: whether Placement should wait until a gift is confirmed (decision 139 says yes, but it would stop today's demo placements until each gift is confirmed, so it will be a switch on the workflow).
+
+## 203. Batches: a rolling label on each partner's assignments (2026-11-25)
+
+Agreed with Faisal. MWF releases work to partners in batches, tracks work orders by batch, and pays per batch (50% advance, 50% at completion). Rules built now:
+- Every assignment carries a batch number for its partner. A new batch starts after every N assignments to the same partner. N is the partner's **batch size** (a partner setting), 10 if not set.
+- Nothing waits for a batch to fill. Every gift is assigned and starts at once, because the donor's clock starts at the gift. The batch is only a label. A label never changes. Taking an assignment back frees its place, and a gift moved to another partner joins that partner's current batch.
+- A work order is **covered** when it has a place (a child enrolled for it) or an outcome. A batch shows how many of its work orders are covered and what the rest wait for: beneficiary records or outcome records. The partner and MWF see the same count.
+- A batch is Open (fewer than its size) or Full. Seen on the Assignment page (a Batches card, a Batch column) and in the gift window next to Assigned to. Assignments made before batches existed are labelled on screen, oldest first.
+
+Agreed but not built yet: a batch is Complete (and closes by itself) when every work order in it is complete, or by hand for odd cases. A partner may accept a batch with work orders not yet covered, with a deadline of X days to build the records, after which the work order is transferred to another partner (a reassign with a reason, counted on the first partner's health score). Partners with prefilled stock are confirmed on their behalf with a notice. Confirmation has a per-workflow switch, off for now.
+
+Parked by Faisal: orphan sponsorship (it differs), and the rule for the 50% advance. Money is not held here: OUTCOMES would only record when an advance or final payment is due.

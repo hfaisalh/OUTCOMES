@@ -281,3 +281,11 @@ describe("room and the page's requests", () => {
     expect(applyAssignmentAction(c, run.value, { action: "enr-add" })).toBeNull();
   });
 });
+
+describe("batches on new assignments (DECISIONS 203)", () => {
+  it("labels each assignment with its partner's batch as it is made, without waiting for the batch to fill", () => {
+    const c = ctx({ workOrders: [wo("G01"), wo("G02"), wo("G03")], partners: [partner("trust", "Trust", { batchSize: 2 })] });
+    const r = runAssignment(c, emptyAssignments());
+    expect(r.value.records.map((a) => a.batch)).toEqual([1, 1, 2]);
+  });
+});

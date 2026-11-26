@@ -243,3 +243,11 @@ Stored on the organisation's setup as `itemUnits`, by CRM item id.
 |---|---|
 | `itemUnits[itemId]` | The units that make one whole beneficiary of this benefit: 3 for an orphan shared by donors, 1 for a scholarship. A whole number from 1 to 20. Absent: the workflow's `unitsPerBeneficiary` |
 
+
+## Batches (DECISIONS 203)
+
+| Field | Meaning |
+|---|---|
+| `batch` (on an assignment) | The partner's batch the assignment belongs to. Numbered per partner from 1. A new one starts after every `batchSize` assignments. Never changes once given |
+| `batchSize` (on a partner) | How many work orders make one batch for that partner. 10 when empty |
+| covered | A work order that has an active place (a child enrolled for it) or an outcome made for it |

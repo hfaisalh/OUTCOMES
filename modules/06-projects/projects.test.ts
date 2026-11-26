@@ -321,3 +321,16 @@ describe("clusters in a project (DECISIONS 158, 161)", () => {
     expect(saved.value[0]).toMatchObject({ notes: "Edited", clusters: [{ name: "Block A" }] });
   });
 });
+
+describe("a partner's batch size (DECISIONS 203)", () => {
+  const empty = (): ProjectState => ({ projects: [], nodes: [], outcomes: [], partnerTypes: [], partnerFields: [], giftProjects: [] });
+  const save = (s: ProjectState, profile: Record<string, unknown>, projectId = "") => applyProjectAction(s, [], { action: "save-partner", projectId, copyFrom: "", profile: { name: "Sample Care Partners", type: "Institute", ...profile } }, "2026-11-25");
+  it("is kept when it is a whole number of at least 1, can be cleared, and is refused when it is not", () => {
+    const made = save(empty(), { batchSize: "5" })!;
+    expect(made.state.projects[0]?.batchSize).toBe(5);
+    const cleared = save(made.state, { batchSize: "" }, made.state.projects[0]!.id)!;
+    expect(cleared.state.projects[0]?.batchSize).toBeUndefined();
+    expect(save(empty(), { batchSize: "0" })!.error).toContain("Batch size");
+    expect(save(empty(), { batchSize: "2.5" })!.error).toContain("Batch size");
+  });
+});

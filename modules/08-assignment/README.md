@@ -32,3 +32,7 @@ The screen is `app/assignment-page.ts`. Assignments are saved on the organisatio
 
 ## How to test
 `npm test`. To try it: load the sample setup (Settings, Organisation), give an item a workflow (Workflows), open Allocation then Assignment, press Assign automatically (or Confirm all suggestions), and read who each gift went to and why. Reset assignments clears it.
+
+## Batches (DECISIONS 203)
+
+`batches.ts` labels each assignment with its partner's batch number (a new batch after every N, N is the partner's Batch size setting, 10 if empty), and works out for each batch how many work orders it holds and how many are covered by a place or an outcome. Nothing waits for a batch to fill. Seen on the Assignment page (Batches card and Batch column) and in the gift window. Test: `npx vitest run modules/08-assignment`.

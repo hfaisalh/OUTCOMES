@@ -100,3 +100,22 @@ describe("the Assignment page", () => {
     expect(html).not.toContain("<script>1");
   });
 });
+
+describe("the Batches card (DECISIONS 203)", () => {
+  const asg = (key: string, partnerId: string, n: number) => ({ key, partnerId, giftProjectId: "", itemId: "I11", parts: 1, how: "auto" as const, at: `2026-11-0${n}T00:00:00Z` });
+  it("numbers a partner's assignments in batches of its own size, and says how many are covered and what the rest wait for", () => {
+    const projects = [partner("trust", "Trust", 10, { batchSize: 2 }), partner("backup", "Backup", 5)];
+    const records = [asg("G01", "trust", 1), asg("G02", "trust", 2), asg("G03", "trust", 3)];
+    const placements = { counter: 1, records: [{ key: "G01", kind: "outcome" as const, enrolmentId: "", outcomeRef: "OUT-0001", giftProjectId: "", itemId: "I11", parts: 1, how: "auto" as const, at: "2026-11-02T00:00:00Z" }] };
+    const html = assignmentPage(view({ projects, assignments: { records }, placements } as Partial<View>));
+    expect(html).toContain("<h2>Batches</h2>");
+    expect(html).toContain('<td>Trust</td><td class="num">1</td><td class="num">2 of 2</td><td class="num">1 of 2</td>'); // batch 1 is full, one covered
+    expect(html).toContain('<td>Trust</td><td class="num">2</td><td class="num">1 of 2</td><td class="num">0 of 1</td>'); // batch 2 is open
+    expect(html).toContain("1 waiting for outcome records");
+    expect(html).toContain("<th class=\"num\">Batch</th><th>Why</th>");
+  });
+  it("shows no Batches card until something is assigned", () => {
+    expect(assignmentPage(view())).not.toContain("<h2>Batches</h2>");
+  });
+});
+

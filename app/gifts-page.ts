@@ -12,6 +12,7 @@
 import { filterWorkOrders, isFiltering } from "../modules/01c-crm-connector/filter";
 import { lineValue, partsOf, periodsOf, sentPartsOf, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { shortDate, shortDateTime } from "./dates";
+import { batchSizeOf, labelBatches } from "../modules/08-assignment/batches";
 import { countOfGift } from "../modules/09-placement/history";
 import { iconHtml, itemIcon } from "./icons";
 import { plusMonths } from "../modules/04b-commitments/catch-up";
@@ -194,19 +195,19 @@ function allocationContext(v: View) {
   // Rule (DECISIONS 113): a gift marked manual (a custom amount, or marked by a person) is not waiting for the system. A person allocates it.
   const waits = (g: GiftRow, why: string) => (g.manual !== "" ? { state: "manual" as const, who: "", partner: "", parts: null, why: g.manual } : { state: "waiting" as const, who: "", partner: "", parts: null, why });
   // Rule (DECISIONS 176): where a gift stands now is read from Assignment and Placement first. A recurring gift is kept under "sub:" and its subscription id, a one-off under its line id.
-  const assigned = new Map((v.assignments?.records ?? []).map((a) => [a.key, a]));
+  const assigned = new Map(labelBatches(v.assignments?.records ?? [], (id) => batchSizeOf((v.projects ?? []).find((p) => p.id === id))).map((a) => [a.key, a])); // batches: an older assignment is labelled oldest first (DECISIONS 203)
   const placed = new Map((v.placements?.records ?? []).filter((p) => p.to === undefined).map((p) => [p.key, p])); // only a placement that still holds its place (DECISIONS 186)
   const enrolled = new Map((v.enrolments?.records ?? []).map((e) => [e.id, e]));
   const personName = (id: string): string => (v.beneficiaries?.records ?? []).find((b) => b.id === id)?.name ?? id;
   const newKey = giftPlacementKey;
-  return (g: GiftRow): { state: "placed" | "waiting" | "manual" | "none" | "n/a"; who: string; partner: string; parts: number | null; why: string; ref?: string; allocRef?: string } => {
+  return (g: GiftRow): { state: "placed" | "waiting" | "manual" | "none" | "n/a"; who: string; partner: string; parts: number | null; why: string; ref?: string; allocRef?: string; batch?: number } => {
     // A paused, cancelled or completed plan holds no place and is shown by the older rule (parked, or needing none) (DECISIONS 185).
     const nk = ["paused", "cancelled", "completed"].includes(g.planStatus) ? "" : newKey(g);
     const asg = nk !== "" ? assigned.get(nk) : undefined;
     const plc = nk !== "" ? placed.get(nk) : undefined;
     // A placement whose place no longer exists (the child was removed) is not a placement: the gift is assigned and waiting for a place again.
-    if (asg && plc && (plc.kind === "outcome" || enrolled.has(plc.enrolmentId))) return { state: "placed", who: plc.kind === "outcome" ? plc.outcomeRef : personName(enrolled.get(plc.enrolmentId)?.beneficiaryId ?? ""), partner: partnerName(asg.partnerId) || "No partner", parts: null, why: "" };
-    if (asg) return { state: "waiting", who: "", partner: partnerName(asg.partnerId) || "A partner", parts: null, why: `Assigned to ${partnerName(asg.partnerId) || "a partner"}, waiting for a place` };
+    if (asg && plc && (plc.kind === "outcome" || enrolled.has(plc.enrolmentId))) return { state: "placed", who: plc.kind === "outcome" ? plc.outcomeRef : personName(enrolled.get(plc.enrolmentId)?.beneficiaryId ?? ""), partner: partnerName(asg.partnerId) || "No partner", parts: null, why: "", ...(asg.batch !== undefined ? { batch: asg.batch } : {}) };
+    if (asg) return { state: "waiting", who: "", partner: partnerName(asg.partnerId) || "A partner", parts: null, why: `Assigned to ${partnerName(asg.partnerId) || "a partner"}, waiting for a place`, ...(asg.batch !== undefined ? { batch: asg.batch } : {}) };
     if (g.allocationKey === "") return { state: "n/a", who: "", partner: "", parts: null, why: "" };
     if (keys.has(g.allocationKey)) {
       const a = allocationOf.get(g.allocationKey);
@@ -364,7 +365,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Cause", esc(first?.cause ?? ""))}
         ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
         ${row("Stage", `${stagePill(stageFor(v, g, a))}${stageFor(v, g, a).note ? `<div class="muted">${esc(stageFor(v, g, a).note)}</div>` : ""}`)}
-        ${row("Assigned to", a.partner ? esc(a.partner) : `<span class="muted">Not assigned to a partner yet</span>`)}
+        ${row("Assigned to", a.partner ? `${esc(a.partner)}${a.batch !== undefined ? ` <span class="muted">Batch ${a.batch}</span>` : ""}` : `<span class="muted">Not assigned to a partner yet</span>`)}
         ${row("Allocated to", allocation)}
         ${(() => { const hk = giftPlacementKey(g); const hn = hk === "" ? 0 : countOfGift(v.placements?.records ?? [], hk); return hn > 0 ? row("Allocation history", `<button type="button" class="linkish" data-hist="gift" data-id="${esc(hk)}">View history (${hn})</button>`) : ""; })()}
         ${row("Status", `${status} ${logBtn}${markManual ? `<div class="statusact">${markManual}</div>` : ""}`)}
