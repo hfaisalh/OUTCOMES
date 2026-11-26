@@ -321,3 +321,14 @@ select:not([multiple]):focus-visible{outline:2px solid var(--accent);outline-off
 .listframe:not(.card .listframe){background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:16px;box-shadow:0 1px 2px rgba(20,40,100,.04)}
 .listframe.regwrap{max-height:calc(100vh - 56px - 150px)}
 .listframe .regtable thead th{top:0}
+
+/* The cluster window (decision 210): a row's actions behind one small menu, lists in a short framed box inside the window. */
+.rowmenu{display:inline-block;position:relative;vertical-align:middle}
+.rowmenu summary{list-style:none;cursor:pointer;width:28px;height:28px;border-radius:8px;border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center;font-size:18px;line-height:1;background:var(--card)}
+.rowmenu summary::-webkit-details-marker{display:none}
+.rowmenu[open] summary{background:var(--accent-bg)}
+.rowmenu-box{position:absolute;right:0;top:32px;z-index:30;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;min-width:210px;box-shadow:0 6px 18px rgba(20,40,100,.16)}
+.rowmenu-box .danger{color:#c0392b;text-align:left}
+.pf-body .listframe{max-height:46vh;border:1px solid var(--line);border-radius:10px;margin-top:10px;box-shadow:none}
+.pf-body .cl-add{margin:6px 0}
+.muted.small,.small{font-size:12px}

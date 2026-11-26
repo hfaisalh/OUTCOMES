@@ -150,9 +150,10 @@ describe("parked outcomes in a cluster (DECISIONS 209)", () => {
   const ctx = { projectId: "p", items: [{ id: "I11", name: "Small Pump" }], beneficiaries: [], enrolments: [], stock, stockItems: [{ id: "I11", name: "Small Pump" }], partners: [{ id: "trust", name: "Sample Trust" }], placements: [{ key: "sub:S1", kind: "outcome" as const, enrolmentId: "", outcomeRef: "OUT-0001", stockId: "STK-0001", giftProjectId: "p", itemId: "I11", parts: 1, how: "auto" as const, at: "x" }] };
   it("lists what is parked in the cluster and inside it, free or used by an outcome, and lets a free one be removed", () => {
     reset();
-    clusterUi.node = "science"; clusterUi.nodeTab = "people"; // the stock is in Physics, inside Science
+    clusterUi.node = "science"; clusterUi.nodeTab = "outcomes"; // the stock is in Physics, inside Science
     const html = clustersTabHtml(home, "", ctx);
-    expect(html).toContain("Parked outcomes in Science");
+    expect(html).toContain('data-tab="outcomes">Outcomes <span class="muted">(2)</span>');
+    expect(html).toContain("Park an outcome in Science");
     expect(html).toContain("<b>Chak 5 pump</b>");
     expect(html).toContain("Used by OUT-0001");
     expect(html).toContain('data-cl="stock-rm" data-id="STK-0002"'); // free: can be removed
@@ -161,11 +162,35 @@ describe("parked outcomes in a cluster (DECISIONS 209)", () => {
   });
   it("offers a form with the benefits that can be parked and the project's partners, and says so when there are none", () => {
     reset();
-    clusterUi.node = "science"; clusterUi.nodeTab = "people";
+    clusterUi.node = "science"; clusterUi.nodeTab = "outcomes";
     const html = clustersTabHtml(home, "", ctx);
     expect(html).toContain('id="st-name"');
     expect(html).toContain('data-cl="stock-add" data-id="science"');
-    expect(clustersTabHtml(home, "", { ...ctx, stockItems: [] })).toContain("nothing to park here");
+    expect(clustersTabHtml(home, "", { ...ctx, stockItems: [] })).not.toContain('data-tab="outcomes"'); // nothing can be parked in this project, so there is no tab
+    reset();
+  });
+});
+
+describe("the cluster window layout (DECISIONS 210)", () => {
+  const ctx = { projectId: "p", items: [{ id: "I10", name: "Orphan Sponsorship" }, { id: "I11", name: "Small Pump" }], itemNames: { I10: "Orphan Sponsorship", I11: "Small Pump", "MWF-EDU-002": "Education Support" }, enrolItemIds: ["I10"], beneficiaries: [{ id: "PRS-1", kind: "person", name: "Sample Amina", status: "active", eligibility: "ready" }] as never, enrolments: [{ id: "EN-1", beneficiaryId: "PRS-1", giftProjectId: "p", clusterId: "physics", itemId: "MWF-EDU-002", role: "", status: "active", since: "2026-11-26" }] as never };
+  it("offers only benefits that take a person in the Enrol form, shows names and not codes, and keeps a row's actions behind a menu", () => {
+    reset();
+    clusterUi.node = "lahore-university"; clusterUi.nodeTab = "people";
+    const html = clustersTabHtml(home, "", ctx);
+    expect(html).toContain('<option value="I10">Orphan Sponsorship</option>');
+    expect(html).not.toContain('<option value="I11">Small Pump</option>');
+    expect(html).toContain("Education Support"); // the name, not MWF-EDU-002
+    expect(html).not.toContain(">MWF-EDU-002<");
+    expect(html).toContain('<details class="rowmenu">');
+    expect(html).toContain('data-cl="enr-end"');
+    expect(html.indexOf("Enrol someone in")).toBeLessThan(html.indexOf("<table")); // the form comes before the list
+    expect(html).not.toContain("come next"); // no leftover placeholder line
+    reset();
+  });
+  it("has no Outcomes tab when nothing in the project can be parked", () => {
+    reset();
+    clusterUi.node = "lahore-university"; clusterUi.nodeTab = "people";
+    expect(clustersTabHtml(home, "", ctx)).not.toContain('data-tab="outcomes"');
     reset();
   });
 });

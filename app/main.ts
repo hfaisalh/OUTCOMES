@@ -1696,7 +1696,7 @@ document.addEventListener("click", (e) => {
     case "enr-end": return clusterRequestThen("Enrolment ended.", { action: "enr-end", id });
     case "stock-add": return clusterRequestThen("Parked outcome added.", { action: "plc-stock-add", clusterId: id, itemId: val("st-item"), partnerId: val("st-partner"), name: val("st-name") });
     case "stock-rm": return clusterRequestThen("Parked outcome removed.", { action: "plc-stock-remove", id });
-    case "node-tab": clusterUi.nodeTab = b.dataset.tab === "inside" ? "inside" : b.dataset.tab === "people" ? "people" : "details"; clusterUi.adding = ""; return clusterView();
+    case "node-tab": clusterUi.nodeTab = b.dataset.tab === "inside" ? "inside" : b.dataset.tab === "people" ? "people" : b.dataset.tab === "outcomes" ? "outcomes" : "details"; clusterUi.adding = ""; return clusterView();
     case "node-save": return clusterRequestThen("Saved.", { action: "cluster-set", clusterId: id, name: val("cn-name"), label: val("cn-label"), place: val("cn-place"), roles: val("cn-roles"), status: val("cn-status"), ...(document.getElementById("cn-capacity") ? { capacity: val("cn-capacity") } : {}) });
     case "cluster-add": { // Rule: capacity belongs to the master cluster only, so a sub cluster is sent none.
       if (id === "") return clusterRequest({ action: "cluster-add", name: val("cl-tname"), label: val("cl-tlabel"), parentId: "", place: val("cl-tplace"), capacity: val("cl-tcap") });

@@ -876,3 +876,12 @@ Agreed with Faisal. A partner may load, in a cluster of a project, the outcomes 
 - Rule: a partner with parked outcomes for a benefit has that many whole outcomes of capacity for it, so it shows in Registered on the Assignment page, a flag appears when it is full, and Assignment sends gifts to partners with free stock. A partner with none parked keeps its typed capacity.
 - Where: the cluster window, Beneficiaries tab, under Parked outcomes (add and remove). Stored with the placements (`stock` and `stockCounter`), so it is saved and sent with them. A reset of placements keeps the stock.
 - Not built yet: requiring stock before a gift can be assigned (a work order with no stock would wait, "waiting for outcome records"), more details on a parked outcome (area, contact, photo), and loading many at once from a file.
+
+## 210. The cluster window: an Outcomes tab, forms on top, row menus (2026-11-26)
+
+After looking at the cluster window with real use: the forms were at the bottom of long lists, people and parked outcomes shared one tab, names were squeezed by a wide Move to list, some benefits showed as codes, a pump could be offered for enrolling a person, and a leftover "come next" line remained.
+- Tabs: Details, Sub-Clusters, Beneficiaries, and **Outcomes** (parked outcomes, with its count). The Outcomes tab shows only when the project has a benefit that can be parked.
+- Each tab has its form on top (one row), then its list in a short framed box with the heading row in view.
+- A row's actions (move to another cluster, end the enrolment, remove a parked outcome) sit behind a small menu. History stays visible.
+- The Enrol form offers only benefits that take a person or household. Benefits where the gift comes first, or with no beneficiary, are parked on the Outcomes tab. (Enrolling recipients after a gift-first outcome is not built yet, and would need its own place.)
+- Benefit names come from the full item list, so a code is never shown. The leftover placeholder line is gone.

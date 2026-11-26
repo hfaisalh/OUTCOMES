@@ -60,7 +60,7 @@ describe("the Beneficiaries tab of a cluster", () => {
     expect(clusterPeopleHtml(state, state.clusters[1]!, ctx())).not.toContain('<option value="Principal">'); // Class 1 lists no role
   });
   it("says what to do first when the project offers no benefit or the register is empty", () => {
-    expect(clusterPeopleHtml(state, state.clusters[0]!, ctx({ items: [] }))).toContain("offers no benefit yet");
+    expect(clusterPeopleHtml(state, state.clusters[0]!, ctx({ items: [] }))).toContain("No benefit of this project takes a person");
     expect(clusterPeopleHtml(state, state.clusters[0]!, ctx({ beneficiaries: [] }))).toContain("The register is empty");
   });
   it("appears as a third tab with its count, only when the tab is given the register", () => {
