@@ -7,34 +7,64 @@
  * Depends on: store.ts.
  *
  * Rule: every query filters by the organisation, passed as the first parameter ($1).
+ * DECISIONS 237: the register, enrolments, assignments, placements, parked outcomes, confirmations and progress are rows in their own tables (record-tables.ts).
  */
 
 import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js";
 import type { AuditRecord } from "../01f-batch-audit/audit.js";
 import type { TriageMark } from "../04-triage/triage.js";
 import type { ChangeEntry } from "./change-log.js";
+import { canon, assembleConfig, listOf, rowsOf, splitConfig, TABLES, type Table } from "./record-tables.js";
 import { ConflictError, KEEP_AUDITS, type OrgConfig, type RunInfo, type Store } from "./store.js";
 
 export type Query = (sql: string, params: unknown[]) => Promise<Record<string, unknown>[]>;
 
 export function pgStore(query: Query): Store {
+  // What this process last read or saved for each organisation: its version and a fingerprint of each list, so a save sends only the lists that changed (and only when the database is still at that version).
+  const seen = new Map<string, { version: number; legacy: boolean; sig: Record<Table, string> }>();
   const one = async <T>(sql: string, org: string, column: string): Promise<T | null> => {
     const rows = await query(sql, [org]);
     return rows[0] ? (rows[0][column] as T) : null;
   };
   return {
+    // One query reads the document and every list together, so they are always from the same moment (DECISIONS 237).
     async getConfig(org) {
-      const row = (await query("SELECT config, version FROM org_config WHERE org = $1", [org]))[0];
-      return row ? { ...(row["config"] as OrgConfig), version: Number(row["version"] ?? 0) } : null;
+      const lists = TABLES.map((t) => `(SELECT coalesce(jsonb_agg(data ORDER BY pos), '[]'::jsonb) FROM ${t} WHERE org = $1) AS ${t}`).join(", ");
+      const row = (await query(`SELECT config, version, ${lists} FROM org_config WHERE org = $1`, [org]))[0];
+      if (!row) return null;
+      const rows = Object.fromEntries(TABLES.map((t) => [t, (row[t] as unknown[]) ?? []])) as Record<Table, unknown[]>;
+      const { config, legacy } = assembleConfig(row["config"] as OrgConfig, rows);
+      const version = Number(row["version"] ?? 0);
+      seen.set(org, { version, legacy, sig: Object.fromEntries(TABLES.map((t) => [t, canon(listOf(config, t))])) as Record<Table, string> });
+      return { ...config, version };
     },
     // Rule (DECISIONS 235): a setup read at version N is saved only while the database is still at N. A first save only adds the row if no one else has.
+    // Rule (DECISIONS 237): the document and every list that changed are saved in ONE statement, so they succeed or fail together. The lists are written only if the version check passed (the fence). Lists that did not change are not sent.
     async putConfig(org, config) {
-      const { version, ...body } = config; // the version lives in its own column, not inside the document
-      const rows = version === undefined
-        ? await query("INSERT INTO org_config (org, config, version) VALUES ($1, $2, 1) ON CONFLICT (org) DO NOTHING RETURNING version", [org, JSON.stringify(body)])
-        : await query("UPDATE org_config SET config = $2, version = version + 1 WHERE org = $1 AND version = $3 RETURNING version", [org, JSON.stringify(body), version]);
+      const { version, ...rest } = config; // the version lives in its own column, not inside the document
+      const { blob, lists } = splitConfig(rest as OrgConfig);
+      const params: unknown[] = [org, JSON.stringify(blob)];
+      let fence: string;
+      if (version === undefined) fence = "INSERT INTO org_config (org, config, version) VALUES ($1, $2, 1) ON CONFLICT (org) DO NOTHING RETURNING version";
+      else { params.push(version); fence = "UPDATE org_config SET config = $2, version = version + 1 WHERE org = $1 AND version = $3 RETURNING version"; }
+      const known = seen.get(org);
+      const trust = known !== undefined && known.version === version && !known.legacy; // what this process read is exactly what the database holds
+      const sig = {} as Record<Table, string>;
+      const parts: string[] = [];
+      for (const t of TABLES) {
+        sig[t] = canon(lists[t]);
+        if (trust && known.sig[t] === sig[t]) continue;
+        params.push(JSON.stringify(rowsOf(t, lists[t])));
+        const p = `$${params.length}::jsonb`;
+        const ok = "EXISTS (SELECT 1 FROM fence)";
+        parts.push(`${t}_put AS (INSERT INTO ${t} (org, rid, pos, data) SELECT $1, e->>'rid', (e->>'pos')::int, e->'data' FROM jsonb_array_elements(${p}) AS e WHERE ${ok} ON CONFLICT (org, rid) DO UPDATE SET pos = EXCLUDED.pos, data = EXCLUDED.data WHERE ${t}.pos IS DISTINCT FROM EXCLUDED.pos OR ${t}.data IS DISTINCT FROM EXCLUDED.data)`);
+        parts.push(`${t}_gone AS (DELETE FROM ${t} WHERE org = $1 AND ${ok} AND rid NOT IN (SELECT e->>'rid' FROM jsonb_array_elements(${p}) AS e))`);
+      }
+      const rows = await query(`WITH fence AS (${fence})${parts.map((x) => ", " + x).join("")} SELECT version FROM fence`, params);
       if (rows.length === 0) throw new ConflictError();
-      config.version = Number(rows[0]!["version"]);
+      const next = Number(rows[0]!["version"]);
+      seen.set(org, { version: next, legacy: false, sig });
+      config.version = next;
     },
     async listWorkOrders(org) {
       const rows = await query("SELECT data FROM work_orders WHERE org = $1 ORDER BY key", [org]);

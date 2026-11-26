@@ -16,7 +16,7 @@ function fake() {
     calls.push({ sql, params });
     if (sql.startsWith("INSERT INTO used_launch")) return used.has(params[0] as string) ? [] : (used.add(params[0] as string), [{ jti: params[0] }]);
     if (sql.startsWith("SELECT config")) return [{ config: defaultConfig(), version: 3 }];
-    if (sql.startsWith("INSERT INTO org_config") || sql.startsWith("UPDATE org_config")) return [{ version: 4 }];
+    if (sql.includes("RETURNING version")) return [{ version: 4 }];
     return [];
   };
   return { query, calls };
@@ -58,7 +58,7 @@ describe("pgStore", () => {
     const read = (await s.getConfig("mwf"))!;
     expect(read.version).toBe(3);
     await s.putConfig("mwf", read);
-    const update = calls.find((c) => c.sql.startsWith("UPDATE org_config"))!;
+    const update = calls.find((c) => c.sql.includes("UPDATE org_config"))!;
     expect(update.sql).toContain("version = $3");
     expect(update.params[2]).toBe(3);
     expect(update.params[1]).not.toContain("version"); // kept in its own column, not in the document
