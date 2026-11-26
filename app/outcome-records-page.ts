@@ -15,6 +15,7 @@ import { unitsOfItem } from "../modules/02-project-rules/benefits";
 import type { SavedFeatures } from "../modules/02-project-rules/kind-features";
 import { outcomeRows, type OutcomeRow } from "../modules/10-outcome-records/outcome-records";
 import { icon, SYMBOL } from "./gifts-page";
+import { SYM } from "./symbols";
 import { esc, type View } from "./pages";
 
 const MAX_ROWS = 300;
@@ -86,13 +87,14 @@ export function outcomeRecordsPage(v: View): string {
   }).join("");
   const th = (key: string, label: string, cls = "", tip = ""): string => `<th${cls ? ` class="${cls}"` : ""}${tip ? ` title="${esc(tip)}"` : ""}><button type="button" class="sortbtn" data-orsort="${key}">${label}${sort?.key === key ? (sort.dir === "desc" ? " ▼" : " ▲") : ""}</button></th>`;
   const head = `<thead><tr>${th("ref", "Outcome")}${th("benefit", "Benefit")}${th("type", "Type")}${th("project", "Project")}${th("partner", "Partner")}${th("donor", "Donor")}${th("plan", "Plan")}${th("funded", "Funded", "num", "The units the gift holds out of the units that make one whole outcome, counting only the instalments paid so far")}${months.map((m) => `<th class="m${m === today.slice(0, 7) ? " now" : ""}">${NAME[Number(m.slice(5, 7)) - 1]}</th>`).join("")}${th("stage", "Stage")}<th>Status</th></tr></thead>`;
-  const legend = `<p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; <span class="dot on"></span> live &nbsp; <span class="dot off"></span> ended</p><div class="legendrow">${KEY.map(([s, t]) => `<span><span class="sw ${s}"></span>${t}</span>`).join("")}</div>`;
+  // The key sits in a disclosure, as on Gifts (DECISIONS 223).
+  const legend = `<details class="keydrop"><summary>${SYM.info} Key to the symbols</summary><p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; <span class="dot on"></span> live &nbsp; <span class="dot off"></span> ended</p><div class="legendrow">${KEY.map(([s, t]) => `<span><span class="sw ${s}"></span>${t}</span>`).join("")}</div></details>`;
   const sel = (x: string, val: string): string => (x === val ? " selected" : "");
   const types = [...new Set(all.map((r) => typeOf(r.itemId)))].sort();
   const filters = `<div class="filters"><select data-orf="project" aria-label="Project"><option value="">All projects</option>${projects.map((p) => `<option value="${esc(p.id)}"${sel(f.project, p.id)}>${esc(p.name)}</option>`).join("")}</select>
     <select data-orf="type" aria-label="Type"><option value="">All types</option>${types.map((t) => `<option value="${esc(t)}"${sel(f.type, t)}>${esc(t)}</option>`).join("")}</select>
     <select data-orf="show" aria-label="Show"><option value="">All</option><option value="underfunded"${sel(f.show, "underfunded")}>Under-funded</option><option value="missed"${sel(f.show, "missed")}>Failed payments</option><option value="ended"${sel(f.show, "ended")}>Ended</option></select>
-    <input data-orf="text" value="${esc(f.text)}" placeholder="Search outcome, benefit, donor, partner or project" aria-label="Search" /></div>`;
+    <span class="searchbox">${SYM.search}<input type="search" data-orf="text" value="${esc(f.text)}" placeholder="Search outcome, benefit, donor, partner or project" aria-label="Search" /></span></div>`;
   return `<h1>Outcomes</h1>
     <p class="sub">What gifts have created where the gift comes first (a pump, a camp) or there is no beneficiary (a mosque). Each is one outcome with its own reference. Open a row for the gift. Stages after allocation (delivered, confirmed, reported) come later.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}

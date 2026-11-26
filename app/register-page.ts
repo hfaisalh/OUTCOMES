@@ -15,6 +15,7 @@ import { unitsOfItem } from "../modules/02-project-rules/benefits";
 import { clusterStateOf, pathOf } from "../modules/06-projects/clusters";
 import { normName } from "../modules/07-beneficiaries/beneficiaries";
 import { icon, SYMBOL } from "./gifts-page";
+import { SYM } from "./symbols";
 import { esc, type View } from "./pages";
 
 const MAX_ROWS = 300;
@@ -128,7 +129,8 @@ export function registerPage(v: View): string {
   }).join("");
   const th = (key: string, label: string, cls = "", tip = ""): string => `<th${cls ? ` class="${cls}"` : ""}${tip ? ` title="${esc(tip)}"` : ""}><button type="button" class="sortbtn" data-regsort="${key}">${label}${sort?.key === key ? (sort.dir === "desc" ? " \u25BC" : " \u25B2") : ""}</button></th>`;
   const head = `<thead><tr>${th("name", "Name")}${th("sex", "M/F")}${th("age", "Age", "num")}${th("partner", "Partner")}${th("project", "Project")}${th("benefit", "Benefit")}${th("plan", "Plan")}${th("donor", "Donor")}${th("allocated", "Allocated", "num", "Allocation score: the share of the months shown that a gift has paid or expects")}${months.map((m) => `<th class="m${m === today.slice(0, 7) ? " now" : ""}">${NAME[Number(m.slice(5, 7)) - 1]}</th>`).join("")}${th("status", "Status")}</tr></thead>`;
-  const legend = `<p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; <span class="dot on"></span> active &nbsp; <span class="dot off"></span> inactive</p><div class="legendrow">${KEY.map(([s, t]) => `<span><span class="sw ${s}"></span>${t}</span>`).join("")}</div>`;
+  // The key sits in a disclosure, as on Gifts (DECISIONS 223).
+  const legend = `<details class="keydrop"><summary>${SYM.info} Key to the symbols</summary><p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; <span class="dot on"></span> active &nbsp; <span class="dot off"></span> inactive</p><div class="legendrow">${KEY.map(([s, t]) => `<span><span class="sw ${s}"></span>${t}</span>`).join("")}</div></details>`;
   const sel = (x: string | undefined, val: string): string => (x === val ? " selected" : "");
   const projectSel = `<select data-regf="project" aria-label="Project"><option value="">All projects</option>${projects.map((p) => `<option value="${esc(p.id)}"${sel(f.project, p.id)}>${esc(p.name)}</option>`).join("")}</select>`;
   const filters = `<div class="filters"><select data-regf="kind" aria-label="Kind"><option value="">People and households</option><option value="person"${sel(f.kind, "person")}>People</option><option value="household"${sel(f.kind, "household")}>Households</option></select>
@@ -136,7 +138,7 @@ export function registerPage(v: View): string {
     <select data-regf="show" aria-label="Show"><option value="">All</option><option value="gaps"${sel(f.show, "gaps")}>Gaps: not fully allocated</option><option value="missed"${sel(f.show, "missed")}>Failed payments</option></select>
     <select data-regf="status" aria-label="Status"><option value="">Any status</option><option value="active"${sel(f.status, "active")}>Active</option><option value="inactive"${sel(f.status, "inactive")}>Inactive</option></select>
     <select data-regf="eligibility" aria-label="Admission decision"><option value="">Any decision</option>${(["ready", "review", "declined"] as const).map((e) => `<option value="${e}"${sel(f.eligibility, e)}>${esc(ELIGIBILITY_LABEL[e])}</option>`).join("")}</select>
-    <input data-regf="text" value="${esc(f.text)}" placeholder="Search name, ID, donor, partner, area or guardian" aria-label="Search" /></div>`;
+    <span class="searchbox">${SYM.search}<input type="search" data-regf="text" value="${esc(f.text)}" placeholder="Search name, ID, donor, partner, area or guardian" aria-label="Search" /></span></div>`;
   return `<h1>Beneficiaries</h1>
     <p class="sub">Month by month, what is happening with each beneficiary: the gifts that fill each unit of the benefit, paid, expected or missed, and the gaps. Search by name, ID or donor. Open a row for the profile and the ID. Contact details stay in the CRM.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}

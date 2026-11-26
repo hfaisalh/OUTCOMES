@@ -71,43 +71,49 @@ export function enhanceTables(root: ParentNode, tt: TableToolsState, page: strin
     const heads = Array.from(table.querySelectorAll<HTMLTableCellElement>("thead tr:last-child th"));
     const body = table.tBodies[0];
     if (!body || heads.length < 2) return;
-    if (table.classList.contains("giftlist") || table.querySelector(".sortbtn,[data-gsort],table,details,td[colspan],th[colspan]")) return;
+    if (table.classList.contains("giftlist") || table.querySelector("[data-gsort],table,details,th[colspan]")) return;
     const trs = Array.from(body.rows);
-    if (trs.length === 0 || trs.some((r) => r.cells.length !== heads.length)) return; // not a plain grid
-    const cells = trs.map((r) => Array.from(r.cells).map((c) => tidy(c.textContent ?? "")));
+    if (trs.length === 0) return;
+    // A list that already sorts itself (Beneficiaries, Outcomes) keeps its own order and sort buttons and only gains the funnel and Columns.
+    // A row that spans the columns (such as "Not enrolled in any benefit yet") has no value to filter by, so it is hidden while a filter is on.
+    const ownSort = table.querySelector(".sortbtn") !== null;
+    const plain = trs.map((r) => r.cells.length === heads.length);
+    const cells = trs.map((r, i) => (plain[i] ? Array.from(r.cells).map((c) => tidy(c.textContent ?? "")) : []));
     const filters = tt.filters[key] ?? {};
-    const sort = tt.sort[key];
+    const sort = ownSort ? undefined : tt.sort[key];
     const hidden = tt.hidden[key] ?? [];
     const shown = viewRows(cells, filters, sort);
     const shownSet = new Set(shown);
     // Order and hide the rows.
-    shown.forEach((i) => body.appendChild(trs[i]!));
+    if (sort) shown.forEach((i) => body.appendChild(trs[i]!)); // only a sorted list is reordered, an unsorted one keeps the page's own order
     trs.forEach((r, i) => { r.hidden = !shownSet.has(i); });
     // Hide columns by their number.
-    [...heads, ...trs.flatMap((r) => Array.from(r.cells))].forEach((c) => { c.hidden = hidden.includes(c.cellIndex); });
+    [...heads, ...trs.filter((_, i) => plain[i]).flatMap((r) => Array.from(r.cells))].forEach((c) => { c.hidden = hidden.includes(c.cellIndex); });
     // Headings: a sort button, and a funnel where the column has few values. A heading with a control in it (a tick-all box) is left as it is.
     heads.forEach((th, col) => {
       const label = tidy(th.textContent ?? "");
-      if (label === "" || th.querySelector("input,button,select")) return;
+      if (label === "" || th.querySelector("input,select")) return;
       const dir = sort?.col === col ? sort.dir : undefined;
-      const vals = valuesOf(cells.map((r) => r[col] ?? ""));
+      const vals = valuesOf(cells.filter((r) => r.length > 0).map((r) => r[col] ?? ""));
       const on = (filters[col] ?? []).length > 0;
+      const funnelBtn = vals ? `<button type="button" class="fbtn${on ? " on" : ""}" data-tt-filter="${key}|${col}" aria-pressed="${tt.open?.kind === "filter" && tt.open.key === key && tt.open.col === col ? "true" : "false"}" aria-label="Filter ${esc(label)} by value" title="Filter by value">${SYM.funnel}</button>` : "";
+      if (th.querySelector("button")) { if (!th.querySelector(".fbtn")) th.insertAdjacentHTML("beforeend", funnelBtn); return; }
       th.setAttribute("aria-sort", dir ? (dir === "desc" ? "descending" : "ascending") : "none");
-      th.innerHTML = `<button type="button" class="sortbtn" data-tt-sort="${key}|${col}">${esc(label)}${dir === "asc" ? SYM.sortUp : dir === "desc" ? SYM.sortDown : ""}</button>${vals ? `<button type="button" class="fbtn${on ? " on" : ""}" data-tt-filter="${key}|${col}" aria-pressed="${tt.open?.kind === "filter" && tt.open.key === key && tt.open.col === col ? "true" : "false"}" aria-label="Filter ${esc(label)} by value" title="Filter by value">${SYM.funnel}</button>` : ""}`;
+      th.innerHTML = `<button type="button" class="sortbtn" data-tt-sort="${key}|${col}">${esc(label)}${dir === "asc" ? SYM.sortUp : dir === "desc" ? SYM.sortDown : ""}</button>${funnelBtn}`;
     });
     // The bar above the list: how many are shown, the filters in force, the Columns button, and the open panel.
     const chips = Object.entries(filters).filter(([, v]) => v.length > 0).map(([col, v]) => `<button type="button" class="chip" data-tt-clearcol="${key}|${col}" title="Remove this filter">${esc(tidy(heads[Number(col)]?.textContent ?? ""))}: ${esc(v.length === 1 ? v[0]! : `${v.length} values`)} ${SYM.close}</button>`).join("");
     const labelOf = (i: number) => tidy(heads[i]?.textContent ?? "") || `Column ${i + 1}`;
     let panel = "";
     if (tt.open && tt.open.key === key && tt.open.kind === "filter") {
-      const vals = valuesOf(cells.map((r) => r[tt.open!.col] ?? "")) ?? [];
+      const vals = valuesOf(cells.filter((r) => r.length > 0).map((r) => r[tt.open!.col] ?? "")) ?? [];
       const ticked = filters[tt.open.col] ?? [];
       panel = `<div class="valuebox" role="group" aria-label="${esc(labelOf(tt.open.col))} values">${vals.map((x) => `<label><input type="checkbox" data-tt-val="${key}|${tt.open!.col}" value="${esc(x.value)}"${ticked.includes(x.value) ? " checked" : ""}> ${esc(x.value)} <span class="muted">${x.count}</span></label>`).join("")}<button type="button" class="chipbtn" data-tt-done="1">Done</button></div>`;
     } else if (tt.open && tt.open.key === key && tt.open.kind === "cols") {
       panel = `<div class="colbox" role="group" aria-label="Columns">${heads.map((_, i) => (labelOf(i) === `Column ${i + 1}` ? "" : `<label><input type="checkbox" data-tt-col="${key}|${i}"${hidden.includes(i) ? "" : " checked"}> ${esc(labelOf(i))}</label>`)).join("")}<button type="button" class="chipbtn" data-tt-done="1">Done</button></div>`;
     }
     const count = shown.length === trs.length ? "" : `<span class="muted">${shown.length} of ${trs.length} shown</span> `;
-    const any = Object.values(filters).some((v) => v.length > 0) || hidden.length > 0 || sort;
+    const any = Object.values(filters).some((v) => v.length > 0) || hidden.length > 0 || (!ownSort && sort);
     const bar = document.createElement("div");
     bar.className = "listtools tt";
     bar.innerHTML = `<div class="chips">${count}${chips}${any ? `<button type="button" class="chipbtn" data-tt-reset="${key}">Reset</button>` : ""}</div><div class="toolbtns"><button type="button" class="chipbtn" data-tt-cols="${key}" aria-expanded="${tt.open?.kind === "cols" && tt.open.key === key ? "true" : "false"}">${SYM.columns} Columns</button></div>${panel}`;
