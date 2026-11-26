@@ -849,3 +849,7 @@ Parked by Faisal: orphan sponsorship (it differs), and the rule for the 50% adva
 ## 204. "Room" becomes "Available capacity", one number (2026-11-26)
 
 "Room" and "from its children" were misleading, and the number shown (what the partner has registered) was not the one that counted when a ceiling was lower. The Assignment page table is now **Available capacity with each partner**: the columns are Available capacity, Assigned and Remaining. Available capacity is one number, what the partner can take now. Where the partner's configuration allows a number it follows in brackets, for example `3 (allowed 3)`. For a benefit where the beneficiary comes first, hovering shows how many are registered. The wording about "children" is gone from the candidate reasons, since the benefit already says whether it is for people, an activity or a build.
+
+## 205. The top bar and the menu stay in view, and the version sits on the top bar (2026-11-26)
+
+The version label was at the bottom of the menu, so a long page had to be scrolled to read it. The top bar now stays at the top of the window and carries the version on its right, and the menu stays in view with its own scroll when it is long. On a narrow screen the menu is not fixed. `app/theme.css`, `app/main.ts`.
