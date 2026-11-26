@@ -25,10 +25,12 @@ export function projectsPage(v: View): string {
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="actions"><button class="primary" data-pj="new">New project</button></div>`;
 
+  // Rule (DECISIONS 212): a list is one line a row. A cell with a long list shows the first few and "+N", and the whole list is in its tooltip and in the project's own window (open the row).
+  const brief = (names: string[], shown: number, empty: string): string => (names.length === 0 ? empty : `<span title="${esc(names.join(", "))}">${esc(names.slice(0, shown).join(", "))}${names.length > shown ? ` <span class="more">+${names.length - shown}</span>` : ""}</span>`);
   const rows = gps.map((g) => `<tr class="rowlink" data-pj="open" data-id="${esc(g.id)}" tabindex="0"><td><b>${esc(g.name)}</b>${g.auto ? ' <span class="pill review" title="Made automatically from the project name on a gift. Open it to set its benefits and vendors. Saving it makes it yours.">automatic</span>' : ""}</td><td>${crmLink(g) === "" ? '<span class="muted">Not linked</span>' : `<span title="The CRM's own project name, fixed">${esc(crmLink(g))}</span>`}</td>
-      <td>${(g.itemIds ?? []).length ? esc((g.itemIds ?? []).map(itemName).join(", ")) : '<span class="muted">Any benefit</span>'}</td><td>${g.partnerIds.length ? g.partnerIds.map((id, n) => `${g.partnerIds.length > 1 ? `${n + 1}. ` : ""}${esc(partnerName(id))}`).join("<br>") : '<span class="pill review">No partner</span>'}</td><td>${giftsOf(g.id)}</td></tr>`).join("");
+      <td class="clip">${brief((g.itemIds ?? []).map(itemName), 2, '<span class="muted">Any benefit</span>')}</td><td class="clip">${g.partnerIds.length ? `<span title="${esc(g.partnerIds.map((id, n) => `${n + 1}. ${partnerName(id)}`).join("\n"))}">${esc(partnerName(g.partnerIds[0] as string))}${g.partnerIds.length > 1 ? ` <span class="more">+${g.partnerIds.length - 1}</span>` : ""}</span>` : '<span class="pill review">No partner</span>'}</td><td>${giftsOf(g.id)}</td></tr>`).join("");
   const table = gps.length
-    ? `<div class="card"><div class="twrap"><table class="ptable"><thead><tr><th>Display Name</th><th>Original Name</th><th>Benefits offered</th><th>Partners / vendors, in order</th><th>Gifts</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ? `<div class="card"><div class="twrap"><table class="ptable"><thead><tr><th>Display Name</th><th>Original Name</th><th>Benefits offered</th><th title="The first partner, and how many more. The order is in the project\'s own window.">Partners / vendors</th><th>Gifts</th></tr></thead><tbody>${rows}</tbody></table></div>
       <p class="muted">A project with no partner makes its gifts wait for a person to decide. A gift for a benefit the project does not offer also waits.</p></div>`
     : `<div class="card empty">No projects yet. Projects are made automatically from the project a gift carries, or click New project.</div>`;
 

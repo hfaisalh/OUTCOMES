@@ -30,8 +30,10 @@ describe("projectsPage", () => {
     expect(html).toContain("<b>Aghosh Homes</b>"); // the name shown in OUTCOMES
     expect(html).toContain('title="The CRM\'s own project name, fixed">Aghosh</span>'); // the CRM's own name, kept as it is
     expect(html).toContain("Not linked"); // a project made only in OUTCOMES
-    for (const w of ["1. Aghosh Orphan Homes<br>2. Dadyal Orphan Complex", "<td>3</td>", "No partner"]) expect(html).toContain(w);
-    expect(html).toContain("<th>Partners / vendors, in order</th>");
+    for (const w of ["Aghosh Orphan Homes <span class=\"more\">+1</span>", "<td>3</td>", "No partner"]) expect(html).toContain(w); // one line: the first partner and how many more
+    expect(html).toContain('title="1. Aghosh Orphan Homes\n2. Dadyal Orphan Complex"'); // the whole order is in the tooltip
+    expect(html).toContain("<th title=");
+    expect(html).toContain(">Partners / vendors</th>");
     expect(html).not.toContain("Vendors, in order");
     expect(html).toContain("Any benefit"); // no benefits listed offers any
     expect(html).toContain("A project with no partner makes its gifts wait");
@@ -100,4 +102,11 @@ describe("projectFormHtml", () => {
     expect(html).toContain("Give the project a name.");
     expect(html).not.toContain("<script>");
   });
+  it("shows two benefits and how many more on one line, with the whole list in the tooltip (decision 212)", () => {
+    const gps = [{ id: "p", name: "Flood Relief", crmName: "Flood Relief", crmNames: [], partnerIds: [], itemIds: ["I1", "I2", "I3", "I4"] }];
+    const html = projectsPage(base({ projects: [], giftProjects: gps, workOrders: [], flaggedItems: [{ id: "I1", name: "Water Tanker" }, { id: "I2", name: "Medical Camp" }, { id: "I3", name: "Build A Home" }, { id: "I4", name: "Rickshaw" }] as never }));
+    expect(html).toContain(">Water Tanker, Medical Camp <span class=\"more\">+2</span>");
+    expect(html).toContain('title="Water Tanker, Medical Camp, Build A Home, Rickshaw"');
+  });
 });
+

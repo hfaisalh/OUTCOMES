@@ -336,3 +336,7 @@ select:not([multiple]):focus-visible{outline:2px solid var(--accent);outline-off
 .listframe .subtable thead th.actcol{background:#f7f9fd}
 .listframe td.actcol{text-align:right;white-space:nowrap}
 .listframe td.actcol .linkish{display:inline-block;min-width:84px;text-align:right;margin-right:6px}
+
+/* One line a row: a long cell is cut short with "+N", the whole list is in its tooltip (decision 212) */
+.ptable td.clip{max-width:420px;overflow:hidden;text-overflow:ellipsis}
+.more{display:inline-block;font-size:11px;font-weight:600;color:var(--accent,#2b3f9e);background:var(--accent-bg);border-radius:999px;padding:0 7px;margin-left:2px}

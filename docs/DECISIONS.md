@@ -889,3 +889,7 @@ After looking at the cluster window with real use: the forms were at the bottom 
 ## 211. Cluster window polish after use (2026-11-26)
 
 From screenshots of the new layout: the heading row did not cover the actions column, so rows showed through; the History link and the menu sat at different places on rows with and without History; and the beneficiary list offered people who cannot be enrolled. Now the heading row covers every column, the History link has a fixed width so the menus line up, and the beneficiary list puts those who can be enrolled first, shows the others greyed with the reason (needs review, cannot offer a place), and groups households separately. Not done: narrowing the list to the benefit chosen (a benefit that takes persons only would hide households), and a search box on a long list.
+
+## 212. Lists are one line a row (2026-11-26)
+
+Faisal's rule: a list row is one line. A cell that holds too much goes to a pop-up or the item's own window, not onto more lines. First applied to Projects: Benefits offered shows the first two and "+N", Partners shows the first partner and "+N" (the column is now "Partners / vendors"). The whole list is in the cell's tooltip, and the project's own window (open the row) has it in full, with the order. To apply to other lists as they are touched. `app/projects-page.ts`.
