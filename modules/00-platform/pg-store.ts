@@ -12,6 +12,7 @@
 import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js";
 import type { AuditRecord } from "../01f-batch-audit/audit.js";
 import type { TriageMark } from "../04-triage/triage.js";
+import type { ChangeEntry } from "./change-log.js";
 import { ConflictError, KEEP_AUDITS, type OrgConfig, type RunInfo, type Store } from "./store.js";
 
 export type Query = (sql: string, params: unknown[]) => Promise<Record<string, unknown>[]>;
@@ -70,6 +71,15 @@ export function pgStore(query: Query): Store {
     getTriage: async (org) => (await one<Record<string, TriageMark>>("SELECT marks FROM triage WHERE org = $1", org, "marks")) ?? {},
     async putTriage(org, marks) {
       await query("INSERT INTO triage (org, marks) VALUES ($1, $2) ON CONFLICT (org) DO UPDATE SET marks = EXCLUDED.marks", [org, JSON.stringify(marks)]);
+    },
+    // One query per save: the entries go in together, so a save is logged whole or not at all.
+    async addChanges(org, entries) {
+      if (entries.length === 0) return;
+      await query("INSERT INTO change_log (org, at, by, action, section, key, change, record) SELECT $1, (e->>'at')::timestamptz, e->>'by', e->>'action', e->>'section', e->>'key', e->>'change', e->'record' FROM jsonb_array_elements($2::jsonb) AS e", [org, JSON.stringify(entries)]);
+    },
+    async listChanges(org, limit, key) {
+      const rows = await query("SELECT at, by, action, section, key, change, record FROM change_log WHERE org = $1 AND ($3::text IS NULL OR key = $3) ORDER BY id DESC LIMIT $2", [org, limit, key ?? null]);
+      return rows.map((r) => ({ at: new Date(r["at"] as string).toISOString(), by: r["by"], action: r["action"], section: r["section"], key: r["key"], change: r["change"], record: r["record"] }) as ChangeEntry);
     },
     async listOrgs() {
       return (await query("SELECT org FROM org_config ORDER BY org", [])).map((r) => r["org"] as string);

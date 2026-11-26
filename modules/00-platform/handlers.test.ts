@@ -643,3 +643,19 @@ describe("manager approval of a release (DECISIONS 74)", () => {
   });
 });
 
+
+describe("change log (DECISIONS 235)", () => {
+  it("writes who added a register record, and leaves a save that changes nothing logged unlogged", async () => {
+    const cookie = await signIn(d);
+    const post = (body: unknown) => handleOutcomes(as(cookie, { method: "POST", body }), d);
+    const r = await post({ action: "ben-add", kind: "person", name: "Sample Child", status: "active" });
+    expect(r.status).toBe(200);
+    const log = await d.store.listChanges("mwf", 10);
+    expect(log.filter((e) => e.section === "beneficiaries" && e.change === "added")).toHaveLength(1);
+    expect(log[0]).toMatchObject({ action: "ben-add", section: "beneficiaries", change: "added" });
+    expect(log[0]!.by).not.toBe("");
+    const before = log.length;
+    await post({ action: "kf-set", kind: "x", features: {} }); // not a logged part, whatever it answers
+    expect((await d.store.listChanges("mwf", 50)).length).toBe(before);
+  });
+});

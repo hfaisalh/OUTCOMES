@@ -20,7 +20,8 @@ The server side of OUTCOMES: signing people in from the CRM (DECISIONS 32), stor
 | `handlers.ts` | The endpoints as plain functions: launch, logout, me, config, work orders, pick-up, import, audits, triage, exclude |
 | `outcomes-handler.ts` | The Outcomes endpoint, the largest: outcomes, projects, partners, the Beneficiary register, enrolments, assignment, confirmation, progress, placement. Answers every request with the whole picture (`reply`) |
 | `store.ts` | The storage interface, and a memory version for tests and demos |
-| `pg-store.ts`, `../../sql/001_init.sql` | The Postgres version and its tables |
+| `pg-store.ts`, `../../sql/` | The Postgres version and its tables (001 tables, 002 setup version, 003 change log) |
+| `change-log.ts` | What a save changed, for the change log (pure) |
 | `OWNER_PASSPHRASE` sign-in, `/api/import`, `/api/audits` | Owner sign-in until the CRM sign-in exists, uploads of CRM export files, and the audit history (DECISIONS 43) |
 | `pickup.ts` | One pick-up for one organisation, and rerouting when an item is sorted |
 | `../../api/*.ts` | Thin Vercel files. `_server.ts` reads the environment and wires the database |

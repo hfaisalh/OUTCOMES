@@ -14,7 +14,7 @@ import { ICON_IDS } from "../../app/icons.js";
 import { allocatable } from "../04b-commitments/commitments.js";
 import { adoptLegacy, allocOptions, migrateGiftProjects, applyProjectAction, clearLegacy, placeInNode, placeInPartner } from "../06-projects/projects.js";
 import { addOutcomes, autoAllocate, DEFAULT_GRACE_DAYS, releaseApprovals, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive } from "../05-outcomes/outcomes.js";
-import { defaultConfig, setupOf } from "./store.js";
+import { defaultConfig, setupOf, type OrgConfig } from "./store.js";
 import { setItemKind, setItemUnits } from "../02-project-rules/benefits.js";
 import { applyKindAction, type SavedFeatures } from "../02-project-rules/kind-features.js";
 import { applyBeneficiaryAction, emptyRegister } from "../07-beneficiaries/beneficiaries.js";
@@ -22,6 +22,7 @@ import { applyPlacementAction, emptyPlacements, placementContext } from "../09-p
 import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments } from "../08-assignment/assignment.js";
 import { applyConfirmationAction, confirmOnBehalf, emptyConfirmations } from "../11-confirmation/confirmation.js";
 import { applyProgressAction, emptyProgress } from "../12-progress/progress.js";
+import { changesBetween } from "./change-log.js";
 import { progressContext } from "../12-progress/context.js";
 import { batchSizeOf } from "../08-assignment/batches.js";
 import { loadSampleSetup, realProjectsFor, wholeByItem, type SampleState, removeSampleSetup, sampleSummaryText, removedSummaryText } from "../07-beneficiaries/sample-setup.js";
@@ -76,6 +77,15 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     const commitments = () => d.store.listWorkOrders(org).then((w) => allocatable(w, perPeriodRule(fw), new Date(d.nowMs()).toISOString().slice(0, 10)));
     const at = new Date(d.nowMs()).toISOString();
     const fail = (error: string) => json(400, { error });
+    // Rule (DECISIONS 235): every save is also written to the change log, with who and which request. A log that cannot be written is reported to the server log but never undoes the save, because the person's change is already kept.
+    const save = async (next: OrgConfig): Promise<void> => {
+      await d.store.putConfig(org, next);
+      try {
+        await d.store.addChanges(org, changesBetween(config, next, a.claims.name, str("action"), at));
+      } catch (e) {
+        console.error("change log not written", e);
+      }
+    };
     // Rule (DECISIONS 231): a partner holding a parked outcome ready for the gift's benefit is confirmed for. Run after anything that changes assignments or stock.
     const settleConfirmations = (): void => { confirmations = confirmOnBehalf(confirmations, assignments.records, placements.stock ?? [], placements.records, at).value; };
 
@@ -86,14 +96,14 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (itemId === "" || itemId.length > 200 || (icon !== "" && !ICON_IDS.includes(icon))) return fail("That icon was not found.");
       const next = { ...(config.itemIcons ?? {}) };
       if (icon === "") delete next[itemId]; else next[itemId] = icon;
-      await d.store.putConfig(org, { ...config, itemIcons: next, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {} });
+      await save({ ...config, itemIcons: next, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {} });
       return reply({ itemIcons: next });
     }
     // The kind of benefit chosen for an item (DECISIONS 143). An empty kind takes the choice back, so the name's suggestion shows again.
     if (b["action"] === "item-kind") {
       const r = setItemKind(config.itemKinds ?? {}, str("itemId"), str("kind"));
       if ("error" in r) return fail(r.error);
-      await d.store.putConfig(org, { ...config, itemKinds: r.value, kindFeatures: config.kindFeatures ?? {} });
+      await save({ ...config, itemKinds: r.value, kindFeatures: config.kindFeatures ?? {} });
       return reply({ itemKinds: r.value });
     }
     // Assignment (DECISIONS 170): the same pure rule the demo uses. The workflow decides automatic or suggested, and whether a person may reassign. Results are separate records, so they can be reset.
@@ -107,7 +117,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       assignments = r.value;
       if (b["action"] === "asg-reset") { confirmations = emptyConfirmations(); progress = emptyProgress(); } // no assignments, so no answers and no steps
       settleConfirmations();
-      await d.store.putConfig(org, { ...config, assignments, confirmations, progress });
+      await save({ ...config, assignments, confirmations, progress });
       return reply({ ...(r.message ? { warning: r.message } : {}) });
     }
     // Placement, the rewired Allocation (DECISIONS 175): the same pure rule the demo uses. An assigned gift fills an open place (an enrolment) or creates an outcome. Results are separate records, so they can be reset.
@@ -121,7 +131,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if ("error" in r) return fail(r.error);
       placements = r.value;
       settleConfirmations(); // new parked outcomes can confirm waiting assignments
-      await d.store.putConfig(org, { ...config, placements, confirmations });
+      await save({ ...config, placements, confirmations });
       return reply({ ...(r.message ? { warning: r.message } : {}) });
     }
     // Progress after allocation (DECISIONS 232): a person takes the next step of a gift, takes one back, or closes a batch. The same pure rule the demo uses.
@@ -135,7 +145,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
       progress = r.value;
-      await d.store.putConfig(org, { ...config, progress });
+      await save({ ...config, progress });
       return reply({ ...(r.message ? { warning: r.message } : {}) });
     }
     // Confirmation (DECISIONS 231): a person answers for the partner, confirming or rejecting an assigned gift. The same pure rule the demo uses.
@@ -144,7 +154,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
       confirmations = r.value;
-      await d.store.putConfig(org, { ...config, confirmations });
+      await save({ ...config, confirmations });
       return reply({ ...(r.message ? { warning: r.message } : {}) });
     }
     // The sample setup (DECISIONS 168): invented partners, projects, clusters, beneficiaries and enrolments, loaded and removed as one.
@@ -165,7 +175,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       ({ partners: projects, giftProjects, partnerTypes, register: beneficiaries, enrolments } = next);
       if (next.assignments) assignments = next.assignments;
       if (next.placements) placements = next.placements;
-      await d.store.putConfig(org, { ...config, projects, giftProjects, partnerTypes, beneficiaries, enrolments, assignments, placements });
+      await save({ ...config, projects, giftProjects, partnerTypes, beneficiaries, enrolments, assignments, placements });
       return reply({ warning: message });
     }
     // The Beneficiary register (DECISIONS 163) and enrolments (DECISIONS 167): the same pure rules the demo uses. A beneficiary that is enrolled cannot be removed.
@@ -174,7 +184,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
       beneficiaries = r.value;
-      await d.store.putConfig(org, { ...config, beneficiaries });
+      await save({ ...config, beneficiaries });
       return reply();
     }
     if (typeof b["action"] === "string" && b["action"].startsWith("enr-")) {
@@ -183,14 +193,14 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
       enrolments = r.value;
-      await d.store.putConfig(org, { ...config, enrolments });
+      await save({ ...config, enrolments });
       return reply();
     }
     // The units that make one whole beneficiary of an item (DECISIONS 188). An empty number takes the item's own back, so its workflow's applies.
     if (b["action"] === "item-units") {
       const r = setItemUnits(config.itemUnits ?? {}, str("itemId"), b["units"]);
       if ("error" in r) return fail(r.error);
-      await d.store.putConfig(org, { ...config, itemUnits: r.value });
+      await save({ ...config, itemUnits: r.value });
       return reply({ itemUnits: r.value });
     }
     // The features of a kind of benefit (DECISIONS 146): the same pure rule the demo uses.
@@ -198,14 +208,14 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       const r = applyKindAction((config.kindFeatures ?? {}) as SavedFeatures, b);
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
-      await d.store.putConfig(org, { ...config, kindFeatures: r.value });
+      await save({ ...config, kindFeatures: r.value });
       return reply({ kindFeatures: r.value });
     }
     // Outcome types (DECISIONS 103): the same pure rule the demo uses. A type that outcomes already use cannot be removed.
     // The outcome types the starting workflows need, linked to those workflows that exist (DECISIONS 130).
     if (b["action"] === "ot-starters") {
       outcomeTypes = withPrefixes(linkStarterTypes(outcomeTypes, fw.map((f) => f.id)));
-      await d.store.putConfig(org, { ...config, outcomeTypes });
+      await save({ ...config, outcomeTypes });
       return reply();
     }
     if (typeof b["action"] === "string" && b["action"].startsWith("ot-")) {
@@ -214,7 +224,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
       outcomeTypes = r.types;
-      await d.store.putConfig(org, { ...config, outcomeTypes });
+      await save({ ...config, outcomeTypes });
       return reply();
     }
     switch (b["action"]) {
@@ -314,9 +324,9 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       }
     }
     settle();
-    await d.store.putConfig(org, { ...config, outcomes, allocations, projects, giftProjects, nodes, graceDays, releaseLog, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters });
+    await save({ ...config, outcomes, allocations, projects, giftProjects, nodes, graceDays, releaseLog, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters });
   } else if (settle()) {
-    await d.store.putConfig(org, { ...config, outcomes, allocations, outcomeTypes, idCounters });
+    await d.store.putConfig(org, { ...config, outcomes, allocations, outcomeTypes, idCounters }); // a read that only gives older records their IDs: not one of the logged parts
   }
   return reply({ ...extra });
 }

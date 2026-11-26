@@ -1,6 +1,6 @@
 # Database review (26/11/26)
 
-Written while checking code health. **Step 1 was applied on 26/11/26 (DECISIONS 235).** The rest is a plan, for Faisal and the MWF developers to agree before any change.
+Written while checking code health. **Steps 1 and 2 were applied on 26/11/26 (DECISIONS 235, 236).** The rest is a plan, for Faisal and the MWF developers to agree before any change.
 
 ## How the data is held today
 
@@ -22,12 +22,12 @@ The batch audit (DECISIONS 21, 43) and the database connection are both built an
 ## Suggested steps, smallest and safest first
 
 1. **DONE (DECISIONS 235). Version the document (fixes 1).** Add a `version` number to `org_config`; `putConfig` writes only if the version it read is still current, otherwise the person sees "someone else changed this, reload". One column (`ALTER TABLE org_config ADD COLUMN IF NOT EXISTS version bigint NOT NULL DEFAULT 0`), safe to run twice, and a small change to `pg-store.ts` and the handlers. It must be deployed in the right order: run the migration first, then deploy the code. **Needs your yes, because it touches the live database.**
-2. **A change log table (fixes 3).** `change_log (org, at, by, action, key, before, after)` written by the handlers for every `asg-`, `plc-`, `cnf-`, `prg-`, enrolment and register action. Additive, nothing reads it yet.
+2. **DONE (DECISIONS 236). A change log table (fixes 3).** `change_log (org, at, by, action, key, before, after)` written by the handlers for every `asg-`, `plc-`, `cnf-`, `prg-`, enrolment and register action. Additive, nothing reads it yet.
 3. **Move the Beneficiary register and enrolments to their own tables (fixes 2).** One row per beneficiary, with the role check in front of it, so a child's record can be read, exported and erased on its own. A larger change: needs a one-off copy from the JSON document and a switch-over. Do this with the MWF developers, after step 1, and only once the Salesforce question is answered (whether OUTCOMES stays beside Salesforce or moves inside it, which decides where child data should live at all).
 4. **Move assignments, placements, confirmations and progress to rows** keyed by gift, so a change touches one row, not the whole organisation.
 
 ## What was not done, and why
 
-- Only step 1 was applied. Steps 2 to 4 are not started.
+- Only steps 1 and 2 were applied. Steps 3 and 4 are not started.
 - Step 1 was run in the safe order: backup (real-data/, git-ignored), migration, then code.
 - Steps 3 and 4 depend on the Salesforce answer in CLAUDE.md ("will the developers rebuild inside Salesforce or run OUTCOMES beside it?").

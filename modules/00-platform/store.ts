@@ -25,6 +25,7 @@ import type { Placements } from "../09-placement/placement.js";
 import { migrateSetup, type Category, type FrameworkTemplate, type ItemMap, type Setup } from "../02-project-rules/categories.js";
 import type { AuditRecord } from "../01f-batch-audit/audit.js";
 import type { TriageMark } from "../04-triage/triage.js";
+import type { ChangeEntry } from "./change-log.js";
 
 // How this organisation reads its CRM (DECISIONS 30). The token itself is never stored here, only the name of the setting that holds it.
 // "demo" is the pretend CRM of Module 1d, for testing with live input before a real CRM is connected.
@@ -97,6 +98,8 @@ export interface Store {
   addAudit(org: string, record: AuditRecord): Promise<void>;
   getTriage(org: string): Promise<Record<string, TriageMark>>; // what a person has reviewed in Needs attention
   putTriage(org: string, marks: Record<string, TriageMark>): Promise<void>;
+  addChanges(org: string, entries: ChangeEntry[]): Promise<void>; // the change log (DECISIONS 235): add only, never edited or removed
+  listChanges(org: string, limit: number, key?: string): Promise<ChangeEntry[]>; // newest first, optionally only one gift or record
   listOrgs(): Promise<string[]>; // organisations that have a setup, for the scheduled pick-up
   useLaunchId(jti: string, expiresAtSeconds: number, nowSeconds: number): Promise<boolean>; // true the first time only
 }
@@ -128,6 +131,7 @@ export function memoryStore(): Store {
   const audits = new Map<string, AuditRecord[]>();
   const triage = new Map<string, Record<string, TriageMark>>();
   const launchIds = new Map<string, number>();
+  const changes = new Map<string, ChangeEntry[]>();
   return {
     async getConfig(org) {
       const held = configs.get(org);
@@ -156,6 +160,8 @@ export function memoryStore(): Store {
     async addAudit(org, record) { audits.set(org, [structuredClone(record), ...(audits.get(org) ?? [])].slice(0, KEEP_AUDITS)); },
     async getTriage(org) { return structuredClone(triage.get(org) ?? {}); },
     async putTriage(org, marks) { triage.set(org, structuredClone(marks)); },
+    async addChanges(org, entries) { changes.set(org, [...(changes.get(org) ?? []), ...structuredClone(entries)]); },
+    async listChanges(org, limit, key) { return structuredClone((changes.get(org) ?? []).filter((e) => key === undefined || e.key === key).reverse().slice(0, limit)); },
     async listOrgs() { return [...configs.keys()]; },
     async useLaunchId(jti, expiresAt, now) {
       for (const [id, exp] of launchIds) if (exp <= now) launchIds.delete(id); // forget old ones
