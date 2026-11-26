@@ -20,6 +20,7 @@ import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
 import { registerPage } from "./register-page";
 import { NO_OUTCOME_FILTER, outcomeRecordsPage } from "./outcome-records-page";
+import { applyErasure, exportBeneficiary } from "../modules/07-beneficiaries/erasure";
 import { installGiftActions } from "./gift-actions";
 import { installListEvents, placePopover } from "./list-events";
 import { progressPage } from "./progress-page";
@@ -336,7 +337,10 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       const names = new Map(view().flaggedItems.map((i) => [i.id, i.name]));
       const en = typeof body["action"] === "string" && (body["action"] as string).startsWith("enr-") ? applyEnrolmentAction({ beneficiaries: state.beneficiaries, giftProjects: state.giftProjects, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), today: new Date().toISOString().slice(0, 10) }, state.enrolments, body) : null;
       if (en) { if ("error" in en) error = en.error; else state.enrolments = en.value; }
-      if (kf || bn || en) { /* a kind feature request or a register request, applied above */ }
+      // Erasing one beneficiary (DECISIONS 240): the same pure rule the server uses.
+      const er = body["action"] === "ben-erase" ? applyErasure(state.beneficiaries, state.enrolments, state.placements, body) : null;
+      if (er) { if ("error" in er) error = er.error; else { state.beneficiaries = er.register; state.enrolments = er.enrolments; state.placements = er.placements; state.message = er.message; } }
+      if (kf || bn || en || er) { /* a kind feature request or a register request, applied above */ }
       else if (ot) { if ("error" in ot) error = ot.error; else state.outcomeTypes = ot.types; }
       else switch (body["action"]) {
         case "add": { const r = addOutcomes(state.outcomes, { name: str("name"), count: Number(body["count"] ?? 1), type: str("type"), cohort: str("cohort"), frameworkId: str("frameworkId") }); if (!state.frameworks.some((f) => f.id === str("frameworkId"))) error = "Choose a framework for the outcome."; else if (r.error) error = r.error; else state.outcomes = r.value; break; }
@@ -1256,6 +1260,23 @@ document.addEventListener("click", (e) => {
   const root = document.getElementById("modal-root") as HTMLElement | null;
   if (!root) return;
   // Removing a partner (DECISIONS 104). The question says what goes with it. A partner with beneficiaries is removed together with them, only when none has a gift.
+  if (what === "export") {
+    const x = exportBeneficiary(state.beneficiaries, state.enrolments, state.placements, state.benWin.id);
+    if (!x) return;
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([JSON.stringify(x, null, 2)], { type: "application/json" }));
+    link.download = `${state.benWin.id}-data.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+  if (what === "erase") {
+    const confirm = (document.getElementById("rg-erase-confirm") as HTMLInputElement | null)?.value ?? "";
+    void outcomeChange({ action: "ben-erase", id: state.benWin.id, confirm }).then(() => {
+      if (lastError !== "") return renderBenWindow(lastError);
+      state.benWin = { ...state.benWin, open: false };
+      renderBenWindow();
+    });
+  }
   if (what === "remove") {
     const id = state.partnerWin.id;
     const p = state.projects.find((x) => x.id === id);

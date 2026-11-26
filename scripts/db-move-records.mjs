@@ -29,7 +29,7 @@ const fail = (m) => { console.error("FAILED: " + m); process.exit(1); };
 
 // --- 1. A throwaway organisation: the real SQL, the real tables ---
 const T = "zz-record-test";
-const clean = async () => { for (const t of [...TABLES, "org_config"]) await query(`DELETE FROM ${t} WHERE org = $1`, [T]); };
+const clean = async () => { for (const t of [...TABLES, "org_config", "change_log"]) await query(`DELETE FROM ${t} WHERE org = $1`, [T]); };
 await clean();
 const config = { categories: [], itemMap: {}, usesFrameworks: true, feed: {}, crm: { kind: "none" },
   beneficiaries: { records: [{ id: "PRS-0002", name: "B", z: 1 }, { id: "PRS-0001", name: "A" }], counters: { PRS: 2 } },
@@ -61,8 +61,18 @@ try { await a.putConfig(T, { ...read1, beneficiaries: { ...read1.beneficiaries, 
 if (!refused) fail("a stale save was not refused");
 const c3 = await counts();
 if (c3.beneficiaries !== 3 || c3.assignments !== 1) fail("a refused save changed rows " + JSON.stringify(c3));
+// An erased child leaves nothing in the change log but the fact that a record was there (DECISIONS 240).
+const at = new Date().toISOString();
+await a.addChanges(T, [
+  { at, by: "t", action: "ben-add", section: "beneficiaries", key: "PRS-0001", change: "added", record: { id: "PRS-0001", name: "Erase Me" } },
+  { at, by: "t", action: "enr-add", section: "enrolments", key: "EN-0001", change: "added", record: { id: "EN-0001", beneficiaryId: "PRS-0001" } },
+  { at, by: "t", action: "ben-add", section: "beneficiaries", key: "PRS-0002", change: "added", record: { id: "PRS-0002", name: "Keep Me" } },
+]);
+await a.redactChanges(T, "PRS-0001", ["EN-0001"]);
+const log = JSON.stringify(await a.listChanges(T, 10));
+if (log.includes("Erase Me") || !log.includes("Keep Me") || (log.match(/"erased":true/g) ?? []).length !== 2) fail("the change log was not redacted correctly: " + log);
 await clean();
-console.log("Throwaway check passed: save, read back, edit in place, order kept, stale save refused with nothing written.");
+console.log("Throwaway check passed: save, read back, edit in place, order kept, stale save refused with nothing written, erased child blanked in the log.");
 if (process.argv.includes("--test-only")) process.exit(0);
 
 // --- 2. Every organisation: read, save (this moves the records into the tables), read again, compare ---

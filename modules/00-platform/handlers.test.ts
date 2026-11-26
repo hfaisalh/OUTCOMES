@@ -658,4 +658,19 @@ describe("change log (DECISIONS 235)", () => {
     await post({ action: "kf-set", kind: "x", features: {} }); // not a logged part, whatever it answers
     expect((await d.store.listChanges("mwf", 50)).length).toBe(before);
   });
+
+  it("erases a beneficiary for good: the record, the enrolments, and what the log says about them (DECISIONS 240)", async () => {
+    const cookie = await signIn(d);
+    const post = (body: unknown) => handleOutcomes(as(cookie, { method: "POST", body }), d);
+    await post({ action: "ben-add", kind: "person", name: "Erase Me", area: "Nowhere" });
+    const id = ((await handleOutcomes(as(cookie), d)).body as { beneficiaries: { records: { id: string; name: string }[] } }).beneficiaries.records.find((x) => x.name === "Erase Me")!.id;
+    expect(JSON.stringify(await d.store.listChanges("mwf", 50))).toContain("Erase Me"); // logged when added
+    expect((await post({ action: "ben-erase", id, confirm: "" })).status).toBe(400); // needs the ID typed back
+    const r = await post({ action: "ben-erase", id, confirm: id });
+    expect(r.status).toBe(200);
+    expect(JSON.stringify((await handleOutcomes(as(cookie), d)).body)).not.toContain("Erase Me");
+    expect(JSON.stringify(await d.store.listChanges("mwf", 50))).not.toContain("Erase Me"); // gone from the log too
+    expect((await d.store.listChanges("mwf", 50, id)).every((e) => JSON.stringify(e.record) === '{"erased":true}')).toBe(true);
+  });
 });
+

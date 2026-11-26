@@ -107,6 +107,10 @@ export function pgStore(query: Query): Store {
       if (entries.length === 0) return;
       await query("INSERT INTO change_log (org, at, by, action, section, key, change, record) SELECT $1, (e->>'at')::timestamptz, e->>'by', e->>'action', e->>'section', e->>'key', e->>'change', e->'record' FROM jsonb_array_elements($2::jsonb) AS e", [org, JSON.stringify(entries)]);
     },
+    // Rule (DECISIONS 240): an erased child leaves nothing in the log but the fact that a record was there. The enrolments are found by their IDs and by the beneficiary they carry.
+    async redactChanges(org, beneficiaryId, enrolmentIds) {
+      await query("UPDATE change_log SET record = '{\"erased\": true}'::jsonb WHERE org = $1 AND ((section = 'beneficiaries' AND key = $2) OR (section = 'enrolments' AND (record->>'beneficiaryId' = $2 OR key IN (SELECT jsonb_array_elements_text($3::jsonb)))))", [org, beneficiaryId, JSON.stringify(enrolmentIds)]);
+    },
     async listChanges(org, limit, key) {
       const rows = await query("SELECT at, by, action, section, key, change, record FROM change_log WHERE org = $1 AND ($3::text IS NULL OR key = $3) ORDER BY id DESC LIMIT $2", [org, limit, key ?? null]);
       return rows.map((r) => ({ at: new Date(r["at"] as string).toISOString(), by: r["by"], action: r["action"], section: r["section"], key: r["key"], change: r["change"], record: r["record"] }) as ChangeEntry);

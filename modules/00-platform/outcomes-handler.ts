@@ -22,6 +22,7 @@ import { applyPlacementAction, emptyPlacements, placementContext } from "../09-p
 import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments } from "../08-assignment/assignment.js";
 import { applyConfirmationAction, confirmOnBehalf, emptyConfirmations } from "../11-confirmation/confirmation.js";
 import { applyProgressAction, emptyProgress } from "../12-progress/progress.js";
+import { applyErasure } from "../07-beneficiaries/erasure.js";
 import { changesBetween } from "./change-log.js";
 import { progressContext } from "../12-progress/context.js";
 import { batchSizeOf } from "../08-assignment/batches.js";
@@ -177,6 +178,16 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (next.placements) placements = next.placements;
       await save({ ...config, projects, giftProjects, partnerTypes, beneficiaries, enrolments, assignments, placements });
       return reply({ warning: message });
+    }
+    // Erasing one beneficiary for good (DECISIONS 240): the record, the enrolments and the places they held, and what the change log says about them.
+    if (b["action"] === "ben-erase") {
+      const r = applyErasure(beneficiaries, enrolments, placements, b);
+      if (!r) return fail("That request is not understood.");
+      if ("error" in r) return fail(r.error);
+      await save({ ...config, beneficiaries: r.register, enrolments: r.enrolments, placements: r.placements });
+      await d.store.redactChanges(org, str("id"), r.enrolmentIds); // not in the try of save: a log that still holds the child's data must be reported
+      beneficiaries = r.register; enrolments = r.enrolments; placements = r.placements;
+      return reply({ warning: r.message });
     }
     // The Beneficiary register (DECISIONS 163) and enrolments (DECISIONS 167): the same pure rules the demo uses. A beneficiary that is enrolled cannot be removed.
     if (typeof b["action"] === "string" && b["action"].startsWith("ben-")) {

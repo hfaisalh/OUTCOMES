@@ -99,6 +99,7 @@ export interface Store {
   getTriage(org: string): Promise<Record<string, TriageMark>>; // what a person has reviewed in Needs attention
   putTriage(org: string, marks: Record<string, TriageMark>): Promise<void>;
   addChanges(org: string, entries: ChangeEntry[]): Promise<void>; // the change log (DECISIONS 235): add only, never edited or removed
+  redactChanges(org: string, beneficiaryId: string, enrolmentIds: string[]): Promise<void>; // blanks the logged records of an erased beneficiary and their enrolments (DECISIONS 240), keeping that something happened
   listChanges(org: string, limit: number, key?: string): Promise<ChangeEntry[]>; // newest first, optionally only one gift or record
   listOrgs(): Promise<string[]>; // organisations that have a setup, for the scheduled pick-up
   useLaunchId(jti: string, expiresAtSeconds: number, nowSeconds: number): Promise<boolean>; // true the first time only
@@ -161,6 +162,12 @@ export function memoryStore(): Store {
     async getTriage(org) { return structuredClone(triage.get(org) ?? {}); },
     async putTriage(org, marks) { triage.set(org, structuredClone(marks)); },
     async addChanges(org, entries) { changes.set(org, [...(changes.get(org) ?? []), ...structuredClone(entries)]); },
+    async redactChanges(org, beneficiaryId, enrolmentIds) {
+      for (const e of changes.get(org) ?? []) {
+        const rec = (e.record ?? {}) as { beneficiaryId?: string };
+        if ((e.section === "beneficiaries" && e.key === beneficiaryId) || (e.section === "enrolments" && (enrolmentIds.includes(e.key) || rec.beneficiaryId === beneficiaryId))) e.record = { erased: true };
+      }
+    },
     async listChanges(org, limit, key) { return structuredClone((changes.get(org) ?? []).filter((e) => key === undefined || e.key === key).reverse().slice(0, limit)); },
     async listOrgs() { return [...configs.keys()]; },
     async useLaunchId(jti, expiresAt, now) {

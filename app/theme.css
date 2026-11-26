@@ -513,3 +513,6 @@ button.metric.tile:active,.chipbtn:active,.pf-box button:active{transform:scale(
 
 /* Stage pills after allocation (decision 232): review in amber, report in blue, complete in green, feedback in teal. */
 .pill.stage.st-review{background:rgba(224,138,30,.15);color:#8a4f00}.pill.stage.st-report{background:rgba(59,111,212,.14);color:#1f4aa8}.pill.stage.st-complete{background:rgba(31,138,76,.15);color:#17653a}.pill.stage.st-feedback{background:rgba(13,148,136,.15);color:#0b6b63}.pill.stage.st-confirmation{background:rgba(31,138,76,.1);color:#17653a}
+
+/* Download or erase one beneficiary's data (DECISIONS 240): closed until opened, the erase button is the only red thing. */
+.rg-danger{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-top:6px}.rg-danger summary{cursor:pointer;font-weight:600;font-size:14px}.rg-dangerrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.rg-dangerrow input{flex:1 1 160px;min-width:0}.rg-dangerrow .danger{margin:0;border:1px solid #d23b3b;color:#d23b3b;background:none;border-radius:8px;padding:6px 12px}.rg-dangerrow .danger:hover{background:rgba(210,59,59,.1)}

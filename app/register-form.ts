@@ -42,6 +42,9 @@ export function registerFormHtml(rec: Partial<Beneficiary>, id: string, kind: Be
       ${input("rg-notes", "Notes", rec.notes ?? "")}
       ${id ? `<label>Status<select id="rg-status"><option value="active"${rec.status !== "inactive" ? " selected" : ""}>Active</option><option value="inactive"${rec.status === "inactive" ? " selected" : ""}>Inactive</option></select></label>` : ""}
       ${error.startsWith(SIMILAR_NOTICE) ? `<label class="rg-same"><input type="checkbox" id="rg-different"> This is a different ${person ? "person" : "household"}, not the one above</label>` : ""}
+      ${id ? `<details class="rg-danger"><summary>Download or erase their data</summary>
+        <p class="muted">Download everything OUTCOMES holds about ${esc(rec.name ?? id)} as a file, or erase it for good: the record, ${person ? "their enrolments and the places they held" : "the household and its enrolments"}, and what the change log says about them. ${person ? "" : "The persons in the household stay. "}Gifts that filled their places wait to be placed again. The ID is never used again. This cannot be undone.</p>
+        <div class="rg-dangerrow"><button type="button" data-bn="export">Download their data</button><input id="rg-erase-confirm" placeholder="Type ${esc(id)} to confirm" aria-label="Type ${esc(id)} to confirm erasing" autocomplete="off"><button type="button" class="danger" data-bn="erase">Erase for good</button></div></details>` : ""}
       <p class="muted">Contact details, health records, fingerprints and documents are not kept here. They stay in the CRM or with the partner, and come later through the partner portal.</p>
     </div></div>
     <footer><span id="rg-error" class="pf-error" role="alert">${esc(error)}</span>${id ? '<button data-bn="remove">Remove</button>' : ""}<button data-bn="cancel">Cancel</button><button class="primary" data-bn="save">Save</button></footer>

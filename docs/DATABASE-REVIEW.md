@@ -28,6 +28,6 @@ The batch audit (DECISIONS 21, 43) and the database connection are both built an
 
 ## What was not done, and why
 
-- Steps 3 and 4 are done as one change inside the store. Not done: a per-child export or erase screen, database-level roles, and moving outcomes, allocations, projects and partners (still in the document, they are settings and few).
+- Steps 3 and 4 are done as one change inside the store. Per-child download and erase was added after (DECISIONS 240). Not done: database-level roles, and moving outcomes, allocations, projects and partners (still in the document, they are settings and few).
 - Step 1 was run in the safe order: backup (real-data/, git-ignored), migration, then code.
 - Steps 3 and 4 depend on the Salesforce answer in CLAUDE.md ("will the developers rebuild inside Salesforce or run OUTCOMES beside it?").
