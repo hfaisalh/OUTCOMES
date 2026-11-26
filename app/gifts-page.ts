@@ -13,6 +13,7 @@ import { filterWorkOrders, isFiltering } from "../modules/01c-crm-connector/filt
 import { lineValue, partsOf, periodsOf, sentPartsOf, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import { shortDate, shortDateTime } from "./dates";
 import { SYM } from "./symbols";
+import { popoverHtml } from "./popover";
 import { batchSizeOf, labelBatches } from "../modules/08-assignment/batches";
 import { countOfGift } from "../modules/09-placement/history";
 import { iconHtml, itemIcon } from "./icons";
@@ -327,9 +328,9 @@ export function giftListHtml(v: View): string {
     const chosen = new Set((v.giftColFilters ?? {})[openCol[0]] ?? []);
     for (const val of chosen) if (!tally.has(val)) tally.set(val, 0);
     const list = [...tally].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]));
-    return `<div class="colbox valuebox" role="group" aria-label="Show only these values of ${esc(openCol[1])}"><b>${esc(openCol[1])}</b>${list.map(([val, n]) => `<label><input type="checkbox" data-gfv="${openCol[0]}" value="${esc(val)}"${chosen.has(val) ? " checked" : ""}> ${esc(val)} <span class="muted">${n}</span></label>`).join("")}<button type="button" class="linkish" data-gfclear="${openCol[0]}">Show all</button><button type="button" class="linkish" data-gfilt="">Done</button></div>`;
+    return popoverHtml({ title: openCol[1], items: list.map(([val, n]) => ({ label: val, count: n, attrs: `data-gfv="${openCol[0]}" value="${esc(val)}"`, checked: chosen.has(val) })), clearAttrs: `data-gfclear="${openCol[0]}"`, doneAttrs: `data-gfilt=""` });
   })();
-  const colPick = v.giftColsOpen ? `<div class="colbox" role="group" aria-label="Columns shown">${GIFT_COLUMNS.map(([id, label]) => `<label><input type="checkbox" data-gcol="${id}"${hidden.has(id) ? "" : " checked"}> ${esc(label)}</label>`).join("")}<button type="button" class="linkish" data-gcols="reset">Back to the usual columns</button></div>` : "";
+  const colPick = v.giftColsOpen ? popoverHtml({ title: "Columns", items: GIFT_COLUMNS.map(([id, label]) => ({ label, attrs: `data-gcol="${id}"`, checked: !hidden.has(id) })), clearAttrs: `data-gcols="reset"`, clearLabel: "Usual columns", doneAttrs: `data-gcols="toggle"` }) : "";
   if (base.length === 0) return `<div class="empty">No gifts in this list.</div>`;
   // Rule (DECISIONS 214): the key of symbols sits in a disclosure, so the list starts higher. Every symbol also has its own tooltip.
   const key = `<details class="keydrop"><summary>${SYM.info} Key to the symbols</summary><p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; ${SYMBOL.manual} allocate manually &nbsp; ${SYMBOL.waiting} waiting for allocation &nbsp; ${SYMBOL.ok} ready &nbsp; ${SYMBOL.look} needs a look &nbsp; ${SYMBOL.review} held for review &nbsp; ${SYMBOL.unrouted} unrouted &nbsp; ${SYMBOL.excluded} excluded. Click a row for its details.</p></details>`;

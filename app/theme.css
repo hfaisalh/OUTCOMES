@@ -500,3 +500,13 @@ button.metric.tile:active,.chipbtn:active,.pf-box button:active{transform:scale(
 .mpie .seg.g,.upie .seg.g{stroke:var(--unfilled)}
 .mpie .ring{stroke:var(--unfilled-edge)}
 .sw.g{background:var(--unfilled);border:1px solid var(--unfilled-edge)}
+
+/* The drop-down panel of the lists (decision 229): under its button, a title, a search box for a long list, ticks that scroll, Show all and Done at the foot. */
+.vpop{position:fixed;z-index:40;min-width:220px;max-width:320px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(15,23,42,.18);padding:8px 0 0;font-size:13px;display:flex;flex-direction:column;animation:gw-rise .14s var(--ease-out) both}
+.vpop-h{padding:0 12px 6px;font-weight:600;font-size:12px;color:#64748b}
+.vpop-search{margin:0 10px 6px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;font:inherit}
+.vpop-list{max-height:260px;overflow:auto;padding:2px 4px;border-top:1px solid var(--line)}
+.vpop-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer}.vpop-item:hover{background:var(--accent-bg)}.vpop-item[hidden]{display:none}
+.vpop-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vpop-n{font-variant-numeric:tabular-nums;font-size:12px}
+.vpop-f{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-top:1px solid var(--line)}
+@media (prefers-reduced-motion:reduce){.vpop{animation:none}}

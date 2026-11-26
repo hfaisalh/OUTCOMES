@@ -8,6 +8,7 @@
  * Business rules are the pure functions at the top (compare, tidy, view of the rows), so they can be tested and ported without a browser.
  */
 import { SYM } from "./symbols";
+import { popoverHtml } from "./popover";
 
 export type TableToolsState = {
   sort: Record<string, { col: number; dir: "asc" | "desc" } | undefined>;
@@ -108,9 +109,9 @@ export function enhanceTables(root: ParentNode, tt: TableToolsState, page: strin
     if (tt.open && tt.open.key === key && tt.open.kind === "filter") {
       const vals = valuesOf(cells.filter((r) => r.length > 0).map((r) => r[tt.open!.col] ?? "")) ?? [];
       const ticked = filters[tt.open.col] ?? [];
-      panel = `<div class="valuebox" role="group" aria-label="${esc(labelOf(tt.open.col))} values">${vals.map((x) => `<label><input type="checkbox" data-tt-val="${key}|${tt.open!.col}" value="${esc(x.value)}"${ticked.includes(x.value) ? " checked" : ""}> ${esc(x.value)} <span class="muted">${x.count}</span></label>`).join("")}<button type="button" class="chipbtn" data-tt-done="1">Done</button></div>`;
+      panel = popoverHtml({ title: labelOf(tt.open.col), items: vals.map((x) => ({ label: x.value, count: x.count, attrs: `data-tt-val="${key}|${tt.open!.col}" value="${esc(x.value)}"`, checked: ticked.includes(x.value) })), clearAttrs: `data-tt-clearcol="${key}|${tt.open.col}"`, doneAttrs: `data-tt-done="1"` });
     } else if (tt.open && tt.open.key === key && tt.open.kind === "cols") {
-      panel = `<div class="colbox" role="group" aria-label="Columns">${heads.map((_, i) => (labelOf(i) === `Column ${i + 1}` ? "" : `<label><input type="checkbox" data-tt-col="${key}|${i}"${hidden.includes(i) ? "" : " checked"}> ${esc(labelOf(i))}</label>`)).join("")}<button type="button" class="chipbtn" data-tt-done="1">Done</button></div>`;
+      panel = popoverHtml({ title: "Columns", items: heads.map((_, i) => ({ label: labelOf(i), attrs: `data-tt-col="${key}|${i}"`, checked: !hidden.includes(i) })).filter((x) => !x.label.startsWith("Column ")), doneAttrs: `data-tt-done="1"` });
     }
     const count = shown.length === trs.length ? "" : `<span class="muted">${shown.length} of ${trs.length} shown</span> `;
     const any = Object.values(filters).some((v) => v.length > 0) || hidden.length > 0 || (!ownSort && sort);

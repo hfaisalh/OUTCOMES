@@ -668,6 +668,7 @@ function draw(): void {
   // The partner window sits outside the page, so it is drawn again from the new state, except on the profile tab, which keeps what is being typed.
   if (state.partnerWin.open && state.partnerWin.tab !== "profile") renderPartnerWindow();
   enhanceTables(document.querySelector?.("main.content") as ParentNode, state.tt, state.page);
+  placePopover();
   renderGiftWindow();
 }
 
@@ -2021,4 +2022,34 @@ document.addEventListener("click", (e) => {
   else if (which === "alloc") state.allocFilter = state.allocFilter === id ? "all" : id!;
   else return;
   draw();
+});
+
+// ---- The drop-down panel of the lists (DECISIONS 229): it sits under the button that opened it, closes on a click outside or Escape, and its search box narrows a long list as you type ----
+function placePopover(): void {
+  const pop = document.querySelector?.(".vpop") as HTMLElement | null;
+  if (!pop) return;
+  const anchor = (document.querySelector?.('.fbtn[aria-pressed="true"], [aria-expanded="true"][data-gcols], [aria-expanded="true"][data-tt-cols]') ?? null) as HTMLElement | null;
+  if (!anchor) return;
+  const r = anchor.getBoundingClientRect();
+  const w = pop.offsetWidth || 240;
+  pop.style.top = `${Math.round(r.bottom + 4)}px`;
+  pop.style.left = `${Math.round(Math.max(8, Math.min(r.left, window.innerWidth - w - 8)))}px`;
+}
+function closePopover(): boolean {
+  if (!document.querySelector?.(".vpop")) return false;
+  state.giftFiltOpen = ""; state.giftColsOpen = false; state.tt.open = null;
+  return true;
+}
+if (typeof window !== "undefined") { window.addEventListener("scroll", placePopover, true); window.addEventListener("resize", placePopover); }
+document.addEventListener("click", (e) => {
+  const t = e.target as HTMLElement;
+  if (t.closest?.(".vpop, .fbtn, [data-gcols], [data-tt-cols], [data-gfilt], [data-tt-filter]")) return;
+  if (closePopover()) draw();
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && closePopover()) draw(); });
+document.addEventListener("input", (e) => {
+  const t = e.target as HTMLInputElement | null;
+  if (!t?.dataset?.vpopSearch) return;
+  const q = t.value.trim().toLowerCase();
+  t.closest(".vpop")?.querySelectorAll<HTMLElement>(".vpop-item").forEach((l) => { l.hidden = q !== "" && !(l.textContent ?? "").toLowerCase().includes(q); });
 });

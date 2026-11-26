@@ -458,15 +458,15 @@ describe("giftsPage", () => {
       expect(html).toContain('data-gfclear="project"');
       expect(html).toContain("Project: Aghosh");
       expect(html).toContain('data-gfv="plan" value="active"'); // active gifts of Aghosh: one
-      expect(html).toMatch(/value="active"[^>]*> active <span class="muted">1<\/span>/);
-      expect(html).toMatch(/value="paused"[^>]*> paused <span class="muted">1<\/span>/);
+      expect(html).toMatch(/value="active"[^>]*><span class="vpop-label">active<\/span><span class="muted vpop-n">1<\/span>/); // a drop-down under the funnel (DECISIONS 229)
+      expect(html).toMatch(/value="paused"[^>]*><span class="vpop-label">paused<\/span><span class="muted vpop-n">1<\/span>/);
       expect(html).not.toContain('value="Flood Relief"'); // not offered under Plan status; and Flood Relief is filtered out by the Project chip
       const checked = giftListHtml(view({ workOrders: orders, giftColFilters: { plan: ["paused"] }, giftFiltOpen: "plan" }));
       expect(checked).toContain('value="paused" checked');
     });
     it("counts a column's values from the gifts the other filters leave, so no value gives nothing", () => {
       const html = giftListHtml(view({ workOrders: orders, giftColFilters: { plan: ["paused"] }, giftFiltOpen: "project" }));
-      expect(html).toMatch(/value="Aghosh"[^>]*> Aghosh <span class="muted">1<\/span>/); // only the paused one is Aghosh
+      expect(html).toMatch(/value="Aghosh"[^>]*><span class="vpop-label">Aghosh<\/span><span class="muted vpop-n">1<\/span>/); // only the paused one is Aghosh
       expect(html).not.toContain('value="Flood Relief"');
     });
   });
