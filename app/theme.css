@@ -510,3 +510,6 @@ button.metric.tile:active,.chipbtn:active,.pf-box button:active{transform:scale(
 .vpop-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vpop-n{font-variant-numeric:tabular-nums;font-size:12px}
 .vpop-f{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-top:1px solid var(--line)}
 @media (prefers-reduced-motion:reduce){.vpop{animation:none}}
+
+/* Stage pills after allocation (decision 232): review in amber, report in blue, complete in green, feedback in teal. */
+.pill.stage.st-review{background:rgba(224,138,30,.15);color:#8a4f00}.pill.stage.st-report{background:rgba(59,111,212,.14);color:#1f4aa8}.pill.stage.st-complete{background:rgba(31,138,76,.15);color:#17653a}.pill.stage.st-feedback{background:rgba(13,148,136,.15);color:#0b6b63}.pill.stage.st-confirmation{background:rgba(31,138,76,.1);color:#17653a}

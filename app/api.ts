@@ -22,6 +22,7 @@ import type { Register } from "../modules/07-beneficiaries/beneficiaries";
 import type { Enrolments } from "../modules/07-beneficiaries/enrolments";
 import type { Assignments } from "../modules/08-assignment/assignment";
 import type { Confirmations } from "../modules/11-confirmation/confirmation";
+import type { Progress } from "../modules/12-progress/progress";
 import type { Placements } from "../modules/09-placement/placement";
 
 export interface Me {
@@ -103,6 +104,7 @@ export interface OutcomesReply {
   enrolments?: Enrolments;
   assignments?: Assignments;
   confirmations?: Confirmations;
+  progress?: Progress;
   placements?: Placements;
   itemIcons?: Record<string, string>;
   itemUnits?: Record<string, number>;

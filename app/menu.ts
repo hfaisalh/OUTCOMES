@@ -22,10 +22,10 @@ export const PERMISSIONS = {
   approveRelease: "outcomes.approve_release", // a manager may approve releasing a sponsor's place after a missed payment (DECISIONS 74)
 } as const;
 
-export type PageId = "workflows" | "benefits" | "data-feed" | "data-files" | "work-orders" | "attention" | "projects" | "partners" | "beneficiaries" | "outcome-records" | "outcome-list" | "assignment" | "confirmation" | "placement" | "audit" | "categories" | "dashboard" | "sources" | "settings";
+export type PageId = "workflows" | "benefits" | "data-feed" | "data-files" | "work-orders" | "attention" | "projects" | "partners" | "beneficiaries" | "outcome-records" | "outcome-list" | "assignment" | "confirmation" | "placement" | "progress" | "audit" | "categories" | "dashboard" | "sources" | "settings";
 
 // Rule: the pages a link or a reload may open. Anything else (a mistyped or old address) is ignored and the usual first page is used.
-export const PAGE_IDS: readonly PageId[] = ["workflows", "benefits", "data-feed", "data-files", "work-orders", "attention", "projects", "partners", "beneficiaries", "outcome-records", "outcome-list", "assignment", "confirmation", "placement", "audit", "categories", "dashboard", "sources", "settings"];
+export const PAGE_IDS: readonly PageId[] = ["workflows", "benefits", "data-feed", "data-files", "work-orders", "attention", "projects", "partners", "beneficiaries", "outcome-records", "outcome-list", "assignment", "confirmation", "placement", "progress", "audit", "categories", "dashboard", "sources", "settings"];
 export const isPageId = (x: string): x is PageId => (PAGE_IDS as readonly string[]).includes(x);
 
 export interface MenuItem {
@@ -64,6 +64,7 @@ export const MENU: MenuItem[] = [
   { id: "confirmation", label: "Confirmation", icon: "✓", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "placement", label: "Allocate", icon: "⇄", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   // Rule (DECISIONS 165): the older list of what gifts are placed on is not a main menu entry. Outcomes are made by the workflow, so it sits under Allocation until Allocation is rewired onto outcomes in clusters, then it goes.
+  { id: "progress", label: "Progress", icon: "▶", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "outcome-list", label: "Outcome records (older)", icon: "◍", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "dashboard", label: "Dashboard", icon: "◔", permission: PERMISSIONS.dashboards, section: "Work" },
   // Data (DECISIONS 92): everything about getting gifts in sits in its own area, as in a CRM's data integration. Gifts only shows the result.

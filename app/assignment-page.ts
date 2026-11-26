@@ -14,6 +14,8 @@ import { eligiblePartners } from "../modules/06-projects/projects";
 import { itemRulesOf } from "../modules/07-beneficiaries/enrolments";
 import type { SavedFeatures } from "../modules/02-project-rules/kind-features";
 import { esc, type View } from "./pages";
+import { standingsOf } from "./progress-page";
+import { isClosed } from "../modules/12-progress/progress";
 
 const MAX_ROWS = 150;
 // The filters say what they mean: ready to be assigned, waiting with no partner, or already assigned (DECISIONS 179).
@@ -52,14 +54,18 @@ export function assignmentPage(v: View): string {
   // Rule (DECISIONS 203): a batch is a rolling label on each partner's assignments, and a work order is covered once it has a place or an outcome. The count is what the partner and MWF both look at.
   const coveredKeys = new Set((v.placements?.records ?? []).filter(isActive).map((p) => p.key));
   const sizeOf = (id: string): number => batchSizeOf(partners.find((p) => p.id === id));
-  const batchRows = batchRollup(existing.records, coveredKeys, sizeOf);
+  // Rule (DECISIONS 232): a batch whose every gift is complete is ready to close, and a person closes it.
+  const completeKeys = new Set(standingsOf(v).filter((x) => x.complete).map((x) => x.key));
+  const batchRows = batchRollup(existing.records, coveredKeys, sizeOf, { complete: completeKeys, closed: (pid, n) => isClosed(v.progress?.records ?? [], pid, n) });
   const waitingFor = (partnerId: string, batch: number): string => {
     const open = existing.records.filter((a) => a.partnerId === partnerId && a.batch === batch && !coveredKeys.has(a.key));
     const outcomes = open.filter((a) => { const r = itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, a.itemId, names.get(a.itemId) ?? ""); return !!r && (r.first === "gift" || r.receiver === "none"); }).length;
     const people = open.length - outcomes;
     return [people ? `${people} waiting for beneficiary records` : "", outcomes ? `${outcomes} waiting for outcome records` : ""].filter(Boolean).join(", ") || '<span class="pill ready">All covered</span>';
   };
-  const batchCard = batchRows.length ? `<div class="card"><h2>Batches</h2><p class="muted">Each partner's assignments are numbered in batches (the partner's batch size, 10 if not set). A batch never waits to fill: every gift is assigned and starts at once. A work order is covered when it has a child's place or an outcome.</p><table><thead><tr><th>Partner</th><th class="num">Batch</th><th class="num">Work orders</th><th class="num">Covered</th><th>Waiting</th><th>State</th></tr></thead><tbody>${batchRows.map((b) => `<tr><td>${esc(pname(b.partnerId))}</td><td class="num">${b.batch}</td><td class="num">${b.total} of ${b.size}</td><td class="num">${b.covered} of ${b.total}</td><td>${waitingFor(b.partnerId, b.batch)}</td><td><span class="pill${b.state === "full" ? "" : " ready"}">${b.state === "full" ? "Full" : "Open"}</span></td></tr>`).join("")}</tbody></table></div>` : "";
+  const batchState = (st: string): string => (st === "closed" ? `<span class="pill done">Closed</span>` : st === "ready" ? `<span class="pill ready">Ready to close</span>` : `<span class="pill${st === "full" ? "" : " ready"}">${st === "full" ? "Full" : "Open"}</span>`);
+  const batchAction = (partnerId: string, batch: number, st: string): string => (st === "ready" ? `<button type="button" class="primary" data-prg="close" data-partner="${esc(partnerId)}" data-batch="${batch}">Close batch</button>` : st === "closed" ? `<button type="button" data-prg="open" data-partner="${esc(partnerId)}" data-batch="${batch}">Open again</button>` : "");
+  const batchCard = batchRows.length ? `<div class="card"><h2>Batches</h2><p class="muted">Each partner's assignments are numbered in batches (the partner's batch size, 10 if not set). A batch never waits to fill: every gift is assigned and starts at once. A work order is covered when it has a child's place or an outcome. A batch is ready to close when every gift in it is complete (see Progress), and a person closes it.</p><table><thead><tr><th>Partner</th><th class="num">Batch</th><th class="num">Work orders</th><th class="num">Covered</th><th class="num">Complete</th><th>Waiting</th><th>State</th><th></th></tr></thead><tbody>${batchRows.map((b) => `<tr><td>${esc(pname(b.partnerId))}</td><td class="num">${b.batch}</td><td class="num">${b.total} of ${b.size}</td><td class="num">${b.covered} of ${b.total}</td><td class="num">${b.completed} of ${b.total}</td><td>${waitingFor(b.partnerId, b.batch)}</td><td>${batchState(b.state)}</td><td>${batchAction(b.partnerId, b.batch, b.state)}</td></tr>`).join("")}</tbody></table></div>` : "";
 
   // The gifts shown: those that still need a partner (with their suggestion) and those already assigned.
   const rowsAll: { key: string; assigned: string; sug?: Suggestion }[] = [

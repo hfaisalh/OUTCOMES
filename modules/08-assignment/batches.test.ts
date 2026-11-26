@@ -46,8 +46,18 @@ describe("the roll up", () => {
   it("says how many work orders each batch holds, how many are covered, and whether it is open or full", () => {
     const rows = batchRollup(Array.from({ length: 4 }, (_, i) => rec(i + 1)), new Set(["G01", "G03", "G04"]), () => 3);
     expect(rows).toEqual([
-      { partnerId: "trust", batch: 1, size: 3, total: 3, covered: 2, state: "full" },
-      { partnerId: "trust", batch: 2, size: 3, total: 1, covered: 1, state: "open" },
+      { partnerId: "trust", batch: 1, size: 3, total: 3, covered: 2, completed: 0, state: "full" },
+      { partnerId: "trust", batch: 2, size: 3, total: 1, covered: 1, completed: 0, state: "open" },
     ]);
+  });
+});
+
+describe("a batch that is complete (DECISIONS 232)", () => {
+  it("is ready to close once every gift in it is complete, and closed once a person has closed it", () => {
+    const records = Array.from({ length: 2 }, (_, i) => rec(i + 1));
+    const keys = records.map((r) => r.key);
+    expect(batchRollup(records, new Set(), () => 5, { complete: new Set([keys[0]!]) })[0]).toMatchObject({ completed: 1, state: "open" });
+    expect(batchRollup(records, new Set(), () => 5, { complete: new Set(keys) })[0]).toMatchObject({ completed: 2, state: "ready" });
+    expect(batchRollup(records, new Set(), () => 5, { complete: new Set(keys), closed: () => true })[0]).toMatchObject({ state: "closed" });
   });
 });

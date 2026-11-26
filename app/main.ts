@@ -21,11 +21,15 @@ import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
 import { registerPage } from "./register-page";
 import { NO_OUTCOME_FILTER, outcomeRecordsPage } from "./outcome-records-page";
+import { progressPage } from "./progress-page";
 import { confirmationPage, type ConfirmFilter } from "./confirmation-page";
 import { assignmentPage } from "./assignment-page";
 import { allocatePage } from "./allocate-page";
 import { enrolmentHistoryHtml, giftHistoryHtml, type HistoryData } from "./history-window";
 import { applyPlacementAction, emptyPlacements, placementContext, syncPlacements, type Placements } from "../modules/09-placement/placement";
+import { applyProgressAction, emptyProgress, type Progress } from "../modules/12-progress/progress";
+import { progressContext } from "../modules/12-progress/context";
+import { batchSizeOf } from "../modules/08-assignment/batches";
 import { applyConfirmationAction, confirmOnBehalf, emptyConfirmations, type Confirmations } from "../modules/11-confirmation/confirmation";
 import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments, type Assignments } from "../modules/08-assignment/assignment";
 import { registerFormHtml } from "./register-form";
@@ -123,6 +127,8 @@ const state = {
   cnfFilter: "all" as ConfirmFilter, // the tile chosen on the Confirmation page
   assignments: emptyAssignments() as Assignments, // which partner each gift was assigned to (DECISIONS 170)
   confirmations: emptyConfirmations() as Confirmations, // the partners' answers to those assignments (DECISIONS 231)
+  progress: emptyProgress() as Progress, // the steps taken after allocation, and the batches closed (DECISIONS 232)
+  prgFilter: "all", // the tile chosen on the Progress page
   assignFilter: "all", // the filter on the Assignment page
   enrolments: emptyEnrolments() as Enrolments, // who is enrolled in which cluster (DECISIONS 167)
   outcomeRecFilter: { ...NO_OUTCOME_FILTER } as { text: string; project: string; type: string; show: "" | "underfunded" | "missed" | "ended" }, // the filters on the Outcomes list
@@ -263,7 +269,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, confirmations: state.confirmations, assignFilter: state.assignFilter, placements: state.placements, allocFilter: state.allocFilter, cnfFilter: state.cnfFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, confirmations: state.confirmations, progress: state.progress, prgFilter: state.prgFilter, assignFilter: state.assignFilter, placements: state.placements, allocFilter: state.allocFilter, cnfFilter: state.cnfFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, itemUnits: state.itemUnits, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -303,6 +309,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.enrolments = r.enrolments ?? state.enrolments;
       state.assignments = r.assignments ?? state.assignments;
       state.confirmations = r.confirmations ?? state.confirmations;
+      state.progress = r.progress ?? state.progress;
       state.placements = r.placements ?? state.placements;
       state.itemIcons = r.itemIcons ?? state.itemIcons;
       state.itemKinds = r.itemKinds ?? state.itemKinds;
@@ -349,8 +356,21 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
           if (!r) { error = "That request is not understood."; break; }
           if ("error" in r) { error = r.error; break; }
           state.assignments = r.value;
-          if (body["action"] === "asg-reset") state.confirmations = emptyConfirmations();
+          if (body["action"] === "asg-reset") { state.confirmations = emptyConfirmations(); state.progress = emptyProgress(); }
           settleConfirmations();
+          if (r.message) state.message = r.message;
+          break;
+        }
+        case "prg-next": case "prg-undo": case "prg-close-batch": case "prg-open-batch": case "prg-reset": { // Progress after allocation (DECISIONS 232): the same pure rule the server uses.
+          const wosP = view().workOrders;
+          const namesP = new Map(wosP.map((w) => [w.itemId, w.itemName]));
+          const actxP = contextFrom({ workOrders: wosP, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: at.slice(0, 10), now: at, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, namesP.get(itemId) ?? ""), itemUnits: state.itemUnits, stock: state.placements.stock });
+          const fwOf = new Map(assignables(actxP).map((u) => [u.key, u.w.frameworkId ?? ""]));
+          const pctx = progressContext({ assignments: state.assignments.records, placements: state.placements.records, frameworkOf: (k) => fwOf.get(k) ?? "", frameworks: state.frameworks, sizeOf: (id) => batchSizeOf(state.projects.find((x) => x.id === id)), today: at.slice(0, 10) });
+          const r = applyProgressAction(pctx, state.progress, body, "Demo administrator", at);
+          if (!r) { error = "That request is not understood."; break; }
+          if ("error" in r) { error = r.error; break; }
+          state.progress = r.value;
           if (r.message) state.message = r.message;
           break;
         }
@@ -645,6 +665,7 @@ function draw(): void {
     : state.page === "assignment" ? assignmentPage(v)
     : state.page === "placement" ? allocatePage(v)
     : state.page === "confirmation" ? confirmationPage(v)
+    : state.page === "progress" ? progressPage(v)
     : state.page === "outcome-list" ? beneficiariesPage(v)
     : state.page === "audit" ? auditPage(v)
     : state.page === "dashboard" ? dashboardPage(v)
@@ -2008,6 +2029,7 @@ document.addEventListener("click", (e) => {
   const [which, id] = (b.dataset.tile ?? "").split(":");
   if (which === "asg") state.assignFilter = state.assignFilter === id ? "all" : id!;
   else if (which === "alloc") state.allocFilter = state.allocFilter === id ? "all" : id!;
+  else if (which === "prg") state.prgFilter = state.prgFilter === id ? "all" : id!;
   else if (which === "cnf") state.cnfFilter = state.cnfFilter === id ? "all" : (id as ConfirmFilter);
   else return;
   draw();
@@ -2051,4 +2073,15 @@ document.addEventListener("click", (e) => {
   if (b.dataset.cnf === "confirm") return void outcomeChange({ action: "cnf-confirm", key });
   const reason = (document.querySelector?.(`[data-cnf-reason="${key.replace(/"/g, "")}"]`) as HTMLInputElement | null)?.value ?? "";
   void outcomeChange({ action: "cnf-reject", key, reason });
+});
+
+// The buttons on the Progress page and the Batches card (DECISIONS 232): take the next step of a gift, take one back, close or reopen a batch.
+document.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest?.("[data-prg]") as HTMLElement | null;
+  if (!b) return;
+  const d = b.dataset;
+  if (d.prg === "next") return void outcomeChange({ action: "prg-next", key: d.key });
+  if (d.prg === "undo") return void outcomeChange({ action: "prg-undo", key: d.key });
+  if (d.prg === "close") return void outcomeChange({ action: "prg-close-batch", partnerId: d.partner, batch: Number(d.batch) });
+  if (d.prg === "open") return void outcomeChange({ action: "prg-open-batch", partnerId: d.partner, batch: Number(d.batch) });
 });

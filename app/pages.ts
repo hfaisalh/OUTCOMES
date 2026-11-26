@@ -14,6 +14,7 @@ import type { BeneficiaryFilter, Register } from "../modules/07-beneficiaries/be
 import type { Enrolments } from "../modules/07-beneficiaries/enrolments";
 import type { Assignments } from "../modules/08-assignment/assignment";
 import type { Confirmations } from "../modules/11-confirmation/confirmation";
+import type { Progress } from "../modules/12-progress/progress";
 import type { ConfirmFilter } from "./confirmation-page";
 import type { Placements } from "../modules/09-placement/placement";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
@@ -54,6 +55,8 @@ export interface View {
   placements?: Placements; // which place each assigned gift fills (DECISIONS 175)
   assignments?: Assignments; // which partner each gift was assigned to (DECISIONS 170)
   confirmations?: Confirmations; // the partners' answers to those assignments (DECISIONS 231)
+  progress?: Progress; // the steps taken after allocation and the batches closed (DECISIONS 232)
+  prgFilter?: string; // the tile chosen on the Progress page
   cnfFilter?: ConfirmFilter; // the tile chosen on the Confirmation page
   allocFilter?: string; // the filter on the Allocate page: all, open, placed
   assignFilter?: string; // the filter on the Assignment page: all, open, assigned

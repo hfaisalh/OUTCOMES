@@ -12,6 +12,7 @@
  * - Rule: a label never changes once given. Taking an assignment back frees its place in the batch, and a gift moved to another partner joins that partner's current batch.
  * - Rule: a work order is covered when it has a place (a child enrolled for it) or an outcome made for it. A batch shows how many of its work orders are covered, so the partner and MWF see the same count.
  * - Rule: a batch is open while it holds fewer than its size, and full once it holds that many.
+ * - Rule (DECISIONS 232): a batch whose every gift is complete is ready to close, and a person closes it. It never closes by itself. A closed batch shows as closed.
  */
 
 export const DEFAULT_BATCH_SIZE = 10;
@@ -38,19 +39,22 @@ export function labelBatches<T extends Batched>(records: T[], sizeOf: (partnerId
   return out;
 }
 
-export interface BatchRow { partnerId: string; batch: number; size: number; total: number; covered: number; state: "open" | "full" }
+export interface BatchRow { partnerId: string; batch: number; size: number; total: number; covered: number; completed: number; state: "open" | "full" | "ready" | "closed" }
 
 // One row for each batch of each partner: how many work orders it holds, how many are covered, and whether it is still open. `covered` is the set of gift keys that have a place or an outcome.
-export function batchRollup(records: Batched[], covered: Set<string>, sizeOf: (partnerId: string) => number): BatchRow[] {
+export function batchRollup(records: Batched[], covered: Set<string>, sizeOf: (partnerId: string) => number, done: { complete?: Set<string>; closed?: (partnerId: string, batch: number) => boolean } = {}): BatchRow[] {
   const rows = new Map<string, BatchRow>();
   for (const r of labelBatches(records, sizeOf)) {
     const id = `${r.partnerId}|${r.batch}`;
     const size = Math.max(1, sizeOf(r.partnerId));
-    const row = rows.get(id) ?? { partnerId: r.partnerId, batch: r.batch as number, size, total: 0, covered: 0, state: "open" as const };
+    const row = rows.get(id) ?? { partnerId: r.partnerId, batch: r.batch as number, size, total: 0, covered: 0, completed: 0, state: "open" as const };
     row.total++;
     if (covered.has(r.key)) row.covered++;
+    if (done.complete?.has(r.key)) row.completed++;
     row.state = row.total >= size ? "full" : "open";
     rows.set(id, row);
   }
+  // Rule: closed when a person closed it; ready to close when every gift in it is complete.
+  for (const row of rows.values()) row.state = done.closed?.(row.partnerId, row.batch) ? "closed" : row.total > 0 && row.completed === row.total ? "ready" : row.state;
   return [...rows.values()].sort((x, y) => x.partnerId.localeCompare(y.partnerId) || x.batch - y.batch);
 }

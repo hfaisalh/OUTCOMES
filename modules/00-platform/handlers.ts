@@ -39,6 +39,9 @@ import { applyBeneficiaryAction, emptyRegister } from "../07-beneficiaries/benef
 import { applyPlacementAction, emptyPlacements, placementContext } from "../09-placement/placement.js";
 import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments } from "../08-assignment/assignment.js";
 import { applyConfirmationAction, confirmOnBehalf, emptyConfirmations } from "../11-confirmation/confirmation.js";
+import { applyProgressAction, emptyProgress } from "../12-progress/progress.js";
+import { progressContext } from "../12-progress/context.js";
+import { batchSizeOf } from "../08-assignment/batches.js";
 import { loadSampleSetup, realProjectsFor, wholeByItem, type SampleState, removeSampleSetup, sampleSummaryText, removedSummaryText } from "../07-beneficiaries/sample-setup.js";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf } from "../07-beneficiaries/enrolments.js";
 
@@ -352,8 +355,9 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   let placements = config.placements ?? emptyPlacements(); // which place each assigned gift fills (DECISIONS 175)
   let assignments = config.assignments ?? emptyAssignments(); // which partner each gift was assigned to (DECISIONS 170)
   let confirmations = config.confirmations ?? emptyConfirmations(); // the partners' answers to those assignments (DECISIONS 231)
+  let progress = config.progress ?? emptyProgress(); // the steps taken after allocation, and the batches closed (DECISIONS 232)
   // Rule: every answer carries the whole picture (all the records the page draws from), so a page never has to ask twice. The few things an answer changes are passed in `over`.
-  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...over });
+  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...over });
   // Rule (DECISIONS 105): every outcome and allocation has an ID. Any without one are given one here, so older ones get theirs too.
   const settle = (): boolean => {
     const r = ensureRefs({ outcomes, allocations, counters: idCounters }, outcomeTypes, config.allocationPrefix);
@@ -398,9 +402,9 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
       assignments = r.value;
-      if (b["action"] === "asg-reset") confirmations = emptyConfirmations(); // no assignments, so no answers
+      if (b["action"] === "asg-reset") { confirmations = emptyConfirmations(); progress = emptyProgress(); } // no assignments, so no answers and no steps
       settleConfirmations();
-      await d.store.putConfig(org, { ...config, assignments, confirmations });
+      await d.store.putConfig(org, { ...config, assignments, confirmations, progress });
       return reply({ ...(r.message ? { warning: r.message } : {}) });
     }
     // Placement, the rewired Allocation (DECISIONS 175): the same pure rule the demo uses. An assigned gift fills an open place (an enrolment) or creates an outcome. Results are separate records, so they can be reset.
@@ -415,6 +419,20 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       placements = r.value;
       settleConfirmations(); // new parked outcomes can confirm waiting assignments
       await d.store.putConfig(org, { ...config, placements, confirmations });
+      return reply({ ...(r.message ? { warning: r.message } : {}) });
+    }
+    // Progress after allocation (DECISIONS 232): a person takes the next step of a gift, takes one back, or closes a batch. The same pure rule the demo uses.
+    if (typeof b["action"] === "string" && b["action"].startsWith("prg-")) {
+      const wosP = await d.store.listWorkOrders(org);
+      const namesP = new Map(wosP.map((w) => [w.itemId, w.itemName]));
+      const actxP = contextFrom({ workOrders: wosP, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesP.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: placements.stock });
+      const fwOf = new Map(assignables(actxP).map((u) => [u.key, u.w.frameworkId ?? ""]));
+      const pctx = progressContext({ assignments: assignments.records, placements: placements.records, frameworkOf: (k) => fwOf.get(k) ?? "", frameworks: fw, sizeOf: (id) => batchSizeOf(projects.find((x) => x.id === id)), today: at.slice(0, 10) });
+      const r = applyProgressAction(pctx, progress, b, a.claims.name, at);
+      if (!r) return fail("That request is not understood.");
+      if ("error" in r) return fail(r.error);
+      progress = r.value;
+      await d.store.putConfig(org, { ...config, progress });
       return reply({ ...(r.message ? { warning: r.message } : {}) });
     }
     // Confirmation (DECISIONS 231): a person answers for the partner, confirming or rejecting an assigned gift. The same pure rule the demo uses.

@@ -14,6 +14,9 @@ import { lineValue, partsOf, periodsOf, sentPartsOf, type WorkOrder } from "../m
 import { shortDate, shortDateTime } from "./dates";
 import { SYM } from "./symbols";
 import { popoverHtml } from "./popover";
+import { standingsOf } from "./progress-page";
+import type { GiftStanding } from "../modules/12-progress/context";
+import { giftKeyOfPlacementKey } from "../modules/07-beneficiaries/implementation";
 import { batchSizeOf, labelBatches } from "../modules/08-assignment/batches";
 import { countOfGift } from "../modules/09-placement/history";
 import { iconHtml, itemIcon } from "./icons";
@@ -222,9 +225,22 @@ export const giftPlacementKey = (g: GiftRow): string => (g.kind === "recurring" 
 
 // Everything about where gifts are allocated, worked out once for the list and for the window.
 // Rule (DECISIONS 141): the stage of a gift's workflow it is in now, shown as a small pill with the reason in its tooltip. Excluded payments have none.
+// Rule (DECISIONS 232): a placed gift moves on through the partner's phases, then Reviewed, Reported, Completed and Feedback, as a person takes the steps on the Progress page.
+// The standings are worked out once for each View, since the list asks for every row.
+const standingCache = new WeakMap<View, Map<string, GiftStanding>>();
+function standingFor(v: View, g: GiftRow): GiftStanding | undefined {
+  let m = standingCache.get(v);
+  if (!m) { m = new Map(standingsOf(v).map((x) => [giftKeyOfPlacementKey(x.key), x])); standingCache.set(v, m); }
+  return m.get(g.key);
+}
 function stageFor(v: View, g: GiftRow, a: { state: "placed" | "waiting" | "manual" | "none" | "n/a"; who: string; partner: string }): StageResult {
   const fw = (v.frameworks ?? []).find((f) => f.id === g.frameworkId);
-  return giftStage({ kind: g.kind, hasWorkflow: g.frameworkId !== "" && !g.unrouted, holdUntilPaid: fw?.instalment === "share_of_whole", planStatus: g.planStatus, paid: g.paid, planned: g.planned, placement: a.state, assignedTo: a.state === "waiting" ? a.partner : "", where: a.state === "placed" ? `${a.who} at ${a.partner}` : "" });
+  const r = giftStage({ kind: g.kind, hasWorkflow: g.frameworkId !== "" && !g.unrouted, holdUntilPaid: fw?.instalment === "share_of_whole", planStatus: g.planStatus, paid: g.paid, planned: g.planned, placement: a.state, assignedTo: a.state === "waiting" ? a.partner : "", where: a.state === "placed" ? `${a.who} at ${a.partner}` : "" });
+  if (r.stage !== "allocation") return r;
+  const st = standingFor(v, g);
+  if (!st?.placed) return r;
+  if (st.stage !== "allocation") return { stage: st.stage, note: st.next ? `Next: ${st.next.label}` : "Every step taken" };
+  return { stage: "allocation", note: st.next ? `${r.note}. Next: ${st.next.label}` : r.note };
 }
 const stagePill = (r: StageResult): string => (r.stage === null ? "" : `<span class="pill stage st-${r.stage}" title="${esc(r.note || STAGE_TITLES[r.stage])}">${esc(STAGE_TITLES[r.stage])}</span>`);
 
