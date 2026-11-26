@@ -59,6 +59,8 @@ export interface View {
   enrolments?: Enrolments; // who is enrolled in which cluster (DECISIONS 167)
   outcomeRecFilter?: { text: string; project: string; type: string; show: "" | "underfunded" | "missed" | "ended" }; // the filters on the Outcomes list (DECISIONS 197)
   outcomeRecSort?: { key: string; dir: "asc" | "desc" };
+  giftColFilters?: Record<string, string[]>; // the values chosen in a Gifts column, by column (DECISIONS 217)
+  giftFiltOpen?: string; // the column whose value list is open
   giftHidden?: string[]; // the Gifts list columns a person has hidden (DECISIONS 215)
   giftColsOpen?: boolean; // whether the column chooser is open
   giftSort?: { key: string; dir: "asc" | "desc" }; // the column the Gifts list is sorted by (DECISIONS 214)

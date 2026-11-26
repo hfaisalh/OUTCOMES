@@ -398,3 +398,11 @@ button.metric.tile:focus-visible{outline:2px solid var(--accent,#2b3f9e);outline
 .filters select{min-width:0;text-overflow:ellipsis}
 .giftlist td.num .bar{margin-left:auto}
 .filters select{max-width:176px}
+
+/* Filtering a column by its values (decision 217) */
+.fbtn{border:0;background:none;padding:2px 3px;margin-left:2px;cursor:pointer;color:var(--muted);border-radius:6px;vertical-align:middle;line-height:1}
+.fbtn .sym{width:.95em;height:.95em}.fbtn:hover{color:var(--text);background:var(--accent-bg)}
+.fbtn.on{color:var(--accent,#2b3f9e)}.fbtn.on .sym{fill:currentColor}
+.fbtn[aria-pressed="true"]{background:var(--accent-bg);color:var(--accent,#2b3f9e)}
+.fbtn:focus-visible{outline:2px solid var(--accent,#2b3f9e);outline-offset:1px}
+.valuebox b{margin-right:6px}

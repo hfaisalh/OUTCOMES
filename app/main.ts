@@ -123,6 +123,8 @@ const state = {
   outcomeRecFilter: { ...NO_OUTCOME_FILTER } as { text: string; project: string; type: string; show: "" | "underfunded" | "missed" | "ended" }, // the filters on the Outcomes list
   outcomeRecSort: { key: "", dir: "asc" } as { key: string; dir: "asc" | "desc" },
   giftSort: { key: "", dir: "asc" } as { key: string; dir: "asc" | "desc" }, // the column the Gifts list is sorted by
+  giftColFilters: {} as Record<string, string[]>, // the values chosen in a Gifts column
+  giftFiltOpen: "", // the Gifts column whose value list is open
   giftHidden: loadHiddenCols(), // the Gifts columns a person has hidden
   giftColsOpen: false, // whether the column chooser is open
   registerSort: { key: "", dir: "asc" } as { key: string; dir: "asc" | "desc" }, // the column the Beneficiaries list is sorted by
@@ -258,7 +260,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, assignFilter: state.assignFilter, placements: state.placements, allocFilter: state.allocFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, assignFilter: state.assignFilter, placements: state.placements, allocFilter: state.allocFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, itemUnits: state.itemUnits, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -780,7 +782,7 @@ document.addEventListener("click", (e) => {
   const action = el.dataset.action;
   if (action === "clear-filters") {
     const scope = el.dataset.scope ?? "main";
-    if (scope === "main") state.criteria = { ...NO_CRITERIA };
+    if (scope === "main") { state.criteria = { ...NO_CRITERIA }; state.giftColFilters = {}; state.giftFiltOpen = ""; }
     else state.scopeCriteria = { ...state.scopeCriteria, [scope]: { ...NO_CRITERIA } };
   }
   if (action === "clear-filter") {
@@ -1854,6 +1856,24 @@ document.addEventListener("click", (e) => {
       renderBenWindow();
     });
   }
+});
+// Filtering a Gifts column by its values (DECISIONS 217): the funnel in a heading opens its list of values, a tick keeps a value, "Show all" or a chip's cross clears the column, and "Done" closes the list.
+document.addEventListener("click", (e) => {
+  const t = e.target as HTMLElement;
+  const open = t.closest?.("[data-gfilt]") as HTMLElement | null;
+  const clear = t.closest?.("[data-gfclear]") as HTMLElement | null;
+  if (!open && !clear) return;
+  if (open) { const col = open.dataset.gfilt ?? ""; state.giftFiltOpen = state.giftFiltOpen === col ? "" : col; }
+  if (clear) { const { [clear.dataset.gfclear ?? ""]: _gone, ...rest } = state.giftColFilters; state.giftColFilters = rest; }
+  draw();
+});
+document.addEventListener("change", (e) => {
+  const t = e.target as HTMLInputElement | null;
+  const col = t?.dataset?.gfv;
+  if (!t || !col) return;
+  const cur = state.giftColFilters[col] ?? [];
+  state.giftColFilters = { ...state.giftColFilters, [col]: t.checked ? [...new Set([...cur, t.value])] : cur.filter((x) => x !== t.value) };
+  draw();
 });
 // The column chooser of the Gifts list (DECISIONS 215): a button opens it, a tick shows or hides a column, and one link goes back to the usual columns.
 document.addEventListener("click", (e) => {

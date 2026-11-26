@@ -929,3 +929,13 @@ What changed:
 - Smaller tiles, and the small counts inside an amber tile stay neutral.
 Earlier this session (214, 215): sortable headings, bulk bar on ticking, key in a disclosure, filter chips, column chooser, tiles of one shape.
 Left for later: the gift window (same icon family applies already, but its layout is not redesigned), dark mode (the skills ask for light and dark designed together), and saved views.
+
+## 217. Filtering a Gifts column by its values (2026-11-26)
+
+Faisal could not filter by what is in a column (Project, Stage, Assigned to). The Columns button only shows and hides columns, and the filter bar had only search, item, type, legacy and dates. Now a small funnel in the heading of Project, Plan status, Stage, Assigned to and Allocation opens that column's values, each with the number of gifts it holds. A tick keeps a value.
+- Within a column, ticked values are alternatives (this or that). Across columns they all apply. Nothing ticked is no filter.
+- The values and their counts come from the gifts the other filters leave, so no value is offered that would show nothing.
+- Each active column filter is a chip ("Project: Aghosh") with a cross, and "Clear all" clears them with the rest. The funnel is filled while a column is filtered. "Show all" clears one column, and "Done" closes the list.
+- The tiles and tab counts count the search filters only, not column filters, so they stay put.
+- Checked in a browser (a headless Chrome driven by script): the funnel opens the list, a tick filters, the chip appears, and Show all clears it.
+Not done: filtering Item, Donor and the dates by value in the heading (Item and dates are in the filter bar), and remembering column filters between visits.

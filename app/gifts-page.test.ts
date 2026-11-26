@@ -92,7 +92,7 @@ describe("giftsPage", () => {
     const fws = starterFrameworks();
     const mk = (frameworkId: string, over: Partial<WorkOrder> = {}) => [1, 2, 3, 4].map((n) => sub(n, { instalmentCount: "12", frameworkId, ...over }));
     const list = giftListHtml(view({ workOrders: mk("sponsorship-shared-parts"), frameworks: fws }));
-    expect(list).toContain("<th>Stage</th>");
+    expect(list).toContain("<th>Stage<button");
     expect(list).toMatch(/<span class="pill stage st-work-order" title="Released, waiting for a partner">WO created<\/span>/); // released, but no partner yet: not "Assigned" (DECISIONS 189)
     const detail = giftDetailHtml(view({ workOrders: mk("sponsorship-shared-parts"), frameworks: fws }), "S9");
     expect(detail).toContain("<span>Stage</span>");
@@ -126,7 +126,8 @@ describe("giftsPage", () => {
     expect(placed).toMatch(/class="pill stage st-allocation"[^>]*>Allocated<\/span>/);
     expect(placed).toContain("Sample Amina");
     // Assigned to is the partner, Allocated to is the beneficiary, in their own columns (DECISIONS 184).
-    expect(placed).toContain("<th>Assigned to</th><th>Allocated to</th>");
+    expect(placed).toContain("<th>Assigned to<button");
+    expect(placed).toContain("<th>Allocated to<button");
     expect(placed).toContain('<span title="Assigned to Sample Trust">Sample Trust</span>');
     expect(placed).not.toContain("Sample Amina</span> <span class=\"muted\"> Sample Trust"); // the partner is no longer under the child
     const win = giftDetailHtml(view({ workOrders: orders, frameworks: fws, projects: partners, assignments, placements, enrolments, beneficiaries: { records: [child], counters: {} } }), "S9");
@@ -221,7 +222,7 @@ describe("giftsPage", () => {
       sub(1, { key: "e1", subscriptionId: "SE", projectName: "Where Needed Most", cause: "Where Most Needed" }),
     ] }));
     expect(html).toContain('<span class="muted" title="Where Most Needed. No project was chosen: the gift is for its item">No project</span>'); // the cause is itself general: it says No project, not General
-    expect(html).toContain('data-gsort="project">Project</button></th>');
+    expect(html).toContain('data-gsort="project">Project</button><button');
     expect(html).toContain('title="Aghosh. Cause: Orphan Care">Aghosh'); // a named project is shown, its cause is in the tooltip
     expect(html).toContain('<span class="muted">Water for All</span>'); // general: the cause instead
     expect(html).toContain('<span class="muted">Educare</span>'); // blank: the cause instead
@@ -394,7 +395,7 @@ describe("giftsPage", () => {
     const fewer = giftListHtml(view({ workOrders: rows, giftHidden: ["project", "plan", "stage", "assigned", "alloc"] }));
     expect(fewer).toContain("<th>Rec. ID</th>"); // a person's own choice replaces the usual one
     expect(fewer).not.toContain('data-gsort="plan"');
-    expect(fewer).not.toContain("<th>Stage</th>");
+    expect(fewer).not.toContain("<th>Stage<button");
     expect(fewer).toContain('data-gsort="donor"');
     expect(fewer).toContain('data-gsort="item"');
     expect(fewer).toContain("<th>Status</th>");
@@ -431,6 +432,43 @@ describe("giftsPage", () => {
     const page = giftsPage(view({ workOrders: orders, filter: "all" }));
     expect(page).toMatch(/data-filter="all" class="on" aria-pressed="true">All <span class="cnt">2<\/span>/);
     expect(page).toMatch(/data-filter="manual" class="" aria-pressed="false">Manual <span class="cnt">0<\/span>/);
+  });
+
+  describe("filtering a column by its values (decision 217)", () => {
+    const orders = [
+      sub(1, { subscriptionId: "A", projectName: "Aghosh", planStatus: "active" }), sub(1, { subscriptionId: "B", projectName: "Aghosh", planStatus: "paused" }),
+      sub(1, { subscriptionId: "C", projectName: "Flood Relief", planStatus: "active" }),
+    ];
+    const rows = (html: string): number => (html.match(/data-gift-open=/g) ?? []).length;
+    it("puts a funnel in each heading that can be filtered, and none in the others", () => {
+      const html = giftListHtml(view({ workOrders: orders }));
+      for (const col of ["project", "plan", "stage", "assigned", "alloc"]) expect(html).toContain(`data-gfilt="${col}"`);
+      expect(html).not.toContain('data-gfilt="paid"');
+      expect(html).toContain('aria-label="Filter Project by its values"');
+    });
+    it("keeps only the gifts whose value is ticked, as alternatives within a column and together across columns", () => {
+      expect(rows(giftListHtml(view({ workOrders: orders })))).toBe(3);
+      expect(rows(giftListHtml(view({ workOrders: orders, giftColFilters: { project: ["Aghosh"] } })))).toBe(2);
+      expect(rows(giftListHtml(view({ workOrders: orders, giftColFilters: { project: ["Aghosh", "Flood Relief"] } })))).toBe(3); // this or that
+      expect(rows(giftListHtml(view({ workOrders: orders, giftColFilters: { project: ["Aghosh"], plan: ["paused"] } })))).toBe(1); // and
+      expect(rows(giftListHtml(view({ workOrders: orders, giftColFilters: { project: [] } })))).toBe(3); // nothing ticked is no filter
+    });
+    it("shows each filter as a chip with its values, and the open column's values with their counts from the other filters", () => {
+      const html = giftListHtml(view({ workOrders: orders, giftColFilters: { project: ["Aghosh"] }, giftFiltOpen: "plan" }));
+      expect(html).toContain('data-gfclear="project"');
+      expect(html).toContain("Project: Aghosh");
+      expect(html).toContain('data-gfv="plan" value="active"'); // active gifts of Aghosh: one
+      expect(html).toMatch(/value="active"[^>]*> active <span class="muted">1<\/span>/);
+      expect(html).toMatch(/value="paused"[^>]*> paused <span class="muted">1<\/span>/);
+      expect(html).not.toContain('value="Flood Relief"'); // not offered under Plan status; and Flood Relief is filtered out by the Project chip
+      const checked = giftListHtml(view({ workOrders: orders, giftColFilters: { plan: ["paused"] }, giftFiltOpen: "plan" }));
+      expect(checked).toContain('value="paused" checked');
+    });
+    it("counts a column's values from the gifts the other filters leave, so no value gives nothing", () => {
+      const html = giftListHtml(view({ workOrders: orders, giftColFilters: { plan: ["paused"] }, giftFiltOpen: "project" }));
+      expect(html).toMatch(/value="Aghosh"[^>]*> Aghosh <span class="muted">1<\/span>/); // only the paused one is Aghosh
+      expect(html).not.toContain('value="Flood Relief"');
+    });
   });
 });
 

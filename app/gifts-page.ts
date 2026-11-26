@@ -159,8 +159,23 @@ export function sortGifts(rows: GiftRow[], sort: { key: string; dir: "asc" | "de
   return [...rows].sort((x, y) => { const a = val(x), b = val(y); if (empty(a) || empty(b)) return Number(empty(a)) - Number(empty(b)); return (a < b ? -1 : a > b ? 1 : 0) * sign; });
 }
 
+// Rule (DECISIONS 217): a column can be filtered by the values in it. A person ticks the values to keep (Project, Plan status, Stage, Assigned to, Allocation), and a gift stays when its value in each filtered column is one of the ticked.
+// Within a column the ticked values are alternatives (this or that), and across columns they all apply (and). The list of values in a column is counted from the gifts the other filters leave, so no value is offered that would give nothing.
+export const FILTER_COLUMNS: [string, string][] = [["project", "Project"], ["plan", "Plan status"], ["stage", "Stage"], ["assigned", "Assigned to"], ["alloc", "Allocation"]];
+const ALLOC_LABEL: Record<string, string> = { placed: "Allocated", waiting: "Waiting for allocation", manual: "Allocate manually", none: "Not allocated", "n/a": "Not needed" };
+function columnValue(col: string, g: GiftRow, v: View, where: ReturnType<typeof allocationContext>): string {
+  if (col === "project") return g.projectName || "No project";
+  if (col === "plan") return g.kind === "one_off" ? "One payment" : g.kind === "excluded" ? "Excluded" : g.planStatus || "No status";
+  const a = where(g);
+  if (col === "stage") { const st = stageFor(v, g, a).stage; return st === null ? "No stage" : STAGE_TITLES[st]; }
+  if (col === "assigned") return a.partner || "Not assigned";
+  if (col === "alloc") return ALLOC_LABEL[a.state] ?? a.state;
+  return "";
+}
+const colFilterOn = (v: View): [string, string[]][] => Object.entries(v.giftColFilters ?? {}).filter(([, vals]) => vals.length > 0);
+
 // Rule (DECISIONS 216): the tiles count what the search filters leave, whatever the tab, so they stay the same when a tile or a tab is chosen and can be used to move between them. The list itself follows the tab.
-function listData(v: View, tab = true) {
+function listData(v: View, tab = true, exceptCol = "") {
   const w = tab ? v : { ...v, filter: "all" as const };
   const base = listBase(w, "main");
   const c = criteriaFor(v, "main");
@@ -171,6 +186,10 @@ function listData(v: View, tab = true) {
   if (w.filter === "waiting") { const where = allocationContext(v); rows = rows.filter((r) => where(r).state === "waiting"); }
   if (w.filter === "stopped") rows = rows.filter((r) => ["cancelled", "paused", "completed"].includes(r.planStatus));
   if (w.filter === "attention") rows = rows.filter((r) => r.needsLook || r.inReview || r.unrouted);
+  if (tab) {
+    const filters = colFilterOn(v).filter(([col]) => col !== exceptCol);
+    if (filters.length) { const where = allocationContext(v); rows = rows.filter((r) => filters.every(([col, vals]) => vals.includes(columnValue(col, r, v, where)))); }
+  }
   return { base, c, rows: sortGifts(rows, v.giftSort) };
 }
 
@@ -293,8 +312,23 @@ export function giftListHtml(v: View): string {
     c.kind !== "any" ? chipOf("kind", `Type: ${({ recurring: "Recurring", oneoff: "One-off", custom: "Custom amount" } as Record<string, string>)[c.kind] ?? c.kind}`) : "",
     c.legacy !== "" ? chipOf("legacy", c.legacy === "only" ? "Legacy only" : "No legacy") : "", c.from !== "" ? chipOf("from", `Paid from ${shortDate(c.from)}`) : "", c.to !== "" ? chipOf("to", `Paid to ${shortDate(c.to)}`) : "",
   ].filter((x) => x !== "");
-  const chips = isFiltering(c) ? `<span class="muted">Showing ${rows.length} gift${rows.length === 1 ? "" : "s"} from ${filterWorkOrders(base, c).length} of ${base.length} payments</span>${on.join("")}<button type="button" class="linkish" data-action="clear-filters" data-scope="main">Clear all</button>` : "";
+  const colChips = colFilterOn(v).map(([col, vals]) => `<button type="button" class="chip" data-gfclear="${col}" aria-label="Remove the filter ${esc(FILTER_COLUMNS.find(([id]) => id === col)?.[1] ?? col)}: ${esc(vals.join(", "))}">${esc(FILTER_COLUMNS.find(([id]) => id === col)?.[1] ?? col)}: ${esc(vals.length > 2 ? `${vals.slice(0, 2).join(", ")} +${vals.length - 2}` : vals.join(", "))}${SYM.close}</button>`);
+  const anyFilter = isFiltering(c) || colChips.length > 0;
+  const chips = anyFilter ? `<span class="muted">Showing ${rows.length} gift${rows.length === 1 ? "" : "s"} from ${filterWorkOrders(base, c).length} of ${base.length} payments</span>${on.join("")}${colChips.join("")}<button type="button" class="linkish" data-action="clear-filters" data-scope="main">Clear all</button>` : "";
   const note = rows.length > MAX_ROWS ? `<p class="muted">Only the first ${MAX_ROWS} are drawn. Narrow the list with the filter boxes.</p>` : "";
+  // The values of the open column, each with how many gifts it holds, from the gifts the other filters leave.
+  const openCol = FILTER_COLUMNS.find(([id]) => id === v.giftFiltOpen);
+  const valuePanel = (() => {
+    if (!openCol) return "";
+    const others = listData(v, true, openCol[0]);
+    const whereAll = allocationContext(v);
+    const tally = new Map<string, number>();
+    for (const r of others.rows) { const val = columnValue(openCol[0], r, v, whereAll); tally.set(val, (tally.get(val) ?? 0) + 1); }
+    const chosen = new Set((v.giftColFilters ?? {})[openCol[0]] ?? []);
+    for (const val of chosen) if (!tally.has(val)) tally.set(val, 0);
+    const list = [...tally].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]));
+    return `<div class="colbox valuebox" role="group" aria-label="Show only these values of ${esc(openCol[1])}"><b>${esc(openCol[1])}</b>${list.map(([val, n]) => `<label><input type="checkbox" data-gfv="${openCol[0]}" value="${esc(val)}"${chosen.has(val) ? " checked" : ""}> ${esc(val)} <span class="muted">${n}</span></label>`).join("")}<button type="button" class="linkish" data-gfclear="${openCol[0]}">Show all</button><button type="button" class="linkish" data-gfilt="">Done</button></div>`;
+  })();
   const colPick = v.giftColsOpen ? `<div class="colbox" role="group" aria-label="Columns shown">${GIFT_COLUMNS.map(([id, label]) => `<label><input type="checkbox" data-gcol="${id}"${hidden.has(id) ? "" : " checked"}> ${esc(label)}</label>`).join("")}<button type="button" class="linkish" data-gcols="reset">Back to the usual columns</button></div>` : "";
   if (base.length === 0) return `<div class="empty">No gifts in this list.</div>`;
   // Rule (DECISIONS 214): the key of symbols sits in a disclosure, so the list starts higher. Every symbol also has its own tooltip.
@@ -345,13 +379,15 @@ export function giftListHtml(v: View): string {
   };
   // A sortable heading is a button, and says which way it is sorted for a screen reader (aria-sort).
   const sort = v.giftSort;
-  const th = (id: string, label: string, cls = ""): string => `<th${cls ? ` class="${cls}"` : ""} aria-sort="${sort?.key === id ? (sort.dir === "desc" ? "descending" : "ascending") : "none"}"><button type="button" class="sortbtn" data-gsort="${id}">${label}${sort?.key === id ? (sort.dir === "desc" ? SYM.sortDown : SYM.sortUp) : ""}</button></th>`;
+  // A heading that can be filtered by value carries a small funnel button, filled when a value is chosen in it and pressed while its list is open.
+  const funnel = (id: string): string => (FILTER_COLUMNS.some(([c0]) => c0 === id) ? `<button type="button" class="fbtn${(v.giftColFilters?.[id] ?? []).length ? " on" : ""}" data-gfilt="${id}" aria-pressed="${v.giftFiltOpen === id ? "true" : "false"}" aria-label="Filter ${esc(FILTER_COLUMNS.find(([c0]) => c0 === id)?.[1] ?? id)} by its values" title="Filter by value">${SYM.funnel}</button>` : "");
+  const th = (id: string, label: string, cls = ""): string => `<th${cls ? ` class="${cls}"` : ""} aria-sort="${sort?.key === id ? (sort.dir === "desc" ? "descending" : "ascending") : "none"}"><button type="button" class="sortbtn" data-gsort="${id}">${label}${sort?.key === id ? (sort.dir === "desc" ? SYM.sortDown : SYM.sortUp) : ""}</button>${funnel(id)}</th>`;
   const heads: [string, string][] = [
     ["select", `<th><input type="checkbox" data-selall="main" title="Tick all shown" aria-label="Select all shown"${allTicked ? " checked" : ""}></th>`], ["kind", "<th></th>"], ["recid", "<th>Rec. ID</th>"],
     ["donor", th("donor", "Donor")], ["item", th("item", "Item")], ["project", th("project", "Project")], ["plan", th("plan", "Plan", "num")], ["value", th("value", "Value", "num")], ["paid", th("paid", "Paid", "num")], ["next", th("next", "Next", "num")],
-    ["stage", "<th>Stage</th>"], ["assigned", "<th>Assigned to</th>"], ["alloc", "<th>Allocated to</th>"], ["status", "<th>Status</th>"],
+    ["stage", `<th>Stage${funnel("stage")}</th>`], ["assigned", `<th>Assigned to${funnel("assigned")}</th>`], ["alloc", `<th>Allocated to${funnel("alloc")}</th>`], ["status", "<th>Status</th>"],
   ];
-  const tools = `<div class="listtools"><div class="chips">${chips}</div><div class="toolbtns"><button type="button" class="chipbtn" data-gcols="toggle" aria-expanded="${v.giftColsOpen ? "true" : "false"}">${SYM.columns} Columns</button>${key}</div></div>${colPick}`;
+  const tools = `<div class="listtools"><div class="chips">${chips}</div><div class="toolbtns"><button type="button" class="chipbtn" data-gcols="toggle" aria-expanded="${v.giftColsOpen ? "true" : "false"}">${SYM.columns} Columns</button>${key}</div></div>${colPick}${valuePanel}`;
   return `${bulk}${note}${tools}${rows.length === 0 ? `<div class="empty">No gifts match the filters.<br><button type="button" data-action="clear-filters" data-scope="main">Clear the filters</button></div>` : `<div class="tablewrap"><table class="giftlist"><thead><tr>${heads.filter(([id]) => !hidden.has(id)).map(([, html]) => html).join("")}</tr></thead><tbody>${shown.map(row).join("")}</tbody></table></div>`}`;
 }
 
