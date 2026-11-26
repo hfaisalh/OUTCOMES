@@ -1483,6 +1483,19 @@ document.addEventListener("click", (e) => {
 
 // ---- The project form (DECISIONS 76) ----
 // A pop-up like the partner window, outside the page that is redrawn.
+// Rule (DECISIONS 234): the list of people to enrol shows only those the chosen benefit can go to (a person benefit, a household benefit), and those that match what is typed. An option that does not fit is hidden and cannot be chosen.
+function filterEnrolList(): void {
+  const ben = document.getElementById?.("en-ben") as HTMLSelectElement | null;
+  if (!ben?.options) return; // not on the page, or the test page has no select
+  const receiver = (document.getElementById("en-item") as HTMLSelectElement | null)?.selectedOptions?.[0]?.dataset.receiver ?? "";
+  const q = ((document.getElementById("en-search") as HTMLInputElement | null)?.value ?? "").trim().toLowerCase();
+  for (const o of [...ben.options]) {
+    const fits = (receiver === "" || o.dataset.kind === receiver) && (q === "" || (o.dataset.text ?? "").includes(q));
+    o.hidden = !fits;
+    if (!fits) o.disabled = true; else o.disabled = o.dataset.ineligible === "1";
+  }
+  if (ben.selectedOptions[0]?.disabled || ben.selectedOptions[0]?.hidden) ben.selectedIndex = [...ben.options].findIndex((o) => !o.hidden && !o.disabled);
+}
 function renderProjectWindow(error = "", draft?: Record<string, unknown>): void {
   const w = state.projectWin;
   if (!w.open) return;
@@ -1494,8 +1507,11 @@ function renderProjectWindow(error = "", draft?: Record<string, unknown>): void 
   }
   const existing = state.giftProjects.find((g) => g.id === w.id);
   const names = crmNamesOf(state.workOrders, state.giftProjects).filter((n) => n.giftProjectId === "").map((n) => ({ name: n.name, gifts: n.gifts })); // the CRM names no project has yet, to link a new project to
-  putWindow(root, projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), people: { beneficiaries: state.beneficiaries.records, enrolments: state.enrolments.records, placements: state.placements.records, stock: state.placements.stock ?? [], stockItemIds: view().flaggedItems.filter((i) => { const r = itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, i.id, i.name); return !!r && (r.first === "gift" || r.receiver === "none"); }).map((i) => i.id) } }, error, w.tab ?? "details"));
+  putWindow(root, projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), people: { beneficiaries: state.beneficiaries.records, enrolments: state.enrolments.records, placements: state.placements.records, stock: state.placements.stock ?? [], stockItemIds: view().flaggedItems.filter((i) => { const r = itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, i.id, i.name); return !!r && (r.first === "gift" || r.receiver === "none"); }).map((i) => i.id), receivers: Object.fromEntries(view().flaggedItems.map((i) => [i.id, itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, i.id, i.name)?.receiver ?? ""])) } }, error, w.tab ?? "details"));
+  filterEnrolList();
 }
+document.addEventListener("input", (e) => { if ((e.target as HTMLElement | null)?.id === "en-search") filterEnrolList(); });
+document.addEventListener("change", (e) => { if ((e.target as HTMLElement | null)?.id === "en-item") filterEnrolList(); });
 function closeProjectWindow(): void {
   clusterUi.node = ""; clusterUi.adding = ""; clusterUi.nodeTab = "details"; // the next project opens on its list of clusters
   state.projectWin = { open: false, id: "" };

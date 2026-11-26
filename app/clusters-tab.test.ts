@@ -173,11 +173,19 @@ describe("parked outcomes in a cluster (DECISIONS 209)", () => {
 
 describe("the cluster window layout (DECISIONS 210)", () => {
   const ctx = { projectId: "p", items: [{ id: "I10", name: "Orphan Sponsorship" }, { id: "I11", name: "Small Pump" }], itemNames: { I10: "Orphan Sponsorship", I11: "Small Pump", "MWF-EDU-002": "Education Support" }, enrolItemIds: ["I10"], beneficiaries: [{ id: "PRS-1", kind: "person", name: "Sample Amina", status: "active", eligibility: "ready" }] as never, enrolments: [{ id: "EN-1", beneficiaryId: "PRS-1", giftProjectId: "p", clusterId: "physics", itemId: "MWF-EDU-002", role: "", status: "active", since: "2026-11-26" }] as never };
+  it("offers a search box, and marks each benefit with what it goes to and each person with their kind, so the list can be narrowed (DECISIONS 234)", () => {
+    reset();
+    clusterUi.node = "lahore-university"; clusterUi.nodeTab = "people";
+    const html = clustersTabHtml(home, "", { ...ctx, receivers: { I10: "person" } });
+    expect(html).toContain('id="en-search"');
+    expect(html).toContain('<option value="I10" data-receiver="person">');
+    expect(html).toMatch(/<option value="PRS-1" data-kind="person" data-text="[^"]*prs-1[^"]*"/);
+  });
   it("offers only benefits that take a person in the Enrol form, shows names and not codes, and keeps a row's actions behind a menu", () => {
     reset();
     clusterUi.node = "lahore-university"; clusterUi.nodeTab = "people";
     const html = clustersTabHtml(home, "", ctx);
-    expect(html).toContain('<option value="I10">Orphan Sponsorship</option>');
+    expect(html).toContain('<option value="I10" data-receiver="">Orphan Sponsorship</option>');
     expect(html).not.toContain('<option value="I11">Small Pump</option>');
     expect(html).toContain("Education Support"); // the name, not MWF-EDU-002
     expect(html).not.toContain(">MWF-EDU-002<");
@@ -193,7 +201,7 @@ describe("the cluster window layout (DECISIONS 210)", () => {
     const people = [{ id: "PRS-2", kind: "person", name: "Sample Review", status: "active", eligibility: "review" }, { id: "PRS-1", kind: "person", name: "Sample Ready", status: "active", eligibility: "ready" }, { id: "HH-1", kind: "household", name: "Sample Family", status: "active" }] as never;
     const html = clustersTabHtml(home, "", { ...ctx, beneficiaries: people });
     expect(html.indexOf('value="PRS-1"')).toBeLessThan(html.indexOf('value="PRS-2"')); // ready first
-    expect(html).toMatch(/<option value="PRS-2" disabled>Sample Review \(PRS-2\) \u00B7 Needs review<\/option>/);
+    expect(html).toMatch(/<option value="PRS-2" data-kind="person" data-text="[^"]*" disabled data-ineligible="1">Sample Review \(PRS-2\) \u00B7 Needs review<\/option>/);
     expect(html).toContain('<optgroup label="Households">');
     reset();
   });

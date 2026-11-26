@@ -22,6 +22,7 @@ export interface PeopleContext {
   projectId: string;
   items: { id: string; name: string }[]; // the benefits the project offers (all flagged items when it names none)
   itemNames?: Record<string, string>; // the name of every benefit, so a row never shows a code (DECISIONS 210)
+  receivers?: Record<string, string>; // what each benefit goes to (person, household or none), so the list of people can be narrowed to those it can go to (DECISIONS 234)
   enrolItemIds?: string[]; // the benefits a person or household can be enrolled for: not those where the gift comes first or there is no beneficiary. All when not given
   beneficiaries: Beneficiary[];
   enrolments: Enrolment[];
@@ -38,7 +39,7 @@ export const peopleCount = (state: ClusterState, ctx: PeopleContext, clusterId: 
 const canEnrol = (b: Beneficiary): boolean => b.kind !== "person" || b.eligibility === "ready" || b.eligibility === undefined || (b.eligibility as string) === "";
 const benLabel = (b: Beneficiary): string => `${b.name} (${b.id})${b.kind === "person" && b.eligibility ? ` \u00B7 ${ELIGIBILITY_LABEL[b.eligibility]}` : ""}`;
 const benOptions = (people: Beneficiary[]): string => {
-  const group = (label: string, list: Beneficiary[]): string => (list.length === 0 ? "" : `<optgroup label="${esc(label)}">${[...list].sort((x, y) => Number(canEnrol(y)) - Number(canEnrol(x))).map((b) => `<option value="${esc(b.id)}"${canEnrol(b) ? "" : " disabled"}>${esc(benLabel(b))}</option>`).join("")}</optgroup>`);
+  const group = (label: string, list: Beneficiary[]): string => (list.length === 0 ? "" : `<optgroup label="${esc(label)}">${[...list].sort((x, y) => Number(canEnrol(y)) - Number(canEnrol(x))).map((b) => `<option value="${esc(b.id)}" data-kind="${b.kind}" data-text="${esc(`${b.name} ${b.id}`.toLowerCase())}"${canEnrol(b) ? "" : " disabled data-ineligible=\"1\""}>${esc(benLabel(b))}</option>`).join("")}</optgroup>`);
   return group("People", people.filter((b) => b.kind === "person")) + group("Households", people.filter((b) => b.kind !== "person"));
 };
 
@@ -67,7 +68,8 @@ export function clusterPeopleHtml(state: ClusterState, c: Cluster, ctx: PeopleCo
   // Rule (DECISIONS 210): only a benefit that takes a person or a household is offered here. A benefit where the gift comes first, or with no beneficiary, is parked on the Outcomes tab instead.
   const enrolItems = ctx.items.filter((i) => ctx.enrolItemIds === undefined || ctx.enrolItemIds.includes(i.id));
   const form = enrolItems.length === 0 ? '<p class="muted">No benefit of this project takes a person. Choose its benefits on the project\'s Details tab.</p>' : people.length === 0 ? '<p class="muted">The register is empty. Add people on the Beneficiaries page first.</p>' :
-    `<div class="cl-add"><select id="en-item" aria-label="Benefit">${enrolItems.map((i) => `<option value="${esc(i.id)}">${esc(i.name)}</option>`).join("")}</select>
+    `<div class="cl-add"><select id="en-item" aria-label="Benefit">${enrolItems.map((i) => `<option value="${esc(i.id)}" data-receiver="${esc(ctx.receivers?.[i.id] ?? "")}">${esc(i.name)}</option>`).join("")}</select>
+      <input type="search" id="en-search" placeholder="Search name or ID" aria-label="Search the people" />
       <select id="en-ben" aria-label="Beneficiary">${benOptions(people)}</select>
       <select id="en-role" aria-label="Role"><option value="">No role (an ordinary beneficiary)</option>${roles.map((r) => `<option value="${esc(r)}">${esc(r)}</option>`).join("")}</select>
       <button type="button" class="iconact ok" data-cl="enr-add" data-id="${esc(c.id)}" title="Enrol in ${esc(c.name)}" aria-label="Enrol in ${esc(c.name)}">+</button></div>
