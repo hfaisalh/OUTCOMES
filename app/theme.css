@@ -447,3 +447,19 @@ button.metric.tile:focus-visible{outline:2px solid var(--accent,#2b3f9e);outline
 button.metric.tile,.chipbtn,.fbtn,.pf-box button{transition:transform .12s var(--ease-out),border-color .15s,background-color .15s}
 button.metric.tile:active,.chipbtn:active,.pf-box button:active{transform:scale(.97)}
 @media (prefers-reduced-motion:reduce){.gw-in *,.gw-out *,.giftlist.rows-in tbody tr,.gw-in .pf-overlay,.gw-out .pf-overlay,.gw-in .pf-box,.gw-out .pf-box{animation:none!important}button:active{transform:none!important}}
+
+/* Motion on indicators (DECISIONS 221). Bars and meters grow from the left, pies pop and their segments appear one after another, tile figures rise. They play when the page or list changes (class fx on the content) and when the gift window opens (gw-in), never on a plain redraw. Only transform and opacity move. */
+@keyframes ind-grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes ind-pop{from{opacity:0;transform:scale(.55)}to{opacity:1;transform:none}}
+@keyframes ind-seg{from{opacity:0}to{opacity:1}}
+@keyframes ind-rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.fx .bar>span,.fx .meter>i{transform-origin:left;animation:ind-grow .55s var(--ease-out) .1s both}
+.fx .mpie,.fx .upie,.gw-in .upie{transform-box:fill-box;transform-origin:center;animation:ind-pop .32s var(--spring) both}
+
+.fx .mpie .seg,.fx .upie .seg,.gw-in .upie .seg{animation:ind-seg .3s ease-out both}
+.fx .mpie .seg:nth-of-type(2n),.fx .upie .seg:nth-of-type(2n){animation-delay:.04s}
+.fx .metric b,.fx .metric .n{display:block;animation:ind-rise .3s var(--ease-out) both}
+.fx .metrics .metric:nth-child(2){animation-delay:.03s}.fx .metrics .metric:nth-child(3) b{animation-delay:.06s}.fx .metrics .metric:nth-child(4) b{animation-delay:.09s}.fx .metrics .metric:nth-child(5) b{animation-delay:.12s}
+/* The twelve pies of a row appear in order, left to right. */
+.fx .upies .upie:nth-child(2),.gw-in .upies .upie:nth-child(2){animation-delay:.03s}.fx .upies .upie:nth-child(3),.gw-in .upies .upie:nth-child(3){animation-delay:.06s}.fx .upies .upie:nth-child(4),.gw-in .upies .upie:nth-child(4){animation-delay:.09s}.fx .upies .upie:nth-child(5),.gw-in .upies .upie:nth-child(5){animation-delay:.12s}.fx .upies .upie:nth-child(6),.gw-in .upies .upie:nth-child(6){animation-delay:.15s}.fx .upies .upie:nth-child(7),.gw-in .upies .upie:nth-child(7){animation-delay:.18s}.fx .upies .upie:nth-child(8),.gw-in .upies .upie:nth-child(8){animation-delay:.21s}.fx .upies .upie:nth-child(9),.gw-in .upies .upie:nth-child(9){animation-delay:.24s}.fx .upies .upie:nth-child(10),.gw-in .upies .upie:nth-child(10){animation-delay:.27s}.fx .upies .upie:nth-child(11),.gw-in .upies .upie:nth-child(11){animation-delay:.3s}.fx .upies .upie:nth-child(12),.gw-in .upies .upie:nth-child(12){animation-delay:.33s}
+@media (prefers-reduced-motion:reduce){.fx *,.gw-in *{animation:none!important}}

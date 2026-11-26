@@ -660,9 +660,9 @@ function draw(): void {
       <div class="who">${gear}${person}</div></header>
     <main class="content">${moduleTabs}${frameLists(body)}</main></div>`;
   void role;
-  // Motion (DECISIONS 220): the first rows of the Gifts list ease in when the list itself changes (page, tab, tile, column filter or sort), not on every redraw or keystroke.
+  // Motion (DECISIONS 220): the visual indicators (bars, meters, pies, tile figures) draw in, and the first rows of the Gifts list ease in, when the list itself changes (page, tab, tile, column filter or sort), not on every redraw or keystroke.
   const sig = `${state.page}|${state.filter}|${JSON.stringify(state.giftColFilters)}|${JSON.stringify(state.giftSort ?? "")}`;
-  if (sig !== lastListSig) { lastListSig = sig; if (!reducedMotion()) document.querySelector?.(".giftlist")?.classList.add("rows-in"); }
+  if (sig !== lastListSig) { lastListSig = sig; if (!reducedMotion()) { document.querySelector?.(".giftlist")?.classList.add("rows-in"); document.querySelector?.("main.content")?.classList.add("fx"); } }
   // The partner window sits outside the page, so it is drawn again from the new state, except on the profile tab, which keeps what is being typed.
   if (state.partnerWin.open && state.partnerWin.tab !== "profile") renderPartnerWindow();
   renderGiftWindow();
