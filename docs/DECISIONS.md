@@ -885,3 +885,7 @@ After looking at the cluster window with real use: the forms were at the bottom 
 - A row's actions (move to another cluster, end the enrolment, remove a parked outcome) sit behind a small menu. History stays visible.
 - The Enrol form offers only benefits that take a person or household. Benefits where the gift comes first, or with no beneficiary, are parked on the Outcomes tab. (Enrolling recipients after a gift-first outcome is not built yet, and would need its own place.)
 - Benefit names come from the full item list, so a code is never shown. The leftover placeholder line is gone.
+
+## 211. Cluster window polish after use (2026-11-26)
+
+From screenshots of the new layout: the heading row did not cover the actions column, so rows showed through; the History link and the menu sat at different places on rows with and without History; and the beneficiary list offered people who cannot be enrolled. Now the heading row covers every column, the History link has a fixed width so the menus line up, and the beneficiary list puts those who can be enrolled first, shows the others greyed with the reason (needs review, cannot offer a place), and groups households separately. Not done: narrowing the list to the benefit chosen (a benefit that takes persons only would hide households), and a search box on a long list.

@@ -332,3 +332,7 @@ select:not([multiple]):focus-visible{outline:2px solid var(--accent);outline-off
 .pf-body .listframe{max-height:46vh;border:1px solid var(--line);border-radius:10px;margin-top:10px;box-shadow:none}
 .pf-body .cl-add{margin:6px 0}
 .muted.small,.small{font-size:12px}
+/* The heading row covers the actions column too, and the History link and the menu line up on every row (decision 211). */
+.listframe .subtable thead th.actcol{background:#f7f9fd}
+.listframe td.actcol{text-align:right;white-space:nowrap}
+.listframe td.actcol .linkish{display:inline-block;min-width:84px;text-align:right;margin-right:6px}

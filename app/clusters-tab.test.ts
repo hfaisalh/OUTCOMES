@@ -187,6 +187,16 @@ describe("the cluster window layout (DECISIONS 210)", () => {
     expect(html).not.toContain("come next"); // no leftover placeholder line
     reset();
   });
+  it("lists those who can be enrolled first, greys those who cannot with the reason, and groups households (decision 211)", () => {
+    reset();
+    clusterUi.node = "lahore-university"; clusterUi.nodeTab = "people";
+    const people = [{ id: "PRS-2", kind: "person", name: "Sample Review", status: "active", eligibility: "review" }, { id: "PRS-1", kind: "person", name: "Sample Ready", status: "active", eligibility: "ready" }, { id: "HH-1", kind: "household", name: "Sample Family", status: "active" }] as never;
+    const html = clustersTabHtml(home, "", { ...ctx, beneficiaries: people });
+    expect(html.indexOf('value="PRS-1"')).toBeLessThan(html.indexOf('value="PRS-2"')); // ready first
+    expect(html).toMatch(/<option value="PRS-2" disabled>Sample Review \(PRS-2\) \u00B7 Needs review<\/option>/);
+    expect(html).toContain('<optgroup label="Households">');
+    reset();
+  });
   it("has no Outcomes tab when nothing in the project can be parked", () => {
     reset();
     clusterUi.node = "lahore-university"; clusterUi.nodeTab = "people";

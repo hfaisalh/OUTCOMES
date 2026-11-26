@@ -34,6 +34,14 @@ export interface PeopleContext {
 // How many people are enrolled in a cluster and everything inside it (role holders are not counted), for the tab's count.
 export const peopleCount = (state: ClusterState, ctx: PeopleContext, clusterId: string): number => activeIn({ records: ctx.enrolments, counter: 0 }, state, ctx.projectId, clusterId, true).length;
 
+// Rule (DECISIONS 211): the beneficiary list puts those who can be enrolled first. A person who is not approved (needs review, cannot offer a place) is shown but greyed, with the reason, so it is clear why they cannot be chosen. Households have their own group.
+const canEnrol = (b: Beneficiary): boolean => b.kind !== "person" || b.eligibility === "ready" || b.eligibility === undefined || (b.eligibility as string) === "";
+const benLabel = (b: Beneficiary): string => `${b.name} (${b.id})${b.kind === "person" && b.eligibility ? ` \u00B7 ${ELIGIBILITY_LABEL[b.eligibility]}` : ""}`;
+const benOptions = (people: Beneficiary[]): string => {
+  const group = (label: string, list: Beneficiary[]): string => (list.length === 0 ? "" : `<optgroup label="${esc(label)}">${[...list].sort((x, y) => Number(canEnrol(y)) - Number(canEnrol(x))).map((b) => `<option value="${esc(b.id)}"${canEnrol(b) ? "" : " disabled"}>${esc(benLabel(b))}</option>`).join("")}</optgroup>`);
+  return group("People", people.filter((b) => b.kind === "person")) + group("Households", people.filter((b) => b.kind !== "person"));
+};
+
 // A row's actions behind one small menu, so the name and the benefit keep the width: move to another cluster, or end the enrolment (DECISIONS 210).
 const rowMenu = (inner: string): string => `<details class="rowmenu"><summary title="Actions" aria-label="Actions">&#8943;</summary><div class="rowmenu-box">${inner}</div></details>`;
 
@@ -48,7 +56,7 @@ export function clusterPeopleHtml(state: ClusterState, c: Cluster, ctx: PeopleCo
     const b = name(e.beneficiaryId);
     const n = countOfEnrolment(ctx.placements ?? [], e.id);
     return `<tr><td class="nm"><b>${esc(b?.name ?? e.beneficiaryId)}</b> <span class="muted">${esc(e.beneficiaryId)}</span></td><td>${esc(itemName(e.itemId))}</td><td>${esc(e.role)}</td><td class="muted">${esc(e.clusterId === c.id ? "Here" : where(e.clusterId))}</td><td class="muted">${esc(e.since)}</td>
-      <td class="actcol">${n > 0 ? `<button type="button" class="linkish" data-hist="enrolment" data-id="${esc(e.id)}" title="Every gift that has sponsored this child">History (${n})</button> ` : ""}${rowMenu(`${moveTargets(e)}<button type="button" class="danger" data-cl="enr-end" data-id="${esc(e.id)}">End this enrolment</button>`)}</td></tr>`;
+      <td class="actcol">${n > 0 ? `<button type="button" class="linkish" data-hist="enrolment" data-id="${esc(e.id)}" title="Every gift that has sponsored this child">History (${n})</button> ` : '<span class="linkish"></span>'}${rowMenu(`${moveTargets(e)}<button type="button" class="danger" data-cl="enr-end" data-id="${esc(e.id)}">End this enrolment</button>`)}</td></tr>`;
   }).join("");
   // Capacity: the total belongs to the master cluster, and counts everyone inside it except role holders.
   const top = masterOf(state, c.id);
@@ -60,7 +68,7 @@ export function clusterPeopleHtml(state: ClusterState, c: Cluster, ctx: PeopleCo
   const enrolItems = ctx.items.filter((i) => ctx.enrolItemIds === undefined || ctx.enrolItemIds.includes(i.id));
   const form = enrolItems.length === 0 ? '<p class="muted">No benefit of this project takes a person. Choose its benefits on the project\'s Details tab.</p>' : people.length === 0 ? '<p class="muted">The register is empty. Add people on the Beneficiaries page first.</p>' :
     `<div class="cl-add"><select id="en-item" aria-label="Benefit">${enrolItems.map((i) => `<option value="${esc(i.id)}">${esc(i.name)}</option>`).join("")}</select>
-      <select id="en-ben" aria-label="Beneficiary">${people.map((b) => `<option value="${esc(b.id)}">${esc(b.name)} (${esc(b.id)})${b.kind === "person" && b.eligibility ? ` \u00B7 ${esc(ELIGIBILITY_LABEL[b.eligibility])}` : ""}</option>`).join("")}</select>
+      <select id="en-ben" aria-label="Beneficiary">${benOptions(people)}</select>
       <select id="en-role" aria-label="Role"><option value="">No role (an ordinary beneficiary)</option>${roles.map((r) => `<option value="${esc(r)}">${esc(r)}</option>`).join("")}</select>
       <button type="button" class="iconact ok" data-cl="enr-add" data-id="${esc(c.id)}" title="Enrol in ${esc(c.name)}" aria-label="Enrol in ${esc(c.name)}">+</button></div>
       <p class="muted small">A person must have the admission decision Ready before being enrolled where a beneficiary comes first. The benefit's type decides whether it takes a person or a household. A role holder does not use up a place.</p>`;
