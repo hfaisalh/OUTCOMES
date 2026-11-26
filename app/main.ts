@@ -48,6 +48,7 @@ import { changeOutcomes, loadOutcomes, decideAttention, signOut, setExcluded, se
 import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
+import { frameLists } from "./list-frames";
 import { dataFeedPage, dataFilesPage } from "./data-page";
 import { benefitsPage } from "./benefits-page";
 import { unitPie, workflowsPage } from "./workflows-page";
@@ -640,7 +641,7 @@ function draw(): void {
     <header class="top">${state.me ? `<span class="badge-demo">Signed in from the CRM${state.me.storage === "memory" ? " · TEMPORARY STORAGE, nothing is kept" : ""}</span>` : `<span class="badge-demo">Demo with invented data</span>`}
       <span class="ver" title="The version of this page. If it is not the latest, refresh the page.">${esc(typeof __BUILD_LABEL__ === "string" ? __BUILD_LABEL__ : "dev")}</span>
       <div class="who">${gear}${person}</div></header>
-    <main class="content">${moduleTabs}${body}</main></div>`;
+    <main class="content">${moduleTabs}${frameLists(body)}</main></div>`;
   void role;
   // The partner window sits outside the page, so it is drawn again from the new state, except on the profile tab, which keeps what is being typed.
   if (state.partnerWin.open && state.partnerWin.tab !== "profile") renderPartnerWindow();
