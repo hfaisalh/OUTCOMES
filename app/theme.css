@@ -407,14 +407,18 @@ button.metric.tile:focus-visible{outline:2px solid var(--accent,#2b3f9e);outline
 .fbtn:focus-visible{outline:2px solid var(--accent,#2b3f9e);outline-offset:1px}
 .valuebox b{margin-right:6px}
 
-/* Gift window (DECISIONS 218): the same pass as the Gifts list. A header naming the donor and the gift, four headline figures, then cards for Delivery and The gift side by side, Units, Donor and status, and Payments. */
-.gw-head{align-items:flex-start!important}.gw-head h2{font-size:20px;letter-spacing:-.01em}.gw-sub{margin-top:3px;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.pf-body.gw{display:flex;flex-direction:column;gap:12px;padding-top:12px}.pf-body.gw>section{margin-top:0}
-.gw-hero{grid-template-columns:repeat(4,minmax(0,1fr))!important;margin:0!important;padding:10px 14px;background:#f6f8fb;border:1px solid var(--line);border-radius:10px}
-.gw-hero .f>div{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}.gw-hero .f>span{text-transform:none;letter-spacing:0}
-.gw-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
-.gw-card{border:1px solid var(--line);border-radius:10px;padding:10px 14px 12px}.gw-card h3{margin:0 0 8px!important;font-size:13px!important;color:#475569;font-weight:600}
-.fgrid.two{grid-template-columns:repeat(2,minmax(0,1fr))!important;margin-top:0!important}.fgrid.one{grid-template-columns:minmax(0,1fr)!important;margin-top:0!important}
-.gw-card .fgrid .f.w{grid-column:span 2}
-@media(max-width:720px){.gw-cols{grid-template-columns:1fr}.gw-hero{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+/* Gift window (DECISIONS 218, 219): compact. The window is a size container, so its columns follow its own width (container query), not the screen: four headline figures in one slim bar, Units as one strip, and three cards that sit in a row when there is room and stack when there is not. */
+.pf-box:has(.gw){max-width:980px}
+.gw-head{align-items:flex-start!important;padding:10px 16px!important}.gw-head h2{font-size:18px;letter-spacing:-.01em}.gw-sub{margin-top:2px;font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pf-body.gw{container-type:inline-size;display:flex;flex-direction:column;gap:8px;padding:8px 16px 12px}.pf-body.gw>section{margin-top:0}
+.gw-hero{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))!important;margin:0!important;padding:6px 12px;background:#f6f8fb;border:1px solid var(--line);border-radius:8px;gap:4px 16px!important}
+.gw-hero .f>div{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}.gw-hero .f>.bar{margin-top:2px}
+.gw-cols{display:grid;grid-template-columns:1fr;gap:8px;align-items:start}
+@container (min-width:720px){.gw-cols{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.gw-card{border:1px solid var(--line);border-radius:8px;padding:6px 12px 8px;min-width:0}.gw-card h3{margin:0 0 4px!important;font-size:12px!important;color:#64748b;font-weight:600}
+.fgrid.two,.fgrid.one{margin-top:0!important;gap:6px 12px!important}.fgrid.two{grid-template-columns:minmax(0,1fr)!important}.fgrid.one{grid-template-columns:minmax(0,1fr)!important}
+.gw-card .fgrid .f.w{grid-column:auto}
+.gw-units{display:flex;align-items:center;gap:12px;padding:6px 12px}.gw-units h3{margin:0!important}.gw-units .fgrid{flex:1;min-width:0}
 .fgrid.one .f>span{display:none}
+.pf-body.gw .fgrid .f{font-size:13px}.pf-body.gw .fgrid .f>span{font-size:11px}
+.pf-body.gw table td,.pf-body.gw table th{padding-top:4px;padding-bottom:4px}

@@ -445,6 +445,9 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Dates", `${esc(shortDate(g.firstPaid))}${g.lastPaid && g.lastPaid !== g.firstPaid ? ` \u2192 ${esc(shortDate(g.lastPaid))}` : ""}${g.nextDue ? `<div class="muted">next due ${esc(shortDate(g.nextDue))}</div>` : ""}`)}
         ${row("Plan status", g.planStatus ? `<span class="pill ${g.planStatus === "active" ? "ready" : "review"}">${esc(g.planStatus)}</span>` : "")}
       </div>
+      <section class="gw-card gw-units"><h3>Units</h3><div class="fgrid one">
+        ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
+      </div></section>
       <div class="gw-cols">
         <section class="gw-card"><h3>Delivery</h3><div class="fgrid two">
         ${row("Stage", `${stagePill(stageFor(v, g, a))}${stageFor(v, g, a).note ? `<div class="muted">${esc(stageFor(v, g, a).note)}</div>` : ""}`)}
@@ -453,23 +456,20 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${(() => { const hk = giftPlacementKey(g); const hn = hk === "" ? 0 : countOfGift(v.placements?.records ?? [], hk); return hn > 0 ? row("Allocation history", `<button type="button" class="linkish" data-hist="gift" data-id="${esc(hk)}">View history (${hn})</button>`) : ""; })()}
         </div></section>
         <section class="gw-card"><h3>The gift</h3><div class="fgrid two">
-        ${row("Item", `${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${workflowPicker(v, first.itemId)}` : `<div class="muted">${esc((v.frameworks ?? []).find((f) => f.id === g.frameworkId)?.name ?? "")}${first && first.bundleQty && first.bundleQty > 1 && g.kind !== "recurring" ? ` \u00B7 bundle of ${first.bundleQty}${first.quantity > 1 ? ` x ${first.quantity}` : ""}` : ""}</div>`}`)}
+        ${row("Workflow", `${g.unrouted && first ? workflowPicker(v, first.itemId) : `<span class="muted">${esc((v.frameworks ?? []).find((f) => f.id === g.frameworkId)?.name ?? "")}${first && first.bundleQty && first.bundleQty > 1 && g.kind !== "recurring" ? ` \u00B7 bundle of ${first.bundleQty}${first.quantity > 1 ? ` x ${first.quantity}` : ""}` : ""}</span>`}`)}
         ${row("Type", esc(kindName))}
         ${row("Recurring ID", g.kind === "recurring" ? `<b>${esc(g.key)}</b>` : "")}
         ${row("Project chosen", esc(g.projectName))}
         ${row("Cause", esc(first?.cause ?? ""))}
         ${row("Parts per instalment", partsControl ? `<span class="partsrow">${partsControl}</span>${fixed ? `<div class="muted">Set manually. The CRM says ${esc(String(g.payments.find((w) => w.legacyUpload !== true) ? sentPartsOf(g.payments.find((w) => w.legacyUpload !== true) as WorkOrder) : g.parts))}.</div>` : ""}` : "")}
         </div></section>
-      </div>
-      <section class="gw-card"><h3>Units</h3><div class="fgrid one">
-        ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
-      </div></section>
       <section class="gw-card"><h3>Donor and status</h3><div class="fgrid two">
         ${row("Donor", `${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span>${first && first.group ? ` <span class="muted">· ${esc(first.group)}</span>` : ""}`)}
         ${row("Status", `${status} ${logBtn}${markManual ? `<div class="statusact">${markManual}</div>` : ""}`)}
         ${first ? row("Credit", creditLine(first), true) : ""}
         ${row("Could belong to", link, true)}
       </div></section>
+      </div>
       <section><h3>Payments (${g.payments.length})</h3>${paymentsTable(g, v)}</section>
     </div></div>${logWin}</div>`;
 }
