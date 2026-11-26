@@ -406,3 +406,15 @@ button.metric.tile:focus-visible{outline:2px solid var(--accent,#2b3f9e);outline
 .fbtn[aria-pressed="true"]{background:var(--accent-bg);color:var(--accent,#2b3f9e)}
 .fbtn:focus-visible{outline:2px solid var(--accent,#2b3f9e);outline-offset:1px}
 .valuebox b{margin-right:6px}
+
+/* Gift window (DECISIONS 218): the same pass as the Gifts list. A header naming the donor and the gift, four headline figures, then cards for Delivery and The gift side by side, Units, Donor and status, and Payments. */
+.gw-head{align-items:flex-start!important}.gw-head h2{font-size:20px;letter-spacing:-.01em}.gw-sub{margin-top:3px;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pf-body.gw{display:flex;flex-direction:column;gap:12px;padding-top:12px}.pf-body.gw>section{margin-top:0}
+.gw-hero{grid-template-columns:repeat(4,minmax(0,1fr))!important;margin:0!important;padding:10px 14px;background:#f6f8fb;border:1px solid var(--line);border-radius:10px}
+.gw-hero .f>div{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}.gw-hero .f>span{text-transform:none;letter-spacing:0}
+.gw-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+.gw-card{border:1px solid var(--line);border-radius:10px;padding:10px 14px 12px}.gw-card h3{margin:0 0 8px!important;font-size:13px!important;color:#475569;font-weight:600}
+.fgrid.two{grid-template-columns:repeat(2,minmax(0,1fr))!important;margin-top:0!important}.fgrid.one{grid-template-columns:minmax(0,1fr)!important;margin-top:0!important}
+.gw-card .fgrid .f.w{grid-column:span 2}
+@media(max-width:720px){.gw-cols{grid-template-columns:1fr}.gw-hero{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+.fgrid.one .f>span{display:none}

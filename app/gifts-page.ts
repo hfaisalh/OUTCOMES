@@ -437,28 +437,39 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   const partFix = g.partFixes.map((x) => `<div class="suggest-box"><b>The quantity looks wrong.</b> ${esc(x.reason)} unit${x.parts === 1 ? "" : "s"}.
       <div class="actions"><button class="primary" data-parts-set="${esc(x.key)}" data-n="${x.parts}">Yes, count it as ${x.parts} unit${x.parts === 1 ? "" : "s"}</button><button data-parts-set="${esc(x.key)}" data-n="${x.sent}">No, ${x.sent} is right</button></div></div>`).join("");
   return `<div class="pf-overlay" data-gift-close="overlay"><div class="pf-box" role="dialog" aria-label="Gift details">
-    <header><h2>${esc(g.supporterName)} <span class="muted">${esc(g.itemName)}</span></h2><button data-gift-close="x" aria-label="Close">Close</button></header>
-    <div class="pf-body compact">${manualBox}${catchUp}${partFix}<div class="fgrid">
-        ${row("Donor", `${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span>${first && first.group ? ` <span class="muted">· ${esc(first.group)}</span>` : ""}`)}
-        ${row("Item", `${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${workflowPicker(v, first.itemId)}` : `<div class="muted">${esc((v.frameworks ?? []).find((f) => f.id === g.frameworkId)?.name ?? "")}${first && first.bundleQty && first.bundleQty > 1 && g.kind !== "recurring" ? ` \u00B7 bundle of ${first.bundleQty}${first.quantity > 1 ? ` x ${first.quantity}` : ""}` : ""}</div>`}`)}
-        ${row("Type", esc(kindName))}
-        ${row("Recurring ID", g.kind === "recurring" ? `<b>${esc(g.key)}</b>` : "")}
+    <header class="gw-head"><div><h2>${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span></h2><div class="gw-sub">${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""} <span class="muted">${esc(kindName)}</span></div></div><button data-gift-close="x" aria-label="Close">Close</button></header>
+    <div class="pf-body compact gw">${manualBox}${catchUp}${partFix}
+      <div class="fgrid gw-hero">
         ${row("Value (reference)", money(g.payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0), currencyOf(g)))}
         ${row("Paid", progress)}
         ${row("Dates", `${esc(shortDate(g.firstPaid))}${g.lastPaid && g.lastPaid !== g.firstPaid ? ` \u2192 ${esc(shortDate(g.lastPaid))}` : ""}${g.nextDue ? `<div class="muted">next due ${esc(shortDate(g.nextDue))}</div>` : ""}`)}
         ${row("Plan status", g.planStatus ? `<span class="pill ${g.planStatus === "active" ? "ready" : "review"}">${esc(g.planStatus)}</span>` : "")}
-        ${row("Parts per instalment", partsControl ? `<span class="partsrow">${partsControl}</span>${fixed ? `<div class="muted">Set manually. The CRM says ${esc(String(g.payments.find((w) => w.legacyUpload !== true) ? sentPartsOf(g.payments.find((w) => w.legacyUpload !== true) as WorkOrder) : g.parts))}.</div>` : ""}` : "")}
-        ${row("Project chosen", esc(g.projectName))}
-        ${row("Cause", esc(first?.cause ?? ""))}
-        ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
+      </div>
+      <div class="gw-cols">
+        <section class="gw-card"><h3>Delivery</h3><div class="fgrid two">
         ${row("Stage", `${stagePill(stageFor(v, g, a))}${stageFor(v, g, a).note ? `<div class="muted">${esc(stageFor(v, g, a).note)}</div>` : ""}`)}
         ${row("Assigned to", a.partner ? `${esc(a.partner)}${a.batch !== undefined ? ` <span class="muted">Batch ${a.batch}</span>` : ""}` : `<span class="muted">Not assigned to a partner yet</span>`)}
         ${row("Allocated to", allocation)}
         ${(() => { const hk = giftPlacementKey(g); const hn = hk === "" ? 0 : countOfGift(v.placements?.records ?? [], hk); return hn > 0 ? row("Allocation history", `<button type="button" class="linkish" data-hist="gift" data-id="${esc(hk)}">View history (${hn})</button>`) : ""; })()}
+        </div></section>
+        <section class="gw-card"><h3>The gift</h3><div class="fgrid two">
+        ${row("Item", `${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${workflowPicker(v, first.itemId)}` : `<div class="muted">${esc((v.frameworks ?? []).find((f) => f.id === g.frameworkId)?.name ?? "")}${first && first.bundleQty && first.bundleQty > 1 && g.kind !== "recurring" ? ` \u00B7 bundle of ${first.bundleQty}${first.quantity > 1 ? ` x ${first.quantity}` : ""}` : ""}</div>`}`)}
+        ${row("Type", esc(kindName))}
+        ${row("Recurring ID", g.kind === "recurring" ? `<b>${esc(g.key)}</b>` : "")}
+        ${row("Project chosen", esc(g.projectName))}
+        ${row("Cause", esc(first?.cause ?? ""))}
+        ${row("Parts per instalment", partsControl ? `<span class="partsrow">${partsControl}</span>${fixed ? `<div class="muted">Set manually. The CRM says ${esc(String(g.payments.find((w) => w.legacyUpload !== true) ? sentPartsOf(g.payments.find((w) => w.legacyUpload !== true) as WorkOrder) : g.parts))}.</div>` : ""}` : "")}
+        </div></section>
+      </div>
+      <section class="gw-card"><h3>Units</h3><div class="fgrid one">
+        ${row("Units", g.kind === "recurring" ? unitsVisual(g, v) : "", true)}
+      </div></section>
+      <section class="gw-card"><h3>Donor and status</h3><div class="fgrid two">
+        ${row("Donor", `${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span>${first && first.group ? ` <span class="muted">· ${esc(first.group)}</span>` : ""}`)}
         ${row("Status", `${status} ${logBtn}${markManual ? `<div class="statusact">${markManual}</div>` : ""}`)}
         ${first ? row("Credit", creditLine(first), true) : ""}
         ${row("Could belong to", link, true)}
-      </div>
+      </div></section>
       <section><h3>Payments (${g.payments.length})</h3>${paymentsTable(g, v)}</section>
     </div></div>${logWin}</div>`;
 }

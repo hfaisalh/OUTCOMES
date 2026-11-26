@@ -939,3 +939,5 @@ Faisal could not filter by what is in a column (Project, Stage, Assigned to). Th
 - The tiles and tab counts count the search filters only, not column filters, so they stay put.
 - Checked in a browser (a headless Chrome driven by script): the funnel opens the list, a tick filters, the chip appears, and Show all clears it.
 Not done: filtering Item, Donor and the dates by value in the heading (Item and dates are in the filter bar), and remembering column filters between visits.
+
+218. (26/11/26) Gift window redesigned with the same pass as the Gifts list. Header names the donor (with CRM ID) and the gift; four headline figures (value, paid, dates, plan status); cards for Delivery and The gift side by side, Units, Donor and status; Payments below. Content and actions unchanged, only grouped. Reason: one flat grid of 19 fields hid what matters (where the gift is, who has it). There is no separate donor profile screen; this window is where a donor's gift is read.
