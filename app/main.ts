@@ -1980,3 +1980,21 @@ document.addEventListener("change", (e) => {
   if (v) { const [k, col] = v.split("|"); const f = ((state.tt.filters[k!] ??= {})); const cur = f[Number(col)] ?? []; f[Number(col)] = t.checked ? [...cur, t.value] : cur.filter((x) => x !== t.value); return draw(); }
   if (c) { const [k, col] = c.split("|"); const h = state.tt.hidden[k!] ?? []; state.tt.hidden[k!] = t.checked ? h.filter((x) => x !== Number(col)) : [...h, Number(col)]; return draw(); }
 });
+
+// The tiles above the Beneficiaries list choose what to show (DECISIONS 224): all, gaps, or failed payments.
+document.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest?.("[data-regshow]") as HTMLElement | null;
+  if (!b) return;
+  const mode = b.dataset.regshow ?? "";
+  state.registerFilter = { ...state.registerFilter, show: state.registerFilter.show === mode ? "" : (mode as BeneficiaryFilter["show"]) };
+  draw();
+});
+
+// The tiles above the Outcomes list choose what to show (DECISIONS 224).
+document.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest?.("[data-orshow]") as HTMLElement | null;
+  if (!b) return;
+  const mode = (b.dataset.orshow ?? "") as typeof state.outcomeRecFilter.show;
+  state.outcomeRecFilter = { ...state.outcomeRecFilter, show: state.outcomeRecFilter.show === mode ? "" : mode };
+  draw();
+});

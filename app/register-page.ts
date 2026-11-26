@@ -66,8 +66,8 @@ export function registerPage(v: View): string {
     return profileHit.has(r.beneficiaryId) || hay.includes(text);
   };
   // Rule: show only gaps (a unit with no gift), only failed payments (a missed month), or only plans that are paused, cancelled or completed.
-  const showOk = (r: (typeof impl)[number]): boolean => {
-    const s = f.show ?? "";
+  const showOk = (r: (typeof impl)[number], mode: string = f.show ?? ""): boolean => {
+    const s = mode;
     if (s === "") return true;
     if (r.enrolmentId === "") return false;
     // Rule (DECISIONS 213): a gap is a unit with no gift this month or later. Months before a gift began are unfilled too, but they are history, not something to act on.
@@ -95,6 +95,15 @@ export function registerPage(v: View): string {
     }
   };
   const list = impl.filter((r) => matches(r) && showOk(r));
+  // Tiles (DECISIONS 224): the summary of the list, and the quickest way to the ones that need a person. They count under the search and the drop-downs but not under the tile choice, so they do not change as one is pressed.
+  const base = impl.filter(matches);
+  const gapsN = base.filter((r) => showOk(r, "gaps")).length, missedN = base.filter((r) => showOk(r, "missed")).length, enrolledN = base.filter((r) => r.enrolmentId !== "").length;
+  const small = (n: number, label: string): string => `<span class="sm"><b>${n}</b> ${label}</span>`;
+  const tile = (mode: string, cls: string, inner: string): string => `<button type="button" class="metric tile${cls}" data-regshow="${mode}" aria-pressed="${(f.show ?? "") === mode ? "true" : "false"}">${inner}</button>`;
+  const tiles = `<div class="metrics">${tile("", "", `<b>${base.length}</b><span>Beneficiaries</span><div class="smrow">${small(base.filter((r) => byId.get(r.beneficiaryId)?.kind === "household").length, "households")}${small(base.filter((r) => byId.get(r.beneficiaryId)?.status === "active").length, "active")}</div>`)}
+    <div class="metric"><b>${enrolledN}</b><span>Enrolled</span><div class="smrow">${small(base.length - enrolledN, "not enrolled yet")}</div></div>
+    ${tile("gaps", gapsN ? " warn" : "", `<b>${gapsN}</b><span>With gaps</span><div class="smrow">${small(gapsN, "need a gift this month or later")}</div>`)}
+    ${tile("missed", missedN ? " warn" : "", `<b>${missedN}</b><span>Failed payments</span><div class="smrow">${small(missedN, "with a missed month")}</div>`)}</div>`;
   if (sort && sort.key !== "") {
     const dir = sort.dir === "desc" ? -1 : 1;
     list.sort((a, b) => {
@@ -143,6 +152,7 @@ export function registerPage(v: View): string {
     <p class="sub">Month by month, what is happening with each beneficiary: the gifts that fill each unit of the benefit, paid, expected or missed, and the gaps. Search by name, ID or donor. Open a row for the profile and the ID. Contact details stay in the CRM.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="actions"><button class="primary" data-bn="new" data-kind="person">New person</button><button data-bn="new" data-kind="household">New household</button></div>
+    ${all.length === 0 ? "" : tiles}
     ${filters}
     ${all.length === 0 ? '<div class="empty">No beneficiaries yet. Add the first person or household.</div>' : shown.length === 0 ? '<div class="empty">Nothing matches.</div>' : `${legend}<div class="tablewrap regwrap"><table class="octable regtable">${head}<tbody>${rows}</tbody></table></div>
     <p class="muted">${shown.length} of ${all.length} beneficiaries${shown.length > MAX_ROWS ? `, the first ${MAX_ROWS} shown` : ""}.</p>`}`;

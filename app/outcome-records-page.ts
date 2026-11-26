@@ -55,6 +55,15 @@ export function outcomeRecordsPage(v: View): string {
   const matches = (r: OutcomeRow): boolean => text === "" || normName(`${r.ref} ${itemName.get(r.itemId) ?? ""} ${r.gift?.donor ?? ""} ${partnerName(r.partnerId)} ${projectName(r.giftProjectId)}`).includes(text);
   const showOk = (r: OutcomeRow): boolean => (f.show === "" ? true : f.show === "underfunded" ? r.live && r.funded < 100 : f.show === "missed" ? r.missed > 0 : !r.live);
   const list = all.filter((r) => matches(r) && (f.project === "" || r.giftProjectId === f.project) && (f.type === "" || typeOf(r.itemId) === f.type) && showOk(r));
+  // Tiles (DECISIONS 224): count under the search and the drop-downs but not under the tile chosen, and a tile that counts a group shows just that group.
+  const base = all.filter((r) => matches(r) && (f.project === "" || r.giftProjectId === f.project) && (f.type === "" || typeOf(r.itemId) === f.type));
+  const underN = base.filter((r) => r.live && r.funded < 100).length, missN = base.filter((r) => r.missed > 0).length, endN = base.filter((r) => !r.live).length, liveN = base.length - endN;
+  const small = (n: number, label: string): string => `<span class="sm"><b>${n}</b> ${label}</span>`;
+  const tile = (mode: string, cls: string, inner: string): string => `<button type="button" class="metric tile${cls}" data-orshow="${mode}" aria-pressed="${f.show === mode ? "true" : "false"}">${inner}</button>`;
+  const tiles = `<div class="metrics">${tile("", "", `<b>${base.length}</b><span>Outcomes</span><div class="smrow">${small(liveN, "live")}${small(endN, "ended")}</div>`)}
+    ${tile("underfunded", underN ? " warn" : "", `<b>${underN}</b><span>Under-funded</span><div class="smrow">${small(underN, "live, not fully funded")}</div>`)}
+    ${tile("missed", missN ? " warn" : "", `<b>${missN}</b><span>Failed payments</span><div class="smrow">${small(missN, "with a missed month")}</div>`)}
+    ${tile("ended", "", `<b>${endN}</b><span>Ended</span><div class="smrow">${small(endN, "no longer live")}</div>`)}</div>`;
 
   // Rule: a click on a heading sorts by it, a second click reverses it. Empty values go last either way.
   const sort = v.outcomeRecSort;
@@ -98,6 +107,7 @@ export function outcomeRecordsPage(v: View): string {
   return `<h1>Outcomes</h1>
     <p class="sub">What gifts have created where the gift comes first (a pump, a camp) or there is no beneficiary (a mosque). Each is one outcome with its own reference. Open a row for the gift. Stages after allocation (delivered, confirmed, reported) come later.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
+    ${all.length === 0 ? "" : tiles}
     ${filters}
     ${all.length === 0 ? '<div class="empty">No outcomes yet. They appear when Allocate places a gift for a benefit where the gift comes first, or that has no beneficiary.</div>' : list.length === 0 ? '<div class="empty">Nothing matches.</div>' : `${legend}<div class="tablewrap regwrap"><table class="octable regtable">${head}<tbody>${rows}</tbody></table></div>
     <p class="muted">${list.length} of ${all.length} outcomes${list.length > MAX_ROWS ? `, the first ${MAX_ROWS} shown` : ""}.</p>`}`;
