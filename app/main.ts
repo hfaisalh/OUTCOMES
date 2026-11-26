@@ -676,6 +676,21 @@ function draw(): void {
 // Motion (DECISIONS 220): the window eases in when it OPENS and out when it closes, and is not replayed when it is redrawn after a change inside it.
 // Rule: exits are shorter than entrances, only transform and opacity move, and a person who asks the system for less motion gets none.
 const reducedMotion = (): boolean => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Windows (DECISIONS 225): every window root eases in when it opens (not on a redraw inside it) and out when it closes, as the gift window does.
+const closers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
+function putWindow(root: HTMLElement, html: string): void {
+  const t = closers.get(root);
+  if (t !== undefined) { clearTimeout(t); closers.delete(root); root.classList?.remove?.("gw-out"); root.innerHTML = ""; }
+  const opening = root.innerHTML === "";
+  root.innerHTML = html;
+  root.classList?.toggle?.("gw-in", opening && html !== "" && !reducedMotion());
+}
+function dropWindow(root: HTMLElement | null): void {
+  if (!root || root.innerHTML === "" || closers.has(root)) return;
+  if (reducedMotion() || typeof root.classList?.add !== "function") { root.innerHTML = ""; return; } // no motion asked for, or nothing to animate (the test page)
+  root.classList.add("gw-out");
+  closers.set(root, setTimeout(() => { closers.delete(root); root.innerHTML = ""; root.classList.remove("gw-out"); }, 130));
+}
 let giftClosing: ReturnType<typeof setTimeout> | undefined;
 function renderGiftWindow(): void {
   let root = document.getElementById("gift-root");
@@ -1289,7 +1304,7 @@ function renderPartnerWindow(error = "", ok = false): void {
   const scroll = (root.querySelector(".pf-body") as HTMLElement | null)?.scrollTop ?? 0;
   const existing = state.projects.find((p) => p.id === w.id);
   root.dataset.id = w.id;
-  root.innerHTML = partnerWindowHtml(view(), w.id, w.tab, partnerCtx(), (w.draft ?? existing ?? {}) as Parameters<typeof partnerWindowHtml>[4], error);
+  putWindow(root, partnerWindowHtml(view(), w.id, w.tab, partnerCtx(), (w.draft ?? existing ?? {}) as Parameters<typeof partnerWindowHtml>[4], error));
   const body = root.querySelector(".pf-body") as HTMLElement | null;
   if (body) body.scrollTop = scroll;
   if (ok) document.getElementById("pf-error")?.classList.add("ok");
@@ -1302,8 +1317,7 @@ function openPartnerWindow(id: string, tab: PartnerTab = "profile"): void {
 }
 function closePartnerWindow(): void {
   state.partnerWin = { open: false, id: "", tab: "profile", draft: null };
-  const root = document.getElementById("modal-root");
-  if (root) root.innerHTML = "";
+  dropWindow(document.getElementById("modal-root"));
 }
 // Shows the box for a new type's name only while "New type..." is chosen.
 function syncNewType(): void {
@@ -1469,13 +1483,12 @@ function renderProjectWindow(error = "", draft?: Record<string, unknown>): void 
   }
   const existing = state.giftProjects.find((g) => g.id === w.id);
   const names = crmNamesOf(state.workOrders, state.giftProjects).filter((n) => n.giftProjectId === "").map((n) => ({ name: n.name, gifts: n.gifts })); // the CRM names no project has yet, to link a new project to
-  root.innerHTML = projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), people: { beneficiaries: state.beneficiaries.records, enrolments: state.enrolments.records, placements: state.placements.records, stock: state.placements.stock ?? [], stockItemIds: view().flaggedItems.filter((i) => { const r = itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, i.id, i.name); return !!r && (r.first === "gift" || r.receiver === "none"); }).map((i) => i.id) } }, error, w.tab ?? "details");
+  putWindow(root, projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), people: { beneficiaries: state.beneficiaries.records, enrolments: state.enrolments.records, placements: state.placements.records, stock: state.placements.stock ?? [], stockItemIds: view().flaggedItems.filter((i) => { const r = itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, i.id, i.name); return !!r && (r.first === "gift" || r.receiver === "none"); }).map((i) => i.id) } }, error, w.tab ?? "details"));
 }
 function closeProjectWindow(): void {
   clusterUi.node = ""; clusterUi.adding = ""; clusterUi.nodeTab = "details"; // the next project opens on its list of clusters
   state.projectWin = { open: false, id: "" };
-  const root = document.getElementById("project-root");
-  if (root) root.innerHTML = "";
+  dropWindow(document.getElementById("project-root"));
 }
 document.addEventListener("click", (e) => {
   const el = (e.target as HTMLElement).closest("[data-pj]") as HTMLElement | null;
@@ -1786,7 +1799,7 @@ document.addEventListener("change", (e) => {
 function renderHistWindow(): void {
   const w = state.histWin;
   let root = document.getElementById("hist-root");
-  if (!w.open) { if (root) root.innerHTML = ""; return; }
+  if (!w.open) { dropWindow(root); return; }
   if (!root) { root = document.createElement("div"); root.id = "hist-root"; document.body.appendChild(root); }
   const wos = view().workOrders;
   const names = new Map(wos.map((x) => [x.itemId, x.itemName]));
@@ -1796,7 +1809,7 @@ function renderHistWindow(): void {
   const actx = contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: nowIso.slice(0, 10), now: nowIso, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), itemUnits: state.itemUnits, stock: state.placements.stock });
   const pctx = placementContext({ assignments: state.assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, frameworks: state.frameworks, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), now: nowIso, itemUnits: state.itemUnits });
   const data: HistoryData = { placements: syncPlacements(pctx, state.placements).value.records, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, gifts, itemName: (id) => names.get(id) ?? id };
-  root.innerHTML = w.kind === "gift" ? giftHistoryHtml(data, w.id) : enrolmentHistoryHtml(data, w.id);
+  putWindow(root, w.kind === "gift" ? giftHistoryHtml(data, w.id) : enrolmentHistoryHtml(data, w.id));
 }
 document.addEventListener("click", (e) => {
   const b = (e.target as HTMLElement).closest?.("[data-hist]") as HTMLElement | null;
@@ -1836,11 +1849,11 @@ document.addEventListener("click", (e) => {
 function renderBenWindow(error = "", draft?: Partial<Beneficiary>): void {
   const w = state.benWin;
   let root = document.getElementById("ben-root");
-  if (!w.open) { if (root) root.innerHTML = ""; return; }
+  if (!w.open) { dropWindow(root); return; }
   if (!root) { root = document.createElement("div"); root.id = "ben-root"; document.body.appendChild(root); }
   const existing = state.beneficiaries.records.find((r) => r.id === w.id);
   const persons = state.beneficiaries.records.filter((r) => r.kind === "person");
-  root.innerHTML = registerFormHtml(draft ?? existing ?? {}, w.id, existing?.kind ?? w.kind, persons, error, state.projects.map((p) => ({ id: p.id, name: p.name })));
+  putWindow(root, registerFormHtml(draft ?? existing ?? {}, w.id, existing?.kind ?? w.kind, persons, error, state.projects.map((p) => ({ id: p.id, name: p.name }))));
 }
 // What the window holds, as the fields of a request.
 function readBenWindow(): Record<string, unknown> {
