@@ -20,7 +20,9 @@ import { monthStatus, type UnitStatus } from "../05-outcomes/outcomes.js";
 import type { Placement } from "../09-placement/placement.js";
 import type { Enrolment } from "./enrolments.js";
 
-export type SlotStatus = UnitStatus | "g"; // g: the unit has no gift (a gap)
+export type SlotStatus = UnitStatus | "g"; // g: the unit has no gift, or none is expected from it that month (a gap)
+// Rule (DECISIONS 213): a month in which a gift expects nothing (before it started, after it ended, paused) is unfilled for that period, the same as a unit with no gift. There is one white state, not two.
+export const slotOf = (s: UnitStatus): SlotStatus => (s === "f" ? "g" : s);
 export interface Slot { status: SlotStatus; commitmentKey: string } // "" key when no gift fills the unit
 export interface MonthCell { month: string; slots: Slot[] }
 // Rule: what the list says about each gift that fills a unit: who gave, one-off or recurring, how far the plan is, and whether it needs a look.
@@ -73,7 +75,7 @@ export function implementationRows(a: { beneficiaryIds: string[]; enrolments: En
         for (let i = 0; i < p.parts; i++) gifts.push(c);
       }
       const filled = Math.min(gifts.filter((g) => g !== undefined).length, whole); // a gift the CRM view cannot find fills nothing it can show
-      const cells = a.months.map((month) => ({ month, slots: Array.from({ length: whole }, (_, i): Slot => { const c = gifts[i]; return c ? { status: monthStatus(c, month, a.today), commitmentKey: c.subscriptionId } : { status: i < gifts.length ? "f" : "g", commitmentKey: "" }; }) }));
+      const cells = a.months.map((month) => ({ month, slots: Array.from({ length: whole }, (_, i): Slot => { const c = gifts[i]; return c ? { status: slotOf(monthStatus(c, month, a.today)), commitmentKey: c.subscriptionId } : { status: "g", commitmentKey: "" }; }) }));
       const funded = cells.reduce((n, m) => n + m.slots.filter((x) => x.status === "p" || x.status === "e").length, 0);
       const pct = cells.length === 0 ? 0 : Math.round((100 * funded) / (whole * cells.length));
       const missed = cells.filter((m) => m.slots.some((x) => x.status === "m")).length;

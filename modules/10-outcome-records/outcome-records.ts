@@ -17,7 +17,7 @@
 import type { Commitment } from "../04b-commitments/commitments.js";
 import { monthStatus } from "../05-outcomes/outcomes.js";
 import { END_LABEL, isActive, type EndReason, type Placement } from "../09-placement/placement.js";
-import { commitmentOfKey, type GiftInfo, type MonthCell, type Slot } from "../07-beneficiaries/implementation.js";
+import { commitmentOfKey, slotOf, type GiftInfo, type MonthCell, type Slot } from "../07-beneficiaries/implementation.js";
 import { needsLook } from "../04b-commitments/commitments.js";
 
 export interface OutcomeRow {
@@ -48,7 +48,7 @@ export function outcomeRows(a: { placements: Placement[]; commitments: Commitmen
     const live = isActive(p);
     // Rule: an ended outcome holds nothing, so its months show nothing expected.
     const held = live && c ? Math.min(p.parts, whole) : 0;
-    const cells = a.months.map((month) => ({ month, slots: Array.from({ length: whole }, (_, i): Slot => (i < held && c ? { status: monthStatus(c, month, a.today), commitmentKey: c.subscriptionId } : { status: i < p.parts && c ? "f" : "g", commitmentKey: "" })) }));
+    const cells = a.months.map((month) => ({ month, slots: Array.from({ length: whole }, (_, i): Slot => (i < held && c ? { status: slotOf(monthStatus(c, month, a.today)), commitmentKey: c.subscriptionId } : { status: "g", commitmentKey: "" })) }));
     // Rule (decision 199): a gift paid in a fixed number of instalments funds the outcome as the instalments arrive, so funded is the share paid out of planned. A single payment, or a plan that runs until cancelled, counts as fully funded.
     const instalmentShare = c && c.once !== true && c.planned !== null && c.planned > 0 ? Math.min(1, c.paid / c.planned) : 1;
     const funded = Math.min(100, Math.round((100 * p.parts * instalmentShare) / whole));

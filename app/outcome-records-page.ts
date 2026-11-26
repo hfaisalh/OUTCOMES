@@ -19,7 +19,7 @@ import { esc, type View } from "./pages";
 
 const MAX_ROWS = 300;
 const NAME = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const KEY: [string, string][] = [["p", "Paid"], ["e", "Expected"], ["m", "Missed"], ["f", "Nothing expected"], ["g", "Unfilled unit"]];
+const KEY: [string, string][] = [["p", "Paid"], ["e", "Expected"], ["m", "Missed"], ["g", "Unfilled"]];
 export const NO_OUTCOME_FILTER = { text: "", project: "", type: "", show: "" as "" | "underfunded" | "missed" | "ended" };
 
 // One small pie for a month: a slice for each unit of the whole outcome, coloured by what its gift did that month. A thin ring marks the edge so a white (unfilled) unit still shows.

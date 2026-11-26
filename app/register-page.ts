@@ -19,7 +19,7 @@ import { esc, type View } from "./pages";
 
 const MAX_ROWS = 300;
 const NAME = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const KEY: [UnitStatus, string][] = [["p", "Paid"], ["e", "Expected"], ["m", "Missed"], ["f", "Nothing expected"]];
+const KEY: [UnitStatus | "g", string][] = [["p", "Paid"], ["e", "Expected"], ["m", "Missed"], ["g", "Unfilled"]]; // one white state: no gift, or no gift expects anything that month (DECISIONS 213)
 
 // One small pie for a month: a slice for each unit of the whole beneficiary, coloured by what its gift did that month.
 function pie(slots: { status: UnitStatus | "g" }[], label: string): string {
@@ -69,7 +69,8 @@ export function registerPage(v: View): string {
     const s = f.show ?? "";
     if (s === "") return true;
     if (r.enrolmentId === "") return false;
-    return s === "gaps" ? r.cells.some((c) => c.slots.some((x) => x.status === "g")) : r.missed > 0;
+    // Rule (DECISIONS 213): a gap is a unit with no gift this month or later. Months before a gift began are unfilled too, but they are history, not something to act on.
+    return s === "gaps" ? r.cells.some((c) => c.month >= today.slice(0, 7) && c.slots.some((x) => x.status === "g")) : r.missed > 0;
   };
   // Rule (DECISIONS 196): a click on a column heading sorts by it, a second click reverses it. Empty values go last either way, and ties keep the name order.
   const sort = v.registerSort;
@@ -127,7 +128,7 @@ export function registerPage(v: View): string {
   }).join("");
   const th = (key: string, label: string, cls = "", tip = ""): string => `<th${cls ? ` class="${cls}"` : ""}${tip ? ` title="${esc(tip)}"` : ""}><button type="button" class="sortbtn" data-regsort="${key}">${label}${sort?.key === key ? (sort.dir === "desc" ? " \u25BC" : " \u25B2") : ""}</button></th>`;
   const head = `<thead><tr>${th("name", "Name")}${th("sex", "M/F")}${th("age", "Age", "num")}${th("partner", "Partner")}${th("project", "Project")}${th("benefit", "Benefit")}${th("plan", "Plan")}${th("donor", "Donor")}${th("allocated", "Allocated", "num", "Allocation score: the share of the months shown that a gift has paid or expects")}${months.map((m) => `<th class="m${m === today.slice(0, 7) ? " now" : ""}">${NAME[Number(m.slice(5, 7)) - 1]}</th>`).join("")}${th("status", "Status")}</tr></thead>`;
-  const legend = `<p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; <span class="dot on"></span> active &nbsp; <span class="dot off"></span> inactive</p><div class="legendrow">${[...KEY, ["g", "Unfilled unit"] as [string, string]].map(([s, t]) => `<span><span class="sw ${s}"></span>${t}</span>`).join("")}</div>`;
+  const legend = `<p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; <span class="dot on"></span> active &nbsp; <span class="dot off"></span> inactive</p><div class="legendrow">${KEY.map(([s, t]) => `<span><span class="sw ${s}"></span>${t}</span>`).join("")}</div>`;
   const sel = (x: string | undefined, val: string): string => (x === val ? " selected" : "");
   const projectSel = `<select data-regf="project" aria-label="Project"><option value="">All projects</option>${projects.map((p) => `<option value="${esc(p.id)}"${sel(f.project, p.id)}>${esc(p.name)}</option>`).join("")}</select>`;
   const filters = `<div class="filters"><select data-regf="kind" aria-label="Kind"><option value="">People and households</option><option value="person"${sel(f.kind, "person")}>People</option><option value="household"${sel(f.kind, "household")}>Households</option></select>

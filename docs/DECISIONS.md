@@ -893,3 +893,7 @@ From screenshots of the new layout: the heading row did not cover the actions co
 ## 212. Lists are one line a row (2026-11-26)
 
 Faisal's rule: a list row is one line. A cell that holds too much goes to a pop-up or the item's own window, not onto more lines. First applied to Projects: Benefits offered shows the first two and "+N", Partners shows the first partner and "+N" (the column is now "Partners / vendors"). The whole list is in the cell's tooltip, and the project's own window (open the row) has it in full, with the order. To apply to other lists as they are touched. `app/projects-page.ts`.
+
+## 213. One white state: unfilled (2026-11-26)
+
+"Nothing expected" (grey) and "Unfilled unit" (white) were confusing. Faisal: when a gift's period ends, the allocation expires, and that period is simply unfilled. So there is now one white state, **Unfilled**: a unit with no gift, or whose gift expects nothing that month (before it began, after it ended, or while the plan is paused or cancelled). The legend on Beneficiaries and Outcomes is Paid, Expected, Missed, Unfilled. The Gaps filter now means a unit with no gift this month or later, so history before a gift began does not make every beneficiary a gap. The allocation score and Funded are unchanged (they count only paid or expected). The gift window's own pies keep their grey "not this gift's units" slices, which is a different thing (the other units of a multi-unit pie). `modules/07-beneficiaries/implementation.ts`, `modules/10-outcome-records/outcome-records.ts`.

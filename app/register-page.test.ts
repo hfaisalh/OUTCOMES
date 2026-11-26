@@ -60,7 +60,8 @@ describe("the Beneficiaries page, month by month", () => {
     expect((html.match(/<td class="m">/g) ?? []).length).toBe(12);
     expect(html).toContain('<th class="m now">Nov</th>');
     expect(html).toContain('class="sw p"');
-    expect(html).toContain("Unfilled unit");
+    expect(html).toContain("Unfilled</span>");
+    expect(html).not.toContain("Nothing expected");
   });
   it("shows a unit with no gift in its own colour so a gap stands out, and finds gaps, failed payments and donors", () => {
     const part = registerPage(live({ placements: { records: [placed({ parts: 2 })], counter: 0 } }));
@@ -87,13 +88,13 @@ describe("the Beneficiaries page, month by month", () => {
     expect(ended).toContain(">0%</td>");
     expect(ended).not.toContain('class="seg p"');
   });
-  it("shows a single payment the rules do not count per period (a scholarship) with a plan and its paid month, not as a gap", () => {
+  it("shows a single payment the rules do not count per period (a scholarship) with a plan and its paid month, and the months after it unfilled", () => {
     const one = sub(1, "2026-10-05", { key: "ONE1", subscriptionId: "", instalmentNumber: "", instalmentCount: "" });
     const html = registerPage(live({ workOrders: [one], placements: { records: [placed({ key: "ONE1", parts: 3 })], counter: 0 } }));
     expect(html).toContain("1/1");
     expect(html).toContain('aria-label="Oct 2026"><circle class="ring" cx="12" cy="12" r="11.7" stroke-width=".7"/><circle class="ring" cx="12" cy="12" r="6.3" stroke-width=".7"/><circle class="seg p"');
     expect(html).toContain('title="One payment"');
-    expect(html).not.toContain('class="seg g"');
+    expect(html).toContain('class="seg g"'); // the months after the one payment are unfilled: the gift's period has ended (decision 213)
   });
   it("shows a single payment that covers a year as a complete plan, 12/12, all twelve months paid", () => {
     const one = sub(1, "2026-10-05", { key: "ONE1", subscriptionId: "", instalmentNumber: "", instalmentCount: "", periodCount: 12 });

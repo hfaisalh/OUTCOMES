@@ -40,7 +40,7 @@ describe("outcomeRows", () => {
   it("keeps an ended outcome with the date and the reason, and it holds nothing", () => {
     const r = outcomeRows({ ...base, placements: [out({ to: "2026-11-20", endReason: "cancelled" })] })[0]!;
     expect(r).toMatchObject({ live: false, endedOn: "2026-11-20", why: "The plan was cancelled" });
-    expect(r.cells[0]?.slots[0]?.status).toBe("f");
+    expect(r.cells[0]?.slots[0]?.status).toBe("g"); // nothing is held, so it is unfilled (decision 213)
     expect(r.pct).toBe(0);
   });
   it("sorts by reference", () => {
