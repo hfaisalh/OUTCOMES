@@ -2011,3 +2011,14 @@ document.addEventListener("click", (e) => {
   state.outcomeRecFilter = { ...state.outcomeRecFilter, show: state.outcomeRecFilter.show === mode ? "" : mode };
   draw();
 });
+
+// Tiles on Assignment and Allocate choose what to show (DECISIONS 226); pressing the same tile again shows all.
+document.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest?.("[data-tile]") as HTMLElement | null;
+  if (!b) return;
+  const [which, id] = (b.dataset.tile ?? "").split(":");
+  if (which === "asg") state.assignFilter = state.assignFilter === id ? "all" : id!;
+  else if (which === "alloc") state.allocFilter = state.allocFilter === id ? "all" : id!;
+  else return;
+  draw();
+});

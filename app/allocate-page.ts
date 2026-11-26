@@ -101,12 +101,14 @@ export function allocatePage(v: View): string {
     else { place = choose(""); note = `<span class="muted">${esc(r.s?.why ?? "")}</span>`; }
     return `<tr><td><b>${esc(u.w.itemName)}</b><br><span class="muted">${esc(u.w.supporterName)} · ${esc(u.w.paidDate.slice(0, 10))}${u.payments > 1 ? ` · recurring, ${u.payments} payments` : ""}</span></td><td>${esc(pname(a?.partnerId ?? ""))}</td><td class="num">${a?.parts ?? ""}</td><td>${place}</td><td>${note}</td></tr>`;
   }).join("");
+  // Tiles (DECISIONS 226): a tile that counts a group is a button that shows just that group, and sets the same Show choice as the drop-down.
+  const tile = (id: string, n: number, label: string, cls = ""): string => `<button type="button" class="metric tile${cls ? ` ${cls}` : ""}" data-tile="alloc:${id}" aria-pressed="${filter === id ? "true" : "false"}"><b>${n}</b><span>${esc(label)}</span></button>`;
   const filters = `<div class="filters"><select data-allocf="filter" aria-label="Show">${FILTERS.map((f) => `<option value="${f.id}"${f.id === filter ? " selected" : ""}>${f.label}</option>`).join("")}</select></div>`;
 
   return `<h1>Allocate</h1>
     <p class="sub">An assigned gift is placed. Where the beneficiary comes first (sponsorship), it fills an open place: an approved beneficiary enrolled in a cluster of its project for its benefit, the one with the least filled first. Where the gift comes first (a pump, a camp), it creates an outcome and its recipients are enrolled after. A gift with no place waits, and says why.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
-    <div class="metrics">${metric(assignments.length, "Assigned gifts")}${metric(placedCount, "Placed in a place")}${metric(outcomeCount, "Outcomes created")}${metric(waiting, "Wait, no open place", waiting ? "warn" : "")}</div>
+    <div class="metrics">${metric(assignments.length, "Assigned gifts")}${tile("placed", placedCount, "Placed in a place")}${metric(outcomeCount, "Outcomes created")}${tile("waiting", waiting, "Wait, no open place", waiting ? "warn" : "")}</div>
     ${why.length ? `<p class="muted"><b>Why gifts wait:</b> ${why.map((x) => `${x.n} ${esc(x.label)}`).join(" · ")}.</p>` : ""}
     ${waitingList.length ? `<p class="muted"><b>Waiting, by project and benefit:</b> ${waitingList.map(([l, n]) => `${esc(l)} (${n})`).join(" · ")}${waitingBy.size > waitingList.length ? ` · and ${waitingBy.size - waitingList.length} more` : ""}.</p>` : ""}
     <div class="actions"><button class="primary" data-plc="run"${ready || pendingEnds ? "" : " disabled"}>Place automatically</button><button data-plc="reset"${placements.records.length ? "" : " disabled"}>Reset placements</button></div>

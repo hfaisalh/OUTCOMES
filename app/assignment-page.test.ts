@@ -28,7 +28,7 @@ describe("the Assignment page", () => {
     expect(html).toContain("<b>3</b><span>Need a partner</span>");
     expect(html).toContain("<b>2</b><span>Have a partner ready</span>");
     expect(html).toContain("<b>0</b><span>Assigned</span>");
-    expect(html).toContain('<div class="metric warn"><b>1</b><span>Wait, no partner with room</span>');
+    expect(html).toContain('metric tile warn" data-tile="asg:waiting" aria-pressed="false"><b>1</b><span>Wait, no partner with room</span>'); // a tile that shows just those gifts (DECISIONS 226)
     expect(html).toContain('data-asg="run"');
     expect(html).toContain('data-asg="reset" disabled'); // nothing assigned yet
   });

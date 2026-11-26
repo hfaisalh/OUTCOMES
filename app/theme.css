@@ -487,3 +487,9 @@ button.metric.tile:active,.chipbtn:active,.pf-box button:active{transform:scale(
 .pf-box .pf-tabs{padding:0 16px}.pf-box .pf-tabs button{padding:7px 12px;font-size:13px}
 .pf-box:not(:has(.gw)) footer{padding:8px 16px}
 .pf-box:not(:has(.gw)) .pf-body p.muted,.pf-box:not(:has(.gw)) .pf-profile p.muted{font-size:12px;margin:2px 0 6px}
+
+/* Dashboard (decision 226): a name, a bar, a count and a share on one line. The bars grow in with the others. */
+.dashrow{display:grid;grid-template-columns:minmax(120px,220px) 1fr 44px 44px;gap:10px;align-items:center;padding:5px 0;font-size:13px}
+.dashrow .bar{width:auto;margin:0;height:8px}.dashrow .num{text-align:right;font-variant-numeric:tabular-nums}
+.fx .bar>i{transform-origin:left;animation:ind-grow .55s var(--ease-out) .1s both}
+@media (prefers-reduced-motion:reduce){.fx .bar>i{animation:none!important}}

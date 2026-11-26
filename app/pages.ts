@@ -239,14 +239,20 @@ export function listHtml(v: View, id: string): string {
 }
 
 export function dashboardPage(v: View): string {
-  const total = Math.max(v.workOrders.filter((w) => w.status !== "excluded").length, 1);
+  const live = v.workOrders.filter((w) => w.status !== "excluded");
+  const total = Math.max(live.length, 1);
   const byFw = new Map<string, number>();
-  for (const w of v.workOrders.filter((x) => x.status !== "excluded")) byFw.set(w.categoryId || "", (byFw.get(w.categoryId || "") ?? 0) + 1);
+  for (const w of live) byFw.set(w.categoryId || "", (byFw.get(w.categoryId || "") ?? 0) + 1);
+  const unrouted = byFw.get("") ?? 0;
+  // Rule (DECISIONS 226): the biggest category first, with its share as a number as well as a bar, so the page reads at a glance and the bars grow in as the lists do.
+  const rows = [...byFw.entries()].sort((a, b) => b[1] - a[1]).map(([id, n]) => {
+    const pct = Math.round((n / total) * 100);
+    return `<div class="dashrow"><span class="dn">${id === "" ? "Unrouted" : esc(categoryName(v.categories, id))}</span><span class="bar"><i style="width:${pct}%"></i></span><b class="num">${n}</b><span class="muted num">${pct}%</span></div>`;
+  }).join("");
   return `
     <h1>Dashboard</h1><p class="sub">A first view of the work. More dashboards (coverage, compliance, outstanding feedback) come with the later modules.</p>
-    <div class="card"><h2>Work orders by category</h2>${[...byFw.entries()]
-      .map(([id, n]) => `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between"><span>${id === "" ? "Unrouted" : esc(categoryName(v.categories, id))}</span><b>${n}</b></div><div class="bar"><i style="width:${Math.round((n / total) * 100)}%"></i></div></div>`)
-      .join("") || `<div class="empty">No work orders yet.</div>`}</div>`;
+    <div class="metrics">${metric(live.length, "Work orders")}${metric(live.length - unrouted, "Routed", "ok")}${metric(unrouted, "Unrouted", unrouted ? "warn" : "")}${metric(v.review.length, "Held for review", v.review.length ? "warn" : "")}</div>
+    <div class="card"><h2>Work orders by category</h2>${rows || `<div class="empty">No work orders yet.</div>`}</div>`;
 }
 
 // One item as a draggable chip. A suggested category is shown as a hint, never applied on its own.
