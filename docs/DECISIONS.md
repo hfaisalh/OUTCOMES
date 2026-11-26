@@ -907,3 +907,11 @@ A review of the Gifts page against the two design skills (the existing look is k
 - Number columns use tabular figures and align right, so digits line up.
 - Visible keyboard focus on the new controls.
 Left for later passes: a column chooser (the list has 14 columns), a filter summary line, and metrics tiles with one shape.
+
+## 215. Gifts page, second design pass: filter chips, column chooser, tiles of one shape (2026-11-26)
+
+Checked with ui-ux-pro-max searches (filter chips must wrap and keep their labels, a no-results screen must offer a way out, sortable headings say their direction, visible focus) and frontend-design's rules (structure should carry information, no template chrome, plain verbs and sentence case, an empty list gives direction).
+- **Filter chips.** Each filter that is on is a chip that can be removed alone, with the count of what is shown and "Clear all". The chips wrap and keep their words. An empty result says so and offers "Clear the filters".
+- **Column chooser.** A "Columns" button opens a box of ticks for Rec. ID, Project, Plan, Value, Paid, Next, Stage, Assigned to and Allocated to. Rec. ID and Value are hidden to begin with. The tick box, type icon, Donor, Item and Status always show. The choice is kept in this browser only (browser storage, guarded, with the usual columns as the fallback). "Back to the usual columns" resets it.
+- **Tiles.** Five tiles of one shape: the number, what it counts, and a line of detail. Gifts (recurring and one payments), Value (payments), Unallocated (allocated, manual, need none), Plans stopped (cancelled, paused, completed) and Review (unrouted, held, a look). Replaces the six tiles of decision 99.
+Not done: a saved view (a named set of filters and columns), and tiles that filter the list when clicked.

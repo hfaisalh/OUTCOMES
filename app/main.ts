@@ -14,7 +14,7 @@ import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-conne
 import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, autoCreateProjects, clearLegacy, placeInNode, placeInPartner, samplePartnerProfile, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
 import { setCovers, setLooked, setParts, setPeriods } from "../modules/04b-commitments/catch-up";
 import { markCustomAmounts, setManual } from "../modules/04b-commitments/parts";
-import { giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts-page";
+import { GIFT_COLUMNS, GIFT_HIDDEN_DEFAULT, giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts-page";
 import { partnersPage } from "./partners-page";
 import { projectsPage } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
@@ -63,6 +63,17 @@ import { applyKindAction, type SavedFeatures } from "../modules/02-project-rules
 import { isPageId, landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
 import { outcomesPage, listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, type Filter, type View } from "./pages";
 
+// The Gifts columns a person has hidden are remembered in this browser only (DECISIONS 215). Storage can be blocked or empty, so every read and write is guarded and the usual columns are the fallback.
+const GIFT_COLS_KEY = "outcomes.gifts.hiddenColumns";
+const loadHiddenCols = (): string[] => {
+  try {
+    const raw = (globalThis as { localStorage?: { getItem(k: string): string | null } }).localStorage?.getItem(GIFT_COLS_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : undefined;
+    if (Array.isArray(parsed)) return parsed.filter((x): x is string => typeof x === "string" && GIFT_COLUMNS.some(([id]) => id === x));
+  } catch { /* storage is blocked or holds something else: use the usual columns */ }
+  return [...GIFT_HIDDEN_DEFAULT];
+};
+const saveHiddenCols = (cols: string[]): void => { try { (globalThis as { localStorage?: { setItem(k: string, v: string): void } }).localStorage?.setItem(GIFT_COLS_KEY, JSON.stringify(cols)); } catch { /* not kept this time */ } };
 declare const __BUILD_LABEL__: string; // set at build time in vite.config.ts: version, commit and build time
 
 // Rule: the page being looked at is kept in the address (#workflows), so a reload comes back to it instead of the first page. Only known pages are used.
@@ -112,6 +123,8 @@ const state = {
   outcomeRecFilter: { ...NO_OUTCOME_FILTER } as { text: string; project: string; type: string; show: "" | "underfunded" | "missed" | "ended" }, // the filters on the Outcomes list
   outcomeRecSort: { key: "", dir: "asc" } as { key: string; dir: "asc" | "desc" },
   giftSort: { key: "", dir: "asc" } as { key: string; dir: "asc" | "desc" }, // the column the Gifts list is sorted by
+  giftHidden: loadHiddenCols(), // the Gifts columns a person has hidden
+  giftColsOpen: false, // whether the column chooser is open
   registerSort: { key: "", dir: "asc" } as { key: string; dir: "asc" | "desc" }, // the column the Beneficiaries list is sorted by
   registerFilter: { ...NO_REGISTER_FILTER } as BeneficiaryFilter, // the filters on the Beneficiaries page
   benWin: { open: false, id: "", kind: "person" as BeneficiaryKind }, // the beneficiary window
@@ -245,7 +258,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, assignFilter: state.assignFilter, placements: state.placements, allocFilter: state.allocFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, assignFilter: state.assignFilter, placements: state.placements, allocFilter: state.allocFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, itemUnits: state.itemUnits, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -769,6 +782,12 @@ document.addEventListener("click", (e) => {
     const scope = el.dataset.scope ?? "main";
     if (scope === "main") state.criteria = { ...NO_CRITERIA };
     else state.scopeCriteria = { ...state.scopeCriteria, [scope]: { ...NO_CRITERIA } };
+  }
+  if (action === "clear-filter") {
+    // Removes one filter chip on its own (DECISIONS 215): that filter goes back to "any", the others stay.
+    const k = el.dataset.key as keyof Criteria | undefined;
+    const scope = el.dataset.scope ?? "main";
+    if (k && k in NO_CRITERIA && scope === "main") state.criteria = { ...state.criteria, [k]: NO_CRITERIA[k] };
   }
   if (action === "show-signin") { state.topMenu = ""; state.gate = "signin"; return draw(); }
   if (action === "sign-out") {
@@ -1835,6 +1854,22 @@ document.addEventListener("click", (e) => {
       renderBenWindow();
     });
   }
+});
+// The column chooser of the Gifts list (DECISIONS 215): a button opens it, a tick shows or hides a column, and one link goes back to the usual columns.
+document.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest?.("[data-gcols]") as HTMLElement | null;
+  if (!b?.dataset?.gcols) return;
+  if (b.dataset.gcols === "toggle") state.giftColsOpen = !state.giftColsOpen;
+  else { state.giftHidden = [...GIFT_HIDDEN_DEFAULT]; saveHiddenCols(state.giftHidden); }
+  draw();
+});
+document.addEventListener("change", (e) => {
+  const t = e.target as HTMLInputElement | null;
+  const id = t?.dataset?.gcol;
+  if (!t || !id) return;
+  state.giftHidden = t.checked ? state.giftHidden.filter((x) => x !== id) : [...new Set([...state.giftHidden, id])];
+  saveHiddenCols(state.giftHidden);
+  draw();
 });
 // A click on a heading of the Gifts list sorts by it; a second click reverses it (DECISIONS 214).
 document.addEventListener("click", (e) => {

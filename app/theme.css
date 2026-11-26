@@ -347,3 +347,16 @@ select:not([multiple]):focus-visible{outline:2px solid var(--accent);outline-off
 .keydrop .symbolkey{margin:2px 0 6px}
 .bulkbar{position:sticky;top:56px;z-index:6}
 .sortbtn:focus-visible,.keydrop summary:focus-visible{outline:2px solid var(--accent,#2b3f9e);outline-offset:2px;border-radius:4px}
+
+/* The Gifts page, second pass (decision 215): filter chips, the column chooser, and metric tiles of one shape */
+.listtools{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:2px 0 6px}
+.listtools .chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:28px;font-size:12px}
+.listtools .toolbtns{display:flex;align-items:center;gap:12px;margin-left:auto}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:var(--accent-bg);color:var(--text);cursor:pointer}
+.chip:hover{border-color:var(--accent,#2b3f9e)}.chip:focus-visible,.chipbtn:focus-visible{outline:2px solid var(--accent,#2b3f9e);outline-offset:2px}
+.chipbtn{font-size:12px;padding:3px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);cursor:pointer}
+.chipbtn[aria-expanded="true"]{background:var(--accent-bg);border-color:var(--accent,#2b3f9e)}
+.colbox{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;padding:8px 12px;margin:0 0 8px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:13px}
+.colbox label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.metrics .metric{display:flex;flex-direction:column;justify-content:flex-start;min-height:88px}
+.metrics .metric .smrow{margin-top:auto}

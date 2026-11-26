@@ -186,13 +186,13 @@ describe("giftsPage", () => {
     expect(html).not.toContain("<img");
     expect(html).not.toContain("<b>x</b>");
   });
-  it("has six tiles that count what the list shows, so they change with the tab and the filters (DECISIONS 99)", () => {
+  it("has five tiles of one shape that count what the list shows, so they change with the tab and the filters (DECISIONS 99, 215)", () => {
     const orders = [sub(1, { planStatus: "paused" }), sub(2, { planStatus: "paused" }), { ...base, key: "o1", subscriptionId: "", instalmentNumber: "", instalmentCount: "", currency: "GBP" }];
     const all = giftMetricsHtml(view({ workOrders: orders }));
     expect(all).toMatch(/<b>2<\/b><span>Gifts<\/span>/); // one subscription and one single payment
-    expect(all).toMatch(/<b>1<\/b><span>Recurring<\/span>[\s\S]*<b>1<\/b> one payments/); // recurring large, single payments small beside it
+    expect(all).toMatch(/<b>1<\/b> recurring[\s\S]*<b>1<\/b> one payments/); // recurring and single payments are the detail of Gifts
     expect(all).toMatch(/<span>Value<\/span>/);
-    expect(all).toMatch(/<b>0<\/b> cancelled[\s\S]*<b>1<\/b> paused[\s\S]*<b>0<\/b> completed/); // plan statuses share one tile
+    expect(all).toMatch(/<b>1<\/b><span>Plans stopped<\/span>[\s\S]*<b>0<\/b> cancelled[\s\S]*<b>1<\/b> paused[\s\S]*<b>0<\/b> completed/); // the stopped plan statuses share one tile, with a number like the others
     expect(all).toContain("<span>Unallocated</span>");
     expect(all).toMatch(/<b>0<\/b> allocated[\s\S]*<b>0<\/b> need none/); // allocated + unallocated + need none = gifts, so the tile adds up
     expect(all).toContain("<span>Review</span>");
@@ -367,6 +367,42 @@ describe("giftsPage", () => {
     expect(ticked).toContain('class="bulkbar"');
     expect(ticked).toContain('data-bulk="exclude">Exclude selected');
     expect(giftListHtml(view({ workOrders: rows }))).toContain("<summary>Key to the symbols</summary>");
+  });
+
+  it("shows each filter that is on as a chip that can be removed alone, with a way to clear them all (decision 215)", () => {
+    const crit = { text: "", itemId: "I10", categoryId: "", status: "", kind: "recurring" as const, legacy: "" as const, from: "", to: "" };
+    const html = giftListHtml(view({ workOrders: [sub(1), sub(2)], criteria: crit }));
+    expect(html).toContain('data-action="clear-filter" data-scope="main" data-key="itemId"');
+    expect(html).toContain('data-key="kind"');
+    expect(html).toContain("Type: Recurring");
+    expect(html).toContain('data-action="clear-filters" data-scope="main">Clear all');
+    expect(giftListHtml(view({ workOrders: [sub(1)] }))).not.toContain('class="chip"'); // nothing is filtered, so there are no chips
+  });
+  it("offers a way out when nothing matches the filters (decision 215)", () => {
+    const crit = { text: "no-such-donor", itemId: "", categoryId: "", status: "", kind: "any" as const, legacy: "" as const, from: "", to: "" };
+    const html = giftListHtml(view({ workOrders: [sub(1)], criteria: crit }));
+    expect(html).toContain("No gifts match the filters.");
+    expect(html).toContain('data-action="clear-filters" data-scope="main">Clear the filters');
+  });
+  it("hides Rec. ID and Value to begin with, lets a person show or hide the others, and always keeps Donor, Item and Status (decision 215)", () => {
+    const rows = [sub(1)];
+    const usual = giftListHtml(view({ workOrders: rows }));
+    expect(usual).not.toContain("<th>Rec. ID</th>");
+    expect(usual).not.toContain('data-gsort="value"');
+    expect(usual).toContain('data-gsort="paid"');
+    const fewer = giftListHtml(view({ workOrders: rows, giftHidden: ["project", "plan", "stage", "assigned", "alloc"] }));
+    expect(fewer).toContain("<th>Rec. ID</th>"); // a person's own choice replaces the usual one
+    expect(fewer).not.toContain('data-gsort="plan"');
+    expect(fewer).not.toContain("<th>Stage</th>");
+    expect(fewer).toContain('data-gsort="donor"');
+    expect(fewer).toContain('data-gsort="item"');
+    expect(fewer).toContain("<th>Status</th>");
+    const row = fewer.slice(fewer.indexOf("<tbody>"));
+    expect((row.match(/<td/g) ?? []).length).toBe((fewer.match(/<th[ >]/g) ?? []).length); // every shown heading has a cell
+    const open = giftListHtml(view({ workOrders: rows, giftColsOpen: true }));
+    expect(open).toContain('data-gcol="plan" checked');
+    expect(open).toContain('data-gcol="value">'); // hidden to begin with, so not ticked
+    expect(open).toContain('data-gcols="reset"');
   });
 });
 

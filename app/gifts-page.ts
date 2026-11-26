@@ -139,6 +139,10 @@ function paymentsTable(g: GiftRow, v: View): string {
 }
 
 // Everything the list needs, worked out once: the gifts after the filters, and where each is allocated.
+// The columns a person may hide (DECISIONS 215). The tick box, the type icon, Donor, Item and Status always show.
+export const GIFT_COLUMNS: [string, string][] = [["recid", "Rec. ID"], ["project", "Project"], ["plan", "Plan"], ["value", "Value"], ["paid", "Paid"], ["next", "Next"], ["stage", "Stage"], ["assigned", "Assigned to"], ["alloc", "Allocated to"]];
+export const GIFT_HIDDEN_DEFAULT = ["recid", "value"];
+
 // Rule (DECISIONS 214): a click on a heading sorts the list by it, a second click reverses it. Empty values go last in either direction. Without a choice the list keeps its own order.
 const giftValue = (g: GiftRow): number => g.payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0);
 const SORT_KEYS: Record<string, (g: GiftRow) => string | number> = {
@@ -272,9 +276,20 @@ export function giftListHtml(v: View): string {
   const allTicked = shown.length > 0 && shown.every((g) => g.payments.every((w) => picked.has(w.key)));
 
   // Rule (DECISIONS 214): the bulk bar appears only once something is ticked, so three greyed buttons do not take space all the time.
+  const hidden = new Set(v.giftHidden ?? GIFT_HIDDEN_DEFAULT); // Rule (DECISIONS 215): the columns a person has hidden, with Rec. ID and Value hidden to begin with
   const bulk = picked.size === 0 ? "" : `<div class="bulkbar" role="status"><span><b>${picked.size}</b> selected</span>
     <button data-bulk="exclude">Exclude selected</button><button data-bulk="restore">Restore selected</button><button data-bulk="clear">Clear selection</button></div>`;
-  const note = `${isFiltering(c) ? `<p class="muted">Showing ${rows.length} gift${rows.length === 1 ? "" : "s"} from ${filterWorkOrders(base, c).length} of ${base.length} payments.</p>` : ""}${rows.length > MAX_ROWS ? `<p class="muted">Only the first ${MAX_ROWS} are drawn. Narrow the list with the filter boxes.</p>` : ""}`;
+  // Rule (DECISIONS 215): each filter that is on is a chip that can be removed on its own, with a count of what is shown and a way to clear them all, so it is never a mystery why a list is short. A chip says its filter in words.
+  const itemNames = new Map(base.map((w) => [w.itemId, w.itemName]));
+  const chipOf = (key: string, text: string): string => `<button type="button" class="chip" data-action="clear-filter" data-scope="main" data-key="${key}" aria-label="Remove the filter ${esc(text)}">${esc(text)} <span aria-hidden="true">&times;</span></button>`;
+  const on = [
+    c.text !== "" ? chipOf("text", `Search: ${c.text}`) : "", c.itemId !== "" ? chipOf("itemId", `Item: ${itemNames.get(c.itemId) ?? c.itemId}`) : "",
+    c.kind !== "any" ? chipOf("kind", `Type: ${({ recurring: "Recurring", oneoff: "One-off", custom: "Custom amount" } as Record<string, string>)[c.kind] ?? c.kind}`) : "",
+    c.legacy !== "" ? chipOf("legacy", c.legacy === "only" ? "Legacy only" : "No legacy") : "", c.from !== "" ? chipOf("from", `Paid from ${shortDate(c.from)}`) : "", c.to !== "" ? chipOf("to", `Paid to ${shortDate(c.to)}`) : "",
+  ].filter((x) => x !== "");
+  const chips = isFiltering(c) ? `<span class="muted">Showing ${rows.length} gift${rows.length === 1 ? "" : "s"} from ${filterWorkOrders(base, c).length} of ${base.length} payments</span>${on.join("")}<button type="button" class="linkish" data-action="clear-filters" data-scope="main">Clear all</button>` : "";
+  const note = rows.length > MAX_ROWS ? `<p class="muted">Only the first ${MAX_ROWS} are drawn. Narrow the list with the filter boxes.</p>` : "";
+  const colPick = v.giftColsOpen ? `<div class="colbox" role="group" aria-label="Columns shown">${GIFT_COLUMNS.map(([id, label]) => `<label><input type="checkbox" data-gcol="${id}"${hidden.has(id) ? "" : " checked"}> ${esc(label)}</label>`).join("")}<button type="button" class="linkish" data-gcols="reset">Back to the usual columns</button></div>` : "";
   if (base.length === 0) return `<div class="empty">No gifts in this list.</div>`;
   // Rule (DECISIONS 214): the key of symbols sits in a disclosure, so the list starts higher. Every symbol also has its own tooltip.
   const key = `<details class="keydrop"><summary>Key to the symbols</summary><p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; ${SYMBOL.manual} allocate manually &nbsp; ${SYMBOL.waiting} waiting for allocation &nbsp; ${SYMBOL.ok} ready &nbsp; ${SYMBOL.look} needs a look &nbsp; ${SYMBOL.review} held for review &nbsp; ${SYMBOL.unrouted} unrouted &nbsp; ${SYMBOL.excluded} excluded. Click a row for its details.</p></details>`;
@@ -302,26 +317,34 @@ export function giftListHtml(v: View): string {
     const ticked = g.payments.length > 0 && g.payments.every((w) => picked.has(w.key));
     const paid = g.kind === "excluded" ? (g.payments[0]?.paidDate ?? "").slice(0, 10) : g.lastPaid || g.firstPaid;
     const reason = g.kind === "excluded" ? g.payments[0]?.exclusion?.reason ?? "" : "";
-    return `<tr class="grow${g.kind === "excluded" ? " off" : ""}" data-gift-open="${esc(g.key)}" tabindex="0" title="Open the details"><td><input type="checkbox" data-sel-gift="${esc(g.key)}" data-keys="${esc(g.payments.map((w) => w.key).join(" "))}" title="Tick every payment of this gift"${ticked ? " checked" : ""}></td>
-      <td class="c">${kindIcon(g)}</td>
-      <td class="num muted">${g.kind === "recurring" ? esc(g.key) : ""}</td>
-      <td class="clip" title="${esc(g.supporterName)} ${esc(g.supporterId)}">${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span></td>
-      <td class="clip" title="${esc(g.itemName)}">${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${workflowPicker(v, first.itemId)}` : ""}</td>
-      <td class="clip" title="${esc([g.projectName, first?.cause ? `Cause: ${first.cause}` : ""].filter((x) => x !== "").join(". "))}">${projectCell(g.projectName, first?.cause ?? "")}</td>
-      <td class="num">${planCell(g)}</td>
-      <td class="num muted" title="Total of its payments, for reference">${money(g.payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0), currencyOf(g))}</td>
-      <td class="num" title="${esc(paid)}">${esc(shortDate(paid))}</td>
-      <td class="num muted" title="${esc(g.nextDue)}">${esc(shortDate(g.nextDue))}</td>
-      <td class="clip">${stagePill(stageFor(v, g, where(g)))}</td>
-      <td class="clip">${assignedCell(g)}</td>
-      <td class="clip">${allocCell(g)}</td>
-      <td class="c st">${statusIcons(g)}${g.kind === "excluded" && first ? `<button data-excl="${esc(first.key)}" data-excl-action="restore" title="${esc(reason || "Excluded")}">Restore</button>` : ""}</td>
-      </tr>`;
+    const cells: [string, string][] = [
+      ["select", `<td><input type="checkbox" data-sel-gift="${esc(g.key)}" data-keys="${esc(g.payments.map((w) => w.key).join(" "))}" title="Tick every payment of this gift" aria-label="Select this gift"${ticked ? " checked" : ""}></td>`],
+      ["kind", `<td class="c">${kindIcon(g)}</td>`],
+      ["recid", `<td class="num muted">${g.kind === "recurring" ? esc(g.key) : ""}</td>`],
+      ["donor", `<td class="clip" title="${esc(g.supporterName)} ${esc(g.supporterId)}">${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span></td>`],
+      ["item", `<td class="clip" title="${esc(g.itemName)}">${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${workflowPicker(v, first.itemId)}` : ""}</td>`],
+      ["project", `<td class="clip" title="${esc([g.projectName, first?.cause ? `Cause: ${first.cause}` : ""].filter((x) => x !== "").join(". "))}">${projectCell(g.projectName, first?.cause ?? "")}</td>`],
+      ["plan", `<td class="num">${planCell(g)}</td>`],
+      ["value", `<td class="num muted" title="Total of its payments, for reference">${money(g.payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0), currencyOf(g))}</td>`],
+      ["paid", `<td class="num" title="${esc(paid)}">${esc(shortDate(paid))}</td>`],
+      ["next", `<td class="num muted" title="${esc(g.nextDue)}">${esc(shortDate(g.nextDue))}</td>`],
+      ["stage", `<td class="clip">${stagePill(stageFor(v, g, where(g)))}</td>`],
+      ["assigned", `<td class="clip">${assignedCell(g)}</td>`],
+      ["alloc", `<td class="clip">${allocCell(g)}</td>`],
+      ["status", `<td class="c st">${statusIcons(g)}${g.kind === "excluded" && first ? `<button data-excl="${esc(first.key)}" data-excl-action="restore" title="${esc(reason || "Excluded")}">Restore</button>` : ""}</td>`],
+    ];
+    return `<tr class="grow${g.kind === "excluded" ? " off" : ""}" data-gift-open="${esc(g.key)}" tabindex="0" title="Open the details">${cells.filter(([id]) => !hidden.has(id)).map(([, html]) => html).join("")}</tr>`;
   };
   // A sortable heading is a button, and says which way it is sorted for a screen reader (aria-sort).
   const sort = v.giftSort;
   const th = (id: string, label: string, cls = ""): string => `<th${cls ? ` class="${cls}"` : ""} aria-sort="${sort?.key === id ? (sort.dir === "desc" ? "descending" : "ascending") : "none"}"><button type="button" class="sortbtn" data-gsort="${id}">${label}${sort?.key === id ? (sort.dir === "desc" ? " \u25BC" : " \u25B2") : ""}</button></th>`;
-  return `${bulk}${note}${rows.length === 0 ? `<div class="empty">No gifts match the filters.</div>` : `${key}<div class="tablewrap"><table class="giftlist"><thead><tr><th><input type="checkbox" data-selall="main" title="Tick all shown"${allTicked ? " checked" : ""}></th><th></th><th>Rec. ID</th>${th("donor", "Donor")}${th("item", "Item")}${th("project", "Project")}${th("plan", "Plan", "num")}${th("value", "Value", "num")}${th("paid", "Paid", "num")}${th("next", "Next", "num")}<th>Stage</th><th>Assigned to</th><th>Allocated to</th><th>Status</th><th></th></tr></thead><tbody>${shown.map(row).join("")}</tbody></table></div>`}`;
+  const heads: [string, string][] = [
+    ["select", `<th><input type="checkbox" data-selall="main" title="Tick all shown" aria-label="Select all shown"${allTicked ? " checked" : ""}></th>`], ["kind", "<th></th>"], ["recid", "<th>Rec. ID</th>"],
+    ["donor", th("donor", "Donor")], ["item", th("item", "Item")], ["project", th("project", "Project")], ["plan", th("plan", "Plan", "num")], ["value", th("value", "Value", "num")], ["paid", th("paid", "Paid", "num")], ["next", th("next", "Next", "num")],
+    ["stage", "<th>Stage</th>"], ["assigned", "<th>Assigned to</th>"], ["alloc", "<th>Allocated to</th>"], ["status", "<th>Status</th>"],
+  ];
+  const tools = `<div class="listtools"><div class="chips">${chips}</div><div class="toolbtns"><button type="button" class="chipbtn" data-gcols="toggle" aria-expanded="${v.giftColsOpen ? "true" : "false"}">Columns</button>${key}</div></div>${colPick}`;
+  return `${bulk}${note}${tools}${rows.length === 0 ? `<div class="empty">No gifts match the filters.<br><button type="button" data-action="clear-filters" data-scope="main">Clear the filters</button></div>` : `<div class="tablewrap"><table class="giftlist"><thead><tr>${heads.filter(([id]) => !hidden.has(id)).map(([, html]) => html).join("")}</tr></thead><tbody>${shown.map(row).join("")}</tbody></table></div>`}`;
 }
 
 // The window for one gift: everything the list leaves out (DECISIONS 78). Returns "" when the gift is not in the data, so the caller closes the window.
@@ -410,14 +433,14 @@ export function giftMetricsHtml(v: View): string {
   const recurring = count((g) => g.kind === "recurring" || g.kind === "unlinked");
   const status = (st: string) => count((g) => g.planStatus === st);
   const small = (n: number, label: string) => `<span class="sm"><b>${n}</b> ${label}</span>`;
-  // Rule (DECISIONS 99): six tiles. Recurring is the large number with the single payments small beside it, the plan statuses share one tile, and
-  // everything that needs a person (a look, a review or a workflow) is one tile called Review.
-  return `<div class="metric"><b>${rows.length}</b><span>Gifts</span></div>
-    <div class="metric"><b>${recurring}</b><span>Recurring</span><div class="smrow">${small(count((g) => g.kind === "one_off"), "one payments")}</div></div>
-    <div class="metric"><b>${value}</b><span>Value</span></div>
-    <div class="metric"><span>Plan status</span><div class="smrow">${small(status("cancelled"), "cancelled")}${small(status("paused"), "paused")}${small(status("completed"), "completed")}</div></div>
+  // Rule (DECISIONS 215): five tiles of one shape: the number, what it counts, and a line of detail under it. Recurring and one-off are the detail of Gifts, the three stopped plan statuses are one tile, and everything that
+  // needs a person (a look, a review or a workflow) is Review. A tile that needs action is amber.
+  const stopped = status("cancelled") + status("paused") + status("completed");
+  return `<div class="metric"><b>${rows.length}</b><span>Gifts</span><div class="smrow">${small(recurring, "recurring")}${small(count((g) => g.kind === "one_off"), "one payments")}</div></div>
+    <div class="metric"><b>${value}</b><span>Value</span><div class="smrow">${small(payments.length, "payments")}</div></div>
     <div class="metric${waiting ? " warn" : ""}"><b>${waiting}</b><span>Unallocated</span><div class="smrow">${small(count((g) => where(g).state === "placed"), "allocated")}${small(count((g) => where(g).state === "manual"), "manual")}${small(count((g) => where(g).state === "none"), "need none")}</div></div>
-    <div class="metric${review ? " warn" : ""}"><b>${review}</b><span>Review</span></div>`;
+    <div class="metric"><b>${stopped}</b><span>Plans stopped</span><div class="smrow">${small(status("cancelled"), "cancelled")}${small(status("paused"), "paused")}${small(status("completed"), "completed")}</div></div>
+    <div class="metric${review ? " warn" : ""}"><b>${review}</b><span>Review</span><div class="smrow">${small(count((g) => g.unrouted), "unrouted")}${small(count((g) => g.inReview), "held")}${small(count((g) => g.needsLook), "a look")}</div></div>`;
 }
 
 export function giftsPage(v: View): string {
