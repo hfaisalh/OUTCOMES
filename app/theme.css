@@ -493,3 +493,10 @@ button.metric.tile:active,.chipbtn:active,.pf-box button:active{transform:scale(
 .dashrow .bar{width:auto;margin:0;height:8px}.dashrow .num{text-align:right;font-variant-numeric:tabular-nums}
 .fx .bar>i{transform-origin:left;animation:ind-grow .55s var(--ease-out) .1s both}
 @media (prefers-reduced-motion:reduce){.fx .bar>i{animation:none!important}}
+
+/* Unfilled is a light grey, not white (decision 227): the list rows are white now, so a white unit disappeared into the row. Squares, pie segments, their ring and the key all use the same grey. */
+:root{--unfilled:#e6eaf1;--unfilled-edge:#c3ccda}
+.mpie .sq.g,.upie .sq.g{fill:var(--unfilled);stroke:var(--unfilled-edge);stroke-width:1}
+.mpie .seg.g,.upie .seg.g{stroke:var(--unfilled)}
+.mpie .ring{stroke:var(--unfilled-edge)}
+.sw.g{background:var(--unfilled);border:1px solid var(--unfilled-edge)}
