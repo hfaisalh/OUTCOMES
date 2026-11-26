@@ -318,8 +318,9 @@ select:not([multiple]):focus-visible{outline:2px solid var(--accent);outline-off
    and a list that is not in its own scroll frame lets its heading stick to the window. Lists inside a window keep their own scroll. */
 @media (min-width:801px){
   .content{overflow:visible;min-width:0}
-  .content .tablewrap:not(.regwrap){overflow:visible}
-  .content .tablewrap:not(.regwrap) thead th{position:sticky;top:56px;z-index:5;background:#f7f9fd}
+  /* every list table in the page, whatever wraps it, and the wrappers that would otherwise trap the heading in a box that never scrolls (decision 207) */
+  .content :is(.tablewrap, .twrap, .oc, .octablewrap):not(.regwrap){overflow:visible}
+  .content table thead th{position:sticky;top:56px;z-index:5;background:#f7f9fd}
   .content .regwrap{max-height:calc(100vh - 56px - 200px)}
   .content .regtable thead th{top:0}
 }

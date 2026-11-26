@@ -861,3 +861,5 @@ Supersedes the single number of 204. Partners may load beneficiaries and outcome
 ## 207. List headings float under the top bar (2026-11-26)
 
 On a wide screen the heading row of a list stays under the top bar while that list is on screen, and the next list's heading takes over when it arrives. To do this the content area no longer scrolls on its own (the page scrolls), and a list outside a window is no longer in its own horizontal scroll frame. The Beneficiaries and Outcomes lists keep their own scroll frame, with their heading and name column stuck inside it. Lists inside windows keep their own scroll. Risk to watch: a very wide list can now make the page scroll sideways instead of the list. `app/theme.css`.
+
+Update (2026-11-26): the first version only covered tables inside a `tablewrap`, so Projects and Assignment did not float. It now covers every list table in the page content (`.content table thead th`), and frees the other wrappers (`twrap`, `oc`, `octablewrap`) so none traps its heading. A new list gets this for free as long as it is a table with a `thead` and is not given its own scroll frame.
