@@ -14,6 +14,7 @@ import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-conne
 import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, autoCreateProjects, clearLegacy, placeInNode, placeInPartner, samplePartnerProfile, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
 import { setCovers, setLooked, setParts, setPeriods } from "../modules/04b-commitments/catch-up";
 import { markCustomAmounts, setManual } from "../modules/04b-commitments/parts";
+import { enhanceTables, newTableTools } from "./table-tools";
 import { GIFT_COLUMNS, GIFT_HIDDEN_DEFAULT, giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts-page";
 import { partnersPage } from "./partners-page";
 import { projectsPage } from "./projects-page";
@@ -91,6 +92,7 @@ function keepPageInAddress(page: PageId): void {
 }
 
 const state = {
+  tt: newTableTools(), // sort, value filters and hidden columns of every list that is not Gifts (DECISIONS 222)
   live: (): boolean => state.me !== null,
   roleId: "admin",
   page: pageFromAddress(),
@@ -665,6 +667,7 @@ function draw(): void {
   if (sig !== lastListSig) { lastListSig = sig; if (!reducedMotion()) { document.querySelector?.(".giftlist")?.classList.add("rows-in"); document.querySelector?.("main.content")?.classList.add("fx"); } }
   // The partner window sits outside the page, so it is drawn again from the new state, except on the profile tab, which keeps what is being typed.
   if (state.partnerWin.open && state.partnerWin.tab !== "profile") renderPartnerWindow();
+  enhanceTables(document.querySelector?.("main.content") as ParentNode, state.tt, state.page);
   renderGiftWindow();
 }
 
@@ -1952,4 +1955,28 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && state.benWin.open) { state.benWin = { ...state.benWin, open: false }; renderBenWindow(); }
   const row = (e.target as HTMLElement).closest?.(".rowlink[data-bn]") as HTMLElement | null;
   if (row && e.key === "Enter") { state.benWin = { open: true, id: row.dataset.id ?? "", kind: "person" }; renderBenWindow(); }
+});
+
+// ---- Tools on every list (DECISIONS 222): sort by a heading, filter by value, choose columns ----
+document.addEventListener("click", (e) => {
+  const t = e.target as HTMLElement;
+  const at = (a: string): [string, number] | null => { const el = t.closest(`[${a}]`) as HTMLElement | null; if (!el) return null; const [k, c] = (el.getAttribute(a) ?? "").split("|"); return [k ?? "", Number(c ?? 0)]; };
+  const tt = state.tt;
+  const sort = at("data-tt-sort");
+  if (sort) { const [k, col] = sort; const cur = tt.sort[k]; tt.sort[k] = cur?.col === col ? (cur.dir === "asc" ? { col, dir: "desc" } : undefined) : { col, dir: "asc" }; return draw(); }
+  const filt = at("data-tt-filter");
+  if (filt) { const [k, col] = filt; tt.open = tt.open?.kind === "filter" && tt.open.key === k && tt.open.col === col ? null : { key: k, kind: "filter", col }; return draw(); }
+  const cols = t.closest("[data-tt-cols]") as HTMLElement | null;
+  if (cols) { const k = cols.dataset.ttCols ?? ""; tt.open = tt.open?.kind === "cols" && tt.open.key === k ? null : { key: k, kind: "cols", col: 0 }; return draw(); }
+  const clr = at("data-tt-clearcol");
+  if (clr) { const [k, col] = clr; (tt.filters[k] ??= {})[col] = []; return draw(); }
+  const reset = t.closest("[data-tt-reset]") as HTMLElement | null;
+  if (reset) { const k = reset.dataset.ttReset ?? ""; delete tt.filters[k]; delete tt.sort[k]; delete tt.hidden[k]; return draw(); }
+  if (t.closest("[data-tt-done]")) { tt.open = null; return draw(); }
+});
+document.addEventListener("change", (e) => {
+  const t = e.target as HTMLInputElement;
+  const v = t.getAttribute?.("data-tt-val"), c = t.getAttribute?.("data-tt-col");
+  if (v) { const [k, col] = v.split("|"); const f = ((state.tt.filters[k!] ??= {})); const cur = f[Number(col)] ?? []; f[Number(col)] = t.checked ? [...cur, t.value] : cur.filter((x) => x !== t.value); return draw(); }
+  if (c) { const [k, col] = c.split("|"); const h = state.tt.hidden[k!] ?? []; state.tt.hidden[k!] = t.checked ? h.filter((x) => x !== Number(col)) : [...h, Number(col)]; return draw(); }
 });
