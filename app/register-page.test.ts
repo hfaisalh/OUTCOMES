@@ -33,6 +33,16 @@ const enrol = { id: "EN-1", beneficiaryId: "PRS-0001", giftProjectId: "aghosh", 
 const placed = (over: Partial<Placement> = {}): Placement => ({ key: "sub:SUB1", kind: "place", enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 3, how: "auto", at: "x", ...over });
 const live = (over: Partial<View> = {}): View => view({ workOrders: [sub(1, "2026-09-05"), sub(2, "2026-10-05")], frameworks: [fw], giftProjects: [gp], enrolments: { records: [enrol], counter: 1 }, placements: { records: [placed()], counter: 0 }, ...over });
 
+describe("the Beneficiaries tiles count people", () => {
+  it("counts a person enrolled in two benefits once", () => {
+    const two = [enrol, { ...enrol, id: "EN-2", itemId: "I11" }];
+    const html = registerPage(view({ workOrders: [sub(1, "2026-09-05")], frameworks: [fw], giftProjects: [gp], enrolments: { records: two, counter: 2 } }));
+    expect(html).toContain("<b>3</b><span>Beneficiaries</span>"); // Ayesha (two rows), Bilal and the Khan household
+    expect(html).toContain("<b>1</b><span>Enrolled</span>");
+    expect(html).toContain("<b>2</b> not enrolled yet");
+  });
+});
+
 describe("the Beneficiaries page, month by month", () => {
   it("shows each beneficiary with the ID, name, kind and where, and opens the profile on a click", () => {
     const html = registerPage(view());

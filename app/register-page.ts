@@ -96,11 +96,15 @@ export function registerPage(v: View): string {
   const list = impl.filter((r) => matches(r) && showOk(r));
   // Tiles (DECISIONS 224): the summary of the list, and the quickest way to the ones that need a person. They count under the search and the drop-downs but not under the tile choice, so they do not change as one is pressed.
   const base = impl.filter(matches);
-  const gapsN = base.filter((r) => showOk(r, "gaps")).length, missedN = base.filter((r) => showOk(r, "missed")).length, enrolledN = base.filter((r) => r.enrolmentId !== "").length;
+  const gapsN = base.filter((r) => showOk(r, "gaps")).length, missedN = base.filter((r) => showOk(r, "missed")).length;
+  // Rule: the first two tiles count people, not list rows. A person enrolled in two benefits has two rows but is one beneficiary.
+  const people = new Set(base.map((r) => r.beneficiaryId));
+  const peopleWhere = (ok: (id: string) => boolean): number => [...people].filter(ok).length;
+  const enrolledPeople = new Set(base.filter((r) => r.enrolmentId !== "").map((r) => r.beneficiaryId)).size;
   const small = (n: number, label: string): string => `<span class="sm"><b>${n}</b> ${label}</span>`;
   const tile = (mode: string, cls: string, inner: string): string => `<button type="button" class="metric tile${cls}" data-regshow="${mode}" aria-pressed="${(f.show ?? "") === mode ? "true" : "false"}">${inner}</button>`;
-  const tiles = `<div class="metrics">${tile("", "", `<b>${base.length}</b><span>Beneficiaries</span><div class="smrow">${small(base.filter((r) => byId.get(r.beneficiaryId)?.kind === "household").length, "households")}${small(base.filter((r) => byId.get(r.beneficiaryId)?.status === "active").length, "active")}</div>`)}
-    <div class="metric"><b>${enrolledN}</b><span>Enrolled</span><div class="smrow">${small(base.length - enrolledN, "not enrolled yet")}</div></div>
+  const tiles = `<div class="metrics">${tile("", "", `<b>${people.size}</b><span>Beneficiaries</span><div class="smrow">${small(peopleWhere((id) => byId.get(id)?.kind === "household"), "households")}${small(peopleWhere((id) => byId.get(id)?.status === "active"), "active")}</div>`)}
+    <div class="metric"><b>${enrolledPeople}</b><span>Enrolled</span><div class="smrow">${small(people.size - enrolledPeople, "not enrolled yet")}</div></div>
     ${tile("gaps", gapsN ? " warn" : "", `<b>${gapsN}</b><span>With gaps</span><div class="smrow">${small(gapsN, "need a gift this month or later")}</div>`)}
     ${tile("missed", missedN ? " warn" : "", `<b>${missedN}</b><span>Failed payments</span><div class="smrow">${small(missedN, "with a missed month")}</div>`)}</div>`;
   if (sort && sort.key !== "") {
