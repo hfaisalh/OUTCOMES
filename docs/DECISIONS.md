@@ -857,3 +857,7 @@ The version label was at the bottom of the menu, so a long page had to be scroll
 ## 206. Capacity table shows registered, allowed and what waits beyond (2026-11-26)
 
 Supersedes the single number of 204. Partners may load beneficiaries and outcomes before any work is assigned, so the Assignment page now keeps the two numbers apart: **Registered** (what the partner has loaded for the benefit: people enrolled, for a benefit where the beneficiary comes first), **Allowed** (the capacity set on the partner, or no limit), **Assigned** and **Remaining** (the lower of registered and allowed, less assigned). When a partner has registered more than it is allowed and is full, a flag says "N waiting beyond allowed", so capacity can be raised where there is a pipeline and other partners are full. Registered shows a dash for benefits that have no loaded stock yet (outcomes parked in a partner's cluster are not built).
+
+## 207. List headings float under the top bar (2026-11-26)
+
+On a wide screen the heading row of a list stays under the top bar while that list is on screen, and the next list's heading takes over when it arrives. To do this the content area no longer scrolls on its own (the page scrolls), and a list outside a window is no longer in its own horizontal scroll frame. The Beneficiaries and Outcomes lists keep their own scroll frame, with their heading and name column stuck inside it. Lists inside windows keep their own scroll. Risk to watch: a very wide list can now make the page scroll sideways instead of the list. `app/theme.css`.
