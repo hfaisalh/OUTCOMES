@@ -36,12 +36,11 @@ import { clusterStateOf } from "../modules/06-projects/clusters";
 import { closedClusters, clusterUi } from "./clusters-tab";
 import { benefitRow, NEW_CONTACT_ROW, NEW_DOC_ROW, readPartnerForm } from "./partner-form";
 import { partnerWindowHtml, type PartnerTab } from "./partner-window";
-import { allocationPage } from "./allocation-page";
 import { addOutcomes, autoAllocate, perPeriodRule, releaseApprovals, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, type Allocation, type Outcome } from "../modules/05-outcomes/outcomes";
 import { allocatable } from "../modules/04b-commitments/commitments";
 import { filterWorkOrders, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { excludeWorkOrder, planWorkOrders, restoreWorkOrder, type ReviewItem, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
-import { acceptSuggestions, addCategory, addFramework, resolveFrameworkId, assignItem, duplicateFramework, frameworkByItem, removeCategory, removeFramework, renameCategory, renameFramework, setCategoryFramework, setItemFramework, setKeywords, suggestAll, updateTemplate, type Cycle, type FrameworkTemplate, type InstalmentRule, type Setup } from "../modules/02-project-rules/categories";
+import { acceptSuggestions, addCategory, addFramework, resolveFrameworkId, assignItem, duplicateFramework, frameworkByItem, removeCategory, renameCategory, renameFramework, setCategoryFramework, setItemFramework, setKeywords, suggestAll, updateTemplate, type FrameworkTemplate, type Setup } from "../modules/02-project-rules/categories";
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
 import { buildAttention, type AttentionItem } from "../modules/04-triage/triage";
@@ -62,7 +61,7 @@ import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestIte
 import { setItemKind, setItemUnits } from "../modules/02-project-rules/benefits";
 import { applyKindAction, type SavedFeatures } from "../modules/02-project-rules/kind-features";
 import { isPageId, landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
-import { outcomesPage, listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, type Filter, type View } from "./pages";
+import { listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, type Filter, type View } from "./pages";
 
 // The Gifts columns a person has hidden are remembered in this browser only (DECISIONS 215). Storage can be blocked or empty, so every read and write is guarded and the usual columns are the fallback.
 const GIFT_COLS_KEY = "outcomes.gifts.hiddenColumns";
@@ -148,8 +147,6 @@ const state = {
   requireRef: false, // place gifts only on beneficiaries that have an ID (DECISIONS 75)
   graceDays: 15, // days a payment may be unpaid before the place may be released (DECISIONS 74)
   openProject: "", // the project open on the Projects page
-  ocFilter: { cohort: "", type: "", status: "" }, // the Outcomes list filters
-  openCommit: "", // the commitment whose details are open on the Outcomes page
   message: "",
   pendingFiles: [] as File[], // export files chosen but not loaded yet (demo only)
   loadNote: "", // what the last load did, shown in the load card
@@ -262,7 +259,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, assignFilter: state.assignFilter, placements: state.placements, allocFilter: state.allocFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), ocFilter: state.ocFilter, openCommit: state.openCommit, message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, assignFilter: state.assignFilter, placements: state.placements, allocFilter: state.allocFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, itemUnits: state.itemUnits, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -621,8 +618,6 @@ function draw(): void {
     : state.page === "workflows" ? workflowsPage(v)
     : state.page === "benefits" ? benefitsPage(v)
     : state.page === "attention" ? attentionPage(v)
-    : state.page === "allocation" ? allocationPage(v)
-    : state.page === "outcomes" ? outcomesPage(v)
     : state.page === "projects" ? projectsPage(v)
     : state.page === "partners" ? partnersPage(v)
     : state.page === "beneficiaries" ? registerPage(v)
@@ -784,22 +779,6 @@ document.addEventListener("click", (e) => {
     void applyExclusion(keys, restoring, reason);
     return;
   }
-  // Outcomes: open a commitment's details, make an outcome active or inactive, remove, release, close.
-  const openC = target.closest("[data-open-commit]") as HTMLElement | null;
-  if (openC) {
-    state.openCommit = openC.dataset.openCommit as string;
-    return draw();
-  }
-  if (target.closest("[data-oc-close]")) {
-    state.openCommit = "";
-    return draw();
-  }
-  const ocActive = target.closest("[data-oc-active]") as HTMLElement | null;
-  if (ocActive) return void outcomeChange({ action: "active", id: ocActive.dataset.ocActive, active: ocActive.dataset.active === "1" });
-  const ocRemove = target.closest("[data-oc-remove]") as HTMLElement | null;
-  if (ocRemove) return void outcomeChange({ action: "remove", id: ocRemove.dataset.ocRemove });
-  const ocRelease = target.closest("[data-oc-release]") as HTMLElement | null;
-  if (ocRelease) return void outcomeChange({ action: "release", commitmentKey: ocRelease.dataset.ocRelease });
   // Needs attention: jump to the matching lines in Work orders.
   const viewItem = target.closest("[data-view-item]") as HTMLElement | null;
   const viewKey = target.closest("[data-view-key]") as HTMLElement | null;
@@ -911,10 +890,6 @@ document.addEventListener("click", (e) => {
   if (action === "remove-unused") {
     const ids = (el.dataset.ids ?? "").split(",").filter((x) => x !== "");
     if (ids.length > 0 && window.confirm(`Remove ${ids.length} outcome${ids.length === 1 ? "" : "s"} that hold no commitments? This cannot be undone.`)) void outcomeChange({ action: "remove-many", ids });
-    return;
-  }
-  if (action === "auto-allocate") {
-    void outcomeChange({ action: "auto" });
     return;
   }
   // Framework templates (DECISIONS 59).
@@ -1148,7 +1123,7 @@ document.addEventListener("change", (e) => {
   }
   // Rule: only a field the page knows about causes a redraw. Any other field (the owner passphrase box, for example)
   // must be left alone, because a redraw would wipe what was typed and replace the button the person is about to press.
-  const known = t.id === "role" || t.dataset.ocMove !== undefined || t.dataset.ocf !== undefined || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords || t.dataset.pjOpen !== undefined || t.dataset.levelParent !== undefined || t.dataset.placeSelect !== undefined || t.dataset.grace !== undefined || t.dataset.ref !== undefined || t.dataset.crmProject !== undefined || t.dataset.setPlace !== undefined || t.dataset.setGroup !== undefined || t.dataset.benf !== undefined;
+  const known = t.id === "role" || t.dataset.assign !== undefined || !!t.dataset.rename || !!t.dataset.tpl || !!t.dataset.fwrename || t.dataset.catfw !== undefined || t.dataset.itemfw !== undefined || !!t.dataset.keywords || t.dataset.pjOpen !== undefined || t.dataset.levelParent !== undefined || t.dataset.placeSelect !== undefined || t.dataset.grace !== undefined || t.dataset.ref !== undefined || t.dataset.crmProject !== undefined || t.dataset.setPlace !== undefined || t.dataset.setGroup !== undefined || t.dataset.benf !== undefined;
   if (!known) return;
   // A level moved under another, or to the top (DECISIONS 71).
   if (t.dataset.levelParent !== undefined) return void outcomeChange({ action: "move-level", projectId: state.openProject, levelId: t.dataset.levelParent, parentId: t.value });
@@ -1172,14 +1147,6 @@ document.addEventListener("change", (e) => {
   if (t.dataset.pjOpen !== undefined) {
     state.openProject = t.value;
     return draw();
-  }
-  if (t.dataset.ocf !== undefined) {
-    state.ocFilter = { ...state.ocFilter, [t.dataset.ocf]: t.value };
-    return draw();
-  }
-  if (t.dataset.ocMove !== undefined) {
-    if (t.value !== "") void outcomeChange({ action: "move", commitmentKey: t.dataset.ocMove, outcomeId: t.value });
-    return;
   }
   if (t.id === "role") {
     state.roleId = t.value;

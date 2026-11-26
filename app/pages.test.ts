@@ -12,7 +12,7 @@ import { demoCategories, demoFeedRows, starterFrameworks } from "./demo-data";
 import { suggestAll } from "../modules/02-project-rules/categories";
 import { giftDetailHtml, giftsPage } from "./gifts-page";
 import { giftRows } from "../modules/04b-commitments/gifts";
-import { signinNote, attentionPage, auditPage, esc, categoriesPage, outcomesPage, type View } from "./pages";
+import { signinNote, attentionPage, auditPage, esc, categoriesPage, type View } from "./pages";
 
 const lines = readFeed(demoFeedRows(), MWF_CRM_CONFIG).lines;
 const MAP = { I10: "sponsorship", I11: "transactional", I13: "sponsorship" }; // the item "I14" is left unsorted on purpose
@@ -62,52 +62,6 @@ describe("the lines behind a Needs attention entry", () => {
     expect(html).toContain("Default workflow for items in this category (optional)");
     expect(html).not.toContain("<h2>Frameworks");
     expect(categoriesPage(view({ frameworks: [], categories: cats }))).toContain("<h1>Categories</h1>");
-  });
-
-  it("shows each outcome as a row of months, a pie per month with a slice per unit, coloured by status, and opens a commitment with its donor", () => {
-    const base = plan.created[0] as WorkOrder;
-    const fws = starterFrameworks();
-    const orders = [8, 9, 10].map((m) => ({ ...base, key: `o${m}`, subscriptionId: "S1", instalmentNumber: String(m - 7), instalmentCount: "12", paidDate: `2026-${String(m).padStart(2, "0")}-29 10:00:00`, frameworkId: "sponsorship-shared-parts", supporterName: "Sample Donor", supporterId: "D77", planStatus: "active", planNextDue: "2026-10-29", planPaid: 3 }));
-    const outcomes = [{ id: "orphan-1", name: "Orphan 1", type: "child", cohort: "Cohort A", frameworkId: "sponsorship-shared-parts", active: true }];
-    const allocations = [{ commitmentKey: "S1", outcomeId: "orphan-1", parts: 1, how: "auto" as const, at: "t" }];
-    const html = outcomesPage(view({ workOrders: orders, frameworks: fws, outcomes, allocations, today: "2026-11-20" }));
-    expect(html).toContain("Orphan 1");
-    expect((html.match(/class="mpie"/g) ?? []).length).toBe(12); // twelve months: 5 back, this one, 6 ahead
-    expect(html).toContain('class="seg p"'); // paid months
-    expect(html).toContain('class="seg e"'); // expected months
-    expect(html).toContain('class="seg m"'); // this month is missed: the payment due on 29 October has not come
-    expect(html).toContain('class="seg f"'); // the two free parts
-    expect(html).toContain('data-open-commit="S1"');
-    expect(html).not.toContain("Sample Donor"); // the donor is behind a click, not in the colours
-    const detail = outcomesPage(view({ workOrders: orders, frameworks: fws, outcomes, allocations, openCommit: "S1", today: "2026-11-20" }));
-    expect(detail).toContain("Sample Donor");
-    expect(detail).toContain("D77");
-  });
-
-  it("lists outcomes one line each in a table, filters them by cohort, type and status, and shows an inactive outcome as offboarded", () => {
-    const fws = starterFrameworks();
-    const mk = (id: string, cohort: string, type: string, active = true) => ({ id, name: id, type, cohort, frameworkId: "sponsorship-shared-parts", active });
-    const outcomes = [mk("a1", "North", "boarding"), mk("a2", "North", "day care"), mk("b1", "South", "boarding", false)];
-    const all = outcomesPage(view({ frameworks: fws, outcomes, allocations: [], today: "2026-11-20" }));
-    expect(all).toContain("12-month status");
-    expect((all.match(/<tr><td><b>/g) ?? []).length).toBe(3);
-    expect(all).toContain('data-ocf="cohort"');
-    expect(all).toContain('class="seg x"'); // the inactive outcome's slices
-    const north = outcomesPage(view({ frameworks: fws, outcomes, allocations: [], today: "2026-11-20", ocFilter: { cohort: "North", type: "boarding", status: "" } }));
-    expect((north.match(/<tr><td><b>/g) ?? []).length).toBe(1);
-    const inactive = outcomesPage(view({ frameworks: fws, outcomes, allocations: [], today: "2026-11-20", ocFilter: { cohort: "", type: "", status: "inactive" } }));
-    expect(inactive).toContain("b1");
-    expect(inactive).not.toContain("<b>a1</b>");
-    expect(outcomesPage(view({ frameworks: fws, outcomes, allocations: [], today: "2026-11-20", ocFilter: { cohort: "South", type: "day care", status: "" } }))).toContain("No outcomes match the filters.");
-  });
-
-  it("asks for outcomes when there are none, and lists commitments waiting with the reason", () => {
-    const base = plan.created[0] as WorkOrder;
-    const orders = [{ ...base, key: "w1", subscriptionId: "S2", instalmentNumber: "1", instalmentCount: "12", frameworkId: "sponsorship-shared-parts" }];
-    expect(outcomesPage(view({ workOrders: orders, frameworks: starterFrameworks() }))).toContain("No beneficiaries yet");
-    const waiting = outcomesPage(view({ workOrders: orders, frameworks: starterFrameworks(), outcomes: [{ id: "x", name: "X", type: "", cohort: "", frameworkId: "livelihood", active: true }] }));
-    expect(waiting).toContain("Commitments waiting");
-    expect(waiting).toContain("No active outcome uses its framework.");
   });
 
   it("never lets CRM text become HTML", () => {

@@ -16,20 +16,18 @@ import type { Assignments } from "../modules/08-assignment/assignment";
 import type { Placements } from "../modules/09-placement/placement";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { partsOf } from "../modules/01c-crm-connector/work-orders";
-import { autoAllocate, fillOf, holdingReport, monthsAround, perPeriodRule, timelineOf, type UnitStatus, type Allocation, type Availability, type Outcome } from "../modules/05-outcomes/outcomes";
-import { allocOptions, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
+import type { Allocation, Outcome } from "../modules/05-outcomes/outcomes";
+import type { GiftProject, Node, Project } from "../modules/06-projects/projects";
 import type { BenFilter } from "./beneficiaries-page";
 import { shortDate, shortDateTime } from "./dates";
 import { SYM } from "./symbols";
-import { ICONS, iconHtml, itemIcon } from "./icons";
 import type { OutcomeType } from "../modules/05-outcomes/outcome-types";
-import { allocatable, buildCommitments, needsLook, type Commitment } from "../modules/04b-commitments/commitments";
 import { noIndividualDonor } from "../modules/01c-crm-connector/credits";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import type { MWF_CRM_CONFIG } from "../modules/01c-crm-connector/feed";
 import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import type { RunInfo } from "../modules/00-platform/store";
-import { allocationShape, CYCLE_LABELS, groupItems, INSTALMENT_LABELS, missingFramework, unitsForCommitment, type Category, type Cycle, type FrameworkTemplate, type InstalmentRule, type ItemInfo } from "../modules/02-project-rules/categories";
+import { groupItems, type Category, type FrameworkTemplate, type ItemInfo } from "../modules/02-project-rules/categories";
 
 export type Filter = "all" | "ready" | "unrouted" | "review" | "look" | "manual" | "excluded" | "waiting" | "stopped" | "attention"; // waiting, stopped and attention are the quick filters the Gifts tiles give (DECISIONS 216)
 
@@ -45,7 +43,6 @@ export interface View {
   openAttn?: string[]; // Needs attention entries whose lines are open
   outcomes?: Outcome[]; // what gifts are allocated to (DECISIONS 61)
   allocations?: Allocation[];
-  ocFilter?: { cohort: string; type: string; status: string }; // the Outcomes list filters (DECISIONS 63)
   today?: string; // today as YYYY-MM-DD, so the month by month view can be drawn and tested for any date
   requireRef?: boolean; // place gifts only on beneficiaries that have an ID (DECISIONS 75)
   graceDays?: number; // days a payment may be unpaid before the place may be released (DECISIONS 74)
@@ -69,7 +66,6 @@ export interface View {
   projects?: Project[]; // the partners (the code still calls a partner a Project) and their structures (DECISIONS 65)
   nodes?: Node[]; // the places in them
   openProject?: string; // the project open on the Projects page
-  openCommit?: string; // the commitment whose details are open on the Outcomes page ("" when none)
   message: string;
   config: typeof MWF_CRM_CONFIG;
   categories: Category[];
@@ -270,7 +266,6 @@ export function categoriesPage(v: View): string {
   const itemFw = v.itemFramework ?? {};
   const fwName = (id: string) => frameworks.find((f) => f.id === id)?.name ?? "";
   const fwOptions = (cur: string, blank: string) => `<option value="">${esc(blank)}</option>${frameworks.map((f) => `<option value="${esc(f.id)}"${f.id === cur ? " selected" : ""}>${esc(f.name)}</option>`).join("")}`;
-  const nItemSuggest = Object.keys(v.itemFrameworkSuggestions ?? {}).length;
   // A category tile: name, how many items, the drop zone. Its default framework is chosen under "Edit". An item can have its own framework.
   const card = (c: Category) => {
     const list = byCategory[c.id] ?? [];
@@ -369,94 +364,3 @@ export function attentionPage(v: View): string {
     ${done.length ? `<div class="card"><h2>Reviewed</h2><table><tbody>${done.map(card).join("")}</tbody></table></div>` : ""}`;
 }
 
-// Outcomes (Module 5): what the gifts are for, how full each outcome is, and which commitment fills it. Colours show fulfilment, never donors:
-// a click on a filled cell opens the commitment, which holds the donor (DECISIONS 61).
-const AVAIL: Record<Availability, [string, string]> = { open: ["Open", "ready"], part: ["Part funded, has capacity", "review"], full: ["Full", "ok"], inactive: ["Inactive", "unrouted"] };
-
-export function outcomesPage(v: View): string {
-  const outcomes = v.outcomes ?? [];
-  const allocations = v.allocations ?? [];
-  const fws = v.frameworks ?? [];
-  const today = v.today ?? "2026-01-01";
-  const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
-  const byKey = new Map(commitments.map((c) => [c.subscriptionId, c]));
-  const opts = allocOptions(v.projects ?? [], v.graceDays, today, v.requireRef === true, v.giftProjects ?? []);
-  const fills = new Map(outcomes.map((o) => [o.id, fillOf(o, fws, allocations, commitments, opts.policy)]));
-  const waiting = autoAllocate(commitments, outcomes, fws, allocations, "", opts).unplaced; // a dry run: nothing is saved
-  const hold = holdingReport(commitments, fws, opts.policy);
-  const why = [hold.noFramework ? `${hold.noFramework} have no workflow (set one for the item on the Workflows page)` : "", hold.noRule ? `${hold.noRule} are on a framework that does not say how an instalment counts (open it on the Categories tab and set it)` : "", hold.cancelled ? `${hold.cancelled} are cancelled in the CRM` : "", hold.finished ? `${hold.finished} are fully paid` : ""].filter((x) => x !== "");
-  const holdNote = `<p class="muted">${hold.total} commitment${hold.total === 1 ? "" : "s"}, ${hold.holding} asking for capacity${why.length ? `. Not asking: ${why.join("; ")}` : ""}.</p>`;
-  const count = (s: Availability) => outcomes.filter((o) => fills.get(o.id)?.state === s).length;
-  const fwName = (id: string) => fws.find((f) => f.id === id)?.name ?? "No workflow";
-  const cohorts = [...new Set(outcomes.map((o) => o.cohort))];
-
-  // One row per outcome, one small pie per month. A pie has a slice for each unit of capacity (3 parts, 3 slices), coloured by status:
-  // paid green, expected orange, missed red, nothing expected grey. A slice that holds a commitment is a button that opens it (DECISIONS 62).
-  const months = monthsAround(today, 5, 6);
-  const NAME = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const monthPie = (slots: { status: UnitStatus; commitmentKey: string }[], label: string, off = false): string => {
-    const n = slots.length;
-    if (n === 0) return "";
-    const R = 9, C = 2 * Math.PI * R;
-    const arcs = slots.map((sl, i) => {
-      const len = C / n;
-      const on = sl.commitmentKey !== "";
-      const attrs = on ? ` data-open-commit="${esc(sl.commitmentKey)}" tabindex="0" role="button"` : "";
-      return `<circle class="seg ${off ? "x" : sl.status}" cx="12" cy="12" r="${R}" fill="none" stroke-width="6" stroke-dasharray="${n === 1 ? C : Math.max(len - (n > 1 ? 1.2 : 0), 0.5)} ${C}" stroke-dashoffset="${-i * len}" transform="rotate(-90 12 12)"${attrs}><title>${esc(label)}: ${{ p: "paid", e: "expected", m: "missed", f: "nothing expected" }[sl.status]}${on ? ", commitment " + esc(sl.commitmentKey) : ""}</title></circle>`;
-    });
-    return `<svg class="mpie" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="${esc(label)}">${arcs.join("")}</svg>`;
-  };
-  const f0 = v.ocFilter ?? { cohort: "", type: "", status: "" };
-  const types = [...new Set(outcomes.map((o) => o.type))].filter((t) => t !== "").sort();
-  const shown = outcomes.filter((o) => (f0.cohort === "" || o.cohort === f0.cohort) && (f0.type === "" || o.type === f0.type) && (f0.status === "" || fills.get(o.id)?.state === f0.status));
-  const MAXROWS = 300;
-  const heldIds = new Set(allocations.map((a) => a.outcomeId));
-  const unusedShown = shown.filter((o) => !heldIds.has(o.id));
-  const head = `<thead><tr><th>Outcome</th><th>Cohort</th><th>Type</th>${months.map((m) => `<th class="m${m === today.slice(0, 7) ? " now" : ""}">${NAME[Number(m.slice(5, 7)) - 1]}</th>`).join("")}<th>Now</th><th></th></tr></thead>`;
-
-  // One line per outcome: name, cohort, type, a pie per month, availability. The slices are the units the framework gives it (DECISIONS 62, 63).
-  const row = (o: Outcome) => {
-    const f = fills.get(o.id) as ReturnType<typeof fillOf>;
-    const [label, cls] = AVAIL[f.state];
-    const mine = allocations.filter((a) => a.outcomeId === o.id && byKey.has(a.commitmentKey));
-    const rowMonths = timelineOf(o, fws, allocations, commitments, months, today, opts.policy);
-    return `<tr><td><b>${esc(o.name)}</b><div class="muted">${f.used} of ${f.capacity} units${f.capacity === 0 ? ", no framework units" : ""}</div></td><td>${esc(o.cohort) || `<span class="muted">none</span>`}</td><td>${esc(o.type)}<div class="muted">${esc(fwName(o.frameworkId))}</div></td>
-      ${rowMonths.map((m) => `<td class="m">${monthPie(m.slots, `${NAME[Number(m.month.slice(5, 7)) - 1]} ${m.month.slice(0, 4)}`, !o.active)}</td>`).join("")}
-      <td><span class="pill ${cls}">${label}</span></td>
-      <td class="acts"><button data-oc-active="${esc(o.id)}" data-active="${o.active ? "0" : "1"}" title="${o.active ? "Offboard: its commitments are released and placed elsewhere" : "Make active again"}">${o.active ? "Offboard" : "Activate"}</button>${mine.length === 0 ? `<button data-oc-remove="${esc(o.id)}" title="Remove this outcome">Remove</button>` : ""}</td></tr>`;
-  };
-  const opt = (value: string, label: string, cur: string) => `<option value="${esc(value)}"${value === cur ? " selected" : ""}>${esc(label)}</option>`;
-  const filters = `<div class="actions"><select data-ocf="cohort">${opt("", "All cohorts", f0.cohort)}${cohorts.filter((c) => c !== "").map((c) => opt(c, c, f0.cohort)).join("")}</select>
-    <select data-ocf="type">${opt("", "All types", f0.type)}${types.map((t) => opt(t, t, f0.type)).join("")}</select>
-    <select data-ocf="status">${opt("", "All statuses", f0.status)}${opt("open", "Open", f0.status)}${opt("part", "Part funded", f0.status)}${opt("full", "Full", f0.status)}${opt("inactive", "Inactive", f0.status)}</select></div>
-    <div class="legendrow"><span class="lg"><i class="sw p"></i>Paid</span><span class="lg"><i class="sw e"></i>Expected</span><span class="lg"><i class="sw m"></i>Missed</span><span class="lg"><i class="sw f"></i>Nothing expected</span><span class="lg"><i class="sw x"></i>Inactive</span><span class="muted">One slice for each unit the framework gives an outcome. Click a slice to open its commitment.</span></div>`;
-
-  // The commitment that is open: who it is from, what it is, where it is allocated, and how to move or release it.
-  const open = byKey.get(v.openCommit ?? "");
-  const alloc = open ? allocations.find((a) => a.commitmentKey === open.subscriptionId) : undefined;
-  const moveTargets = open ? outcomes.filter((o) => o.active && o.frameworkId === open.frameworkId && o.id !== alloc?.outcomeId) : [];
-  const detail = open
-    ? `<div class="card detailcard"><h2>${open.once ? "One payment" : "Commitment"} ${esc(open.once ? open.lines[0]?.key ?? "" : open.subscriptionId)}</h2>
-        <dl class="dl"><dt>Donor</dt><dd>${esc(open.supporterName)} <span class="muted">${esc(open.supporterId)}</span></dd>
-        <dt>Item</dt><dd>${esc(open.itemName)}</dd>
-        <dt>Plan</dt><dd>${open.once ? `${open.partsPerInstalment} part${open.partsPerInstalment === 1 ? "" : "s"}, paid at once for ${open.planned} month${open.planned === 1 ? "" : "s"} (${esc(open.paidMonths[0] ?? "")} to ${esc(open.endMonth ?? "")})` : `${open.partsPerInstalment} part${open.partsPerInstalment === 1 ? "" : "s"} each instalment, ${open.paid} of ${open.planned ?? "ongoing"} paid${open.legacyOpening ? " (plus earlier instalments paid on the old website)" : ""}`}</dd>
-        <dt>Paid</dt><dd>${open.firstPaid ? `${esc(shortDate(open.firstPaid))} to ${esc(shortDate(open.lastPaid))}` : "none since the load"}</dd>
-        <dt>Framework</dt><dd>${esc(fwName(open.frameworkId))}</dd>
-        <dt>Allocated to</dt><dd>${alloc ? `${esc(outcomes.find((o) => o.id === alloc.outcomeId)?.name ?? alloc.outcomeId)} <span class="muted">(${alloc.how === "auto" ? "automatically" : "moved by a person"})</span>` : `<span class="muted">Not allocated</span>`}</dd></dl>
-        ${alloc ? `<div class="actions"><select data-oc-move="${esc(open.subscriptionId)}"><option value="">Move to another outcome...</option>${moveTargets.map((o) => `<option value="${esc(o.id)}">${esc(o.name)} (${fills.get(o.id)?.free ?? 0} free)</option>`).join("")}</select><button data-oc-release="${esc(open.subscriptionId)}">Release</button><button data-oc-close>Close</button></div>` : `<div class="actions"><button data-oc-close>Close</button></div>`}</div>`
-    : "";
-
-  return `
-    <h1>Month by month</h1>
-    <p class="sub">What the gifts are for: a child, a student, a widow, a building, an activity. Each outcome has a workflow, which gives it a capacity in units. Recurring commitments and one-off payments for a number of months fill that capacity automatically, oldest first. Each outcome is one row of months. Each month is a small pie with a slice for every unit of capacity (an orphan has 3 parts, so 3 slices), coloured by status: paid (green), expected (orange), missed (red), nothing expected (grey). Click a slice to open its commitment, which holds the donor.</p>
-    ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
-    <div class="metrics">${metric(outcomes.length, "Outcomes")}${metric(count("open"), "Open")}${metric(count("part"), "Part funded")}${metric(count("full"), "Full", "ok")}${metric(waiting.length, "Commitments waiting", waiting.length ? "warn" : "")}</div>
-    <div class="actions"><button class="primary" data-action="auto-allocate"${outcomes.length ? "" : " disabled"}>Allocate automatically</button>
-      <span class="muted">Releases what no longer holds, then places each waiting commitment in the first outcome with room. Nothing already allocated is moved.</span></div>
-    ${holdNote}
-    ${unusedShown.length ? `<div class="actions"><button data-action="remove-unused" data-ids="${esc(unusedShown.slice(0, 1000).map((o) => o.id).join(","))}" title="Removes the outcomes in the list below that hold no commitments. Use the filters to choose which">Remove ${Math.min(unusedShown.length, 1000)} unused outcome${unusedShown.length === 1 ? "" : "s"} in the list</button></div>` : ""}
-    ${detail}
-    ${waiting.length ? `<div class="card"><h2>Commitments waiting <span class="muted">(${waiting.length})</span></h2><table><tbody>${waiting.slice(0, 50).map((w) => { const c = byKey.get(w.commitmentKey); return `<tr><td><button class="linkbtn" data-open-commit="${esc(w.commitmentKey)}">Commitment ${esc(w.commitmentKey)}</button></td><td>${esc(c?.itemName ?? "")} <span class="muted">${c?.partsPerInstalment ?? 0} part${c?.partsPerInstalment === 1 ? "" : "s"}</span></td><td class="muted">${esc(w.why)}</td></tr>`; }).join("")}</tbody></table>${waiting.length > 50 ? `<p class="muted">Showing 50 of ${waiting.length}.</p>` : ""}</div>` : ""}
-    ${outcomes.length === 0 ? `<div class="card empty">No beneficiaries yet. Add them on the Projects page.</div>` : `<h2>12-month status</h2>${filters}<div class="card octablewrap">${shown.length === 0 ? `<div class="empty">No outcomes match the filters.</div>` : `<table class="octable">${head}<tbody>${shown.slice(0, MAXROWS).map(row).join("")}</tbody></table>${shown.length > MAXROWS ? `<p class="muted">Showing ${MAXROWS} of ${shown.length}. Use the filters to narrow the list.</p>` : ""}`}</div>`}`;
-
-}
