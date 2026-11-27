@@ -33,6 +33,7 @@ async function send(request: Record<string, unknown>, apply: (s: PartnerSlice) =
 export async function handlePartnerAction(action: string, el: HTMLElement, apply: (s: PartnerSlice) => void, redraw: () => void): Promise<void> {
   partnerUi.message = "";
   partnerUi.lastOpened = "";
+  const viaKeyboard = el.matches?.(":focus-visible") ?? false; // only a keyboard user gets the focus ring put back, so a mouse click leaves no outline behind
   if (action === "pt-toggle") {
     const id = el.dataset["batch"] ?? "";
     const wasOpen = partnerUi.open.includes(id);
@@ -47,12 +48,12 @@ export async function handlePartnerAction(action: string, el: HTMLElement, apply
     else await send(body(false, partnerUi.refusing ?? [], reason), apply);
   }
   redraw();
-  restoreFocus(action, el);
+  restoreFocus(action, el, viaKeyboard);
 }
 
 // A redraw replaces the page, so keyboard focus is put back where the person was: the batch button they pressed, or the reason box they just opened.
-function restoreFocus(action: string, el: HTMLElement): void {
-  if (action === "pt-toggle") (document.querySelector(`[data-action="pt-toggle"][data-batch="${el.dataset["batch"] ?? ""}"]`) as HTMLElement | null)?.focus();
+function restoreFocus(action: string, el: HTMLElement, viaKeyboard: boolean): void {
+  if (action === "pt-toggle" && viaKeyboard) (document.querySelector(`[data-action="pt-toggle"][data-batch="${el.dataset["batch"] ?? ""}"]`) as HTMLElement | null)?.focus();
   else if (action === "pt-refuse") (document.getElementById("pt-reason") as HTMLElement | null)?.focus();
 }
 

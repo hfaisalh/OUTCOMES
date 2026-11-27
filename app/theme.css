@@ -571,13 +571,16 @@ tr.rowlink[data-cnfwin]{cursor:pointer}tr.rowlink[data-cnfwin]:hover td{backgrou
 @media (max-width:980px){.phome-grid{grid-template-columns:minmax(0,1fr)}.pj-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.pj-step:not(:last-child)::after{display:none}}
 @media (max-width:560px){.phome-bar,.phome-main{padding-left:16px;padding-right:16px}.pj-steps{grid-template-columns:minmax(0,1fr)}}
 .pt-refuse{display:grid;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}.pt-refuse textarea{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;resize:vertical}
-/* Partner batch list (DECISIONS 256): each batch is a row that opens to its gifts. Touch targets 44px, a visible focus ring, and the fade is off for reduced motion. */
-.pb-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}.pb{border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}.pb.open{border-color:var(--accent,#2f4b9a)}
-.pb-head{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;padding:4px 8px 4px 4px}.pb-head .actions{display:flex;gap:8px;flex-wrap:wrap}.pb-head button,.pb-ans button{min-height:44px}
-.pb-toggle{display:flex;align-items:center;gap:10px;flex:1 1 280px;min-width:0;padding:6px 10px;background:none;border:0;border-radius:10px;text-align:left;font:inherit;color:inherit;cursor:pointer;flex-wrap:wrap}.pb-toggle:hover{background:rgba(0,0,0,.04)}.pb-toggle:focus-visible,.pb-head button:focus-visible,.pb-ans button:focus-visible{outline:2px solid var(--accent,#2f4b9a);outline-offset:2px}
-.pb-chev{flex:none;transition:transform .18s ease}.pb-toggle[aria-expanded="true"] .pb-chev{transform:rotate(90deg)}.pb-sum{display:flex;gap:6px;flex-wrap:wrap}.pb-name{min-width:0;overflow-wrap:anywhere}
-.pb-body{border-top:1px solid var(--line);padding:8px 12px 12px}.pb-in{animation:pb-open .18s ease-out}@keyframes pb-open{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
-.pb-ans{display:flex;gap:8px;justify-content:flex-end;white-space:nowrap}.pb-hint{margin:0 0 10px;font-size:12px}
+/* Partner batch list (DECISIONS 256, 257): one flat list inside the card, rows separated by hairlines (no box inside a box). Every control on a row is the same height and sits on one centre line. Compact for a mouse, 44px for touch. The gifts of an open batch are indented under its name. */
+.pb-list{list-style:none;margin:0;padding:0}.pb{border-top:1px solid var(--line)}
+.pb-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 12px;padding:8px 0}.pb-head .actions{display:flex;align-items:center;gap:8px}
+.pb-toggle{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0;min-height:36px;padding:2px 6px;border:0;border-radius:8px;background:none;text-align:left;color:inherit;cursor:pointer}.pb-toggle:hover{background:rgba(20,40,100,.05)}.pb-toggle:focus-visible{outline:2px solid var(--accent,#2f4b9a);outline-offset:-2px}
+.pb-chev{flex:none;transition:transform .18s ease}.pb-toggle[aria-expanded="true"] .pb-chev{transform:rotate(90deg)}.pb-name{min-width:0;overflow-wrap:anywhere}.pb-sum{display:flex;gap:6px;flex-wrap:wrap}
+.pb-head .actions button,.pb-ans button{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 14px;line-height:1}.pb-head .actions button{min-width:92px}.pb-head .actions button:focus-visible,.pb-ans button:focus-visible{outline:2px solid var(--accent,#2f4b9a);outline-offset:2px}
+.pb-body{margin:0 0 10px 34px}.pb-in{animation:pb-open .18s ease-out}@keyframes pb-open{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.pb-body th{background:none;padding:6px 10px}.pb-body td{padding:6px 10px;font-size:13px}.pb-body td .muted{font-size:12px}
+.pb-ans{display:flex;gap:6px;justify-content:flex-end;white-space:nowrap}.pb-ans button{height:30px;padding:0 12px;font-size:13px}.pb-hint{margin:0 0 6px;font-size:12px}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (pointer:coarse){.pb-toggle{min-height:44px}.pb-head .actions button,.pb-ans button{height:44px}}
 @media (prefers-reduced-motion:reduce){.pb-in{animation:none}.pb-chev{transition:none}}
-@media (max-width:560px){.pb-head .actions{width:100%}.pb-head .actions button{flex:1}}
+@media (max-width:640px){.pb-head{grid-template-columns:minmax(0,1fr)}.pb-head .actions{width:100%}.pb-head .actions button{flex:1}.pb-body{margin-left:0}}
