@@ -10,6 +10,7 @@
 
 import { ELIGIBILITY_LABEL, KIND_LABEL, type Beneficiary, type BeneficiaryKind, type Eligibility } from "../modules/07-beneficiaries/beneficiaries";
 import { esc } from "./pages";
+import { pickerHtml } from "./household-picker";
 
 export const SIMILAR_NOTICE = "Possible match"; // the start of the message the duplicate check gives for a possible match
 
@@ -33,7 +34,7 @@ export function registerFormHtml(rec: Partial<Beneficiary>, id: string, kind: Be
     ${input("rg-eligibilitynote", "Reason for the decision", rec.eligibilityNote ?? "")}`);
   // --- Cards of a household ---
   const householdIdentity = card("Household", `${input("rg-name", "Family or household name", rec.name ?? "", "", true)}${input("rg-size", "Number of people (if the persons are not listed)", rec.size === undefined ? "" : String(rec.size), ' type="number" min="1" max="60"', true)}`);
-  const membersCard = `<section class="gw-card rg-card"><h3>Persons in this household</h3><fieldset class="rg-members">${persons.length ? persons.map((p) => `<label class="rg-member-row"><input type="checkbox" class="rg-member" value="${esc(p.id)}"${members.has(p.id) ? " checked" : ""}> ${esc(p.name)} <span class="muted">${esc(p.id)}</span></label>`).join("") : '<span class="muted">No persons in the register yet.</span>'}</fieldset></section>`;
+  const membersCard = `<section class="gw-card rg-card"><h3>Persons in this household</h3>${pickerHtml(persons, [...members])}</section>`;
   // --- Cards of both ---
   const where = card("Where and source", `${input("rg-area", "Area (village or district, not a full address)", rec.area ?? "", "", true)}
     <label>Given by partner<select id="rg-partner"><option value="">None</option>${partners.map((p) => `<option value="${esc(p.id)}"${rec.partnerId === p.id ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</select></label>

@@ -21,6 +21,7 @@ import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiarie
 import { registerPage } from "./register-page";
 import { NO_OUTCOME_FILTER, outcomeRecordsPage } from "./outcome-records-page";
 import { applyErasure, exportBeneficiary } from "../modules/07-beneficiaries/erasure";
+import { installHouseholdPicker } from "./household-picker";
 import { installGiftActions } from "./gift-actions";
 import { installListEvents, placePopover } from "./list-events";
 import { progressPage } from "./progress-page";
@@ -1845,3 +1846,4 @@ document.addEventListener("keydown", (e) => {
 
 // ---- Events of the lists: sort, filter, columns, tiles, the drop-down panel, and the buttons of Confirmation and Progress (app/list-events.ts) ----
 installListEvents({ state, draw, outcomeChange });
+installHouseholdPicker(); // the household member picker in the beneficiary window (app/household-picker.ts)

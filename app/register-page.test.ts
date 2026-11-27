@@ -9,7 +9,8 @@
 import { describe, expect, it } from "vitest";
 import { registerPage } from "./register-page";
 import { registerFormHtml } from "./register-form";
-import { addBeneficiary, emptyRegister, NO_FILTER, type Register } from "../modules/07-beneficiaries/beneficiaries";
+import { matchText, pickerHtml, rankPersons, SHOWN } from "./household-picker";
+import { addBeneficiary, emptyRegister, NO_FILTER, type Beneficiary, type Register } from "../modules/07-beneficiaries/beneficiaries";
 import type { View } from "./pages";
 import type { WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import type { FrameworkTemplate } from "../modules/02-project-rules/categories";
@@ -32,6 +33,24 @@ const gp = { id: "aghosh", name: "Aghosh", crmNames: [], partnerIds: [], cluster
 const enrol = { id: "EN-1", beneficiaryId: "PRS-0001", giftProjectId: "aghosh", clusterId: "c1", itemId: "I10", role: "", status: "active" as const, since: "2026-09-01" };
 const placed = (over: Partial<Placement> = {}): Placement => ({ key: "sub:SUB1", kind: "place", enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 3, how: "auto", at: "x", ...over });
 const live = (over: Partial<View> = {}): View => view({ workOrders: [sub(1, "2026-09-05"), sub(2, "2026-10-05")], frameworks: [fw], giftProjects: [gp], enrolments: { records: [enrol], counter: 1 }, placements: { records: [placed()], counter: 0 }, ...over });
+
+describe("the household picker", () => {
+  const mk = (id: string, name: string, guardian: string, area = ""): Beneficiary => ({ id, name, guardian, area, kind: "person" }) as Beneficiary;
+  const people = [mk("PRS-1", "Zara", "Mrs Ali", "North"), mk("PRS-2", "Adam", "Mrs Bibi", "South"), mk("PRS-3", "Bilal", "Mrs Ali", "South"), mk("PRS-4", "Carla", "", "North")];
+  it("finds a person by any word of the name, ID, guardian or area", () => {
+    expect(people.filter((p) => matchText(p, "ali")).map((p) => p.id)).toEqual(["PRS-1", "PRS-3"]);
+    expect(people.filter((p) => matchText(p, "south bibi")).map((p) => p.id)).toEqual(["PRS-2"]);
+    expect(people.filter((p) => matchText(p, "")).length).toBe(4);
+  });
+  it("lists people who share a guardian, then an area, with the members first", () => {
+    expect(rankPersons([people[1]!, people[2]!, people[3]!], [people[0]!]).map((p) => p.id)).toEqual(["PRS-3", "PRS-4", "PRS-2"]); // Bilal shares the guardian, Carla the area
+  });
+  it("lists only the first few matches, and the rest by typing", () => {
+    const many = Array.from({ length: 30 }, (_, i) => mk(`PRS-${i + 10}`, `Child ${i}`, "", ""));
+    expect((pickerHtml(many, []).match(/class="hh-item"/g) ?? []).length).toBe(30);
+    expect((pickerHtml(many, []).match(/class="hh-item"[^>]*hidden/g) ?? []).length).toBe(30 - SHOWN);
+  });
+});
 
 describe("the Beneficiaries tiles count people", () => {
   it("counts a person enrolled in two benefits once", () => {
@@ -166,13 +185,15 @@ describe("the beneficiary window", () => {
     expect(html).toContain('<option value="review" selected>Needs review</option>');
     expect(html).toContain('<option value="deceased" selected>Deceased</option>');
   });
-  it("asks a household for a name, a size and the persons in it, ticked from the register", () => {
+  it("asks a household for a name, a size and its persons, as chips with a search to add more (DECISIONS 242)", () => {
     const persons = reg().records.filter((r) => r.kind === "person");
     const html = registerFormHtml({ memberIds: ["PRS-0001"] }, "", "household", persons);
     expect(html).toContain("New household");
     expect(html).toContain('id="rg-size"');
-    expect(html).toContain('class="rg-member" value="PRS-0001" checked');
-    expect(html).toContain('class="rg-member" value="PRS-0002">');
+    expect(html).toContain('class="rg-member" value="PRS-0001" checked hidden'); // a member is a chip holding the ticked box the save reads
+    expect(html).toContain('data-hh-add="PRS-0002"'); // another person is found in the list and added
+    expect(html).not.toContain('data-hh-add="PRS-0001"'); // a member is not offered again
+    expect(html).toContain('id="hh-search"');
     expect(html).not.toContain('id="rg-dob"');
   });
   it("shows an existing record with its ID, status and a Remove button, filled in", () => {
