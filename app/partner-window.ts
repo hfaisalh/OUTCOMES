@@ -30,7 +30,7 @@ function structureHtml(v: View, project: Project): string {
   const levelName = (id: string) => project.levels.find((l) => l.id === id)?.name ?? "";
   const fwName = (id: string) => fws.find((f) => f.id === id)?.name ?? "No workflow";
   const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
-  const roll = rollupOf(nodes, outcomes, fws, v.allocations ?? [], commitments, allocOptions(v.projects ?? [], v.graceDays, today, v.requireRef === true, v.giftProjects ?? []).policy);
+  const roll = rollupOf(nodes, outcomes, fws, v.outcomeAllocations ?? [], commitments, allocOptions(v.projects ?? [], v.graceDays, today, v.requireRef === true, v.giftProjects ?? []).policy);
 
   // Levels: the first is the place, and the others sit under a level as ways of grouping people inside it.
   const levelRows = tree.map(({ level: l, depth }) => {

@@ -46,7 +46,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   const org = a.claims.org;
   const config = (await d.store.getConfig(org)) ?? defaultConfig();
   let outcomes = config.outcomes ?? [];
-  let allocations = config.allocations ?? [];
+  let outcomeAllocations = config.outcomeAllocations ?? [];
   // A setup from before projects existed has CRM names on its partners. They become projects, once (DECISIONS 76).
   const migrated = migrateGiftProjects(config.projects ?? [], config.giftProjects ?? []);
   let projects = migrated.partners;
@@ -66,11 +66,11 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   let confirmations = config.confirmations ?? emptyConfirmations(); // the partners' answers to those assignments (DECISIONS 231)
   let progress = config.progress ?? emptyProgress(); // the steps taken after allocation, and the batches closed (DECISIONS 232)
   // Rule: every answer carries the whole picture (all the records the page draws from), so a page never has to ask twice. The few things an answer changes are passed in `over`.
-  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, allocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...over });
+  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, outcomeAllocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...over });
   // Rule (DECISIONS 105): every outcome and allocation has an ID. Any without one are given one here, so older ones get theirs too.
   const settle = (): boolean => {
-    const r = ensureRefs({ outcomes, allocations, counters: idCounters }, outcomeTypes, config.allocationPrefix);
-    ({ outcomes, allocations, counters: idCounters } = r);
+    const r = ensureRefs({ outcomes, outcomeAllocations, counters: idCounters }, outcomeTypes, config.allocationPrefix);
+    ({ outcomes, outcomeAllocations, counters: idCounters } = r);
     return r.changed;
   };
   let extra: Record<string, unknown> = {};
@@ -271,39 +271,39 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       case "remove-many": {
         const ids = Array.isArray(b["ids"]) ? (b["ids"] as unknown[]).filter((x): x is string => typeof x === "string").slice(0, MAX_OUTCOMES) : [];
         if (ids.length === 0) return fail("Nothing to remove.");
-        const r = removeUnused(outcomes, allocations, ids);
+        const r = removeUnused(outcomes, outcomeAllocations, ids);
         outcomes = r.value;
         extra = { removed: r.removed, kept: r.kept };
         break;
       }
       case "remove": {
-        const r = removeOutcome(outcomes, allocations, str("id"));
+        const r = removeOutcome(outcomes, outcomeAllocations, str("id"));
         if (r.error) return fail(r.error);
         outcomes = r.value;
         break;
       }
       case "auto": {
-        const r = autoAllocate(await commitments(), outcomes, fw, allocations, at, allocOptions(projects, graceDays, at.slice(0, 10), requireRef, giftProjects));
-        allocations = r.allocations;
+        const r = autoAllocate(await commitments(), outcomes, fw, outcomeAllocations, at, allocOptions(projects, graceDays, at.slice(0, 10), requireRef, giftProjects));
+        outcomeAllocations = r.outcomeAllocations;
         extra = { placed: r.placed, released: r.released, unplaced: r.unplaced };
         break;
       }
       case "move": {
-        const r = moveAllocation(allocations, await commitments(), outcomes, fw, str("commitmentKey"), str("outcomeId"), at, allocOptions(projects, graceDays, at.slice(0, 10), requireRef, giftProjects).policy);
+        const r = moveAllocation(outcomeAllocations, await commitments(), outcomes, fw, str("commitmentKey"), str("outcomeId"), at, allocOptions(projects, graceDays, at.slice(0, 10), requireRef, giftProjects).policy);
         if (r.error) return fail(r.error);
-        allocations = r.value;
+        outcomeAllocations = r.value;
         break;
       }
       case "place-in-node": {
-        const r = placeInNode(allocations, await commitments(), outcomes, nodes, fw, str("commitmentKey"), str("nodeId"), at, allocOptions(projects, graceDays, at.slice(0, 10), requireRef, giftProjects).policy);
+        const r = placeInNode(outcomeAllocations, await commitments(), outcomes, nodes, fw, str("commitmentKey"), str("nodeId"), at, allocOptions(projects, graceDays, at.slice(0, 10), requireRef, giftProjects).policy);
         if (r.error) return fail(r.error);
-        allocations = r.value;
+        outcomeAllocations = r.value;
         break;
       }
       case "place-in-partner": {
-        const r = placeInPartner(allocations, await commitments(), outcomes, projects, fw, str("commitmentKey"), str("projectId"), at, allocOptions(projects, graceDays, at.slice(0, 10), requireRef, giftProjects).policy);
+        const r = placeInPartner(outcomeAllocations, await commitments(), outcomes, projects, fw, str("commitmentKey"), str("projectId"), at, allocOptions(projects, graceDays, at.slice(0, 10), requireRef, giftProjects).policy);
         if (r.error) return fail(r.error);
-        allocations = r.value;
+        outcomeAllocations = r.value;
         break;
       }
       case "adopt-legacy": {
@@ -314,9 +314,9 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
         break;
       }
       case "clear-legacy": {
-        const r = clearLegacy(outcomes, allocations);
+        const r = clearLegacy(outcomes, outcomeAllocations);
         outcomes = r.outcomes;
-        allocations = r.allocations;
+        outcomeAllocations = r.outcomeAllocations;
         extra = { removed: r.removed, released: r.released };
         break;
       }
@@ -333,18 +333,18 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       case "approve-release": {
         if (!a.claims.perms.includes(P.approveRelease)) return json(403, { error: "Only a manager can approve releasing a sponsorship." });
         const policy = allocOptions(projects, graceDays, at.slice(0, 10), requireRef, giftProjects).policy;
-        const due = releaseApprovals(allocations, await commitments(), fw, policy).find((x) => x.commitmentKey === str("commitmentKey"));
+        const due = releaseApprovals(outcomeAllocations, await commitments(), fw, policy).find((x) => x.commitmentKey === str("commitmentKey"));
         if (!due) return fail("That release is not due.");
-        allocations = releaseAllocation(allocations, due.commitmentKey);
+        outcomeAllocations = releaseAllocation(outcomeAllocations, due.commitmentKey);
         releaseLog = [...releaseLog, { commitmentKey: due.commitmentKey, outcomeId: due.outcomeId, by: a.claims.name, at, daysOverdue: due.daysOverdue }].slice(-2000);
         break;
       }
       case "release":
-        allocations = releaseAllocation(allocations, str("commitmentKey"));
+        outcomeAllocations = releaseAllocation(outcomeAllocations, str("commitmentKey"));
         break;
       default: {
         // Projects (DECISIONS 65): the structure each project defines, and the beneficiaries in it.
-        const r = applyProjectAction({ projects, nodes, outcomes, partnerTypes, partnerFields, giftProjects }, fw, b, at.slice(0, 10), new Set(allocations.map((x) => x.outcomeId)), (gpId, clusterId) => heldInCluster(enrolments, gpId, clusterId));
+        const r = applyProjectAction({ projects, nodes, outcomes, partnerTypes, partnerFields, giftProjects }, fw, b, at.slice(0, 10), new Set(outcomeAllocations.map((x) => x.outcomeId)), (gpId, clusterId) => heldInCluster(enrolments, gpId, clusterId));
         if (!r) return fail("That request is not understood.");
         if (r.error) return fail(r.error);
         ({ projects, nodes, outcomes, partnerTypes, partnerFields, giftProjects } = r.state);
@@ -354,9 +354,9 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       }
     }
     settle();
-    await save({ ...config, outcomes, allocations, projects, giftProjects, nodes, graceDays, releaseLog, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, ...(poolTouched ? { beneficiaries, enrolments } : {}) });
+    await save({ ...config, outcomes, outcomeAllocations, projects, giftProjects, nodes, graceDays, releaseLog, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, ...(poolTouched ? { beneficiaries, enrolments } : {}) });
   } else if (settle()) {
-    await d.store.putConfig(org, { ...config, outcomes, allocations, outcomeTypes, idCounters }); // a read that only gives older records their IDs: not one of the logged parts
+    await d.store.putConfig(org, { ...config, outcomes, outcomeAllocations, outcomeTypes, idCounters }); // a read that only gives older records their IDs: not one of the logged parts
   }
   return reply({ ...extra });
 }

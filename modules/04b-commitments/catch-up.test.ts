@@ -134,7 +134,7 @@ describe("catch-up payments", () => {
     const v = { workOrders: done, review: [], categories: [], today: "2026-11-22",
       frameworks: [{ id: "f", name: "F", unit: "orphan", cycle: "monthly", reports: [], instalment: "per_period", unitsPerBeneficiary: 1 }],
       outcomes: [{ id: "o1", name: "Ali", type: "orphan", cohort: "", frameworkId: "f", active: true, ref: "ORP-0007", outcomeTypeId: "orphan" }],
-      allocations: [{ commitmentKey: "S1", outcomeId: "o1", parts: 1, how: "auto", at: "t", ref: "AL-0012" }] } as unknown as View;
+      outcomeAllocations: [{ commitmentKey: "S1", outcomeId: "o1", parts: 1, how: "auto", at: "t", ref: "AL-0012" }] } as unknown as View;
     const html = giftDetailHtml({ ...v, workOrders: done.map((w) => ({ ...w, frameworkId: "f" })) } as View, "S1");
     expect(html).toContain("ORP-0007");
     expect(html).toContain("Allocation AL-0012");

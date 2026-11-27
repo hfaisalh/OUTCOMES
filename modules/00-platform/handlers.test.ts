@@ -441,9 +441,9 @@ describe("outcomes (DECISIONS 61)", () => {
     await handleImport(as(cookie, { method: "POST", body: up([line("1", "501", "1"), line("2", "502", "1")]) }), d);
     await handleConfig(as(cookie, { method: "PUT", body: fwSetup }), d);
     expect((await post(cookie, { action: "add", name: "Orphan", count: 2, type: "child", cohort: "A", frameworkId: "shared" })).status).toBe(200);
-    const r = (await post(cookie, { action: "auto" })).body as { placed: number; allocations: { commitmentKey: string; outcomeId: string }[] };
+    const r = (await post(cookie, { action: "auto" })).body as { placed: number; outcomeAllocations: { commitmentKey: string; outcomeId: string }[] };
     expect(r.placed).toBe(2);
-    expect(r.allocations.map((a) => a.outcomeId)).toEqual(["orphan-1", "orphan-1"]); // two single parts share the first orphan
+    expect(r.outcomeAllocations.map((a) => a.outcomeId)).toEqual(["orphan-1", "orphan-1"]); // two single parts share the first orphan
     expect(((await handleOutcomes(as(cookie), d)).body as { outcomes: unknown[] }).outcomes).toHaveLength(2);
   });
 
@@ -456,9 +456,9 @@ describe("outcomes (DECISIONS 61)", () => {
     expect((await post(cookie, { action: "move", commitmentKey: "501", outcomeId: "orphan-2" })).status).toBe(200);
     expect((await post(cookie, { action: "remove", id: "orphan-2" })).status).toBe(400);
     expect((await post(cookie, { action: "active", id: "orphan-2", active: false })).status).toBe(200);
-    const again = (await post(cookie, { action: "auto" })).body as { released: number; allocations: { outcomeId: string }[] };
-    expect([again.released, again.allocations[0]?.outcomeId]).toEqual([1, "orphan-1"]); // released from the inactive one, placed in the active one
-    expect((await post(cookie, { action: "release", commitmentKey: "501" })).body).toMatchObject({ allocations: [] });
+    const again = (await post(cookie, { action: "auto" })).body as { released: number; outcomeAllocations: { outcomeId: string }[] };
+    expect([again.released, again.outcomeAllocations[0]?.outcomeId]).toEqual([1, "orphan-1"]); // released from the inactive one, placed in the active one
+    expect((await post(cookie, { action: "release", commitmentKey: "501" })).body).toMatchObject({ outcomeAllocations: [] });
   });
 
   it("keeps outcome types as configuration: starter types first, then added types, fields and frameworks (DECISIONS 103)", async () => {
@@ -486,8 +486,8 @@ describe("outcomes (DECISIONS 61)", () => {
     const added = (await post(cookie, { action: "add", name: "Orphan", count: 2, type: "child", cohort: "", frameworkId: "shared" })).body as { outcomes: { ref?: string; outcomeTypeId?: string }[] };
     expect(added.outcomes.map((o) => o.ref)).toEqual(["ORP-0001", "ORP-0002"]);
     expect(added.outcomes[0]?.outcomeTypeId).toBe("orphan");
-    const placed = (await post(cookie, { action: "auto" })).body as { allocations: { ref?: string }[] };
-    expect(placed.allocations.map((a) => a.ref)).toEqual(["AL-0001", "AL-0002"]);
+    const placed = (await post(cookie, { action: "auto" })).body as { outcomeAllocations: { ref?: string }[] };
+    expect(placed.outcomeAllocations.map((a) => a.ref)).toEqual(["AL-0001", "AL-0002"]);
     // a new outcome continues the count, and a changed prefix is for new IDs only
     await post(cookie, { action: "ot-prefix", typeId: "orphan", prefix: "kid" });
     const more = (await post(cookie, { action: "add", name: "Orphan B", count: 1, type: "child", cohort: "", frameworkId: "shared" })).body as { outcomes: { ref?: string }[] };

@@ -18,7 +18,7 @@
  */
 
 import { slugify, type FrameworkTemplate } from "../02-project-rules/categories.js";
-import { addOutcomes, autoAllocate, capacityOf, DEFAULT_GRACE_DAYS, fillOf, inGrace, asksForPlace, pickOutcome, releaseDue, takesCapacity, type AllocOptions, type Allocation, type Outcome, type Policy } from "../05-outcomes/outcomes.js";
+import { addOutcomes, autoAllocate, capacityOf, DEFAULT_GRACE_DAYS, fillOf, inGrace, asksForPlace, pickOutcome, releaseDue, takesCapacity, type AllocOptions, type OutcomeAllocation, type Outcome, type Policy } from "../05-outcomes/outcomes.js";
 import type { Commitment } from "../04b-commitments/commitments.js";
 import { applyClusterAction, clusterStateOf, type Cluster, type ClusterLevel } from "./clusters.js";
 
@@ -376,7 +376,7 @@ export interface Rollup {
 }
 
 // Rule: each place adds up the capacity and use of every beneficiary in it, in its groups and under it. A project adds up all of its places.
-export function rollupOf(nodes: Node[], outcomes: Outcome[], fw: FrameworkTemplate[], allocations: Allocation[], commitments: Commitment[], policy?: Policy): { byNode: Map<string, Rollup>; byProject: Map<string, Rollup> } {
+export function rollupOf(nodes: Node[], outcomes: Outcome[], fw: FrameworkTemplate[], outcomeAllocations: OutcomeAllocation[], commitments: Commitment[], policy?: Policy): { byNode: Map<string, Rollup>; byProject: Map<string, Rollup> } {
   const byNode = new Map<string, Rollup>();
   const byProject = new Map<string, Rollup>();
   const bump = (m: Map<string, Rollup>, key: string, cap: number, used: number) => {
@@ -386,7 +386,7 @@ export function rollupOf(nodes: Node[], outcomes: Outcome[], fw: FrameworkTempla
   const parentOf = new Map(nodes.map((n) => [n.id, n.parentId]));
   for (const o of outcomes) {
     if (!o.projectId || !o.active) continue;
-    const f = fillOf(o, fw, allocations, commitments, policy);
+    const f = fillOf(o, fw, outcomeAllocations, commitments, policy);
     bump(byProject, o.projectId, capacityOf(o, fw), f.used); // everyone in the partner counts, placed or not (DECISIONS 72)
     if (!o.nodeId) continue;
     // The place it belongs to, the groups it is in, and everything above them, each counted once.
@@ -708,8 +708,8 @@ export interface AllocationSummary {
  * and the parts of gifts directed to it that wait. Surplus or deficit is free minus waiting (the sheet's Step 6). A gift that names no known
  * project is general and counted on its own line, since it can go anywhere.
  */
-export function allocationSummary(projects: Project[], outcomes: Outcome[], fw: FrameworkTemplate[], allocations: Allocation[], commitments: Commitment[], opts: AllocOptions): AllocationSummary {
-  const placed = new Set(allocations.map((a) => a.commitmentKey));
+export function allocationSummary(projects: Project[], outcomes: Outcome[], fw: FrameworkTemplate[], outcomeAllocations: OutcomeAllocation[], commitments: Commitment[], opts: AllocOptions): AllocationSummary {
+  const placed = new Set(outcomeAllocations.map((a) => a.commitmentKey));
   const waiting = commitments.filter((c) => asksForPlace(c, fw, opts.policy) && !placed.has(c.subscriptionId));
   const projectOfOutcome = new Map(outcomes.map((o) => [o.id, o.projectId ?? ""]));
   const byId = new Map(commitments.map((c) => [c.subscriptionId, c]));
@@ -720,9 +720,9 @@ export function allocationSummary(projects: Project[], outcomes: Outcome[], fw: 
     let used = 0;
     for (const o of mine) {
       capacity += capacityOf(o, fw);
-      used += fillOf(o, fw, allocations, commitments, opts.policy).used;
+      used += fillOf(o, fw, outcomeAllocations, commitments, opts.policy).used;
     }
-    const mineAllocs = allocations.filter((a) => projectOfOutcome.get(a.outcomeId) === id && byId.has(a.commitmentKey));
+    const mineAllocs = outcomeAllocations.filter((a) => projectOfOutcome.get(a.outcomeId) === id && byId.has(a.commitmentKey));
     const buffered = mineAllocs.filter((a) => opts.policy && inGrace(byId.get(a.commitmentKey) as Commitment, opts.policy)).length;
     const dueRelease = mineAllocs.filter((a) => opts.policy && releaseDue(byId.get(a.commitmentKey) as Commitment, opts.policy)).length;
     const waitingParts = waiting.filter((c) => id !== "" && (opts.projectIdsFor?.(c.projectName) ?? []).includes(id)).reduce((n, c) => n + c.partsPerInstalment, 0); // a gift directed to more than one partner counts for each
@@ -749,33 +749,33 @@ export function placesUnder(nodes: Node[], nodeId: string): Set<string> {
  * chosen the same way as automatic allocation. A gift already placed is moved. A person may place a directed gift outside its project:
  * that is their decision.
  */
-export function placeInNode(allocations: Allocation[], commitments: Commitment[], outcomes: Outcome[], nodes: Node[], fw: FrameworkTemplate[], commitmentKey: string, nodeId: string, at: string, policy?: Policy): Changed<Allocation[]> {
+export function placeInNode(outcomeAllocations: OutcomeAllocation[], commitments: Commitment[], outcomes: Outcome[], nodes: Node[], fw: FrameworkTemplate[], commitmentKey: string, nodeId: string, at: string, policy?: Policy): Changed<OutcomeAllocation[]> {
   const node = nodes.find((x) => x.id === nodeId);
-  if (!node) return { value: allocations, error: "That location was not found." };
+  if (!node) return { value: outcomeAllocations, error: "That location was not found." };
   const under = placesUnder(nodes, nodeId);
   // A beneficiary is in a place when it belongs to it, or to a group of it, or is in the place or group dropped on.
-  return placeAmong(allocations, commitments, outcomes, fw, commitmentKey, (o) => (o.nodeId !== undefined && under.has(o.nodeId)) || (o.groupIds ?? []).some((g) => under.has(g)), node.name, at, policy);
+  return placeAmong(outcomeAllocations, commitments, outcomes, fw, commitmentKey, (o) => (o.nodeId !== undefined && under.has(o.nodeId)) || (o.groupIds ?? []).some((g) => under.has(g)), node.name, at, policy);
 }
 
 // Rule (DECISIONS 73): a person drops a gift on a partner as a whole, for beneficiaries that are not placed in a branch or group. It goes to one of that partner's beneficiaries with room.
-export function placeInPartner(allocations: Allocation[], commitments: Commitment[], outcomes: Outcome[], projects: Project[], fw: FrameworkTemplate[], commitmentKey: string, projectId: string, at: string, policy?: Policy): Changed<Allocation[]> {
+export function placeInPartner(outcomeAllocations: OutcomeAllocation[], commitments: Commitment[], outcomes: Outcome[], projects: Project[], fw: FrameworkTemplate[], commitmentKey: string, projectId: string, at: string, policy?: Policy): Changed<OutcomeAllocation[]> {
   const p = projects.find((x) => x.id === projectId);
-  if (!p) return { value: allocations, error: "That partner was not found." };
-  return placeAmong(allocations, commitments, outcomes, fw, commitmentKey, (o) => o.projectId === projectId, p.name, at, policy);
+  if (!p) return { value: outcomeAllocations, error: "That partner was not found." };
+  return placeAmong(outcomeAllocations, commitments, outcomes, fw, commitmentKey, (o) => o.projectId === projectId, p.name, at, policy);
 }
 
 // The shared part: put one gift into one of the beneficiaries that fit, chosen as in automatic allocation. A gift already placed is moved.
-function placeAmong(allocations: Allocation[], commitments: Commitment[], outcomes: Outcome[], fw: FrameworkTemplate[], commitmentKey: string, fits: (o: Outcome) => boolean, where: string, at: string, policy?: Policy): Changed<Allocation[]> {
+function placeAmong(outcomeAllocations: OutcomeAllocation[], commitments: Commitment[], outcomes: Outcome[], fw: FrameworkTemplate[], commitmentKey: string, fits: (o: Outcome) => boolean, where: string, at: string, policy?: Policy): Changed<OutcomeAllocation[]> {
   const c = commitments.find((x) => x.subscriptionId === commitmentKey);
-  if (!c) return { value: allocations, error: "That gift was not found." };
-  if (!asksForPlace(c, fw, policy)) return { value: allocations, error: "That gift no longer asks to be allocated: it is cancelled, fully paid, or unpaid beyond the grace days." };
+  if (!c) return { value: outcomeAllocations, error: "That gift was not found." };
+  if (!asksForPlace(c, fw, policy)) return { value: outcomeAllocations, error: "That gift no longer asks to be allocated: it is cancelled, fully paid, or unpaid beyond the grace days." };
   const candidates = outcomes.filter((o) => o.active && o.frameworkId === c.frameworkId && fits(o));
-  const others = allocations.filter((a) => a.commitmentKey !== commitmentKey);
+  const others = outcomeAllocations.filter((a) => a.commitmentKey !== commitmentKey);
   const live = new Set(commitments.filter((x) => takesCapacity(x, fw)).map((x) => x.subscriptionId));
   const used = new Map<string, number>();
   for (const a of others) if (live.has(a.commitmentKey)) used.set(a.outcomeId, (used.get(a.outcomeId) ?? 0) + a.parts);
   const target = pickOutcome(candidates, fw, used, c.partsPerInstalment);
-  if (!target) return { value: allocations, error: `${where} has no room for ${c.partsPerInstalment} part${c.partsPerInstalment === 1 ? "" : "s"} of this kind.` };
+  if (!target) return { value: outcomeAllocations, error: `${where} has no room for ${c.partsPerInstalment} part${c.partsPerInstalment === 1 ? "" : "s"} of this kind.` };
   return { value: [...others, { commitmentKey, outcomeId: target.id, parts: c.partsPerInstalment, how: "manual", at }] };
 }
 
@@ -791,17 +791,17 @@ export function adoptLegacy(outcomes: Outcome[], projects: Project[], projectId:
 }
 
 // Rule: remove every beneficiary that belongs to no partner, and release the gifts that were allocated to them, so the next allocation places those gifts again.
-export function clearLegacy(outcomes: Outcome[], allocations: Allocation[]): { outcomes: Outcome[]; allocations: Allocation[]; removed: number; released: number } {
+export function clearLegacy(outcomes: Outcome[], outcomeAllocations: OutcomeAllocation[]): { outcomes: Outcome[]; outcomeAllocations: OutcomeAllocation[]; removed: number; released: number } {
   const gone = new Set(outcomes.filter(isLegacy).map((o) => o.id));
-  const kept = allocations.filter((a) => !gone.has(a.outcomeId));
-  return { outcomes: outcomes.filter((o) => !gone.has(o.id)), allocations: kept, removed: gone.size, released: allocations.length - kept.length };
+  const kept = outcomeAllocations.filter((a) => !gone.has(a.outcomeId));
+  return { outcomes: outcomes.filter((o) => !gone.has(o.id)), outcomeAllocations: kept, removed: gone.size, released: outcomeAllocations.length - kept.length };
 }
 
 // Where automatic allocation would put each waiting gift, shown as a suggestion. Nothing is changed.
-export function suggestions(commitments: Commitment[], outcomes: Outcome[], fw: FrameworkTemplate[], allocations: Allocation[], opts: AllocOptions): Map<string, string> {
-  const before = new Set(allocations.map((a) => a.commitmentKey));
-  const r = autoAllocate(commitments, outcomes, fw, allocations, "", opts);
-  return new Map(r.allocations.filter((a) => !before.has(a.commitmentKey)).map((a) => [a.commitmentKey, a.outcomeId]));
+export function suggestions(commitments: Commitment[], outcomes: Outcome[], fw: FrameworkTemplate[], outcomeAllocations: OutcomeAllocation[], opts: AllocOptions): Map<string, string> {
+  const before = new Set(outcomeAllocations.map((a) => a.commitmentKey));
+  const r = autoAllocate(commitments, outcomes, fw, outcomeAllocations, "", opts);
+  return new Map(r.outcomeAllocations.filter((a) => !before.has(a.commitmentKey)).map((a) => [a.commitmentKey, a.outcomeId]));
 }
 
 // ---- Projects: what a donor chooses, and which partners deliver it (DECISIONS 76) ----

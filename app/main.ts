@@ -47,7 +47,7 @@ import { clusterStateOf } from "../modules/06-projects/clusters";
 import { closedClusters, clusterUi } from "./clusters-tab";
 import { benefitRow, NEW_CONTACT_ROW, NEW_DOC_ROW, readPartnerForm } from "./partner-form";
 import { partnerWindowHtml, type PartnerTab } from "./partner-window";
-import { addOutcomes, autoAllocate, perPeriodRule, releaseApprovals, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, type Allocation, type Outcome } from "../modules/05-outcomes/outcomes";
+import { addOutcomes, autoAllocate, perPeriodRule, releaseApprovals, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, type OutcomeAllocation, type Outcome } from "../modules/05-outcomes/outcomes";
 import { allocatable } from "../modules/04b-commitments/commitments";
 import { filterWorkOrders, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { planWorkOrders, type ReviewItem, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
@@ -122,7 +122,7 @@ const state = {
   selected: [] as string[], // work orders ticked for a bulk exclude or restore
   openAttn: [] as string[], // Needs attention entries whose lines are open
   outcomes: [] as Outcome[], // what gifts are allocated to (DECISIONS 61)
-  allocations: [] as Allocation[],
+  outcomeAllocations: [] as OutcomeAllocation[],
   projects: [] as Project[], // the projects and the places in them (DECISIONS 65)
   nodes: [] as Node[],
   giftProjects: [] as GiftProject[], // the projects donors choose, and the partners that deliver them (DECISIONS 76)
@@ -210,7 +210,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
-    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.allocations = o.allocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.itemUnits = o.itemUnits ?? state.itemUnits; state.enrolments = o.enrolments ?? state.enrolments; state.assignments = o.assignments ?? state.assignments; state.placements = o.placements ?? state.placements; state.itemIcons = o.itemIcons ?? state.itemIcons; }).catch(() => undefined);
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.outcomeAllocations = o.outcomeAllocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.itemUnits = o.itemUnits ?? state.itemUnits; state.enrolments = o.enrolments ?? state.enrolments; state.assignments = o.assignments ?? state.assignments; state.placements = o.placements ?? state.placements; state.itemIcons = o.itemIcons ?? state.itemIcons; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
     state.message = "";
   } catch (e) {
@@ -286,7 +286,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, confirmations: state.confirmations, progress: state.progress, prgFilter: state.prgFilter, assignFilter: state.assignFilter, placements: state.placements, allocFilter: state.allocFilter, cnfFilter: state.cnfFilter, pjFilter: state.pjFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, confirmations: state.confirmations, progress: state.progress, prgFilter: state.prgFilter, assignFilter: state.assignFilter, placements: state.placements, allocFilter: state.allocFilter, cnfFilter: state.cnfFilter, pjFilter: state.pjFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, outcomeAllocations: state.outcomeAllocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, itemUnits: state.itemUnits, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, ...(state.me?.logins ? { logins: state.me.logins } : {}), attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -311,7 +311,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
     if (state.live()) {
       const r = await changeOutcomes(body);
       state.outcomes = r.outcomes;
-      state.allocations = r.allocations;
+      state.outcomeAllocations = r.outcomeAllocations;
       state.projects = r.projects ?? state.projects;
       state.giftProjects = r.giftProjects ?? state.giftProjects;
       state.nodes = r.nodes ?? state.nodes;
@@ -360,14 +360,14 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       else switch (body["action"]) {
         case "add": { const r = addOutcomes(state.outcomes, { name: str("name"), count: Number(body["count"] ?? 1), type: str("type"), cohort: str("cohort"), frameworkId: str("frameworkId") }); if (!state.frameworks.some((f) => f.id === str("frameworkId"))) error = "Choose a framework for the outcome."; else if (r.error) error = r.error; else state.outcomes = r.value; break; }
         case "active": state.outcomes = setActive(state.outcomes, str("id"), body["active"] === true); break;
-        case "remove": { const r = removeOutcome(state.outcomes, state.allocations, str("id")); if (r.error) error = r.error; else state.outcomes = r.value; break; }
-        case "auto": { const r = autoAllocate(commitments, state.outcomes, state.frameworks, state.allocations, at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects)); state.allocations = r.allocations; state.message = `Allocated ${r.placed}, released ${r.released}, ${r.unplaced.length} waiting.`; break; }
-        case "move": { const r = moveAllocation(state.allocations, commitments, state.outcomes, state.frameworks, str("commitmentKey"), str("outcomeId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
-        case "remove-many": { const r = removeUnused(state.outcomes, state.allocations, Array.isArray(body["ids"]) ? (body["ids"] as string[]) : []); state.outcomes = r.value; state.message = `Removed ${r.removed}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`; break; }
-        case "place-in-node": { const r = placeInNode(state.allocations, commitments, state.outcomes, state.nodes, state.frameworks, str("commitmentKey"), str("nodeId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
-        case "place-in-partner": { const r = placeInPartner(state.allocations, commitments, state.outcomes, state.projects, state.frameworks, str("commitmentKey"), str("projectId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
+        case "remove": { const r = removeOutcome(state.outcomes, state.outcomeAllocations, str("id")); if (r.error) error = r.error; else state.outcomes = r.value; break; }
+        case "auto": { const r = autoAllocate(commitments, state.outcomes, state.frameworks, state.outcomeAllocations, at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects)); state.outcomeAllocations = r.outcomeAllocations; state.message = `Allocated ${r.placed}, released ${r.released}, ${r.unplaced.length} waiting.`; break; }
+        case "move": { const r = moveAllocation(state.outcomeAllocations, commitments, state.outcomes, state.frameworks, str("commitmentKey"), str("outcomeId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.outcomeAllocations = r.value; break; }
+        case "remove-many": { const r = removeUnused(state.outcomes, state.outcomeAllocations, Array.isArray(body["ids"]) ? (body["ids"] as string[]) : []); state.outcomes = r.value; state.message = `Removed ${r.removed}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`; break; }
+        case "place-in-node": { const r = placeInNode(state.outcomeAllocations, commitments, state.outcomes, state.nodes, state.frameworks, str("commitmentKey"), str("nodeId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.outcomeAllocations = r.value; break; }
+        case "place-in-partner": { const r = placeInPartner(state.outcomeAllocations, commitments, state.outcomes, state.projects, state.frameworks, str("commitmentKey"), str("projectId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.outcomeAllocations = r.value; break; }
         case "adopt-legacy": { const r = adoptLegacy(state.outcomes, state.projects, str("projectId")); if (r.error) error = r.error; else { state.outcomes = r.value; state.message = `Moved ${r.moved} into the partner.`; } break; }
-        case "clear-legacy": { const r = clearLegacy(state.outcomes, state.allocations); state.outcomes = r.outcomes; state.allocations = r.allocations; state.message = `Removed ${r.removed} and released ${r.released} gift${r.released === 1 ? "" : "s"}.`; break; }
+        case "clear-legacy": { const r = clearLegacy(state.outcomes, state.outcomeAllocations); state.outcomes = r.outcomes; state.outcomeAllocations = r.outcomeAllocations; state.message = `Removed ${r.removed} and released ${r.released} gift${r.released === 1 ? "" : "s"}.`; break; }
         case "asg-run": case "asg-confirm": case "asg-set": case "asg-unassign": case "asg-reset": { // Assignment (DECISIONS 170): the same pure rule the server uses.
           const wosA = view().workOrders;
           const namesA = new Map(wosA.map((w) => [w.itemId, w.itemName]));
@@ -432,14 +432,14 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         }
         case "set-require-ref": state.requireRef = body["on"] === true; break;
         case "set-grace": { const n = Number(body["days"]); if (!Number.isInteger(n) || n < 0 || n > 90) error = "The grace period is a whole number of days, from 0 to 90."; else state.graceDays = n; break; }
-        case "approve-release": { const due = releaseApprovals(state.allocations, commitments, state.frameworks, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy).find((x) => x.commitmentKey === str("commitmentKey")); if (!due) error = "That release is not due."; else state.allocations = releaseAllocation(state.allocations, due.commitmentKey); break; }
-        case "release": state.allocations = releaseAllocation(state.allocations, str("commitmentKey")); break;
+        case "approve-release": { const due = releaseApprovals(state.outcomeAllocations, commitments, state.frameworks, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy).find((x) => x.commitmentKey === str("commitmentKey")); if (!due) error = "That release is not due."; else state.outcomeAllocations = releaseAllocation(state.outcomeAllocations, due.commitmentKey); break; }
+        case "release": state.outcomeAllocations = releaseAllocation(state.outcomeAllocations, str("commitmentKey")); break;
         case "item-icon": { const icon = str("icon"); const next = { ...state.itemIcons }; if (icon === "") delete next[str("itemId")]; else next[str("itemId")] = icon; state.itemIcons = next; break; }
         case "item-units": { const r = setItemUnits(state.itemUnits, str("itemId"), body["units"]); if ("error" in r) error = r.error; else state.itemUnits = r.value; break; }
         case "item-kind": { const r = setItemKind(state.itemKinds, str("itemId"), str("kind")); if ("error" in r) error = r.error; else state.itemKinds = r.value; break; }
         default: {
           // Projects (DECISIONS 65): the same pure rule the server uses.
-          const r = applyProjectAction({ projects: state.projects, nodes: state.nodes, outcomes: state.outcomes, partnerTypes: state.partnerTypes, partnerFields: state.partnerFields, giftProjects: state.giftProjects }, state.frameworks, body, new Date().toISOString().slice(0, 10), new Set(state.allocations.map((x) => x.outcomeId)), (gpId, clusterId) => heldInCluster(state.enrolments, gpId, clusterId));
+          const r = applyProjectAction({ projects: state.projects, nodes: state.nodes, outcomes: state.outcomes, partnerTypes: state.partnerTypes, partnerFields: state.partnerFields, giftProjects: state.giftProjects }, state.frameworks, body, new Date().toISOString().slice(0, 10), new Set(state.outcomeAllocations.map((x) => x.outcomeId)), (gpId, clusterId) => heldInCluster(state.enrolments, gpId, clusterId));
           if (!r) error = "That request is not understood.";
           else if (r.error) error = r.error;
           else { state.projects = r.state.projects; state.nodes = r.state.nodes; state.outcomes = r.state.outcomes; state.partnerTypes = r.state.partnerTypes; state.partnerFields = r.state.partnerFields; state.giftProjects = r.state.giftProjects; if (r.warning) state.message = r.warning; }
@@ -453,8 +453,8 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         if (poolMessage(pool)) state.message = [state.message, poolMessage(pool)].filter((x) => x).join(" ");
       }
       // Rule (DECISIONS 105): every outcome and allocation has an ID, in the demo too.
-      const refs = ensureRefs({ outcomes: state.outcomes, allocations: state.allocations, counters: state.idCounters }, state.outcomeTypes);
-      state.outcomes = refs.outcomes; state.allocations = refs.allocations; state.idCounters = refs.counters;
+      const refs = ensureRefs({ outcomes: state.outcomes, outcomeAllocations: state.outcomeAllocations, counters: state.idCounters }, state.outcomeTypes);
+      state.outcomes = refs.outcomes; state.outcomeAllocations = refs.outcomeAllocations; state.idCounters = refs.counters;
       lastError = error ?? "";
       state.message = error ?? (body["action"] === "auto" || state.message !== "" ? state.message : "");
     }

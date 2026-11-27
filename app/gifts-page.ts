@@ -250,7 +250,7 @@ function allocationContext(v: View) {
   // The gifts that take a beneficiary place now. Every gift needs allocation, but only these can be allocated to a beneficiary yet (sponsorships first, other kinds later).
   const keys = new Set(allocatable(v.workOrders, perPeriodRule(fws), today).filter((c) => takesCapacity(c, fws)).map((x) => x.subscriptionId));
   const outcomeById = new Map((v.outcomes ?? []).map((o) => [o.id, o]));
-  const allocationOf = new Map((v.allocations ?? []).map((a) => [a.commitmentKey, a]));
+  const allocationOf = new Map((v.outcomeAllocations ?? []).map((a) => [a.commitmentKey, a]));
   const partnerName = (id: string | undefined) => (v.projects ?? []).find((p) => p.id === id)?.name ?? "";
   // Where a gift is allocated: the beneficiary and its partner, or why it is not.
   // Rule (DECISIONS 113): a gift marked manual (a custom amount, or marked by a person) is not waiting for the system. A person allocates it.

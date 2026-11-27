@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
-import type { Allocation } from "../05-outcomes/outcomes";
+import type { OutcomeAllocation } from "../05-outcomes/outcomes";
 import type { Commitment } from "../04b-commitments/commitments";
 import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, applyProjectAction, crmMatchNames, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
 
@@ -126,7 +126,7 @@ describe("beneficiaries and the roll-up", () => {
     const kids = addBeneficiaries([], projects, nodes, { projectId: pid, nodeId: nodes[2]!.id, typeId: "child", name: "Orphan", count: 2 }).value;
     const teacher = addBeneficiaries(kids, projects, nodes, { projectId: pid, nodeId: nodes[0]!.id, typeId: "teacher", name: "Teacher", count: 2 }).value;
     const c = { subscriptionId: "S1", frameworkId: "shared", partsPerInstalment: 3, state: "in_progress", planStatus: "" } as unknown as Commitment;
-    const alloc: Allocation[] = [{ commitmentKey: "S1", outcomeId: teacher[0]!.id, parts: 3, how: "auto", at: "x" }];
+    const alloc: OutcomeAllocation[] = [{ commitmentKey: "S1", outcomeId: teacher[0]!.id, parts: 3, how: "auto", at: "x" }];
     const r = rollupOf(nodes, teacher, FW, alloc, [c]);
     expect(r.byNode.get(nodes[2]!.id)).toEqual({ places: 6, used: 3, beneficiaries: 2 });
     expect(r.byNode.get(nodes[1]!.id)).toEqual({ places: 6, used: 3, beneficiaries: 2 });
@@ -148,7 +148,7 @@ describe("the allocation summary, suggestions, and placing a gift by hand (DECIS
   it("totals each project, with waiting gifts directed to it and general ones counted on their own", () => {
     const { projects, kids, opts } = world();
     const gifts = [gift("1", 3, "Aghosh"), gift("2", 3, "Aghosh"), gift("3", 3, "Aghosh"), gift("4", 1, "Where Needed Most")];
-    const alloc: Allocation[] = [{ commitmentKey: "1", outcomeId: kids[0]!.id, parts: 3, how: "auto", at: "x" }];
+    const alloc: OutcomeAllocation[] = [{ commitmentKey: "1", outcomeId: kids[0]!.id, parts: 3, how: "auto", at: "x" }];
     const sum = allocationSummary(projects, kids, FW, alloc, gifts, opts);
     expect(sum.rows[0]).toMatchObject({ name: "Aghosh Orphan Homes", beneficiaries: 2, capacity: 6, used: 3, free: 3, waitingParts: 6, inGrace: 0, releaseDue: 0 });
     expect(sum.generalWaiting).toEqual({ gifts: 1, parts: 1 });
@@ -158,7 +158,7 @@ describe("the allocation summary, suggestions, and placing a gift by hand (DECIS
     const { projects, kids, opts } = world();
     const late = gift("1", 3, "Aghosh", { planStatus: "active", nextDue: "2026-11-10", planned: 12, planPaid: 2 }); // 10 days
     const lapsed = gift("2", 3, "Aghosh", { planStatus: "active", nextDue: "2026-10-01", planned: 12, planPaid: 2 }); // 50 days
-    const alloc: Allocation[] = [{ commitmentKey: "1", outcomeId: kids[0]!.id, parts: 3, how: "auto", at: "x" }, { commitmentKey: "2", outcomeId: kids[1]!.id, parts: 3, how: "auto", at: "x" }];
+    const alloc: OutcomeAllocation[] = [{ commitmentKey: "1", outcomeId: kids[0]!.id, parts: 3, how: "auto", at: "x" }, { commitmentKey: "2", outcomeId: kids[1]!.id, parts: 3, how: "auto", at: "x" }];
     expect(allocationSummary(projects, kids, FW, alloc, [late, lapsed], opts).rows[0]).toMatchObject({ inGrace: 1, releaseDue: 1, used: 6 });
   });
   it("suggests where each waiting gift would go, without changing anything", () => {

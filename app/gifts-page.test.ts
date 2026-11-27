@@ -79,10 +79,10 @@ describe("giftsPage", () => {
     const orders = [1, 2].map((n) => sub(n, { frameworkId: "sponsorship-shared-parts", planStatus: "active", planNextDue: "2026-12-10", planPaid: 2 }));
     const outcomes = [{ id: "orphan-1", name: "Orphan 1", type: "child", cohort: "", frameworkId: "sponsorship-shared-parts", active: true, projectId: "p1" }];
     const partners = [{ id: "p1", name: "Aghosh", aliases: [], levels: [], types: [] }];
-    const placed = giftListHtml(view({ workOrders: orders, frameworks: fws, outcomes, projects: partners, allocations: [{ commitmentKey: "S9", outcomeId: "orphan-1", parts: 1, how: "auto", at: "t" }] }));
+    const placed = giftListHtml(view({ workOrders: orders, frameworks: fws, outcomes, projects: partners, outcomeAllocations: [{ commitmentKey: "S9", outcomeId: "orphan-1", parts: 1, how: "auto", at: "t" }] }));
     expect(placed).toContain("Orphan 1");
     expect(placed).toContain("Aghosh");
-    expect(giftListHtml(view({ workOrders: orders, frameworks: fws, outcomes, projects: partners, allocations: [] }))).toContain("Waiting for allocation");
+    expect(giftListHtml(view({ workOrders: orders, frameworks: fws, outcomes, projects: partners, outcomeAllocations: [] }))).toContain("Waiting for allocation");
     expect(giftListHtml(view({ workOrders: orders.map((w) => ({ ...w, frameworkId: "" })), frameworks: fws }))).toContain("It needs a workflow first");
     // a paused plan stays parked and says so, and a cancelled one is parked as cancelled (DECISIONS 102)
     expect(giftListHtml(view({ workOrders: orders.map((w) => ({ ...w, planStatus: "paused" })), frameworks: fws }))).toContain("Plan paused, parked until payments resume");

@@ -21,7 +21,7 @@ import type { ProjectFilter } from "./projects-page";
 import type { Placements } from "../modules/09-placement/placement";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { partsOf } from "../modules/01c-crm-connector/work-orders";
-import type { Allocation, Outcome } from "../modules/05-outcomes/outcomes";
+import type { OutcomeAllocation, Outcome } from "../modules/05-outcomes/outcomes";
 import type { GiftProject, Node, Project } from "../modules/06-projects/projects";
 import type { BenFilter } from "./beneficiaries-page";
 import { shortDate, shortDateTime } from "./dates";
@@ -47,7 +47,7 @@ export interface View {
   selected?: string[]; // work order keys ticked for a bulk exclude or restore (DECISIONS 49)
   openAttn?: string[]; // Needs attention entries whose lines are open
   outcomes?: Outcome[]; // what gifts are allocated to (DECISIONS 61)
-  allocations?: Allocation[];
+  outcomeAllocations?: OutcomeAllocation[];
   today?: string; // today as YYYY-MM-DD, so the month by month view can be drawn and tested for any date
   requireRef?: boolean; // place gifts only on beneficiaries that have an ID (DECISIONS 75)
   graceDays?: number; // days a payment may be unpaid before the place may be released (DECISIONS 74)

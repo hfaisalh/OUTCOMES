@@ -38,7 +38,7 @@ export interface Outcome {
   ref?: string; // its own ID in the organisation's records, such as the child ID. Unique. Gifts can be placed only on beneficiaries that have one, if the organisation asks for it (DECISIONS 75)
 }
 
-export interface Allocation {
+export interface OutcomeAllocation {
   ref?: string; // its ID, a prefix and a number such as AL-0012 (DECISIONS 105)
   commitmentKey: string; // the subscription id, or "once-" and the line id for a one-off payment
   outcomeId: string;
@@ -113,9 +113,9 @@ export interface ReleaseApproval {
 }
 
 // Rule (DECISIONS 74): the places a manager may release: allocated, and unpaid beyond the grace days. Most overdue first.
-export function releaseApprovals(allocations: Allocation[], commitments: Commitment[], fw: FrameworkTemplate[], policy: Policy): ReleaseApproval[] {
+export function releaseApprovals(outcomeAllocations: OutcomeAllocation[], commitments: Commitment[], fw: FrameworkTemplate[], policy: Policy): ReleaseApproval[] {
   const byKey = new Map(commitments.filter((c) => takesCapacity(c, fw)).map((c) => [c.subscriptionId, c]));
-  return allocations
+  return outcomeAllocations
     .flatMap((a) => { const c = byKey.get(a.commitmentKey); return c && releaseDue(c, policy) ? [{ commitmentKey: a.commitmentKey, outcomeId: a.outcomeId, parts: a.parts, daysOverdue: daysOverdue(c, policy.today) }] : []; })
     .sort((x, y) => y.daysOverdue - x.daysOverdue);
 }
@@ -150,10 +150,10 @@ export function holdingReport(commitments: Commitment[], fw: FrameworkTemplate[]
 }
 
 // How full one outcome is, from the allocations that are still live.
-export function fillOf(o: Outcome, fw: FrameworkTemplate[], allocations: Allocation[], commitments: Commitment[], policy?: Policy): Fill {
+export function fillOf(o: Outcome, fw: FrameworkTemplate[], outcomeAllocations: OutcomeAllocation[], commitments: Commitment[], policy?: Policy): Fill {
   const capacity = capacityOf(o, fw);
   const live = new Set(commitments.filter((c) => takesCapacity(c, fw)).map((c) => c.subscriptionId));
-  const used = allocations.filter((a) => a.outcomeId === o.id && live.has(a.commitmentKey)).reduce((n, a) => n + a.parts, 0);
+  const used = outcomeAllocations.filter((a) => a.outcomeId === o.id && live.has(a.commitmentKey)).reduce((n, a) => n + a.parts, 0);
   const free = Math.max(capacity - used, 0);
   const state: Availability = !o.active ? "inactive" : used >= capacity && capacity > 0 ? "full" : used > 0 ? "part" : "open";
   return { capacity, used, free, state };
@@ -191,16 +191,16 @@ function nextNumber(outcomes: Outcome[], base: string): number {
 export const setActive = (outcomes: Outcome[], id: string, active: boolean): Outcome[] => outcomes.map((o) => (o.id === id ? { ...o, active } : o));
 
 // Rule: an outcome with live allocations cannot be removed, so nothing is orphaned. Say how many.
-export function removeOutcome(outcomes: Outcome[], allocations: Allocation[], id: string): Changed<Outcome[]> {
-  const n = allocations.filter((a) => a.outcomeId === id).length;
+export function removeOutcome(outcomes: Outcome[], outcomeAllocations: OutcomeAllocation[], id: string): Changed<Outcome[]> {
+  const n = outcomeAllocations.filter((a) => a.outcomeId === id).length;
   if (n > 0) return { value: outcomes, error: `${n} commitment${n === 1 ? " is" : "s are"} allocated to this outcome. Move ${n === 1 ? "it" : "them"} first.` };
   return { value: outcomes.filter((o) => o.id !== id) };
 }
 
 // Rule: remove many at once, only those with no allocations at all. Ones that hold something stay, and the count of those is reported.
-export function removeUnused(outcomes: Outcome[], allocations: Allocation[], ids: string[]): { value: Outcome[]; removed: number; kept: number } {
+export function removeUnused(outcomes: Outcome[], outcomeAllocations: OutcomeAllocation[], ids: string[]): { value: Outcome[]; removed: number; kept: number } {
   const want = new Set(ids);
-  const held = new Set(allocations.map((a) => a.outcomeId));
+  const held = new Set(outcomeAllocations.map((a) => a.outcomeId));
   const drop = new Set(outcomes.filter((o) => want.has(o.id) && !held.has(o.id)).map((o) => o.id));
   return { value: outcomes.filter((o) => !drop.has(o.id)), removed: drop.size, kept: want.size - drop.size };
 }
@@ -208,7 +208,7 @@ export function removeUnused(outcomes: Outcome[], allocations: Allocation[], ids
 // ---- Allocation ----
 
 export interface AutoResult {
-  allocations: Allocation[];
+  outcomeAllocations: OutcomeAllocation[];
   placed: number; // commitments newly allocated
   released: number; // allocations dropped because their outcome is inactive, gone, or the commitment no longer holds capacity
   unplaced: { commitmentKey: string; why: string }[]; // commitments that take capacity but found none, with the reason
@@ -253,12 +253,12 @@ export function pickOutcome(candidates: Outcome[], fw: FrameworkTemplate[], used
  * unallocated commitment, oldest first. A gift whose project matches a project here is **directed** and can only go to that project, and
  * waits when it is full. Any other gift is **general** and can go to any project's places. A commitment already allocated and still valid is never moved.
  */
-export function autoAllocate(commitments: Commitment[], outcomes: Outcome[], fw: FrameworkTemplate[], allocations: Allocation[], at: string, opts: AllocOptions = {}): AutoResult {
+export function autoAllocate(commitments: Commitment[], outcomes: Outcome[], fw: FrameworkTemplate[], outcomeAllocations: OutcomeAllocation[], at: string, opts: AllocOptions = {}): AutoResult {
   const byId = new Map(outcomes.map((o) => [o.id, o]));
   const holding = new Map(commitments.filter((c) => takesCapacity(c, fw)).map((c) => [c.subscriptionId, c])); // a plan that is behind keeps its place until a manager approves the release
   const asking = new Map([...holding].filter(([, c]) => asksForPlace(c, fw, opts.policy)));
-  const kept = allocations.filter((a) => byId.get(a.outcomeId)?.active === true && holding.has(a.commitmentKey));
-  const released = allocations.length - kept.length;
+  const kept = outcomeAllocations.filter((a) => byId.get(a.outcomeId)?.active === true && holding.has(a.commitmentKey));
+  const released = outcomeAllocations.length - kept.length;
   const next = [...kept];
   const placedKeys = new Set(next.map((a) => a.commitmentKey));
   const used = new Map<string, number>();
@@ -291,24 +291,24 @@ export function autoAllocate(commitments: Commitment[], outcomes: Outcome[], fw:
     used.set(target.id, (used.get(target.id) ?? 0) + c.partsPerInstalment);
     placed++;
   }
-  return { allocations: next, placed, released, unplaced };
+  return { outcomeAllocations: next, placed, released, unplaced };
 }
 
 // Rule: reallocation at a donor's request. Move one commitment to another active outcome with the same framework and room for it.
-export function moveAllocation(allocations: Allocation[], commitments: Commitment[], outcomes: Outcome[], fw: FrameworkTemplate[], commitmentKey: string, outcomeId: string, at: string, policy?: Policy): Changed<Allocation[]> {
+export function moveAllocation(outcomeAllocations: OutcomeAllocation[], commitments: Commitment[], outcomes: Outcome[], fw: FrameworkTemplate[], commitmentKey: string, outcomeId: string, at: string, policy?: Policy): Changed<OutcomeAllocation[]> {
   const c = commitments.find((x) => x.subscriptionId === commitmentKey);
   const to = outcomes.find((o) => o.id === outcomeId);
-  if (!c) return { value: allocations, error: "That commitment was not found." };
-  if (!to || !to.active) return { value: allocations, error: "Choose an active outcome." };
-  if (to.frameworkId !== c.frameworkId) return { value: allocations, error: "That outcome uses a different framework." };
-  const others = allocations.filter((a) => a.commitmentKey !== commitmentKey);
+  if (!c) return { value: outcomeAllocations, error: "That commitment was not found." };
+  if (!to || !to.active) return { value: outcomeAllocations, error: "Choose an active outcome." };
+  if (to.frameworkId !== c.frameworkId) return { value: outcomeAllocations, error: "That outcome uses a different framework." };
+  const others = outcomeAllocations.filter((a) => a.commitmentKey !== commitmentKey);
   const fill = fillOf(to, fw, others, commitments, policy);
-  if (fill.free < c.partsPerInstalment) return { value: allocations, error: `${to.name} has no room for ${c.partsPerInstalment} part${c.partsPerInstalment === 1 ? "" : "s"}.` };
+  if (fill.free < c.partsPerInstalment) return { value: outcomeAllocations, error: `${to.name} has no room for ${c.partsPerInstalment} part${c.partsPerInstalment === 1 ? "" : "s"}.` };
   return { value: [...others, { commitmentKey, outcomeId, parts: c.partsPerInstalment, how: "manual", at }] };
 }
 
 // Rule: release one allocation, so the next automatic allocation places the commitment again.
-export const releaseAllocation = (allocations: Allocation[], commitmentKey: string): Allocation[] => allocations.filter((a) => a.commitmentKey !== commitmentKey);
+export const releaseAllocation = (outcomeAllocations: OutcomeAllocation[], commitmentKey: string): OutcomeAllocation[] => outcomeAllocations.filter((a) => a.commitmentKey !== commitmentKey);
 
 // ---- The month by month view (DECISIONS 62) ----
 
@@ -353,10 +353,10 @@ export interface MonthSlots {
 }
 
 // Rule: the row for one outcome. Its capacity is a number of slots, filled in order by the live allocations, and each slot takes the status of its commitment in each month.
-export function timelineOf(o: Outcome, fw: FrameworkTemplate[], allocations: Allocation[], commitments: Commitment[], months: string[], today: string, policy?: Policy): MonthSlots[] {
+export function timelineOf(o: Outcome, fw: FrameworkTemplate[], outcomeAllocations: OutcomeAllocation[], commitments: Commitment[], months: string[], today: string, policy?: Policy): MonthSlots[] {
   const byKey = new Map(commitments.filter((c) => takesCapacity(c, fw)).map((c) => [c.subscriptionId, c]));
   const slots: (Commitment | null)[] = [];
-  for (const a of allocations.filter((x) => x.outcomeId === o.id).sort((x, y) => x.commitmentKey.localeCompare(y.commitmentKey))) {
+  for (const a of outcomeAllocations.filter((x) => x.outcomeId === o.id).sort((x, y) => x.commitmentKey.localeCompare(y.commitmentKey))) {
     const c = byKey.get(a.commitmentKey);
     if (c) for (let i = 0; i < a.parts; i++) slots.push(c);
   }

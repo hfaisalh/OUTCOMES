@@ -8,11 +8,11 @@
 
 import { describe, expect, it } from "vitest";
 import { addOutcomeType, setPrefix, starterOutcomeTypes, type OutcomeType } from "./outcome-types";
-import type { Allocation, Outcome } from "./outcomes";
+import type { OutcomeAllocation, Outcome } from "./outcomes";
 import { cleanPrefix, defaultPrefix, ensureRefs, nextRef, validPrefix, withPrefixes } from "./refs";
 
 const out = (id: string, over: Partial<Outcome> = {}): Outcome => ({ id, name: id, type: "orphan", cohort: "", frameworkId: "f", active: true, ...over });
-const alloc = (key: string, over: Partial<Allocation> = {}): Allocation => ({ commitmentKey: key, outcomeId: "x", parts: 1, how: "auto", at: "t", ...over });
+const alloc = (key: string, over: Partial<OutcomeAllocation> = {}): OutcomeAllocation => ({ commitmentKey: key, outcomeId: "x", parts: 1, how: "auto", at: "t", ...over });
 const ok = (r: { types: OutcomeType[] } | { error: string }): OutcomeType[] => { if ("error" in r) throw new Error(r.error); return r.types; };
 
 describe("prefixes", () => {
@@ -49,15 +49,15 @@ describe("IDs", () => {
   });
   it("gives every outcome and allocation without an ID one, from its type, and the child type to older outcomes", () => {
     const types = starterOutcomeTypes();
-    const r = ensureRefs({ outcomes: [out("a"), out("b"), out("p", { outcomeTypeId: "water-pump" })], allocations: [alloc("S1"), alloc("S2")], counters: {} }, types);
+    const r = ensureRefs({ outcomes: [out("a"), out("b"), out("p", { outcomeTypeId: "water-pump" })], outcomeAllocations: [alloc("S1"), alloc("S2")], counters: {} }, types);
     expect(r.outcomes.map((o) => o.ref)).toEqual(["ORP-0001", "ORP-0002", "PMP-0001"]);
     expect(r.outcomes[0]?.outcomeTypeId).toBe("orphan");
-    expect(r.allocations.map((a) => a.ref)).toEqual(["AL-0001", "AL-0002"]);
+    expect(r.outcomeAllocations.map((a) => a.ref)).toEqual(["AL-0001", "AL-0002"]);
     expect(r.changed).toBe(true);
   });
   it("is steady: running it again changes nothing, and nothing is given twice", () => {
     const types = starterOutcomeTypes();
-    const first = ensureRefs({ outcomes: [out("a")], allocations: [alloc("S1")], counters: {} }, types);
+    const first = ensureRefs({ outcomes: [out("a")], outcomeAllocations: [alloc("S1")], counters: {} }, types);
     const again = ensureRefs(first, types);
     expect(again.changed).toBe(false);
     expect(again.outcomes).toEqual(first.outcomes);
@@ -67,21 +67,21 @@ describe("IDs", () => {
   });
   it("keeps a typed or bulk assigned ID, raises the counter past it, and never repeats it", () => {
     const types = starterOutcomeTypes();
-    const r = ensureRefs({ outcomes: [out("a", { ref: "ORP-0007" }), out("b")], allocations: [], counters: {} }, types);
+    const r = ensureRefs({ outcomes: [out("a", { ref: "ORP-0007" }), out("b")], outcomeAllocations: [], counters: {} }, types);
     expect(r.outcomes.map((o) => o.ref)).toEqual(["ORP-0007", "ORP-0008"]);
     // an ID from another scheme is kept as it is
-    expect(ensureRefs({ outcomes: [out("a", { ref: "HYS-12" })], allocations: [], counters: {} }, types).outcomes[0]?.ref).toBe("HYS-12");
+    expect(ensureRefs({ outcomes: [out("a", { ref: "HYS-12" })], outcomeAllocations: [], counters: {} }, types).outcomes[0]?.ref).toBe("HYS-12");
   });
   it("changing a prefix changes new IDs only", () => {
     const types = starterOutcomeTypes();
-    const first = ensureRefs({ outcomes: [out("a")], allocations: [], counters: {} }, types);
+    const first = ensureRefs({ outcomes: [out("a")], outcomeAllocations: [], counters: {} }, types);
     const renamed = ok(setPrefix(types, "orphan", "KID"));
     const next = ensureRefs({ ...first, outcomes: [...first.outcomes, out("b")] }, renamed);
     expect(next.outcomes.map((o) => o.ref)).toEqual(["ORP-0001", "KID-0001"]);
   });
   it("uses the type that has the outcome's framework", () => {
     const types = starterOutcomeTypes().map((t) => (t.id === "water-pump" ? { ...t, frameworkIds: ["delivered-once"] } : t));
-    const r = ensureRefs({ outcomes: [out("p", { frameworkId: "delivered-once" })], allocations: [], counters: {} }, types);
+    const r = ensureRefs({ outcomes: [out("p", { frameworkId: "delivered-once" })], outcomeAllocations: [], counters: {} }, types);
     expect(r.outcomes[0]).toMatchObject({ outcomeTypeId: "water-pump", ref: "PMP-0001" });
   });
 });

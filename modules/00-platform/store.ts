@@ -13,7 +13,7 @@
 
 import { MWF_CRM_CONFIG, type FeedConfig } from "../01c-crm-connector/feed.js";
 import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js";
-import type { Allocation, Outcome } from "../05-outcomes/outcomes.js";
+import type { OutcomeAllocation, Outcome } from "../05-outcomes/outcomes.js";
 import type { OutcomeType } from "../05-outcomes/outcome-types.js";
 import type { GiftProject, Node, Project } from "../06-projects/projects.js";
 import type { Register } from "../07-beneficiaries/beneficiaries.js";
@@ -41,7 +41,7 @@ export interface OrgConfig {
   frameworks?: FrameworkTemplate[]; // framework templates (DECISIONS 59). Absent in a setup saved before them
   itemFramework?: Record<string, string>; // an item's own framework, only where it differs from its category
   outcomes?: Outcome[]; // what gifts are allocated to (DECISIONS 61). Kept in the setup for now, to move to their own table when there are many
-  allocations?: Allocation[];
+  outcomeAllocations?: OutcomeAllocation[];
   giftProjects?: GiftProject[]; // the projects donors choose, and the partners that deliver them (DECISIONS 76)
   kindFeatures?: Record<string, unknown>; // the features of each kind a person has changed, by kind id. Absent: the defaults (DECISIONS 146)
   itemUnits?: Record<string, number>; // the units that make one whole beneficiary, by item id. Absent: the workflow's (DECISIONS 188)

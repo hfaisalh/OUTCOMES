@@ -14,7 +14,7 @@
  */
 
 import type { OutcomeType } from "./outcome-types.js";
-import type { Allocation, Outcome } from "./outcomes.js";
+import type { OutcomeAllocation, Outcome } from "./outcomes.js";
 
 export const DEFAULT_ALLOCATION_PREFIX = "AL";
 export type RefCounters = Record<string, number>;
@@ -59,7 +59,7 @@ export function nextRef(prefix: string, counters: RefCounters, used: Set<string>
 
 export interface RefState {
   outcomes: Outcome[];
-  allocations: Allocation[];
+  outcomeAllocations: OutcomeAllocation[];
   counters: RefCounters;
 }
 
@@ -72,7 +72,7 @@ export function ensureRefs(s: RefState, types: OutcomeType[], allocationPrefix =
   const withP = withPrefixes(types);
   const prefixOf = (typeId: string): string => withP.find((t) => t.id === typeId)?.prefix ?? "OUT";
   const fallbackType = withP.find((t) => t.id === "orphan")?.id ?? withP.find((t) => t.id === "child")?.id ?? withP[0]?.id ?? "";
-  const used = new Set<string>([...s.outcomes.map((o) => o.ref ?? ""), ...s.allocations.map((a) => a.ref ?? "")].filter((x) => x !== ""));
+  const used = new Set<string>([...s.outcomes.map((o) => o.ref ?? ""), ...s.outcomeAllocations.map((a) => a.ref ?? "")].filter((x) => x !== ""));
   let counters: RefCounters = { ...s.counters };
   const prefixes = [...withP.map((t) => t.prefix as string), allocationPrefix];
   for (const p of prefixes) {
@@ -91,7 +91,7 @@ export function ensureRefs(s: RefState, types: OutcomeType[], allocationPrefix =
     used.add(n.ref);
     return { ...o, outcomeTypeId: typeId, ref: n.ref };
   });
-  const allocations = s.allocations.map((a) => {
+  const outcomeAllocations = s.outcomeAllocations.map((a) => {
     if (a.ref) return a;
     changed = true;
     const n = nextRef(allocationPrefix, counters, used);
@@ -99,5 +99,5 @@ export function ensureRefs(s: RefState, types: OutcomeType[], allocationPrefix =
     used.add(n.ref);
     return { ...a, ref: n.ref };
   });
-  return { outcomes, allocations, counters, changed: changed || JSON.stringify(counters) !== JSON.stringify(s.counters) };
+  return { outcomes, outcomeAllocations, counters, changed: changed || JSON.stringify(counters) !== JSON.stringify(s.counters) };
 }

@@ -15,7 +15,7 @@ import type { RunInfo } from "../modules/00-platform/store";
 import type { AttentionItem } from "../modules/04-triage/triage";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import type { CompactFeed } from "../modules/01e-crm-export-adapter/compact";
-import type { Allocation, Outcome } from "../modules/05-outcomes/outcomes";
+import type { OutcomeAllocation, Outcome } from "../modules/05-outcomes/outcomes";
 import type { OutcomeType } from "../modules/05-outcomes/outcome-types";
 import type { Category, FrameworkTemplate, ItemMap } from "../modules/02-project-rules/categories";
 import type { Register } from "../modules/07-beneficiaries/beneficiaries";
@@ -96,7 +96,7 @@ export const setExcluded = (keys: string[], action: "exclude" | "restore", reaso
 
 export interface OutcomesReply {
   outcomes: Outcome[];
-  allocations: Allocation[];
+  outcomeAllocations: OutcomeAllocation[];
   projects?: Project[];
   giftProjects?: GiftProject[];
   nodes?: Node[];

@@ -21,7 +21,7 @@ export function partnersPage(v: View): string {
   const fws = v.frameworks ?? [];
   const today = v.today ?? "2026-01-01";
   const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
-  const roll = rollupOf(nodes, outcomes, fws, v.allocations ?? [], commitments, allocOptions(partners, v.graceDays, today, v.requireRef === true, v.giftProjects ?? []).policy);
+  const roll = rollupOf(nodes, outcomes, fws, v.outcomeAllocations ?? [], commitments, allocOptions(partners, v.graceDays, today, v.requireRef === true, v.giftProjects ?? []).policy);
 
   const head = `<h1>Partners</h1>
     <p class="sub">A partner is whoever implements the job of a gift: an institute, a contractor, another charity or any type you add. Click a partner to open its profile and structure. The projects a partner delivers are set on the Projects page, and its beneficiaries are on the Beneficiaries page.</p>

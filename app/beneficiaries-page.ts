@@ -27,11 +27,11 @@ export function beneficiariesPage(v: View): string {
   const fws = v.frameworks ?? [];
   const f = v.benFilter ?? NO_BEN_FILTER;
   const today = v.today ?? "2026-01-01";
-  const allocations = v.allocations ?? [];
+  const outcomeAllocations = v.outcomeAllocations ?? [];
   const commitments = allocatable(v.workOrders, perPeriodRule(fws), today);
   const policy = allocOptions(partners, v.graceDays, today, v.requireRef === true, v.giftProjects ?? []).policy;
   const partnerName = (id: string | undefined) => partners.find((p) => p.id === id)?.name ?? "";
-  const held = new Set(allocations.map((a) => a.outcomeId));
+  const held = new Set(outcomeAllocations.map((a) => a.outcomeId));
 
   const text = f.text.trim().toLowerCase();
   const shown = all.filter((o) => (f.partner === "" || (f.partner === "none" ? o.projectId === undefined : o.projectId === f.partner)) && (f.type === "" || o.type === f.type) && (f.placed === "" || (f.placed === "yes" ? !!o.nodeId : !o.nodeId)) && (text === "" || `${o.name} ${o.ref ?? ""}`.toLowerCase().includes(text)));
@@ -60,7 +60,7 @@ export function beneficiariesPage(v: View): string {
     const p: Project | undefined = partners.find((x) => x.id === o.projectId);
     const type = p?.types.find((t) => t.id === o.typeId);
     const mine = nodes.filter((n) => n.projectId === o.projectId);
-    const used = fillOf(o, fws, allocations, commitments, policy).used;
+    const used = fillOf(o, fws, outcomeAllocations, commitments, policy).used;
     const cap = capacityOf(o, fws);
     // The place: a list of the partner's places that suit this kind. Groups: one list for each kind of group that applies, with the groups inside its place.
     const placeSel = p ? `<select data-set-place="${esc(o.id)}" aria-label="Location of ${esc(o.name)}"><option value="">No location</option>${mine.filter((n) => !type || type.levelId === "" || n.levelId === type.levelId).map((n) => `<option value="${esc(n.id)}"${n.id === o.nodeId ? " selected" : ""}>${esc(n.name)}</option>`).join("")}</select>` : "";
