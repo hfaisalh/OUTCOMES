@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { addBeneficiary, emptyRegister } from "../07-beneficiaries/beneficiaries";
-import { addMany, checkRow, checkRows, MAX_ROWS, readBeneficiaryCsv, templateCsv, TEMPLATE_HEADER } from "./import";
+import { addMany, checkRow, checkRows, MAX_ROWS, problemRowsCsv, readBeneficiaryCsv, templateCsv, TEMPLATE_HEADER } from "./import";
 
 const projects = [{ id: "g1", name: "Orphan Homes" }, { id: "g2", name: "Girls School" }];
 const csv = (...lines: string[]): string => lines.join("\r\n");
@@ -83,6 +83,26 @@ describe("editing a row in the preview (DECISIONS 272)", () => {
     expect(fixed.map((r) => r.error)).toEqual(["", "", ""]); // the second row no longer repeats the first
     const refused = checkRows(rows.map((r) => (r.line === 4 ? { ...r, serverError: "This person is already registered. Please contact MWF to sort it out." } : r)), projects);
     expect(refused[2]!.serverError).toContain("already registered"); // kept while it is not edited
+  });
+});
+
+describe("the rows with a problem, as a CSV to fix and upload again (DECISIONS 273)", () => {
+  it("has the template's columns with what the person typed and a last column saying why, only for rows with a problem", () => {
+    const rows = read("Name,Date of birth,Gender,Guardian", 'Amina Khan,2016-04-02,female,"Fatima, her mother"', "Bilal Ahmed,bad,male,An uncle", "Chand,2017-01-01,other,").rows.map((r) => (r.line === 3 ? { ...r, serverError: "This person is already registered. Please contact MWF to sort it out." } : r));
+    const text = problemRowsCsv(rows).split("\r\n");
+    expect(text[0]).toBe([...TEMPLATE_HEADER, "Why it was not added"].join(","));
+    expect(text).toHaveLength(4); // the header, two rows with a problem, and the end of the last line
+    expect(text[1]).toBe("Bilal Ahmed,bad,male,,,,,An uncle,,,,,Write the date of birth as YYYY-MM-DD or DD/MM/YYYY.");
+    expect(text[2]).toBe("Chand,2017-01-01,other,,,,,,,,,,Gender is female or male.");
+  });
+
+  it("reads back what it wrote, so a fixed file can be uploaded again, ignoring the last column", () => {
+    const rows = read("Name,Date of birth", "Amina Khan,13/13/2016").rows;
+    const again = readBeneficiaryCsv(problemRowsCsv(rows), projects);
+    expect(again.problem).toBe("");
+    expect(again.rows[0]).toMatchObject({ raw: { name: "Amina Khan", dob: "13/13/2016" }, error: "Write the date of birth as YYYY-MM-DD or DD/MM/YYYY." });
+    expect(Object.keys(again.rows[0]!.raw)).not.toContain("Why it was not added");
+    expect(problemRowsCsv(read("Name", "Amina Khan").rows)).toBe(`${[...TEMPLATE_HEADER, "Why it was not added"].join(",")}\r\n`); // no problem rows: just the header
   });
 });
 

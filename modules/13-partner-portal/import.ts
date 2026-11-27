@@ -108,6 +108,14 @@ export function readBeneficiaryCsv(text: string, projects: { id: string; name: s
 const cell = (s: string): string => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
 export const templateCsv = (): string => `${TEMPLATE_HEADER.map(cell).join(",")}\r\n${TEMPLATE_EXAMPLE.map(cell).join(",")}\r\n`;
 
+// The rows with a problem, as a CSV the partner can fix in a spreadsheet and upload again (DECISIONS 273): the template's columns with what the person typed, and a last column saying why the row was not added. That last column is ignored on upload, because it is not one the reader knows.
+const FIELD_ORDER = ["name", "dob", "gender", "idNumber", "placeOfBirth", "fatherStatus", "motherStatus", "guardian", "guardianRelation", "area", "partnerRef", "project"];
+export function problemRowsCsv(rows: CsvRow[]): string {
+  const bad = rows.filter((r) => (r.error || r.serverError || "") !== "");
+  const line = (cells: string[]): string => cells.map(cell).join(",");
+  return `${line([...TEMPLATE_HEADER, "Why it was not added"])}\r\n${bad.map((r) => line([...FIELD_ORDER.map((f) => r.raw[f] ?? ""), r.error || r.serverError || ""])).join("\r\n")}${bad.length > 0 ? "\r\n" : ""}`;
+}
+
 // --- Adding the rows (the server) ---
 export interface ManyResult { register: Register; added: { line: number; id: string; name: string }[]; skipped: { line: number; name: string; error: string }[] }
 

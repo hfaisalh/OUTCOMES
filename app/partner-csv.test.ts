@@ -36,6 +36,7 @@ describe("the CSV window", () => {
     expect(html).toContain('<span class="pill ready">Ready</span>');
     expect(html).toContain('data-action="pt-csv-remove" data-line="3" aria-label="Remove row 3"');
     expect(html).toContain('data-action="pt-csv-remove-bad">Remove all rows with a problem</button>');
+    expect(html).toContain('data-action="pt-csv-download-bad">Download these rows as CSV</button>');
     expect(html).toContain('data-action="pt-csv-send">Add 2 beneficiaries</button>');
     expect(html).toContain(">As above</option>"); // a row with no project of its own uses the one chosen above
     expect(html).not.toContain("Download the template and fill it in"); // the steps make way for the list once a file is read
@@ -167,6 +168,18 @@ describe("its buttons", () => {
     reply = { ok: false, body: { error: "Send between 1 and 500 rows." } };
     await csvAction("pt-csv-send", () => undefined);
     expect(partnerUi.csv).toMatchObject({ busy: false, error: "Send between 1 and 500 rows.", result: null });
+  });
+
+  it("downloads the rows with a problem as a CSV to fix and upload again", async () => {
+    await csvAction("pt-csv-open", () => undefined);
+    await choose(file("Name,Date of birth\r\nAmina Khan,2016-04-02\r\nBilal Ahmed,bad"));
+    let name = "", blob: Blob | undefined;
+    vi.stubGlobal("document", { createElement: () => ({ set href(_v: string) {}, set download(v: string) { name = v; }, click: () => undefined }) });
+    vi.stubGlobal("URL", { createObjectURL: (b: Blob) => { blob = b; return "blob:x"; }, revokeObjectURL: () => undefined });
+    await csvAction("pt-csv-download-bad", () => undefined);
+    expect(name).toBe("beneficiaries-to-fix.csv");
+    expect(await blob!.text()).toContain("Bilal Ahmed,bad,");
+    expect(await blob!.text()).not.toContain("Amina Khan"); // a good row is not in it
   });
 
   it("downloads the template as a CSV file", async () => {

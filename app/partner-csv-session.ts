@@ -9,25 +9,26 @@
 import { partnerAnswer } from "./api";
 import { NEW_CSV } from "./partner-csv";
 import { partnerUi } from "./partner-state";
-import { checkRows, readBeneficiaryCsv, templateCsv } from "../modules/13-partner-portal/import";
+import { checkRows, problemRowsCsv, readBeneficiaryCsv, templateCsv } from "../modules/13-partner-portal/import";
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 
 // --- Buttons ---
 export async function csvAction(action: string, apply: (s: PartnerSlice) => void, el?: { dataset: Record<string, string | undefined> }, projects: { id: string; name: string }[] = []): Promise<void> {
   if (action === "pt-csv-open") partnerUi.csv = { ...NEW_CSV };
   else if (action === "pt-csv-close") partnerUi.csv = null;
-  else if (action === "pt-csv-template") downloadTemplate();
+  else if (action === "pt-csv-template") download(templateCsv(), "beneficiaries-template.csv");
+  else if (action === "pt-csv-download-bad" && partnerUi.csv?.read) download(problemRowsCsv(partnerUi.csv.read.rows), "beneficiaries-to-fix.csv");
   else if (action === "pt-csv-send") await send(apply, projects);
   else if (action === "pt-csv-remove" && partnerUi.csv?.read) partnerUi.csv.read = { ...partnerUi.csv.read, rows: partnerUi.csv.read.rows.filter((r) => String(r.line) !== el?.dataset["line"]) };
   else if (action === "pt-csv-remove-bad" && partnerUi.csv?.read) partnerUi.csv.read = { ...partnerUi.csv.read, rows: partnerUi.csv.read.rows.filter((r) => r.error === "" && !r.serverError) };
 }
 
-// The template is made here, so it always matches what the reader understands.
-function downloadTemplate(): void {
-  const url = URL.createObjectURL(new Blob([templateCsv()], { type: "text/csv;charset=utf-8" }));
+// A file made here and offered for download. The template is made here so it always matches what the reader understands.
+function download(text: string, name: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
   const a = document.createElement("a");
   a.href = url;
-  a.download = "beneficiaries-template.csv";
+  a.download = name;
   a.click();
   URL.revokeObjectURL(url);
 }
