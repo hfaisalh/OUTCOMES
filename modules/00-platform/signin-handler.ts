@@ -12,7 +12,8 @@ import { addLogin, findLogin, removeLogin, sessionPartsFor } from "./logins.js";
 import { sessionCookie, sessionFrom, SESSION_SECONDS, signToken, type Claims } from "./launch-token.js";
 import { defaultConfig } from "./store.js";
 import { handleOwnerLogin, DEMO_ORG, OWNER_ORG } from "./handlers.js";
-import { json, need, nowSeconds, text, withConflictRetry, type Deps, type HttpRequest, type HttpResponse } from "./http.js";
+import { PARTNER_PERMISSIONS } from "../13-partner-portal/scope.js";
+import { json, need, nowSeconds, sessionOf, text, withConflictRetry, type Deps, type HttpRequest, type HttpResponse } from "./http.js";
 
 const isForm = (req: HttpRequest): boolean => (req.headers["content-type"] ?? "").includes("application/x-www-form-urlencoded");
 const back = (to: string): HttpResponse => ({ status: 302, headers: { location: to, "cache-control": "no-store" } });
@@ -58,9 +59,30 @@ async function signInWithAccount(req: HttpRequest, d: Deps): Promise<HttpRespons
   return isForm(req) ? back("/app/?signin=wrong-login") : json(401, { error: "That email or password is not right." });
 }
 
+// --- Switch between staff and a partner's view, for testing (DECISIONS 255) ---
+// Rule: only a staff person who may change settings can look at the app as a partner, and only as a partner that exists. The partner view carries the real person in `staff`, so one press brings them back; it keeps the same expiry, so switching never extends a sign-in.
+async function viewAs(req: HttpRequest, d: Deps): Promise<HttpResponse> {
+  const c = sessionOf(req, d);
+  if (!c) return json(401, { error: "Please sign in first." });
+  const want = typeof (req.body as { partner?: unknown } | undefined)?.partner === "string" ? ((req.body as { partner: string }).partner) : "";
+  const now = nowSeconds(d);
+  let next: Claims;
+  if (want === "") {
+    if (!c.staff) return json(400, { error: "You are already on the staff view." });
+    next = { typ: "session", jti: d.newId(), sub: c.staff.sub, name: c.staff.name, org: c.org, perms: c.staff.perms, iat: now, exp: c.exp };
+  } else {
+    if (c.partner !== undefined || !c.perms.includes(P.settings)) return json(403, { error: "Your account may not switch views." });
+    const config = (await d.store.getConfig(c.org)) ?? defaultConfig();
+    if (!(config.projects ?? []).some((p) => p.id === want)) return json(400, { error: "That partner was not found." });
+    next = { typ: "session", jti: d.newId(), sub: `view-${c.sub}`, name: c.name, org: c.org, perms: PARTNER_PERMISSIONS, partner: want, staff: { sub: c.sub, name: c.name, perms: c.perms }, iat: now, exp: c.exp };
+  }
+  return json(200, { ok: true }, { "set-cookie": sessionCookie(signToken(d.secrets.session, next), Math.max(1, c.exp - now)), "cache-control": "no-store" });
+}
+
 export async function handleSignIn(req: HttpRequest, d: Deps): Promise<HttpResponse> {
   if (req.method !== "POST") return text(404, "Not found.");
   const b = (req.body ?? {}) as Record<string, unknown>;
+  if (b["action"] === "view-as") return viewAs(req, d);
   if (typeof b["action"] === "string") return withConflictRetry(manage, req, d);
   if (typeof b["email"] === "string") return signInWithAccount(req, d);
   return handleOwnerLogin(req, d);

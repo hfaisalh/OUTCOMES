@@ -36,6 +36,8 @@ export interface Me {
   demo?: boolean; // true when the organisation is connected to the pretend CRM
   upload?: boolean; // true when the organisation takes uploaded CRM export files
   partner?: string; // set when this is a partner's sign-in (DECISIONS 249)
+  partners?: { id: string; name: string }[]; // the partners a person who may change settings can look at the app as (DECISIONS 255)
+  canReturn?: boolean; // true while a staff person is looking at the app as a partner
   logins?: { email: string; name: string; role: string; partnerId?: string }[]; // the test accounts, for a person who may change settings (DECISIONS 250)
 }
 export interface ServerConfig {
@@ -78,6 +80,8 @@ export async function fetchMe(): Promise<Me | null> {
 export const loadPartner = () => call<PartnerSlice>("/api/outcomes");
 // A partner accepts or refuses its own gifts (DECISIONS 254). The answer is the partner's fresh slice with a message.
 export const partnerAnswer = (body: Record<string, unknown>) => call<PartnerSlice & { message?: string }>("/api/outcomes", { method: "POST", body });
+// Switch between the staff view and a partner's view, for testing (DECISIONS 255). An empty id goes back to staff.
+export const viewAs = (partner: string) => call<{ ok: boolean }>("/api/owner-login", { method: "POST", body: { action: "view-as", partner } });
 export const signOut = () => call<{ ok: boolean }>("/api/logout", { method: "POST", body: {} });
 export const loadConfig = () => call<ServerConfig>("/api/config");
 export const saveConfig = (c: { categories: Category[]; itemMap: ItemMap; frameworks: FrameworkTemplate[]; itemFramework: Record<string, string>; reapply?: boolean }) => call<{ ok: boolean; routed: number; reapplied?: number }>("/api/config", { method: "PUT", body: c });

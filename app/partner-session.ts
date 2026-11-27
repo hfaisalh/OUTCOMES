@@ -6,7 +6,7 @@
  * Data flow: a click carries the gift keys in data-keys, joined by "|". One key is a single answer, several are a batch. The server answers with the partner's fresh slice and a message.
  */
 
-import { partnerAnswer } from "./api";
+import { partnerAnswer, viewAs } from "./api";
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 import type { PartnerUi } from "./partner-outcomes";
 
@@ -41,4 +41,16 @@ export async function handlePartnerAction(action: string, el: HTMLElement, apply
     else await send(body(false, partnerUi.refusing ?? [], reason), apply);
   }
   redraw();
+}
+
+// --- Switch between the staff view and a partner's view (testing, DECISIONS 255) ---
+// The server gives a new session for the other view, so the page simply reloads into it.
+export async function switchView(partnerId: string): Promise<void> {
+  try {
+    await viewAs(partnerId);
+    (globalThis as { location?: { assign(u: string): void } }).location?.assign("/app/");
+  } catch (e) {
+    partnerUi.error = e instanceof Error ? e.message : "Could not switch the view.";
+    (globalThis as { alert?: (m: string) => void }).alert?.(partnerUi.error);
+  }
 }

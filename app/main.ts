@@ -69,7 +69,8 @@ import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from ".
 import { ensureRefs } from "../modules/05-outcomes/refs";
 import { checkingHtml, signinHtml } from "./signin-page";
 import { partnerHomeHtml } from "./partner-home";
-import { handlePartnerAction, partnerUi } from "./partner-session";
+import { handlePartnerAction, partnerUi, switchView } from "./partner-session";
+import { viewAsMenu } from "./view-as-menu";
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
 import { setItemKind, setItemUnits } from "../modules/02-project-rules/benefits";
@@ -494,7 +495,7 @@ function settleConfirmations(): void {
 function draw(): void {
   // Rule (DECISIONS 91): until a session is found, or the demo is chosen, only the sign-in screen is shown.
   if (state.gate !== "app") {
-    const html = state.gate === "checking" ? checkingHtml() : state.gate === "partner" && state.partnerSlice && state.me ? partnerHomeHtml(state.partnerSlice, state.me.name, typeof __BUILD_LABEL__ === "string" ? __BUILD_LABEL__ : "dev", partnerUi) : signinHtml(state.ownerNote);
+    const html = state.gate === "checking" ? checkingHtml() : state.gate === "partner" && state.partnerSlice && state.me ? partnerHomeHtml(state.partnerSlice, state.me.name, typeof __BUILD_LABEL__ === "string" ? __BUILD_LABEL__ : "dev", partnerUi, state.me.canReturn === true) : signinHtml(state.ownerNote);
     (document.getElementById("shell") as HTMLElement).innerHTML = html;
     return;
   }
@@ -540,7 +541,7 @@ function draw(): void {
   const ICON_USER = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>`;
   const gear = setupEntry ? `<span class="popwrap"><button class="iconbtn${setupEntry.pages.some((p) => p.id === state.page) || state.topMenu === "settings" ? " on" : ""}" data-menu="settings" title="Settings" aria-label="Settings" aria-expanded="${state.topMenu === "settings"}">${ICON_GEAR}${openCount > 0 ? `<span class="dot">${openCount}</span>` : ""}</button>${state.topMenu === "settings" ? `<div class="pop" role="menu"><div class="pophead">Settings</div>${setupEntry.pages.map((p) => `<a data-page="${p.id}" role="menuitem" class="${p.id === state.page ? "on" : ""}"><span class="ico">${p.icon}</span>${esc(p.label)}${p.id === "attention" && openCount > 0 ? ` <span class="pill review">${openCount}</span>` : ""}</a>`).join("")}</div>` : ""}</span>` : "";
   const person = `<span class="popwrap"><button class="iconbtn${state.topMenu === "user" ? " on" : ""}" data-menu="user" title="${state.me ? esc(state.me.name) : "Sign in"}" aria-label="Your account" aria-expanded="${state.topMenu === "user"}">${ICON_USER}</button>${state.topMenu === "user" ? `<div class="pop" role="menu">${state.me
-    ? `<div class="pophead">${esc(state.me.name)}<div class="muted">${esc(state.me.org)}${state.me.storage === "memory" ? " · temporary storage" : ""}</div></div><div class="popnote muted">${state.me.perms.length} OUTCOMES permission${state.me.perms.length === 1 ? "" : "s"} from your CRM role.</div><button class="item" data-action="sign-out">Sign out</button>`
+    ? `<div class="pophead">${esc(state.me.name)}<div class="muted">${esc(state.me.org)}${state.me.storage === "memory" ? " · temporary storage" : ""}</div></div><div class="popnote muted">${state.me.perms.length} OUTCOMES permission${state.me.perms.length === 1 ? "" : "s"} from your CRM role.</div>${viewAsMenu(state.me.partners)}<button class="item" data-action="sign-out">Sign out</button>`
     : `<div class="pophead">Demo<div class="muted">Invented data, nothing is saved.</div></div><label class="popnote muted">Pretend to hold this CRM role<select id="role">${DEMO_ROLES.map((r) => `<option value="${r.id}"${r.id === state.roleId ? " selected" : ""}>${esc(r.name)}</option>`).join("")}</select></label><button class="item" data-action="show-signin">Sign in</button>`}</div>` : ""}</span>`;
   const moduleTabs = current?.module && current.pages.length > 1
     ? `<div class="modhead"><b>${esc(current.module.label)}</b><span class="muted">${esc(current.module.blurb)}</span></div><div class="modtabs">${current.pages.map((p) => `<button data-page="${p.id}" class="${p.id === state.page ? "on" : ""}">${esc(p.label)}${p.id === "attention" && openCount > 0 ? ` <span class="pill review">${openCount}</span>` : ""}</button>`).join("")}</div>`
@@ -718,6 +719,7 @@ document.addEventListener("click", (e) => {
     const scope = el.dataset.scope ?? "main";
     if (k && k in NO_CRITERIA && scope === "main") state.criteria = { ...state.criteria, [k]: NO_CRITERIA[k] };
   }
+  if (action === "view-as") return void switchView(el.dataset["partner"] ?? "");
   if (action?.startsWith("pt-")) return void handlePartnerAction(action, el, (slice) => { state.partnerSlice = slice; }, draw);
   if (action === "show-signin") { state.topMenu = ""; state.gate = "signin"; return draw(); }
   if (action === "sign-out") {

@@ -116,3 +116,52 @@ describe("signing in with an email", () => {
     expect(owner).toContain("outcomes_session=");
   });
 });
+
+describe("switching between the staff view and a partner's view (DECISIONS 255)", () => {
+  const switchTo = (cookie: string, partner: string) => handleSignIn(by(cookie, { action: "view-as", partner }), d);
+
+  it("lets a person who may change settings look at the app as a partner, and come back with one press", async () => {
+    const me = (await handleMe(as(owner), d)).body as { partners?: { id: string }[]; canReturn?: boolean };
+    expect(me.partners?.map((p) => p.id)).toEqual(["p1", "p2"]);
+    expect(me.canReturn).toBeUndefined();
+
+    const r = await switchTo(owner, "p1");
+    expect(r.status).toBe(200);
+    const asPartner = cookieOf(r);
+    expect((await handleMe(as(asPartner), d)).body).toMatchObject({ partner: "p1", canReturn: true, perms: ["outcomes.access", "outcomes.partner"] });
+    const slice = (await handleOutcomes(as(asPartner), d)).body as { beneficiaries: { name: string }[] };
+    expect(slice.beneficiaries.map((b) => b.name)).toEqual(["Amina Khan"]); // only that partner's own data
+    expect((await handleConfig(as(asPartner), d)).status).toBe(403); // no staff access while looking as a partner
+
+    const back = cookieOf(await switchTo(asPartner, ""));
+    const staff = (await handleMe(as(back), d)).body as { perms: string[]; canReturn?: boolean; partner?: string };
+    expect(staff.partner).toBeUndefined();
+    expect(staff.canReturn).toBeUndefined();
+    expect(staff.perms).toContain("outcomes.settings");
+  });
+
+  it("keeps the same expiry, so switching never lengthens a sign-in", async () => {
+    const before = ((await handleMe(as(owner), d)).body as { expiresAt: number }).expiresAt;
+    const during = ((await handleMe(as(cookieOf(await switchTo(owner, "p2"))), d)).body as { expiresAt: number }).expiresAt;
+    expect(during).toBe(before);
+  });
+
+  it("is refused for a person who may not change settings, for a partner that does not exist, and from a partner's own sign-in", async () => {
+    const agent = cookieOf(await handleSignIn(post({ passphrase: "a-long-owner-passphrase", role: "agent" }), d));
+    expect((await switchTo(agent, "p1")).status).toBe(403);
+    expect((await switchTo(owner, "nobody")).status).toBe(400);
+    await add({ email: "sara@alpha.org" });
+    const own = cookieOf(await handleSignIn(post({ email: "sara@alpha.org", password: "correct horse battery" }), d));
+    expect((await switchTo(own, "p2")).status).toBe(403); // a real partner cannot look at another
+    expect((await switchTo(own, "")).status).toBe(400); // and has no staff view to go back to
+    expect((await handleSignIn(post({ action: "view-as", partner: "p1" }), d)).status).toBe(401);
+  });
+
+  it("does not offer the switch to a partner's own sign-in", async () => {
+    await add({ email: "sara@alpha.org" });
+    const own = cookieOf(await handleSignIn(post({ email: "sara@alpha.org", password: "correct horse battery" }), d));
+    const me = (await handleMe(as(own), d)).body as { partners?: unknown; canReturn?: unknown };
+    expect(me.partners).toBeUndefined();
+    expect(me.canReturn).toBeUndefined();
+  });
+});

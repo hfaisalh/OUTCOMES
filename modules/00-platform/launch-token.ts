@@ -24,6 +24,7 @@ export interface Claims {
   name: string; // display name only
   org: string; // the organisation. Every record belongs to one (DECISIONS 23)
   perms: string[]; // OUTCOMES permissions from the person's CRM role (menu.ts PERMISSIONS)
+  staff?: { sub: string; name: string; perms: string[] }; // set only while a staff person is testing as a partner (DECISIONS 255): who they really are, so they can switch back. Never accepted from a launch token
   partner?: string; // set only for a partner's sign-in: the one partner whose data this person may see (DECISIONS 249). Staff have none
   iat: number; // issued at, seconds
   exp: number; // expires at, seconds
@@ -77,11 +78,12 @@ export function verifyToken(secret: string, token: string, expected: TokenType, 
     return { ok: false, reason: "malformed" };
   }
   if (c.typ !== expected) return { ok: false, reason: "wrong_type" };
-  if (typeof c.jti !== "string" || c.jti === "" || typeof c.sub !== "string" || c.sub === "" || typeof c.name !== "string" || typeof c.org !== "string" || c.org === "" || !isStringArray(c.perms) || (c.partner !== undefined && (typeof c.partner !== "string" || c.partner === "")) || typeof c.iat !== "number" || typeof c.exp !== "number") {
+  if (typeof c.jti !== "string" || c.jti === "" || typeof c.sub !== "string" || c.sub === "" || typeof c.name !== "string" || typeof c.org !== "string" || c.org === "" || !isStringArray(c.perms) || (c.partner !== undefined && (typeof c.partner !== "string" || c.partner === "")) || (c.staff !== undefined && !(typeof c.staff === "object" && c.staff !== null && typeof c.staff.sub === "string" && typeof c.staff.name === "string" && isStringArray(c.staff.perms))) || typeof c.iat !== "number" || typeof c.exp !== "number") {
     return { ok: false, reason: "missing_claims" };
   }
   if (c.exp <= nowSeconds) return { ok: false, reason: "expired" };
   if (c.iat > nowSeconds + SKEW_SECONDS) return { ok: false, reason: "not_yet_valid" };
+  if (expected === "launch" && c.staff !== undefined) return { ok: false, reason: "missing_claims" };
   if (expected === "launch" && c.exp - c.iat > MAX_LAUNCH_SECONDS) return { ok: false, reason: "too_long" };
   return { ok: true, claims: c as Claims };
 }

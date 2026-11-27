@@ -18,7 +18,7 @@ const ELIGIBILITY: Record<string, string> = { ready: "Ready", review: "Needs rev
 const clusterCount = (cs: { status: string }[]): string => { const n = cs.filter((c) => c.status === "active").length; return `${n} ${n === 1 ? "cluster" : "clusters"}`; };
 
 // --- The screen ---
-export function partnerHomeHtml(slice: PartnerSlice, who: string, version: string, ui: PartnerUi): string {
+export function partnerHomeHtml(slice: PartnerSlice, who: string, version: string, ui: PartnerUi, canReturn = false): string {
   const gifts = partnerOutcomes(slice);
   const p = slice.partner;
   const people = slice.beneficiaries.filter((b) => b.kind === "person");
@@ -35,7 +35,7 @@ export function partnerHomeHtml(slice: PartnerSlice, who: string, version: strin
 
   return `<div class="phome">
     <header class="phome-bar"><div class="phome-brand">OUTCOMES<small>${esc(p.name)}</small></div>
-      <div class="phome-who"><span class="badge-demo">Partner</span><span class="ver" title="The version of this page. If it is not the latest, refresh the page.">${esc(version)}</span><span>${esc(who)}</span><button data-action="sign-out">Sign out</button></div></header>
+      <div class="phome-who"><span class="badge-demo">${canReturn ? "Testing as partner" : "Partner"}</span><span class="ver" title="The version of this page. If it is not the latest, refresh the page.">${esc(version)}</span><span>${esc(who)}</span>${canReturn ? `<button data-action="view-as" data-partner="">Back to staff</button>` : ""}<button data-action="sign-out">Sign out</button></div></header>
     <main class="phome-main">
       <h1>Welcome, ${esc(p.name)}</h1><p class="sub">Your gifts, beneficiaries and outcomes. You see only your own.</p>
       ${journeyHtml(gifts)}${answerCardHtml(gifts, ui)}

@@ -82,7 +82,9 @@ export async function handleMe(req: HttpRequest, d: Deps): Promise<HttpResponse>
   const kind = cfg?.crm.kind;
   // Rule (DECISIONS 250): the accounts (never their passwords) are listed only for a person who may change settings.
   const logins = c.perms.includes(P.settings) && c.partner === undefined ? (cfg?.logins ?? []).map(publicOf) : undefined;
-  return json(200, { ...(logins ? { logins } : {}), name: c.name, org: c.org, perms: c.perms, ...(c.partner ? { partner: c.partner } : {}), expiresAt: c.exp, storage: d.storage, demo: kind === "demo", upload: kind === "upload" });
+  // Rule (DECISIONS 255): a person who may change settings is given the partners they can look at the app as, and a person looking as a partner is told they can switch back.
+  const partners = c.perms.includes(P.settings) && c.partner === undefined ? (cfg?.projects ?? []).map((p) => ({ id: p.id, name: p.name })) : undefined;
+  return json(200, { ...(logins ? { logins } : {}), ...(partners && partners.length > 0 ? { partners } : {}), ...(c.staff ? { canReturn: true } : {}), name: c.name, org: c.org, perms: c.perms, ...(c.partner ? { partner: c.partner } : {}), expiresAt: c.exp, storage: d.storage, demo: kind === "demo", upload: kind === "upload" });
 }
 
 // GET and PUT /api/config  Categories, framework templates, and the item maps. PUT needs permission to map items.

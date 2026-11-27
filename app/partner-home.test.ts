@@ -104,3 +104,22 @@ describe("the sign-in accounts card", () => {
     expect(signinNote("")).toBe("");
   });
 });
+
+describe("switching views while testing (DECISIONS 255)", () => {
+  it("lists a button for each partner in the staff menu, escaping names", async () => {
+    const { viewAsMenu } = await import("./view-as-menu");
+    const html = viewAsMenu([{ id: "p1", name: "Alpha <Trust>" }, { id: "p2", name: "Beta" }]);
+    expect(html).toContain('data-action="view-as" data-partner="p1">Alpha &lt;Trust&gt;');
+    expect(html).toContain('data-partner="p2"');
+    expect(viewAsMenu(undefined)).toBe("");
+    expect(viewAsMenu([])).toBe("");
+  });
+  it("shows Back to staff and says it is a test only while looking as a partner", () => {
+    const test = partnerHomeHtml(slice(), "Faisal", "dev", QUIET, true);
+    expect(test).toContain('data-action="view-as" data-partner=""');
+    expect(test).toContain("Testing as partner");
+    const real = partnerHomeHtml(slice(), "Sara", "dev", QUIET);
+    expect(real).not.toContain("Back to staff");
+    expect(real).toContain(">Partner<");
+  });
+});
