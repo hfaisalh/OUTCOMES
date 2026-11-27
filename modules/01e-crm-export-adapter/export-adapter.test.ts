@@ -100,6 +100,20 @@ describe("adaptExports", () => {
     expect(readFeed([feedRow], MWF_CRM_CONFIG).lines[0]?.carriedOver).toBe(true);
   });
 
+  it("tells a carried-over plan what it paid on the old site when the Legacy donations file is loaded with the others, and reaches the feed (DECISIONS 269)", () => {
+    const plans = load("export-recurring-plans-sample.csv");
+    const planId = plans[0]!["Plan ID"]!;
+    const withPlan = plans.map((p, i) => (i === 0 ? { ...p, "Legacy plan": "Yes", "Donor ID": "55", Site: "UK", Currency: "GBP", "Amount per instalment (native)": "20", Started: "01/03/2026 10:00", "In the CRM since": "01/09/2026 10:00" } : p));
+    const legacy = ["01/03/2026 10:00", "01/04/2026 10:00", "01/05/2026 10:00"].map((d, i) => ({ "Legacy ID": `${i}`, Status: "Paid", "Paid date": d, Recurring: i === 0 ? "No" : "Yes", Currency: "GBP", "Amount (native)": "20", "CRM donor ID": "55", Site: "UK" }));
+    const result = adaptFiles([load("export-donation-lines-sample.csv"), load("export-catalogue-sample.csv"), withPlan, load("export-catalogue-prices-sample.csv"), legacy]);
+    expect(result.used).toContain("legacy");
+    const row = result.rows.find((r) => r["subscription_id"] === planId)!;
+    expect([row["plan_prior_match"], row["plan_prior_count"], row["plan_prior_first"], row["plan_prior_last"], row["plan_prior_total"], row["plan_prior_opening"]]).toEqual(["found", "3", "2026-03-01", "2026-05-01", "60", "1"]);
+    expect(readFeed([row], MWF_CRM_CONFIG).lines[0]?.prior).toEqual({ match: "found", count: 3, first: "2026-03-01", last: "2026-05-01", total: 60, opening: true });
+    const without = adaptFiles([load("export-donation-lines-sample.csv"), load("export-catalogue-sample.csv"), withPlan, load("export-catalogue-prices-sample.csv")]);
+    expect(without.rows.find((r) => r["subscription_id"] === planId)!["plan_prior_match"]).toBe(""); // no legacy file: no history, as before
+  });
+
   it("keeps the CRM's line total beside the unit price, never working it out (DECISIONS 83)", () => {
     expect(byLine("9004")["amount"]).toBe("20"); // the price of one unit
     expect(byLine("9004")["quantity"]).toBe("2");

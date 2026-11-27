@@ -153,7 +153,7 @@ export function signinNote(search: string): string {
 // Demo only: load your own CRM export files. They are read in this browser and go nowhere else.
 // Two steps so it is clear what happens: choose the files, then press the button.
 export const loadCard = (v: View): string => `<div class="card"><h2>Use your own CRM export files</h2>
-  <p class="muted">Choose the Donation lines, Catalogue items and (optionally) Recurring plans files from the CRM Export Centre, all at once, then press Load. ${v.live ? "They are read in this browser. Only the lines needed for work orders and the audit are sent to your saved data, with no contact details." : "They are read in this browser only. Nothing is uploaded or saved, so sign in above first if you want to keep the result."}</p>
+  <p class="muted">Choose the Donation lines, Catalogue items and (optionally) Recurring plans, Catalogue prices and Legacy donations files from the CRM Export Centre, all at once, then press Load. The Legacy donations file lets a plan carried over from the old site show what it already paid there. ${v.live ? "They are read in this browser. Only the lines needed for work orders and the audit are sent to your saved data, with no contact details." : "They are read in this browser only. Nothing is uploaded or saved, so sign in above first if you want to keep the result."}</p>
   <div class="filebox"><input type="file" id="feedfile" multiple accept=".csv,text/csv"${v.loading ? " disabled" : ""}></div>
   ${v.pendingFiles?.length ? `<p>Chosen: ${v.pendingFiles.map(esc).join(", ")}</p>` : ""}
   <div class="actions loadbox"><button class="primary" data-action="load-files"${v.loading ? " disabled" : ""}>Load the chosen files</button></div>

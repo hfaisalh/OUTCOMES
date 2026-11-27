@@ -61,6 +61,19 @@ describe("planWorkOrders", () => {
     expect([...again.updated, ...again.unchanged].find((w) => w.lineId === "L001")?.carriedOver).toBeUndefined(); // and cleared if the CRM no longer says so
   });
 
+  it("carries what the plan paid before it reached this system, refreshes it at each import, and clears it when the CRM stops saying so (DECISIONS 269)", () => {
+    const prior = { match: "found" as const, count: 9, first: "2026-02-24", last: "2026-10-24", total: 756, opening: true };
+    const withPrior = feed.map((l) => (l.lineId === "L001" ? { ...l, prior } : l));
+    expect(planWorkOrders(withPrior, [], options).created.find((w) => w.lineId === "L001")?.prior).toEqual(prior);
+    expect(plan.created.find((w) => w.lineId === "L001")?.prior).toBeUndefined();
+    const later = planWorkOrders(withPrior, plan.created, options);
+    expect([...later.updated, ...later.unchanged].find((w) => w.lineId === "L001")?.prior).toEqual(prior);
+    const changed = planWorkOrders(withPrior.map((l) => (l.lineId === "L001" ? { ...l, prior: { ...prior, count: 10 } } : l)), planWorkOrders(withPrior, [], options).created, options);
+    expect([...changed.updated, ...changed.unchanged].find((w) => w.lineId === "L001")?.prior?.count).toBe(10);
+    const cleared = planWorkOrders(feed, planWorkOrders(withPrior, [], options).created, options);
+    expect([...cleared.updated, ...cleared.unchanged].find((w) => w.lineId === "L001")?.prior).toBeUndefined();
+  });
+
   it("is idempotent: the same feed again creates nothing", () => {
     const again = planWorkOrders(feed, plan.created, options);
     expect(again.created).toEqual([]);

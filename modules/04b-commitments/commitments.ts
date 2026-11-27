@@ -22,6 +22,7 @@
  *   category (DECISIONS 52), so units belong to the allocation module.
  */
 
+import type { PriorPayments } from "../01c-crm-connector/feed.js";
 import { partsOf, periodsOf, type WorkOrder } from "../01c-crm-connector/work-orders.js";
 import { coverage, plusMonths } from "./catch-up.js";
 
@@ -47,6 +48,7 @@ export interface Commitment {
   lastPaid: string;
   numbers: number[]; // instalment numbers held, ascending
   gaps: number[]; // instalment numbers missing between the lowest and highest held
+  prior: PriorPayments | null; // what the plan already paid before it reached this system, summarised (DECISIONS 269), so a late start is explained and not a warning
   carriedOver: boolean; // the plan was carried over from the old website, so the item the migration chose is worth checking (DECISIONS 264)
   legacyOpening: boolean; // the first record is a legacy upload: the instalments paid on the old website are not in our data and are not counted
   planStatus: string; // the CRM plan's own status (active, paused, cancelled, completed, pending, past_due), "" when unknown (DECISIONS 62)
@@ -83,7 +85,7 @@ const dayNumber = (d: string): number => (d === "" ? 0 : Math.round(Date.parse(`
 
 // Rule: "needs a look" is any of: a conflict, varying parts, a gap, or a plan that starts late.
 // A late start that a legacy opening explains is not odd, so it does not count.
-export const needsLook = (c: Commitment): boolean => c.conflict || c.partsVary || c.gaps.length > 0 || (c.startsLate && !c.legacyOpening) || c.carriedOver === true;
+export const needsLook = (c: Commitment): boolean => c.conflict || c.partsVary || c.gaps.length > 0 || (c.startsLate && !c.legacyOpening && c.prior?.match !== "found") || c.carriedOver === true;
 
 export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
   const live = workOrders.filter((w) => w.status !== "excluded");
@@ -134,6 +136,7 @@ export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
       catchUpMonths: coverage(real).filled,
       // Rule (DECISIONS 113): a gift is manual when a real payment is marked so and no person has set its parts.
       manual: real.find((w) => w.partsFixed === undefined && w.partsManual !== undefined)?.partsManual ?? "",
+      prior: [...sortedAll].reverse().map((w) => w.prior).find((x) => x !== undefined) ?? null,
       carriedOver: sortedAll.some((w) => w.carriedOver === true),
       legacyOpening: sortedAll.length > real.length,
       startsLate: numbers.length > 0 && (numbers[0] as number) > 1,
@@ -196,6 +199,7 @@ export function oneOffCommitments(workOrders: WorkOrder[], isPerPeriod: (framewo
         lastPaid: w.paidDate.slice(0, 10),
         numbers: [],
         gaps: [],
+        prior: null,
         carriedOver: false,
         legacyOpening: false,
         planStatus: "",

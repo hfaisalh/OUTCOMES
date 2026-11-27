@@ -12,7 +12,7 @@ import { auditFeed, coverageOf } from "./audit";
 
 const line = (id: string, over: Partial<FeedLine> = {}): FeedLine => ({
   row: 1, lineId: id, transactionRef: `T${id}`, paidDate: "2026-06-10", supporterId: "D1", supporterName: "Sample", group: "", channel: "", merchant: "", method: "",
-  itemId: "I1", itemName: "Water Pump", amount: 100, lineTotal: null, currency: "", quantity: 1, bundleQty: 1, periodCount: 0, projectName: "", cause: "", tribute: "", site: "", carriedOver: false, customAmount: false, intention: "", subscriptionId: "", instalmentNumber: "", instalmentCount: "", planStatus: "", planNextDue: "", planPaid: null, needsFeedback: true, legacyUpload: false, supporterKind: "individual", credits: [], ...over,
+  itemId: "I1", itemName: "Water Pump", amount: 100, lineTotal: null, currency: "", quantity: 1, bundleQty: 1, periodCount: 0, projectName: "", cause: "", tribute: "", site: "", prior: null, carriedOver: false, customAmount: false, intention: "", subscriptionId: "", instalmentNumber: "", instalmentCount: "", planStatus: "", planNextDue: "", planPaid: null, needsFeedback: true, legacyUpload: false, supporterKind: "individual", credits: [], ...over,
 });
 const order = (id: string, over: Partial<WorkOrder> = {}): WorkOrder => ({
   key: id, lineId: id, transactionRef: `T${id}`, paidDate: "2026-06-10", supporterId: "D1", supporterName: "Sample", group: "", itemId: "I1", itemName: "Water Pump", amount: 100,

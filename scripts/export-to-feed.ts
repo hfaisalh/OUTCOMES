@@ -19,7 +19,9 @@ const load = (name: string) => toRecords(parseCsv(readFileSync(new URL(`crm-expo
 
 // The Catalogue prices file (bundle quantities) is optional. Without it a bundle counts as 1 part and a note says so.
 const prices = existsSync(new URL("crm-exports/catalogue-prices.csv", dir)) ? load("catalogue-prices.csv") : [];
-const result = adaptExports(load("donation-lines.csv"), load("catalogue-items.csv"), load("recurring-plans.csv"), prices);
+// The Legacy donations file is optional too: with it, a carried-over plan is told what it already paid on the previous website (DECISIONS 269).
+const legacy = existsSync(new URL("crm-exports/legacy-donations.csv", dir)) ? load("legacy-donations.csv") : [];
+const result = adaptExports(load("donation-lines.csv"), load("catalogue-items.csv"), load("recurring-plans.csv"), prices, legacy);
 
 // Section: write the feed as CSV (quote every cell that needs it).
 const columns = Object.keys(result.rows[0] ?? {});

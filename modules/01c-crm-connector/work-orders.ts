@@ -12,7 +12,7 @@
  */
 
 import type { Credit } from "./credits.js";
-import type { FeedLine } from "./feed.js";
+import type { FeedLine, PriorPayments } from "./feed.js";
 
 // A work order moves through these stages. The planner only creates the first two.
 // "excluded" is set by a person (DECISIONS 47): the work order is kept on file but is out of the active list.
@@ -61,6 +61,7 @@ export interface WorkOrder {
   subscriptionId: string;
   instalmentNumber: string;
   instalmentCount: string;
+  prior?: PriorPayments; // what the plan already paid before it reached this system (DECISIONS 269). Refreshed with the plan facts at each import
   carriedOver?: true; // the plan was carried over from the old website (DECISIONS 264). Refreshed with the plan facts at each import
   planStatus?: string; // the plan's status, next due date and instalments paid in the CRM. They change as the plan goes on, so they are refreshed quietly at each import (DECISIONS 62)
   planNextDue?: string;
@@ -108,7 +109,8 @@ export const DEFAULT_CATEGORY = "default";
 export const workOrderKey = (line: Pick<FeedLine, "lineId">) => line.lineId;
 
 // The plan facts a line carries, only when it has them.
-const planFacts = (line: FeedLine): Pick<WorkOrder, "planStatus" | "planNextDue" | "planPaid" | "carriedOver"> => ({
+const planFacts = (line: FeedLine): Pick<WorkOrder, "planStatus" | "planNextDue" | "planPaid" | "carriedOver" | "prior"> => ({
+  ...(line.prior ? { prior: line.prior } : {}),
   ...(line.carriedOver ? { carriedOver: true as const } : {}),
   ...(line.planStatus !== "" ? { planStatus: line.planStatus } : {}),
   ...(line.planNextDue !== "" ? { planNextDue: line.planNextDue } : {}),
@@ -205,10 +207,10 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
     // Also the plan link (subscription, instalment number and count), which comes from the plans file and can be completed later (DECISIONS 56).
     let have = current;
     const refFilled = current.transactionRef === "" && line.transactionRef !== "";
-    const planFactsChanged = (current.planStatus ?? "") !== line.planStatus || (current.carriedOver === true) !== line.carriedOver || (current.planNextDue ?? "") !== line.planNextDue || (current.planPaid ?? null) !== line.planPaid;
+    const planFactsChanged = (current.planStatus ?? "") !== line.planStatus || (current.carriedOver === true) !== line.carriedOver || JSON.stringify(current.prior ?? null) !== JSON.stringify(line.prior) || (current.planNextDue ?? "") !== line.planNextDue || (current.planPaid ?? null) !== line.planPaid;
     const planChanged = refFilled || planFactsChanged || current.subscriptionId !== line.subscriptionId || current.instalmentNumber !== line.instalmentNumber || current.instalmentCount !== line.instalmentCount;
     if (fwMissing || (current.currency ?? "") !== line.currency || (current.lineTotal ?? null) !== line.lineTotal || (current.bundleQty ?? 1) !== line.bundleQty || (current.periodCount ?? 0) !== line.periodCount || (current.projectName ?? "") !== line.projectName || (current.cause ?? "") !== line.cause || (current.site ?? "") !== line.site || (current.tribute ?? "") !== line.tribute || (current.customAmount === true) !== line.customAmount || (current.legacyUpload === true) !== line.legacyUpload || planChanged) {
-      const { customAmount: _cu2, cause: _ca, tribute: _tr, site: _si, lineTotal: _lt, currency: _cu, bundleQty: _b, periodCount: _c, projectName: _j, legacyUpload: _l, planStatus: _s, planNextDue: _n, planPaid: _p, carriedOver: _co, ...rest } = current;
+      const { customAmount: _cu2, cause: _ca, tribute: _tr, site: _si, lineTotal: _lt, currency: _cu, bundleQty: _b, periodCount: _c, projectName: _j, legacyUpload: _l, planStatus: _s, planNextDue: _n, planPaid: _p, carriedOver: _co, prior: _pr, ...rest } = current;
       have = {
         ...rest,
         ...(fwMissing ? fwOf(current.itemId, options) : {}),

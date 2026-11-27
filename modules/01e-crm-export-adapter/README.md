@@ -9,7 +9,8 @@ Three CSV exports, with the Export Centre's own column labels:
 |---|---|
 | Donation lines (paid) | Line ID, Item Name, Item Code, Intention, Instalment no, Subscription ID, Order Quantity, Order Reference, Order Status, Source, Currency, Item Cost, Payment Gateway, Merchant, Donor ID, Payment Date, Period, First Name (Billing), Last Name (Billing), Total Amount (optional) |
 | Catalogue items | Item SKU, Feedback type |
-| Recurring plans | Plan ID, Instalments planned, Until cancelled. Opening order ID links a plan to its opening line (with Donation ID in Donation lines) |
+| Recurring plans | Plan ID, Instalments planned, Until cancelled. Opening order ID links a plan to its opening line (with Donation ID in Donation lines). Optional columns the adapter reads: Site, Legacy plan, Donor ID, Currency, In the CRM since |
+| Legacy donations (optional) | Legacy ID, CRM donor ID, Status, Paid date, Recurring, Currency, Amount (native), Site. With it, `old-site.ts` tells each carried-over plan what it already paid on the previous website: a summary only (count, first and last date, total, ambiguous when two plans could own the orders). See DECISIONS 269 |
 | Catalogue prices (optional) | Item SKU, Bundle, Quantity. Gives each bundle its parts, and each one-off line the months it covers (the instalment plan length). Tick Item Bundle in Donation lines too |
 
 Contact, address, Gift Aid and card columns are never read, even if present.

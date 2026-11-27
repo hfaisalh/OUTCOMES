@@ -15,6 +15,7 @@
  * a display name (billing first and last name) go on.
  */
 
+import { matchOldSite } from "./old-site.ts";
 import { dateOrderOf, siteCode, type DateOrder } from "./site.ts"; // with .ts so the Node script (scripts/export-to-feed.ts) can load it as it is
 import type { FeedRow } from "../01c-crm-connector/feed.js";
 
@@ -91,7 +92,7 @@ const isYes = (text: string) => ["yes", "y", "1", "true"].includes(norm(text));
  * - The export holds paid lines and has no deleted or replaced markers, so those stay empty. This is
  *   a known limit of the export (replaced orders cannot be detected).
  */
-export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: ExportRow[], prices: ExportRow[] = []): AdaptResult {
+export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: ExportRow[], prices: ExportRow[] = [], legacy: ExportRow[] = []): AdaptResult {
   const issues: AdaptIssue[] = [];
 
   for (const label of REQUIRED_LINE_COLUMNS)
@@ -163,6 +164,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
     const months = e ? total / e : 0;
     if (!planLength.has(key) && Number.isInteger(months) && months > 1 && months <= 60) planLength.set(key, String(months));
   }
+  const oldSite = matchOldSite(plans, legacy); // what carried-over plans already paid on the previous website (DECISIONS 269)
   const customItems = customAmountItems(catalogue); // items the donor chooses the amount of (DECISIONS 129)
   const unknownBundles = new Set<string>();
   let bundleLines = 0;
@@ -284,6 +286,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
       item_feedback: feedback,
       is_recurring: recurring ? "1" : "0",
       instalment_count: instalmentCount,
+      plan_prior_match: oldSite.get(subscriptionId)?.match ?? "", plan_prior_count: String(oldSite.get(subscriptionId)?.count ?? ""), plan_prior_first: oldSite.get(subscriptionId)?.first ?? "", plan_prior_last: oldSite.get(subscriptionId)?.last ?? "", plan_prior_total: String(oldSite.get(subscriptionId)?.total ?? ""), plan_prior_opening: oldSite.get(subscriptionId)?.opening ? "1" : "", // the payments a carried-over plan already made on the previous website
       plan_carried_over: plan?.carried ? "1" : "", // the plan was brought over from the old website (DECISIONS 264)
       plan_status: plan?.status ?? "", // the plan's own status, next due date and instalments paid, for the forecast (DECISIONS 62)
       plan_next_due: plan?.nextDue ?? "",
@@ -340,7 +343,7 @@ export function customAmountItems(catalogue: ExportRow[]): Set<string> {
   return out;
 }
 
-export type ExportKind = "lines" | "catalogue" | "plans" | "prices" | "feed" | "unknown";
+export type ExportKind = "lines" | "catalogue" | "plans" | "prices" | "legacy" | "feed" | "unknown";
 
 // Rule: a file is recognised by its column names, not its file name, so renamed downloads still work.
 export function classifyExport(rows: ExportRow[]): ExportKind {
@@ -352,6 +355,7 @@ export function classifyExport(rows: ExportRow[]): ExportKind {
   if (has("Item SKU") && has("Feedback type")) return "catalogue";
   if (has("Item SKU") && has("Bundle") && has("Quantity")) return "prices"; // the Catalogue prices file
   if (has("Plan ID") && has("Until cancelled")) return "plans";
+  if (has("Legacy ID") && has("CRM donor ID")) return "legacy"; // the previous website's orders
   return "unknown";
 }
 
@@ -377,5 +381,5 @@ export function adaptFiles(files: ExportRow[][]): AdaptFilesResult {
   if (!kinds.includes("lines")) issues.push({ code: "missing_column", message: "No Donation lines file was recognised. It needs the columns Line ID and Item Code." });
   if (!kinds.includes("catalogue")) issues.push({ code: "missing_column", message: "No Catalogue items file was recognised. It needs the columns Item SKU and Feedback type." });
   if (issues.length > 0) return { rows: [], issues, counts: none, used };
-  return { ...adaptExports(pickFile("lines"), pickFile("catalogue"), pickFile("plans"), pickFile("prices")), used };
+  return { ...adaptExports(pickFile("lines"), pickFile("catalogue"), pickFile("plans"), pickFile("prices"), pickFile("legacy")), used };
 }

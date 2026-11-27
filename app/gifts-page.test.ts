@@ -515,4 +515,25 @@ describe("giftsPage", () => {
     const whole = [1, 2, 3].map((n) => sub(n, { key: `w${n}`, subscriptionId: "SW", instalmentNumber: String(n) }));
     expect(giftDetailHtml(view({ workOrders: whole }), "SW")).not.toContain("instnote"); // from instalment 1: nothing to explain
   });
+
+  it("tells how many payments the old site holds for a carried-over plan, whether the numbers add up, and says plainly when a match is not safe (DECISIONS 269)", () => {
+    const prior = { match: "found" as const, count: 14, first: "2025-06-22", last: "2026-07-24", total: 490, opening: false };
+    const held = [15, 16, 17, 18, 19].map((n) => sub(n % 9 + 1, { key: `p${n}`, subscriptionId: "SP", instalmentNumber: String(n), instalmentCount: "", carriedOver: true, prior }));
+    const adds = giftDetailHtml(view({ workOrders: held }), "SP");
+    expect(adds).toContain("Latest is instalment 19: 14 earlier payments found on the old site (22/06/25 to 24/07/26, ");
+    expect(adds).not.toContain("counts differ"); // 5 held + 14 found = 19: nothing more to say
+    const opening = held.map((w) => ({ ...w, prior: { ...prior, count: 15, opening: true } }));
+    expect(giftDetailHtml(view({ workOrders: opening }), "SP")).toContain("It includes the order the plan started from, which the CRM does not number.");
+    const off = held.map((w) => ({ ...w, prior: { ...prior, count: 17 } }));
+    expect(giftDetailHtml(view({ workOrders: off }), "SP")).toContain("The CRM numbers the latest instalment 19, so the counts differ by 3.");
+    const ambiguous = held.map((w) => ({ ...w, prior: { match: "ambiguous" as const, count: 0, first: "", last: "", total: 0, opening: false } }));
+    expect(giftDetailHtml(view({ workOrders: ambiguous }), "SP")).toContain("this donor has another plan of the same amount, so they are not matched.");
+  });
+
+  it("no longer warns Starts at N when the old site's payments were found, since that is the explanation (DECISIONS 269)", () => {
+    const prior = { match: "found" as const, count: 14, first: "2025-06-22", last: "2026-07-24", total: 490, opening: false };
+    const plain = [15, 16].map((n) => sub(n % 9 + 1, { key: `q${n}`, subscriptionId: "SQ", instalmentNumber: String(n), instalmentCount: "" }));
+    expect(giftDetailHtml(view({ workOrders: plain }), "SQ")).toContain("Starts at 15");
+    expect(giftDetailHtml(view({ workOrders: plain.map((w) => ({ ...w, prior })) }), "SQ")).not.toContain("Starts at 15");
+  });
 });

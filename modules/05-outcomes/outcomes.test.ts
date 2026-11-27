@@ -18,7 +18,7 @@ const FW: FrameworkTemplate[] = [
 const com = (sub: string, parts: number, over: Partial<Commitment> = {}): Commitment => ({
   planStatus: "", nextDue: "", planPaid: null, catchUpMonths: [], manual: "", paidMonths: [], projectName: "",
   subscriptionId: sub, supporterId: "D1", supporterName: "Sample", itemId: "I1", itemName: "Item", categoryId: "c", frameworkId: "shared", partsPerInstalment: parts, partsVary: false, planned: 12, paid: 2,
-  state: "in_progress", firstPaid: `2026-0${Math.min(Number(sub) % 9 + 1, 9)}-01`, lastPaid: "2026-10-01", numbers: [], gaps: [], carriedOver: false, legacyOpening: false, startsLate: false, conflict: false, lines: [], ...over,
+  state: "in_progress", firstPaid: `2026-0${Math.min(Number(sub) % 9 + 1, 9)}-01`, lastPaid: "2026-10-01", numbers: [], gaps: [], prior: null, carriedOver: false, legacyOpening: false, startsLate: false, conflict: false, lines: [], ...over,
 });
 // Orphan 1 to Orphan n (one outcome on its own would be called just "Orphan", so at least two are made and the extra dropped).
 const orphans = (n: number): Outcome[] => addOutcomes([], { name: "Orphan", count: Math.max(n, 2), type: "child", cohort: "Cohort A", frameworkId: "shared" }).value.slice(0, n);

@@ -43,6 +43,14 @@ export function currentFeedConfig(c: FeedConfig): FeedConfig {
 }
 
 // One line of a paid transaction, in OUTCOMES' own terms.
+// Payments a plan made before it reached this system (DECISIONS 269): only the summary is kept. "ambiguous" means the history could belong to more than one plan, so nothing is counted.
+export interface PriorPayments { match: "found" | "ambiguous"; count: number; first: string; last: string; total: number; opening: boolean }
+function priorOf(r: FeedRow): PriorPayments | null {
+  const match = (r["plan_prior_match"] ?? "").trim();
+  if (match !== "found" && match !== "ambiguous") return null;
+  return { match, count: Number(r["plan_prior_count"]) || 0, first: (r["plan_prior_first"] ?? "").trim(), last: (r["plan_prior_last"] ?? "").trim(), total: Number(r["plan_prior_total"]) || 0, opening: (r["plan_prior_opening"] ?? "").trim() === "1" };
+}
+
 export interface FeedLine {
   row: number; // position in the feed, the first row is 1
   lineId: string; // the CRM's unique id of the line
@@ -72,6 +80,7 @@ export interface FeedLine {
   intention: string;
   subscriptionId: string; // "" for a one-off
   instalmentNumber: string; // "" for a one-off
+  prior: PriorPayments | null; // what a carried-over plan already paid before it reached this system, as the adapter found it. null when nothing was found or no history was loaded (DECISIONS 269)
   carriedOver: boolean; // the plan was carried over from the old website (DECISIONS 264)
   planStatus: string; // the plan's own status in the CRM (active, paused, cancelled, completed...), "" when the line has no plan row (DECISIONS 62)
   planNextDue: string; // the plan's next due date, YYYY-MM-DD, "" when unknown
@@ -216,6 +225,7 @@ export function readFeed(rows: FeedRow[], config: FeedConfig = MWF_CRM_CONFIG): 
       subscriptionId: (r["subscription_id"] ?? "").trim(),
       instalmentNumber: (r["instalment_number"] ?? "").trim(),
       instalmentCount,
+      prior: priorOf(r),
       carriedOver: (r["plan_carried_over"] ?? "").trim() === "1",
       planStatus: (r["plan_status"] ?? "").trim().toLowerCase(),
       planNextDue: dayOf(r["plan_next_due"] ?? ""),

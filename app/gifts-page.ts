@@ -170,11 +170,20 @@ export const FILTER_COLUMNS: [string, string][] = [["site", "Site"], ["origin", 
 const ALLOC_LABEL: Record<string, string> = { allocated: "Allocated", waiting: "Waiting for allocation", manual: "Allocate manually", none: "Not allocated", "n/a": "Not needed" };
 // One question only (DECISIONS 264, 265): was the gift's plan carried over from the old website? How it is paid is the Plan column's business, so a single payment is simply "Not carried over".
 const carried = (g: GiftRow): boolean => g.payments.some((w) => w.carriedOver === true);
-// Rule (DECISIONS 268): the top says how many payments we HOLD ("5 of ∞"); the Instalment column says the CRM's own number for each ("19 of ∞"). They differ when the plan began before our data: its first payment we hold is not instalment 1. Then one line says why, so the two numbers agree at a glance.
+// Rule (DECISIONS 268, 269): the top says how many payments we HOLD ("5 of ∞"); the Instalment column says the CRM's own number for each ("19 of ∞"). They differ when the plan began before our data. Then one line says why, and, when the old site's payments were found (the Legacy donations file), says how many, from when to when, and whether the numbers add up.
 function instalmentNote(g: GiftRow): string {
   const nums = g.payments.filter((w) => w.legacyUpload !== true).map((w) => Number(w.instalmentNumber)).filter((n) => Number.isInteger(n) && n > 0);
+  const prior = [...g.payments].reverse().map((w) => w.prior).find((x) => x !== undefined);
+  if (prior?.match === "ambiguous") return `<div class="muted instnote">Earlier payments may be on the old site, but this donor has another plan of the same amount, so they are not matched.</div>`;
   if (nums.length === 0) return "";
   const first = Math.min(...nums), latest = Math.max(...nums);
+  if (prior?.match === "found") {
+    const found = `${prior.count} earlier payment${prior.count === 1 ? "" : "s"} found on the old site (${shortDate(prior.first)} to ${shortDate(prior.last)}, ${money(prior.total, currencyOf(g))})`;
+    // How far the CRM's own numbering is from held + found. One more found than numbered is the opening order, which the CRM does not always number: that is explained, not a worry. Any other difference is said as it is.
+    const gap = g.paid + prior.count - latest;
+    const why = gap === 0 ? "" : gap === 1 && prior.opening ? " It includes the order the plan started from, which the CRM does not number." : ` The CRM numbers the latest instalment ${latest}, so the counts differ by ${Math.abs(gap)}.`;
+    return `<div class="muted instnote">${first > 1 ? `Latest is instalment ${latest}: ` : ""}${found}.${why}</div>`;
+  }
   if (first <= 1) return "";
   const why = carried(g) ? `${first - 1} earlier instalment${first === 2 ? "" : "s"} paid on the old site, not counted here` : "the earlier instalments are not in our data";
   return `<div class="muted instnote">Latest is instalment ${latest}: ${why}.</div>`;
