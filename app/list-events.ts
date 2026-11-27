@@ -7,6 +7,7 @@
  */
 import type { TableToolsState } from "./table-tools";
 import type { ConfirmFilter } from "./confirmation-page";
+import type { ProjectFilter } from "./projects-page";
 
 // --- What this file needs of the app ---
 // Only the fields it reads or sets. The app's own state has more, and satisfies this shape.
@@ -20,6 +21,7 @@ export interface ListEventState {
   allocFilter: string;
   prgFilter: string;
   cnfFilter: ConfirmFilter;
+  pjFilter: ProjectFilter;
   cnfWin: { id: string }; // the batch open in the Confirmation window, "" when none
 }
 export interface ListEventDeps { state: ListEventState; draw: () => void; outcomeChange: (body: Record<string, unknown>) => Promise<void> }
@@ -91,6 +93,7 @@ export function installListEvents({ state, draw, outcomeChange }: ListEventDeps)
     if (which === "asg") state.assignFilter = state.assignFilter === id ? "all" : id!;
     else if (which === "alloc") state.allocFilter = state.allocFilter === id ? "all" : id!;
     else if (which === "prg") state.prgFilter = state.prgFilter === id ? "all" : id!;
+    else if (which === "pj") state.pjFilter = state.pjFilter === id ? "all" : (id as ProjectFilter);
     else if (which === "cnf") state.cnfFilter = state.cnfFilter === id ? "all" : (id as ConfirmFilter);
     else return;
     draw();

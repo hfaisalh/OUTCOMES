@@ -552,3 +552,6 @@ tr.rowlink[data-cnfwin]{cursor:pointer}tr.rowlink[data-cnfwin]:hover td{backgrou
 @media (prefers-reduced-motion:reduce){.gw-in .cw-hero,.gw-in .cw-body>.gw-card{animation:none}}
 .cw-answers{min-height:24px}
 .hh-home{display:inline-block;margin-left:4px;padding:0 6px;border-radius:999px;background:#fff3e0;color:#9a6200;font-size:11px}.hh-chip.moves{border-color:#e0b36a;background:#fffaf0}
+
+/* The Projects list is figures (DECISIONS 245): numbers line up on the right, and a full project's vacant figure is amber. */
+.ptable th.num,.ptable td.num{text-align:right;font-variant-numeric:tabular-nums}.ptable td.num.full{color:#9a6200;font-weight:600}

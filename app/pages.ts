@@ -16,6 +16,7 @@ import type { Assignments } from "../modules/08-assignment/assignment";
 import type { Confirmations } from "../modules/11-confirmation/confirmation";
 import type { Progress } from "../modules/12-progress/progress";
 import type { ConfirmFilter } from "./confirmation-page";
+import type { ProjectFilter } from "./projects-page";
 import type { Placements } from "../modules/09-placement/placement";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { partsOf } from "../modules/01c-crm-connector/work-orders";
@@ -58,6 +59,7 @@ export interface View {
   progress?: Progress; // the steps taken after allocation and the batches closed (DECISIONS 232)
   prgFilter?: string; // the tile chosen on the Progress page
   cnfFilter?: ConfirmFilter; // the tile chosen on the Confirmation page
+  pjFilter?: ProjectFilter; // the tile chosen on the Projects page
   allocFilter?: string; // the filter on the Allocate page: all, open, placed
   assignFilter?: string; // the filter on the Assignment page: all, open, assigned
   enrolments?: Enrolments; // who is enrolled in which cluster (DECISIONS 167)
