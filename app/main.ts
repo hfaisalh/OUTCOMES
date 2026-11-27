@@ -55,7 +55,7 @@ import { acceptSuggestions, addCategory, addFramework, resolveFrameworkId, assig
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
 import { buildAttention, type AttentionItem } from "../modules/04-triage/triage";
-import { changeOutcomes, loadOutcomes, decideAttention, signOut, importFeed, loadAttention, loadAudits, loadConfig, loadPartner, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
+import { changeOutcomes, loadOutcomes, decideAttention, signOut, importFeed, loadAttention, loadAudits, loadConfig, loadPartner, loadWorkOrders, fetchMe, runPickupNow, saveConfig, searchPlaces, type Me } from "./api";
 import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
@@ -71,6 +71,9 @@ import { checkingHtml, signinHtml } from "./signin-page";
 import { partnerHomeHtml } from "./partner-home";
 import { handlePartnerAction, partnerKeys, partnerUi, switchView } from "./partner-session";
 import { csvChange } from "./partner-csv-session";
+import { initPlacePicker } from "./place-picker";
+
+initPlacePicker(searchPlaces);
 import { viewAsMenu } from "./view-as-menu";
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";

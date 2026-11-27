@@ -27,6 +27,7 @@ import type { AuditRecord } from "../01f-batch-audit/audit.js";
 import type { TriageMark } from "../04-triage/triage.js";
 import type { ChangeEntry } from "./change-log.js";
 import type { Login } from "./logins.js";
+import type { Place } from "../14-locations/locations.js";
 
 // How this organisation reads its CRM (DECISIONS 30). The token itself is never stored here, only the name of the setting that holds it.
 // "demo" is the pretend CRM of Module 1d, for testing with live input before a real CRM is connected.
@@ -52,6 +53,7 @@ export interface OrgConfig {
   progress?: Progress; // the steps taken after allocation (phases, review, report, complete, feedback) and the batches closed (DECISIONS 232)
   confirmations?: Confirmations; // the partners' answers to assignments: confirmed or rejected, with who and why (DECISIONS 231)
   enrolments?: Enrolments; // who is enrolled in which cluster, for which benefit (DECISIONS 167)
+  locations?: Place[]; // the checked places in use, picked from the place search (DECISIONS 274), with their position for reports and a map
   beneficiaries?: Register; // the Beneficiary register: persons and households (DECISIONS 163)
   idCounters?: Record<string, number>; // the last number used for each ID prefix, so an ID is never used twice (DECISIONS 105)
   allocationPrefix?: string; // the prefix of allocation IDs, AL by default

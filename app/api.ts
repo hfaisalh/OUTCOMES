@@ -9,6 +9,7 @@
  * stays in demo mode with its invented data.
  */
 
+import type { Place } from "../modules/14-locations/locations";
 import type { GiftProject, Node, Project } from "../modules/06-projects/projects";
 import type { ReviewItem, WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import type { RunInfo } from "../modules/00-platform/store";
@@ -77,6 +78,8 @@ export async function fetchMe(): Promise<Me | null> {
   }
 }
 // A partner's sign-in gets only its own slice from this same address (DECISIONS 249).
+// Place suggestions for the Area field (DECISIONS 274). A failure is an empty list: the person can keep what they typed.
+export const searchPlaces = (text: string) => call<{ places: Place[] }>(`/api/outcomes?places=${encodeURIComponent(text)}`).then((r) => r.places).catch(() => [] as Place[]);
 export const loadPartner = () => call<PartnerSlice>("/api/outcomes");
 // A partner accepts or refuses its own gifts (DECISIONS 254). The answer is the partner's fresh slice with a message.
 export const partnerAnswer = (body: Record<string, unknown>) => call<PartnerSlice & { message?: string }>("/api/outcomes", { method: "POST", body });

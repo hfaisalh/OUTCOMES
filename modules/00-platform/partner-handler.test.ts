@@ -177,3 +177,29 @@ describe("what a partner can reach", () => {
     expect(body.beneficiaries.records).toHaveLength(2);
   });
 });
+
+describe("place suggestions for the Area pickers (DECISIONS 274)", () => {
+  const found = { features: [{ properties: { osm_type: "N", osm_id: 1, osm_key: "place", osm_value: "city", name: "Kasur", state: "Punjab", country: "Pakistan", countrycode: "PK" }, geometry: { coordinates: [74.4, 31.1] } }] };
+  const withFetch = (): Deps => ({ ...d, fetch: async () => ({ ok: true, json: async () => found }) });
+
+  it("answers a partner and staff alike, and only when signed in", async () => {
+    const pc = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
+    const r = await handleOutcomes(as(pc, { query: { places: "Kasur Unique" } }), withFetch());
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ places: [{ id: "osm:N1", name: "Kasur" }] });
+    expect((await handleOutcomes(req({ query: { places: "Kasur" } }), withFetch())).status).toBe(401);
+  });
+});
+
+describe("saving a beneficiary with a checked place (DECISIONS 274)", () => {
+  it("keeps the place in the organisation's list once, and the id on the beneficiary", async () => {
+    const c = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
+    const place = { id: "osm:N1", name: "Kasur", district: "", region: "Punjab", country: "Pakistan", countryCode: "PK", lat: 31.1, lon: 74.4 };
+    const post = (name: string) => handleOutcomes(as(c, { method: "POST", body: { action: "ben-add", name, area: "Kasur, Punjab, Pakistan", locationId: "osm:N1", location: place, targetProjectId: "g1" } }), d);
+    expect((await post("Chand Bibi")).status).toBe(200);
+    expect((await post("Dawood Ali")).status).toBe(200);
+    const cfg = (await d.store.getConfig("demo"))!;
+    expect(cfg.locations).toEqual([place]);
+    expect(cfg.beneficiaries!.records.filter((b) => b.locationId === "osm:N1")).toHaveLength(2);
+  });
+});

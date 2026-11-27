@@ -70,7 +70,7 @@ export async function handlePartnerAction(action: string, el: HTMLElement, curre
 }
 
 // --- The beneficiary form: what is shown when editing, and what is sent on Save ---
-const FORM_FIELDS = ["name", "dob", "gender", "placeOfBirth", "idNumber", "fatherStatus", "motherStatus", "guardian", "guardianRelation", "area", "partnerRef", "targetProjectId"] as const;
+const FORM_FIELDS = ["name", "dob", "gender", "placeOfBirth", "idNumber", "fatherStatus", "motherStatus", "guardian", "guardianRelation", "area", "locationId", "partnerRef", "targetProjectId"] as const;
 const valuesOf = (b: object): Record<string, string> => Object.fromEntries(FORM_FIELDS.map((f) => { const v = (b as Record<string, unknown>)[f]; return [f, typeof v === "string" ? v : ""]; }));
 const readForm = (): Record<string, string> => Object.fromEntries(FORM_FIELDS.map((f) => [f, (document.getElementById(`pe-${f}`) as HTMLInputElement | null)?.value ?? ""]));
 
@@ -78,9 +78,11 @@ async function saveForm(apply: (s: PartnerSlice) => void): Promise<void> {
   const form = partnerUi.form;
   if (!form) return;
   const values = readForm();
+  let location: unknown; // the place chosen from the list, if any (DECISIONS 274)
+  try { const raw = (document.getElementById("pe-location") as HTMLInputElement | null)?.value ?? ""; location = raw === "" ? undefined : JSON.parse(raw); } catch { location = undefined; }
   const allowSimilar = (document.getElementById("pe-different") as HTMLInputElement | null)?.checked === true;
   try {
-    const { message, ...slice } = await partnerAnswer({ action: form.id ? "ben-set" : "ben-add", ...(form.id ? { id: form.id } : {}), ...values, allowSimilar });
+    const { message, ...slice } = await partnerAnswer({ action: form.id ? "ben-set" : "ben-add", ...(form.id ? { id: form.id } : {}), ...values, ...(location ? { location } : {}), allowSimilar });
     apply(slice as PartnerSlice);
     partnerUi.message = message ?? "";
     partnerUi.form = null;

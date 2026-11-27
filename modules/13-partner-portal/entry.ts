@@ -21,7 +21,7 @@ import type { GiftProject } from "../06-projects/projects.js";
 const describe = (r: Beneficiary): string => `${r.name} (${r.id}${r.dob ? `, born ${r.dob}` : ""}${r.idNumber ? `, ID ${r.idNumber}` : ""})`;
 
 // --- What a partner may give ---
-const FIELDS = ["name", "dob", "gender", "placeOfBirth", "idNumber", "fatherStatus", "motherStatus", "guardian", "guardianRelation", "area", "partnerRef", "targetProjectId"] as const;
+const FIELDS = ["name", "dob", "gender", "placeOfBirth", "idNumber", "fatherStatus", "motherStatus", "guardian", "guardianRelation", "area", "locationId", "partnerRef", "targetProjectId"] as const;
 export const SIMILAR = "Possible match"; // the start of the message the register gives for a possible duplicate
 
 export type EntryResult = { register: Register; id: string; added: boolean } | { error: string; similar: boolean };

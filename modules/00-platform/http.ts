@@ -33,6 +33,7 @@ export interface Deps {
   connector: (config: OrgConfig) => { reader: CrmReader; reporter: CrmReporter } | null;
   storage: "database" | "memory"; // shown to staff, so nobody trusts the memory version with real work
   ownerPassphrase?: string; // the owner's sign-in passphrase (OWNER_PASSPHRASE). Empty or missing switches the owner sign-in off
+  fetch?: (url: string, init?: { signal?: AbortSignal; headers?: Record<string, string> }) => Promise<{ ok: boolean; json(): Promise<unknown> }>; // the place search reaches the internet through this; tests pass a fake
   demoLogin: boolean; // true only where the test sign-in is switched on (DEMO_LOGIN=1). Never for a live organisation
 }
 

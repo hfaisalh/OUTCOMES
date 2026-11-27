@@ -95,3 +95,14 @@ describe("where the person stands", () => {
     expect(entryMessage(declined, emptyEnrolments(), projects, "PRS-0001", false)).toContain("cannot be offered a vacancy");
   });
 });
+
+describe("a checked place on a beneficiary (DECISIONS 274)", () => {
+  it("keeps a valid place id with the area, and drops one that is not a place id", () => {
+    const r = partnerEntry(emptyRegister(), "p1", ["g1"], { action: "ben-add", name: "Amina Khan", area: "Kasur, Punjab, Pakistan", locationId: "osm:N281396083", targetProjectId: "g1" }, "2026-11-01");
+    if (!r || "error" in r) throw new Error("not added");
+    expect(r.register.records[0]).toMatchObject({ area: "Kasur, Punjab, Pakistan", locationId: "osm:N281396083" });
+    const bad = partnerEntry(emptyRegister(), "p1", ["g1"], { action: "ben-add", name: "Bilal Ahmed", area: "Kasur", locationId: "<script>", targetProjectId: "g1" }, "2026-11-01");
+    if (!bad || "error" in bad) throw new Error("not added");
+    expect(bad.register.records[0]).not.toHaveProperty("locationId");
+  });
+});

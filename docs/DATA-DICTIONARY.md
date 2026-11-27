@@ -175,6 +175,7 @@ A person or household that receives what a gift delivers. Stored on the organisa
 | `name` | A person's name, or a household's family name. Names are compared ignoring case, punctuation and spaces |
 | `status` | Active or inactive. An enrolled record is made inactive, not removed |
 | `area` | A village or district. Not a full address. Contact details are not kept |
+| `locationId` | The checked place the area was chosen from, `osm:N123` (source and its id). Absent when the area is only typed (DECISIONS 274) |
 | `dob` | A person's date of birth, YYYY-MM-DD, or empty. With the name it decides whether two records are the same person |
 | `gender` | Person: female, male, or empty |
 | `guardian` | Person: the parent or guardian's name |

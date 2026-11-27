@@ -30,6 +30,7 @@ import { loadSampleSetup, realProjectsFor, wholeByItem, type SampleState, remove
 import { poolMessage, settlePool } from "../07-beneficiaries/waiting.js";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf } from "../07-beneficiaries/enrolments.js";
 import { handlePartner } from "./partner-handler.js";
+import { handlePlaces } from "./places-handler.js";
 import { json, need, sessionOf, text, type Deps, type HttpRequest, type HttpResponse } from "./http.js";
 
 // GET /api/outcomes   The outcomes and what is allocated to them.
@@ -39,6 +40,8 @@ export const MAX_OUTCOMES = 5000;
 export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpResponse> {
   const write = req.method === "POST";
   if (req.method !== "GET" && !write) return text(404, "Not found.");
+  // Rule (DECISIONS 274): place suggestions for the Area pickers, for staff and partners alike.
+  if (!write && req.query["places"] !== undefined) return handlePlaces(req, d);
   // Rule (DECISIONS 249): a partner's sign-in gets its own slice from this same address (the host allows only 12 functions), and can do nothing else here.
   if (sessionOf(req, d)?.partner !== undefined) return handlePartner(req, d);
   const a = need(req, d, write ? P.mapFrameworks : P.viewWorkOrders);

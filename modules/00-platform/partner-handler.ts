@@ -20,6 +20,7 @@ import { entryMessage, partnerEntry } from "../13-partner-portal/entry.js";
 import { addMany, MAX_ROWS } from "../13-partner-portal/import.js";
 import { giftDetails } from "../13-partner-portal/gift-details.js";
 import { partnerSlice, PARTNER_PERMISSION } from "../13-partner-portal/scope.js";
+import { acceptPlace, upsertPlace } from "../14-locations/locations.js";
 import { changesBetween } from "./change-log.js";
 import { defaultConfig, setupOf } from "./store.js";
 import { json, need, text, type Deps, type HttpRequest, type HttpResponse } from "./http.js";
@@ -68,7 +69,9 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
     }
     const settled = r ? pool(r.register) : undefined;
     if (r && settled) {
-      const next = { ...config, beneficiaries: settled.register, enrolments: settled.enrolments };
+      // Rule (DECISIONS 274): a place chosen from the search is kept in the organisation's list of places, once.
+      const place = acceptPlace(body["location"]);
+      const next = { ...config, beneficiaries: settled.register, enrolments: settled.enrolments, ...(place && place.id === body["locationId"] ? { locations: upsertPlace(config.locations ?? [], place) } : {}) };
       await d.store.putConfig(a.claims.org, next);
       try { await d.store.addChanges(a.claims.org, changesBetween(config, next, a.claims.name, String(body["action"]), at)); } catch (e) { console.error("change log not written", e); }
       message = entryMessage(settled.register, settled.enrolments, migrated.giftProjects, r.id, r.added);

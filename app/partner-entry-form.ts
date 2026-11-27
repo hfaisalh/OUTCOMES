@@ -8,6 +8,7 @@
  */
 
 import { esc } from "./partner-outcomes";
+import { placeFieldHtml } from "./place-picker";
 
 export interface EntryForm { id: string; values: Record<string, string>; error: string; similar: boolean; fresh?: boolean } // id is "" when adding. fresh: just opened, so the window eases in (and not again on a redraw)
 
@@ -31,7 +32,7 @@ export function entryFormHtml(f: EntryForm, projects: { id: string; name: string
         ${pick(f, "gender", "Gender", [["", "Not said"], ["female", "Female"], ["male", "Male"]])}${field(f, "idNumber", "National ID or B-form number", "", "The surest way to avoid adding the same person twice.")}
         ${pick(f, "fatherStatus", "Father", parent)}${pick(f, "motherStatus", "Mother", parent)}
         ${field(f, "guardian", "Parent or guardian")}${field(f, "guardianRelation", "Guardian's relation to the beneficiary", "", "For example mother, uncle, grandmother.")}
-        ${project}${field(f, "area", "Area", "", "A village or district, not a full address.")}
+        ${project}${placeFieldHtml("pe-area", val(f, "area"), val(f, "locationId"), "A village or district, not a full address.")}
         ${field(f, "placeOfBirth", "Place of birth")}${field(f, "partnerRef", "Your own reference", "", "Your ID for them, so your records and ours can be matched.")}
       </div>
       ${f.similar ? `<label class="pe-same"><input type="checkbox" id="pe-different"> This is a different person, not the same. Save anyway.</label>` : ""}

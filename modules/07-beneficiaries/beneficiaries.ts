@@ -21,6 +21,8 @@
  * - Nothing is changed in place: every function returns a new value.
  */
 
+import { validPlaceId } from "../14-locations/locations.js";
+
 export type BeneficiaryKind = "person" | "household";
 export type BeneficiaryStatus = "active" | "inactive";
 export type Gender = "" | "female" | "male";
@@ -34,6 +36,7 @@ export interface Beneficiary {
   name: string;
   status: BeneficiaryStatus;
   area: string; // where they live: a village, a district. Not a full address
+  locationId?: string; // the checked place the Area was chosen from (DECISIONS 274), "osm:N123". Absent when the Area is only what was typed
   notes: string;
   dob: string; // person: YYYY-MM-DD, "" when not known
   gender: Gender; // person
@@ -104,7 +107,7 @@ export function findDuplicates(reg: Register, c: { kind: BeneficiaryKind; name: 
 
 const describe = (r: Beneficiary): string => `${r.name} (${r.id}${r.kind === "person" ? (r.dob ? `, born ${r.dob}` : "") + (r.idNumber ? `, ID ${r.idNumber}` : "") : r.area ? `, ${r.area}` : ""})`;
 
-interface Fields { name: unknown; dob?: unknown; gender?: unknown; guardian?: unknown; guardianRelation?: unknown; placeOfBirth?: unknown; idNumber?: unknown; fatherStatus?: unknown; motherStatus?: unknown; eligibility?: unknown; eligibilityNote?: unknown; partnerId?: unknown; partnerRef?: unknown; targetProjectId?: unknown; priority?: unknown; priorityNote?: unknown; area?: unknown; notes?: unknown; memberIds?: unknown; size?: unknown }
+interface Fields { name: unknown; dob?: unknown; gender?: unknown; guardian?: unknown; guardianRelation?: unknown; placeOfBirth?: unknown; idNumber?: unknown; fatherStatus?: unknown; motherStatus?: unknown; eligibility?: unknown; eligibilityNote?: unknown; partnerId?: unknown; partnerRef?: unknown; targetProjectId?: unknown; priority?: unknown; priorityNote?: unknown; area?: unknown; notes?: unknown; memberIds?: unknown; size?: unknown; locationId?: unknown }
 
 // Checks the fields for a kind and returns the record's details (without ID and status), or an error.
 function readFields(reg: Register, kind: BeneficiaryKind, f: Fields, selfId: string): Omit<Beneficiary, "id" | "kind" | "status"> | { error: string } {
@@ -141,7 +144,7 @@ function readFields(reg: Register, kind: BeneficiaryKind, f: Fields, selfId: str
   return {
     name, area: clean(f.area).slice(0, 120), notes: clean(f.notes).slice(0, 500), dob, gender: (kind === "person" ? gender : "") as Gender, guardian: mine(f.guardian, 80), guardianRelation: mine(f.guardianRelation, 40),
     placeOfBirth: mine(f.placeOfBirth, 80), idNumber: kind === "person" ? clean(f.idNumber).replace(/\s+/g, "").slice(0, 30) : "", fatherStatus: kind === "person" ? father : "", motherStatus: kind === "person" ? mother : "",
-    eligibility: (kind === "person" ? eligibility : "") as Eligibility, eligibilityNote: mine(f.eligibilityNote, 200), partnerId: clean(f.partnerId).slice(0, 80), partnerRef: clean(f.partnerRef).slice(0, 60), targetProjectId: kind === "person" ? clean(f.targetProjectId).slice(0, 80) : "", ...(priority ? { priority: true as const, priorityNote: mine(f.priorityNote, 200) } : {}), memberIds, ...(size !== undefined ? { size } : {}),
+    eligibility: (kind === "person" ? eligibility : "") as Eligibility, eligibilityNote: mine(f.eligibilityNote, 200), partnerId: clean(f.partnerId).slice(0, 80), partnerRef: clean(f.partnerRef).slice(0, 60), targetProjectId: kind === "person" ? clean(f.targetProjectId).slice(0, 80) : "", ...(priority ? { priority: true as const, priorityNote: mine(f.priorityNote, 200) } : {}), memberIds, ...(size !== undefined ? { size } : {}), ...(validPlaceId(clean(f.locationId)) ? { locationId: clean(f.locationId) } : {}),
   };
 }
 
