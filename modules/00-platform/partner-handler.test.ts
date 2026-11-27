@@ -62,7 +62,7 @@ describe("what a partner can reach", () => {
 
   it("cannot change anything, nor reach staff endpoints", async () => {
     const c = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
-    expect((await handleOutcomes(as(c, { method: "POST", body: { action: "auto" } }), d)).status).toBe(404);
+    expect((await handleOutcomes(as(c, { method: "POST", body: { action: "auto" } }), d)).status).toBe(400); // only accepting or refusing its own gifts is open
     expect((await handleConfig(as(c), d)).status).toBe(403);
     expect((await handleWorkOrders(as(c), d)).status).toBe(403);
   });
@@ -74,6 +74,25 @@ describe("what a partner can reach", () => {
     expect((await handleMe(as(c), d)).body).toMatchObject({ partner: "p1", perms: ["outcomes.access"] });
     expect((await handleConfig(as(c), d)).status).toBe(403);
     expect((await handleWorkOrders(as(c), d)).status).toBe(403);
+  });
+
+  it("lets a partner accept or refuse its own gifts, saved with its name, and nothing else", async () => {
+    const cfg = (await d.store.getConfig("demo"))!;
+    const gift = (key: string, partnerId: string) => ({ key, partnerId, giftProjectId: "g1", itemId: "S", parts: 1, how: "auto" as const, at: "2026-11-01T00:00:00Z", batch: 1 });
+    await d.store.putConfig("demo", { ...cfg, assignments: { records: [gift("sub:1", "p1"), gift("sub:2", "p1"), gift("sub:3", "p2")] } });
+    const c = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
+    const post = (body: unknown) => handleOutcomes(as(c, { method: "POST", body }), d);
+    const yes = await post({ action: "cnf-confirm", key: "sub:1" });
+    expect(yes.status).toBe(200);
+    expect(yes.body).toMatchObject({ message: "Accepted.", confirmations: [{ key: "sub:1", answer: "confirmed", by: "Demo partner" }] });
+    expect((await post({ action: "cnf-reject", key: "sub:2" })).status).toBe(400); // a refusal needs a reason
+    const no = await post({ action: "cnf-reject", key: "sub:2", reason: "No capacity" });
+    expect(no.body).toMatchObject({ confirmations: [{ key: "sub:1" }, { key: "sub:2", answer: "rejected", reason: "No capacity" }] });
+    expect((await post({ action: "cnf-confirm", key: "sub:3" })).status).toBe(400); // another partner's gift
+    expect((await post({ action: "cnf-reset" })).status).toBe(400);
+    expect((await post({ action: "ben-add", name: "Someone" })).status).toBe(400);
+    const saved = (await d.store.getConfig("demo"))!.confirmations!.records;
+    expect(saved.map((r) => r.key)).toEqual(["sub:1", "sub:2"]);
   });
 
   it("gives 404 for a partner that no longer exists", async () => {

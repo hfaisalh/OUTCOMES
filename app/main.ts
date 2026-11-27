@@ -69,6 +69,7 @@ import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from ".
 import { ensureRefs } from "../modules/05-outcomes/refs";
 import { checkingHtml, signinHtml } from "./signin-page";
 import { partnerHomeHtml } from "./partner-home";
+import { handlePartnerAction, partnerUi } from "./partner-session";
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
 import { setItemKind, setItemUnits } from "../modules/02-project-rules/benefits";
@@ -493,7 +494,7 @@ function settleConfirmations(): void {
 function draw(): void {
   // Rule (DECISIONS 91): until a session is found, or the demo is chosen, only the sign-in screen is shown.
   if (state.gate !== "app") {
-    const html = state.gate === "checking" ? checkingHtml() : state.gate === "partner" && state.partnerSlice && state.me ? partnerHomeHtml(state.partnerSlice, state.me.name, typeof __BUILD_LABEL__ === "string" ? __BUILD_LABEL__ : "dev") : signinHtml(state.ownerNote);
+    const html = state.gate === "checking" ? checkingHtml() : state.gate === "partner" && state.partnerSlice && state.me ? partnerHomeHtml(state.partnerSlice, state.me.name, typeof __BUILD_LABEL__ === "string" ? __BUILD_LABEL__ : "dev", partnerUi) : signinHtml(state.ownerNote);
     (document.getElementById("shell") as HTMLElement).innerHTML = html;
     return;
   }
@@ -717,6 +718,7 @@ document.addEventListener("click", (e) => {
     const scope = el.dataset.scope ?? "main";
     if (k && k in NO_CRITERIA && scope === "main") state.criteria = { ...state.criteria, [k]: NO_CRITERIA[k] };
   }
+  if (action?.startsWith("pt-")) return void handlePartnerAction(action, el, (slice) => { state.partnerSlice = slice; }, draw);
   if (action === "show-signin") { state.topMenu = ""; state.gate = "signin"; return draw(); }
   if (action === "sign-out") {
     void signOut().finally(() => (globalThis as { location?: { assign(u: string): void } }).location?.assign("/app/"));

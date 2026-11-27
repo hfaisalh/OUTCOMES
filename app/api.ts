@@ -76,6 +76,8 @@ export async function fetchMe(): Promise<Me | null> {
 }
 // A partner's sign-in gets only its own slice from this same address (DECISIONS 249).
 export const loadPartner = () => call<PartnerSlice>("/api/outcomes");
+// A partner accepts or refuses its own gifts (DECISIONS 254). The answer is the partner's fresh slice with a message.
+export const partnerAnswer = (body: Record<string, unknown>) => call<PartnerSlice & { message?: string }>("/api/outcomes", { method: "POST", body });
 export const signOut = () => call<{ ok: boolean }>("/api/logout", { method: "POST", body: {} });
 export const loadConfig = () => call<ServerConfig>("/api/config");
 export const saveConfig = (c: { categories: Category[]; itemMap: ItemMap; frameworks: FrameworkTemplate[]; itemFramework: Record<string, string>; reapply?: boolean }) => call<{ ok: boolean; routed: number; reapplied?: number }>("/api/config", { method: "PUT", body: c });

@@ -11,6 +11,9 @@ import { signinNote } from "./pages";
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 import type { Beneficiary } from "../modules/07-beneficiaries/beneficiaries";
 import type { View } from "./pages";
+import type { PartnerUi } from "./partner-outcomes";
+
+const QUIET: PartnerUi = { refusing: null, message: "", error: "" };
 
 const kid = (id: string, name: string, eligibility: string, over: Partial<Beneficiary> = {}): Beneficiary => ({ id, kind: "person", name, status: "active", area: "", notes: "", dob: "", gender: "", guardian: "", guardianRelation: "", placeOfBirth: "", idNumber: "", fatherStatus: "", motherStatus: "", eligibility, eligibilityNote: "", partnerId: "p1", partnerRef: "", memberIds: [], ...over } as Beneficiary);
 const slice = (): PartnerSlice => ({
@@ -24,7 +27,7 @@ const slice = (): PartnerSlice => ({
 
 describe("the partner's home screen", () => {
   it("shows the figures, the children and the projects, and escapes names", () => {
-    const html = partnerHomeHtml(slice(), "Sara", "v0.1.0 · abc123");
+    const html = partnerHomeHtml(slice(), "Sara", "v0.1.0 · abc123", QUIET);
     expect(html).toContain("Welcome, Alpha &lt;Trust&gt;");
     expect(html).toContain("<b>3</b><span>Beneficiaries</span>");
     expect(html).toContain("<b>1</b><span>Enrolled</span>");
@@ -39,15 +42,43 @@ describe("the partner's home screen", () => {
     expect(html).not.toContain("<Trust>");
   });
   it("shows the project a child is enrolled in, or else the one it waits for", () => {
-    const html = partnerHomeHtml(slice(), "Sara", "v0.1.0 · abc123");
+    const html = partnerHomeHtml(slice(), "Sara", "v0.1.0 · abc123", QUIET);
     expect(html).toContain("<td>PRS-3</td><td>Chand Ali</td><td>Orphan homes</td><td>Enrolled</td>");
     expect(html).toContain("<td>PRS-1</td><td>Amina Khan</td><td>Orphan homes</td><td>Ready</td>");
   });
   it("says so when there is nothing yet", () => {
     const empty = { ...slice(), beneficiaries: [], giftProjects: [], enrolments: [], assignments: [] };
-    expect(partnerHomeHtml(empty, "Sara", "dev")).toContain("No gift has been assigned to you yet");
-    expect(partnerHomeHtml(empty, "Sara", "dev")).toContain("No beneficiaries yet");
-    expect(partnerHomeHtml(empty, "Sara", "dev")).toContain("No project has been given to you yet");
+    expect(partnerHomeHtml(empty, "Sara", "dev", QUIET)).toContain("No gift has been assigned to you yet");
+    expect(partnerHomeHtml(empty, "Sara", "dev", QUIET)).toContain("No beneficiaries yet");
+    expect(partnerHomeHtml(empty, "Sara", "dev", QUIET)).toContain("No project has been given to you yet");
+  });
+});
+
+describe("answering a gift", () => {
+  it("offers Accept and Refuse for each batch waiting, with the gift keys", () => {
+    const html = partnerHomeHtml(slice(), "Sara", "dev", QUIET);
+    expect(html).toContain("Waiting for your answer");
+    expect(html).toContain('data-action="pt-accept" data-keys="sub:1"');
+    expect(html).toContain('data-action="pt-refuse" data-keys="sub:1"');
+    expect(html).not.toContain("pt-reason");
+  });
+  it("shows the refusal form with its reason box, and an error or message safely", () => {
+    const form = partnerHomeHtml(slice(), "Sara", "dev", { refusing: ["sub:1"], message: "", error: "Say <why>." });
+    expect(form).toContain('id="pt-reason"');
+    expect(form).toContain('data-action="pt-refuse-send"');
+    expect(form).toContain('data-action="pt-refuse-cancel"');
+    expect(form).toContain("Say &lt;why&gt;.");
+    expect(partnerHomeHtml(slice(), "Sara", "dev", { ...QUIET, message: "Accepted." })).toContain("Accepted.");
+  });
+  it("offers batch buttons when several gifts wait in one batch", () => {
+    const s = slice();
+    s.assignments = [...s.assignments, { ...s.assignments[0]!, key: "sub:2" }];
+    expect(partnerHomeHtml(s, "Sara", "dev", QUIET)).toContain('data-keys="sub:1|sub:2"');
+  });
+  it("shows nothing to answer when everything is answered", () => {
+    const s = slice();
+    s.confirmations = [{ key: "sub:1", partnerId: "p1", answer: "confirmed", at: "x", by: "A", reason: "" }];
+    expect(partnerHomeHtml(s, "Sara", "dev", QUIET)).not.toContain("Waiting for your answer");
   });
 });
 

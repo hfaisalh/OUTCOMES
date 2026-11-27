@@ -570,3 +570,5 @@ tr.rowlink[data-cnfwin]{cursor:pointer}tr.rowlink[data-cnfwin]:hover td{backgrou
 @media (prefers-reduced-motion:reduce){.pj-step{transition:none}.pj-step:hover{transform:none}}
 @media (max-width:980px){.phome-grid{grid-template-columns:minmax(0,1fr)}.pj-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.pj-step:not(:last-child)::after{display:none}}
 @media (max-width:560px){.phome-bar,.phome-main{padding-left:16px;padding-right:16px}.pj-steps{grid-template-columns:minmax(0,1fr)}}
+.pt-batches{list-style:none;margin:0 0 4px;padding:0;display:grid;gap:8px}.pt-batch{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.pt-refuse{display:grid;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}.pt-refuse textarea{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;resize:vertical}
