@@ -143,7 +143,8 @@ describe("what a partner can reach", () => {
     const good = (name: string, id: string, extra: Record<string, string> = {}) => ({ name, dob: "2016-04-02", guardian: "A mother", idNumber: id, ...extra });
     const r = await post({ action: "ben-add-many", targetProjectId: "g1", allowSimilar: false, rows: [{ line: 2, values: good("Zara Malik", "B-1") }, { line: 3, values: { name: "X", dob: "bad" } }, { line: 4, values: good("Yusuf Raza", "B-2", { guardian: "" }) }, { line: 5, values: good("Chand Ali", other.idNumber || "B-SAME") }, { line: 6, values: good("Dana Shah", "B-4", { targetProjectId: "not-mine" }) }] });
     expect(r.status).toBe(200);
-    const body = r.body as { message: string; upload: { added: number; skipped: { line: number; error: string }[] }; beneficiaries: { id: string }[] };
+    const body = r.body as { message: string; upload: { added: number; addedLines: number[]; skipped: { line: number; error: string }[] }; beneficiaries: { id: string }[] };
+    expect(body.upload.addedLines).toEqual([2, 4]); // the rows added, so the window can remove them from its list
     expect(body.upload.added).toBe(2);
     expect(body.upload.skipped.map((x) => x.line)).toEqual([3, 6, ...(other.idNumber ? [5] : [])].sort((a, b) => a - b).filter((l, i, all) => all.indexOf(l) === i));
     expect(body.message).toBe(`Added 2 beneficiaries: 1 enrolled, 0 on the waiting list, 1 needing details. ${body.upload.skipped.length} not added.`);

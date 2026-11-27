@@ -44,7 +44,7 @@ export async function handlePartnerAction(action: string, el: HTMLElement, curre
     partnerUi.open = wasOpen ? partnerUi.open.filter((b) => b !== id) : [...partnerUi.open, id];
     if (!wasOpen) partnerUi.lastOpened = id; // only the batch just opened fades in, not every one on each redraw
   } else if (action.startsWith("pt-csv-")) {
-    await csvAction(action, apply);
+    await csvAction(action, apply, el, current?.giftProjects ?? []);
   } else if (action === "pt-add") {
     partnerUi.form = { id: "", values: {}, error: "", similar: false, fresh: true };
   } else if (action === "pt-edit") {

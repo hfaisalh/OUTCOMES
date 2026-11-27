@@ -31,7 +31,7 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
   const config = (await d.store.getConfig(a.claims.org)) ?? defaultConfig();
   // Rule (DECISIONS 254): a partner may accept or refuse its own gifts, and nothing else. The answer is saved, then the partner's fresh slice is returned with a message.
   let message = "";
-  let upload: { added: number; skipped: { line: number; name: string; error: string }[] } | undefined; // the result of a CSV upload, listing the rows not added
+  let upload: { added: number; addedLines: number[]; skipped: { line: number; name: string; error: string }[] } | undefined; // the result of a CSV upload, listing the rows not added
   const workOrders = await d.store.listWorkOrders(a.claims.org);
   const migrated = migrateGiftProjects(config.projects ?? [], config.giftProjects ?? []);
   const body = (req.body ?? {}) as Record<string, unknown>;
@@ -59,7 +59,7 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
       const enrolled = mine.filter((b) => settledMany.enrolments.records.some((e) => e.beneficiaryId === b.id && e.status === "active")).length;
       const waiting = mine.filter((b) => b.eligibility === "ready").length - enrolled, review = mine.filter((b) => b.eligibility === "review").length;
       message = many.added.length === 0 ? "Nothing was added." : `Added ${many.added.length} beneficiar${many.added.length === 1 ? "y" : "ies"}: ${enrolled} enrolled, ${Math.max(0, waiting)} on the waiting list, ${review} needing details.${many.skipped.length > 0 ? ` ${many.skipped.length} not added.` : ""}`;
-      upload = { added: many.added.length, skipped: many.skipped };
+      upload = { added: many.added.length, addedLines: many.added.map((x) => x.line), skipped: many.skipped };
     } else {
       const one = partnerEntry(config.beneficiaries ?? emptyRegister(), a.claims.partner as string, mineProjects.map((g) => g.id), body, at.slice(0, 10));
       if (!one) return json(400, { error: "That request is not open to a partner." });

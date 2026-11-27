@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { addBeneficiary, emptyRegister } from "../07-beneficiaries/beneficiaries";
-import { addMany, MAX_ROWS, readBeneficiaryCsv, templateCsv, TEMPLATE_HEADER } from "./import";
+import { addMany, checkRow, checkRows, MAX_ROWS, readBeneficiaryCsv, templateCsv, TEMPLATE_HEADER } from "./import";
 
 const projects = [{ id: "g1", name: "Orphan Homes" }, { id: "g2", name: "Girls School" }];
 const csv = (...lines: string[]): string => lines.join("\r\n");
@@ -16,7 +16,7 @@ describe("reading the file", () => {
   it("takes the columns by name in any order and spelling close to the template, ignoring ones it does not know", () => {
     const r = read("DOB,Full name,Phone,CNIC,Sex", "02/04/2016,Amina Khan,0300,B-1,F");
     expect(r.problem).toBe("");
-    expect(r.rows[0]).toEqual({ line: 2, error: "", values: { dob: "2016-04-02", name: "Amina Khan", idNumber: "B-1", gender: "female" } });
+    expect(r.rows[0]).toEqual({ line: 2, error: "", raw: { dob: "02/04/2016", name: "Amina Khan", idNumber: "B-1", gender: "F" }, values: { dob: "2016-04-02", name: "Amina Khan", idNumber: "B-1", gender: "female" } });
   });
 
   it("makes a date from YYYY-MM-DD or DD/MM/YYYY and never guesses a bad one", () => {
@@ -42,7 +42,7 @@ describe("reading the file", () => {
 
   it("flags a row that repeats an earlier row of the same file, by ID number or by name and date of birth", () => {
     const r = read("Name,Date of birth,National ID", "A One,2016-01-01,B-1", "B Two,2017-01-01,b-1", "A  One,2016-01-01,", "C Three,2018-01-01,B-3");
-    expect(r.rows.map((x) => x.error)).toEqual(["", "The same person as line 2.", "The same person as line 2.", ""]);
+    expect(r.rows.map((x) => x.error)).toEqual(["", "The same person as row 2.", "The same person as row 2.", ""]);
   });
 
   it("flags a row with no name, skips blank rows, and numbers the rows with the header as row 1", () => {
@@ -65,6 +65,24 @@ describe("reading the file", () => {
     expect(r.rows).toHaveLength(1);
     expect(r.rows[0]).toMatchObject({ error: "", values: { name: "Amina Khan", dob: "2016-04-02", gender: "female", fatherStatus: "living", motherStatus: "deceased" } });
     expect(templateCsv().split("\r\n")[0]).toBe(TEMPLATE_HEADER.join(","));
+  });
+});
+
+describe("editing a row in the preview (DECISIONS 272)", () => {
+  it("checks one row on its own and tidies its values, so a fixed cell clears its problem", () => {
+    expect(checkRow({ name: "Bilal Ahmed", dob: "13/13/2015" }, projects).error).toBe("Write the date of birth as YYYY-MM-DD or DD/MM/YYYY.");
+    expect(checkRow({ name: "Bilal Ahmed", dob: "13/11/2015", gender: "m", project: "girls school" }, projects)).toEqual({ error: "", values: { name: "Bilal Ahmed", dob: "2015-11-13", gender: "male", project: "girls school", targetProjectId: "g2" } });
+    expect(checkRow({ name: "Bilal Ahmed", project: "Orphan Homes" }, projects).values["targetProjectId"]).toBe("g1");
+    expect(checkRow({ name: "Bilal Ahmed", project: "" }, projects).values["targetProjectId"]).toBeUndefined(); // an emptied project goes back to the one chosen for the upload
+  });
+
+  it("looks for repeats in the file again after an edit, and keeps what the server said until that row itself is edited", () => {
+    const rows = read("Name,National ID", "A One,B-1", "B Two,B-1", "C Three,B-3").rows;
+    expect(rows.map((r) => r.error)).toEqual(["", "The same person as row 2.", ""]);
+    const fixed = checkRows(rows.map((r) => (r.line === 3 ? { ...r, raw: { ...r.raw, idNumber: "B-2" } } : r)), projects);
+    expect(fixed.map((r) => r.error)).toEqual(["", "", ""]); // the second row no longer repeats the first
+    const refused = checkRows(rows.map((r) => (r.line === 4 ? { ...r, serverError: "This person is already registered. Please contact MWF to sort it out." } : r)), projects);
+    expect(refused[2]!.serverError).toContain("already registered"); // kept while it is not edited
   });
 });
 

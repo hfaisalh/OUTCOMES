@@ -1480,7 +1480,8 @@ document.addEventListener("click", (e) => {
 document.addEventListener("change", (e) => {
   const t = e.target as HTMLInputElement | HTMLSelectElement;
   // The partner's CSV window (DECISIONS 271): a file, the project or the tick was changed. The file is read in the browser.
-  if (state.gate === "partner" && t.id.startsWith("pc-")) { void csvChange({ id: t.id, value: t.value, checked: (t as HTMLInputElement).checked, files: (t as HTMLInputElement).files }, state.partnerSlice?.giftProjects ?? []).then((changed) => { if (changed) { draw(); if (t.id === "pc-file") document.getElementById("pc-summary")?.focus(); } }); return; }
+  // A cell of a row can be edited with Tab, so the redraw puts focus back on whatever the person moved to.
+  if (state.gate === "partner" && t.id.startsWith("pc-")) { setTimeout(() => { const next = (document.activeElement as HTMLElement | null)?.id ?? ""; void csvChange({ id: t.id, value: t.value, checked: (t as HTMLInputElement).checked, files: (t as HTMLInputElement).files }, state.partnerSlice?.giftProjects ?? []).then((changed) => { if (!changed) return; draw(); if (t.id === "pc-file") document.getElementById("pc-summary")?.focus(); else if (next !== "") document.getElementById(next)?.focus(); }); }, 0); return; }
   const what = t.dataset?.ot;
   if (what === undefined) return;
   const typeId = t.dataset["typeId"] ?? "";

@@ -9,6 +9,7 @@
  * - Rule: a date is written YYYY-MM-DD or DD/MM/YYYY (day first, as most spreadsheets of the partners write it) and becomes YYYY-MM-DD. Anything else is a problem on that row, never guessed.
  * - Rule: the project comes from the file's Project column (a project the partner delivers, by name) or, when a row has none, the one chosen for the whole upload.
  * - Rule: at most 500 rows an upload. A row that repeats another row of the same file (the same ID number, or the same name and date of birth) is a problem on its second line.
+ * - Rule (DECISIONS 272): the rows can be edited, and each edited row is checked again on its own (checkRow), then the file's repeats are looked for again (checkRows). Rows the server refuses stay, with its reason, to be fixed, removed or sent again.
  * - Rule: every row is added with the one-by-one rule (entry.ts), in order, so a row that repeats an earlier one, or a record the partner already has, is refused with the reason; a row that fails does not stop the others. Another partner's records are never described (DECISIONS 271).
  */
 
@@ -36,7 +37,8 @@ const FIELD_OF: Record<string, string> = {
 const key = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 // --- Reading the file ---
-export interface CsvRow { line: number; values: Record<string, string>; error: string } // line is the row number, counting the header as row 1 and not counting blank rows; error is "" when the row looks fine
+// A row of the file. `raw` is what is written in it (and what a person edits in the preview), `values` the same with dates, gender and the like made tidy, and `project` resolved. line is the row number, counting the header as row 1 and not counting blank rows. error is "" when the row looks fine. serverError is what the server said when it refused the row (DECISIONS 271).
+export interface CsvRow { line: number; raw: Record<string, string>; values: Record<string, string>; error: string; serverError?: string }
 export interface CsvRead { rows: CsvRow[]; problem: string } // problem is a fault of the whole file
 
 const pad = (n: number): string => String(n).padStart(2, "0");
@@ -52,8 +54,41 @@ function isoDate(text: string): string | null {
 const GENDER: Record<string, string> = { female: "female", f: "female", woman: "female", girl: "female", male: "male", m: "male", man: "male", boy: "male" };
 const PARENT: Record<string, string> = { living: "living", alive: "living", yes: "living", deceased: "deceased", dead: "deceased", died: "deceased", late: "deceased", passed: "deceased" };
 
+// Checks ONE row on its own: tidies its values and says what is wrong, in words. Used when the file is read and again whenever a person edits a cell in the preview.
+export function checkRow(raw: Record<string, string>, projects: { id: string; name: string }[]): { values: Record<string, string>; error: string } {
+  const values: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw)) values[k] = v.trim();
+  const fail = (error: string) => ({ values, error });
+  if ((values["name"] ?? "").length < 2) return fail("Give a name.");
+  if (values["dob"]) { const d = isoDate(values["dob"]); if (d === null) return fail("Write the date of birth as YYYY-MM-DD or DD/MM/YYYY."); values["dob"] = d; }
+  if (values["gender"]) { const g = GENDER[values["gender"].toLowerCase()]; if (!g) return fail("Gender is female or male."); values["gender"] = g; }
+  for (const [f, label] of [["fatherStatus", "Father"], ["motherStatus", "Mother"]] as const) if (values[f]) { const p = PARENT[values[f].toLowerCase()]; if (!p) return fail(`${label} is living or deceased.`); values[f] = p; }
+  delete values["targetProjectId"];
+  if (values["project"]) {
+    const p = projects.find((x) => x.id === values["project"] || x.name.toLowerCase() === (values["project"] ?? "").toLowerCase());
+    if (!p) return fail(`"${values["project"]}" is not a project you deliver.`);
+    values["targetProjectId"] = p.id;
+  }
+  return { values, error: "" };
+}
+
+// Checks every row, in order: each on its own, then a row that repeats an earlier good row of the same file (the same ID number, or the same name and date of birth) is flagged on its second line. Rows keep what the server said until they are edited.
+export function checkRows(rows: CsvRow[], projects: { id: string; name: string }[]): CsvRow[] {
+  const seenId = new Map<string, number>(), seenNameDob = new Map<string, number>();
+  return rows.map((row) => {
+    const own = checkRow(row.raw, projects);
+    if (own.error !== "") return { ...row, values: own.values, error: own.error };
+    const id = (own.values["idNumber"] ?? "").replace(/\s+/g, "").toLowerCase();
+    const nd = `${(own.values["name"] ?? "").toLowerCase().replace(/\s+/g, " ")}|${own.values["dob"] ?? ""}`;
+    const sameId = id !== "" ? seenId.get(id) : undefined, sameNd = own.values["dob"] ? seenNameDob.get(nd) : undefined;
+    if (id !== "" && sameId === undefined) seenId.set(id, row.line);
+    if (own.values["dob"] && sameNd === undefined) seenNameDob.set(nd, row.line);
+    return { ...row, values: own.values, error: sameId !== undefined || sameNd !== undefined ? `The same person as row ${sameId ?? sameNd}.` : "" };
+  });
+}
+
 export function readBeneficiaryCsv(text: string, projects: { id: string; name: string }[]): CsvRead {
-  const firstLine = text.replace(/^﻿/, "").split(/\r?\n/, 1)[0] ?? "";
+  const firstLine = text.replace(/^\uFEFF/, "").split(/\r?\n/, 1)[0] ?? "";
   if ((firstLine.match(/;/g) ?? []).length > (firstLine.match(/,/g) ?? []).length) return { rows: [], problem: "This file is separated by semicolons. In your spreadsheet choose Save as CSV (comma delimited) and try again." };
   const { headers, records } = toRecords(parseCsv(text));
   const fields = headers.map((h) => FIELD_OF[key(h)] ?? "");
@@ -61,31 +96,12 @@ export function readBeneficiaryCsv(text: string, projects: { id: string; name: s
   const body = records.map((r, i) => ({ r, line: i + 2 })).filter(({ r }) => headers.some((h) => (r[h] ?? "").trim() !== ""));
   if (body.length === 0) return { rows: [], problem: "The file has no rows under the column names." };
   if (body.length > MAX_ROWS) return { rows: [], problem: `Upload at most ${MAX_ROWS} beneficiaries at a time. This file has ${body.length}.` };
-
-  const seenId = new Map<string, number>(), seenNameDob = new Map<string, number>();
   const rows = body.map(({ r, line }): CsvRow => {
-    const values: Record<string, string> = {};
-    headers.forEach((h, i) => { const f = fields[i]; if (f && values[f] === undefined) values[f] = (r[h] ?? "").trim(); });
-    const fail = (error: string): CsvRow => ({ line, values, error });
-    if ((values["name"] ?? "").length < 2) return fail("Give a name.");
-    if (values["dob"]) { const d = isoDate(values["dob"]); if (d === null) return fail("Write the date of birth as YYYY-MM-DD or DD/MM/YYYY."); values["dob"] = d; }
-    if (values["gender"]) { const g = GENDER[values["gender"].toLowerCase()]; if (!g) return fail("Gender is female or male."); values["gender"] = g; }
-    for (const [f, label] of [["fatherStatus", "Father"], ["motherStatus", "Mother"]] as const) if (values[f]) { const p = PARENT[values[f].toLowerCase()]; if (!p) return fail(`${label} is living or deceased.`); values[f] = p; }
-    if (values["project"]) {
-      const p = projects.find((x) => x.id === values["project"] || x.name.toLowerCase() === (values["project"] ?? "").toLowerCase());
-      if (!p) return fail(`"${values["project"]}" is not a project you deliver.`);
-      values["targetProjectId"] = p.id;
-    }
-    // A row that repeats an earlier row of the same file.
-    const id = (values["idNumber"] ?? "").replace(/\s+/g, "").toLowerCase();
-    const nd = `${(values["name"] ?? "").toLowerCase().replace(/\s+/g, " ")}|${values["dob"] ?? ""}`;
-    const sameId = id !== "" ? seenId.get(id) : undefined, sameNd = values["dob"] ? seenNameDob.get(nd) : undefined;
-    if (id !== "" && sameId === undefined) seenId.set(id, line);
-    if (values["dob"] && sameNd === undefined) seenNameDob.set(nd, line);
-    if (sameId !== undefined || sameNd !== undefined) return fail(`The same person as line ${sameId ?? sameNd}.`);
-    return { line, values, error: "" };
+    const raw: Record<string, string> = {};
+    headers.forEach((h, i) => { const f = fields[i]; if (f && raw[f] === undefined) raw[f] = (r[h] ?? "").trim(); });
+    return { line, raw, values: {}, error: "" };
   });
-  return { rows, problem: "" };
+  return { rows: checkRows(rows, projects), problem: "" };
 }
 
 // --- The template, as CSV text ---
