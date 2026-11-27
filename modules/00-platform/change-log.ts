@@ -1,7 +1,7 @@
 /**
  * change-log.ts
  *
- * What it does: works out what a save changed, for the change log (DECISIONS 235 step 2, docs/DATABASE-REVIEW.md). It compares the setup before and after and lists each record that was added or removed in the parts that matter for an audit: assignments, placements (and the parked outcomes), confirmations, progress, enrolments and the Beneficiary register. A record that was edited shows as the old one removed and the new one added.
+ * What it does: works out what a save changed, for the change log (DECISIONS 235 step 2, docs/DATABASE-REVIEW.md). It compares the setup before and after and lists each record that was added or removed in the parts that matter for an audit: assignments, allocations (and the parked outcomes), confirmations, progress, enrolments and the Beneficiary register. A record that was edited shows as the old one removed and the new one added.
  * Who calls it: outcomes-handler.ts after every save. The entries are written by the store (store.ts addChanges, pg-store.ts, sql/003_change_log.sql).
  * Depends on: store.ts types only. Pure: no database, so it can be ported (CLAUDE.md rule 4).
  *
@@ -13,7 +13,7 @@ export interface ChangeEntry {
   at: string; // ISO time of the save
   by: string; // who, a display name
   action: string; // the request that made it, for example "asg-assign"
-  section: string; // assignments, placements, stock, confirmations, progress, enrolments or beneficiaries
+  section: string; // assignments, allocations, stock, confirmations, progress, enrolments or beneficiaries
   key: string; // the record's gift key or ID, "" when it has none
   change: "added" | "removed";
   record: unknown; // the whole record as it was added or removed
@@ -25,8 +25,8 @@ export const MAX_CHANGES_PER_SAVE = 500;
 // The parts of the setup that are logged, and where their records are.
 const SECTIONS: [string, (c: OrgConfig) => unknown[]][] = [
   ["assignments", (c) => c.assignments?.records ?? []],
-  ["placements", (c) => c.placements?.records ?? []],
-  ["stock", (c) => c.placements?.stock ?? []],
+  ["allocations", (c) => c.allocations?.records ?? []],
+  ["stock", (c) => c.allocations?.stock ?? []],
   ["confirmations", (c) => c.confirmations?.records ?? []],
   ["progress", (c) => c.progress?.records ?? []],
   ["enrolments", (c) => c.enrolments?.records ?? []],

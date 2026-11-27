@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { OutcomeAllocation } from "../05-outcomes/outcomes";
 import type { Commitment } from "../04b-commitments/commitments";
-import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, applyProjectAction, crmMatchNames, type ProjectState, allocationSummary, allocOptions, placeInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
+import { assignCrmName, crmNamesOf, migrateGiftProjects, NO_PARTNER, partnersForGift, saveGiftProject, setGroup, setPlace, type GiftProject, applyProjectAction, crmMatchNames, type ProjectState, allocationSummary, allocOptions, allocateInNode, placesUnder, suggestions, addBeneficiaries, addLevel, addNode, addProject, addType, matchProject, orderedLevels, pathOf, removeLevel, removeNode, removeType, rollupOf, setNodeField, type Node, type Project } from "./projects";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -171,13 +171,13 @@ describe("the allocation summary, suggestions, and placing a gift by hand (DECIS
     const { projects, nodes, kids, opts } = world();
     const gifts = [gift("1", 3, "Aghosh"), gift("2", 3, "Aghosh"), gift("3", 3, "Aghosh")];
     expect(placesUnder(nodes, nodes[0]!.id).size).toBe(3);
-    const a = placeInNode([], gifts, kids, nodes, FW, "1", nodes[0]!.id, "t", opts.policy); // dropped on the branch, lands on a child in its class
+    const a = allocateInNode([], gifts, kids, nodes, FW, "1", nodes[0]!.id, "t", opts.policy); // dropped on the branch, lands on a child in its class
     expect(a.value).toHaveLength(1);
     expect(a.value[0]).toMatchObject({ how: "manual", parts: 3 });
-    const b = placeInNode(a.value, gifts, kids, nodes, FW, "2", nodes[2]!.id, "t", opts.policy);
+    const b = allocateInNode(a.value, gifts, kids, nodes, FW, "2", nodes[2]!.id, "t", opts.policy);
     expect(b.value).toHaveLength(2);
-    expect(placeInNode(b.value, gifts, kids, nodes, FW, "3", nodes[2]!.id, "t", opts.policy).error).toContain("no room");
-    expect(placeInNode([], gifts, kids, nodes, FW, "9", nodes[2]!.id, "t").error).toContain("not found");
+    expect(allocateInNode(b.value, gifts, kids, nodes, FW, "3", nodes[2]!.id, "t", opts.policy).error).toContain("no room");
+    expect(allocateInNode([], gifts, kids, nodes, FW, "9", nodes[2]!.id, "t").error).toContain("not found");
     void projects;
   });
 });
@@ -272,11 +272,11 @@ describe("projects: what a donor chooses, and the partners that deliver it (DECI
     const { projects, nodes } = sample();
     const kids = addBeneficiaries([], projects, nodes, { projectId: projects[0]!.id, nodeId: nodes[2]!.id, typeId: "child", name: "Orphan", count: 2 }).value;
     const bare = kids.map(({ nodeId: _n, ...o }) => o);
-    const placed = setPlace(bare, projects, nodes, bare[0]!.id, nodes[2]!.id);
-    expect(placed.error).toBeUndefined();
-    expect(placed.value[0]?.nodeId).toBe(nodes[2]!.id);
+    const allocated = setPlace(bare, projects, nodes, bare[0]!.id, nodes[2]!.id);
+    expect(allocated.error).toBeUndefined();
+    expect(allocated.value[0]?.nodeId).toBe(nodes[2]!.id);
     expect(setPlace(bare, projects, nodes, bare[0]!.id, nodes[0]!.id).error).toContain("belong to a");
-    expect(setPlace(placed.value, projects, nodes, bare[0]!.id, "").value[0]).not.toHaveProperty("nodeId");
+    expect(setPlace(allocated.value, projects, nodes, bare[0]!.id, "").value[0]).not.toHaveProperty("nodeId");
     expect(setPlace(bare, projects, nodes, "nope", "x").error).toContain("not found");
     expect(setGroup(bare, projects, nodes, bare[0]!.id, "class", "x").error).toContain("location first");
   });

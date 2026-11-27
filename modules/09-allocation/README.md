@@ -1,7 +1,7 @@
-# Module 9: Placement (Allocation, rewired)
+# Module 9: Allocation (the Allocate page)
 
 ## Purpose
-Once a gift has a partner (Assignment, module 8), it is placed (DECISIONS 175). Where the beneficiary comes first (sponsorship), the gift fills an open place: an approved beneficiary enrolled in a cluster of the project for the benefit (module 7). Where the gift comes first (a pump, a camp) or the type has no beneficiary (a mosque), the gift creates an outcome.
+Once a gift has a partner (Assignment, module 8), it is allocated (DECISIONS 175, 252, 253). Where the beneficiary comes first (sponsorship), the gift supports a beneficiary who still needs funding: an approved beneficiary enrolled in a cluster of the project for the benefit (module 7). Where the gift comes first (a pump, a camp) or the type has no beneficiary (a mosque), the gift creates an outcome.
 
 ## Inputs
 Assignments (which partner each gift has), the enrolments (the places), the beneficiary register, projects and their partners, workflows (the units that make one whole beneficiary), and each item's type (who comes first, who receives).
@@ -26,8 +26,8 @@ Nothing is deleted. A placement has a start and, when it ends, an end day and a 
 ## Files
 | File | What it does |
 |---|---|
-| `placement.ts` | The rules as pure functions (places, suggest, run, place by a person, unplace, fills) and `applyPlacementAction`, used by the server and the demo |
-| `placement.test.ts` | Tests and examples on invented gifts, children and projects |
+| `allocation.ts` | The rules as pure functions (places, suggest, run, place by a person, unplace, fills) and `applyPlacementAction`, used by the server and the demo |
+| `allocation.test.ts` | Tests and examples on invented gifts, children and projects |
 | `history.ts` | The allocation history as pure functions: every child a gift has held, every gift that has sponsored a child, and the counts |
 | `history.test.ts` | Tests and examples |
 
@@ -35,3 +35,17 @@ The screen is `app/allocate-page.ts`. Placements are saved on the organisation's
 
 ## How to test
 `npm test`. To try it: load the sample setup, give two sponsorship items a workflow, assign the gifts (Assignment, Confirm all suggestions), open Allocate, press Place automatically, and read which child each gift filled. Reset placements clears it.
+
+## Names (DECISIONS 253)
+This module was called Placement. People and code now use the same words, so a developer is never lost between the screen and the code.
+
+| Screen says | Code says | Was |
+|---|---|---|
+| Allocate (page), Allocated, Not allocated yet | `modules/09-allocation`, `Allocation`, `Allocations`, `allocations` (saved list and table) | Placement, placements |
+| Allocate automatically | request `alc-run` (also `alc-set`, `alc-undo`, `alc-reset`, `alc-stock-add`, `alc-stock-remove`), `data-alc` | `plc-*`, `data-plc` |
+| Take the allocation back | `unallocate` | `unplace` |
+| a beneficiary is funded | `kind: "beneficiary"` (or `"outcome"`) | `kind: "place"` |
+| "The beneficiary left" | end reason `beneficiary-left` | `child-left` |
+| (older, being retired) a gift allocated to an outcome | `OutcomeAllocation`, `outcomeAllocations` | Allocation, allocations |
+
+"place" is used only for a **location** (a cluster's location, a beneficiary's place of birth).

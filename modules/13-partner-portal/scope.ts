@@ -16,7 +16,7 @@ import type { GiftProject, Project } from "../06-projects/projects.js";
 import type { Register, Beneficiary } from "../07-beneficiaries/beneficiaries.js";
 import type { Enrolments } from "../07-beneficiaries/enrolments.js";
 import type { Assignments } from "../08-assignment/assignment.js";
-import type { Placements } from "../09-placement/placement.js";
+import type { Allocations } from "../09-allocation/allocation.js";
 import type { Confirmations } from "../11-confirmation/confirmation.js";
 import type { Progress } from "../12-progress/progress.js";
 
@@ -32,7 +32,7 @@ export interface PartnerState {
   assignments: Assignments;
   confirmations: Confirmations;
   progress: Progress;
-  placements: Placements;
+  allocations: Allocations;
   itemNames?: Record<string, string>; // the name of each benefit (a gift item), from the work orders. Names only, never anything about a donor
 }
 
@@ -47,7 +47,7 @@ export interface PartnerSlice {
   assignments: Assignments["records"];
   confirmations: Confirmations["records"];
   progress: Progress["records"];
-  placements: Placements["records"];
+  allocations: Allocations["records"];
   itemNames: Record<string, string>; // only the benefits of the partner's own gifts and projects
 }
 
@@ -80,8 +80,8 @@ export function partnerSlice(s: PartnerState, partnerId: string): PartnerSlice |
     confirmations: s.confirmations.records.filter((c) => c.partnerId === partnerId),
     // Rule: a batch entry is kept as "<partner>|<batch>", so it is matched on the partner's own id.
     progress: s.progress.records.filter((r) => keys.has(r.key) || r.key.startsWith(`${partnerId}|`)),
-    // Rule: a placement is kept only when it fills no place, or a place of the partner's own beneficiary.
-    placements: s.placements.records.filter((r) => keys.has(r.key) && (r.enrolmentId === "" || enrolmentIds.has(r.enrolmentId))),
+    // Rule: an allocation is kept only when it fills no place, or a place of the partner's own beneficiary.
+    allocations: s.allocations.records.filter((r) => keys.has(r.key) && (r.enrolmentId === "" || enrolmentIds.has(r.enrolmentId))),
     itemNames,
   };
 }

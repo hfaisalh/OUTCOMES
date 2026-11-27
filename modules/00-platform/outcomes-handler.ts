@@ -1,7 +1,7 @@
 /**
  * outcomes-handler.ts
  *
- * What it does: the /api/outcomes endpoint (DECISIONS 233), split out of handlers.ts because it is the largest: it reads and changes outcomes, projects, partners, the Beneficiary register, enrolments, assignment, confirmation, progress and placement, and answers every request with the whole picture (one `reply`).
+ * What it does: the /api/outcomes endpoint (DECISIONS 233), split out of handlers.ts because it is the largest: it reads and changes outcomes, projects, partners, the Beneficiary register, enrolments, assignment, confirmation, progress and allocation, and answers every request with the whole picture (one `reply`).
  * Who calls it: api/outcomes.ts, through handlers.ts, and the tests. Depends on: http.ts (the shared pieces), store.ts, and the pure rules of each module it hands requests to.
  * Rules: the organisation always comes from the signed session; a read needs to view work orders, a change needs to map frameworks; the rules themselves are the pure functions the demo uses too.
  */
@@ -12,13 +12,13 @@ import { ensureRefs, withPrefixes } from "../05-outcomes/refs.js";
 import { linkStarterTypes } from "../02-project-rules/workflows.js";
 import { ICON_IDS } from "../../app/icons.js";
 import { allocatable } from "../04b-commitments/commitments.js";
-import { adoptLegacy, allocOptions, migrateGiftProjects, applyProjectAction, clearLegacy, placeInNode, placeInPartner } from "../06-projects/projects.js";
+import { adoptLegacy, allocOptions, migrateGiftProjects, applyProjectAction, clearLegacy, allocateInNode, allocateInPartner } from "../06-projects/projects.js";
 import { addOutcomes, autoAllocate, DEFAULT_GRACE_DAYS, releaseApprovals, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive } from "../05-outcomes/outcomes.js";
 import { defaultConfig, setupOf, type OrgConfig } from "./store.js";
 import { setItemKind, setItemUnits } from "../02-project-rules/benefits.js";
 import { applyKindAction, type SavedFeatures } from "../02-project-rules/kind-features.js";
 import { applyBeneficiaryAction, emptyRegister } from "../07-beneficiaries/beneficiaries.js";
-import { applyPlacementAction, emptyPlacements, placementContext } from "../09-placement/placement.js";
+import { applyAllocationAction, emptyAllocations, allocateContext } from "../09-allocation/allocation.js";
 import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments } from "../08-assignment/assignment.js";
 import { applyConfirmationAction, confirmOnBehalf, emptyConfirmations } from "../11-confirmation/confirmation.js";
 import { applyProgressAction, emptyProgress } from "../12-progress/progress.js";
@@ -61,12 +61,12 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   let idCounters = config.idCounters ?? {};
   let beneficiaries = config.beneficiaries ?? emptyRegister(); // the Beneficiary register (DECISIONS 163)
   let enrolments = config.enrolments ?? emptyEnrolments(); // who is enrolled where (DECISIONS 167)
-  let placements = config.placements ?? emptyPlacements(); // which place each assigned gift fills (DECISIONS 175)
+  let allocations = config.allocations ?? emptyAllocations(); // which place each assigned gift fills (DECISIONS 175)
   let assignments = config.assignments ?? emptyAssignments(); // which partner each gift was assigned to (DECISIONS 170)
   let confirmations = config.confirmations ?? emptyConfirmations(); // the partners' answers to those assignments (DECISIONS 231)
   let progress = config.progress ?? emptyProgress(); // the steps taken after allocation, and the batches closed (DECISIONS 232)
   // Rule: every answer carries the whole picture (all the records the page draws from), so a page never has to ask twice. The few things an answer changes are passed in `over`.
-  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, outcomeAllocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, placements, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...over });
+  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, outcomeAllocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, allocations, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...over });
   // Rule (DECISIONS 105): every outcome and allocation has an ID. Any without one are given one here, so older ones get theirs too.
   const settle = (): boolean => {
     const r = ensureRefs({ outcomes, outcomeAllocations, counters: idCounters }, outcomeTypes, config.allocationPrefix);
@@ -92,7 +92,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       }
     };
     // Rule (DECISIONS 231): a partner holding a parked outcome ready for the gift's benefit is confirmed for. Run after anything that changes assignments or stock.
-    const settleConfirmations = (): void => { confirmations = confirmOnBehalf(confirmations, assignments.records, placements.stock ?? [], placements.records, at).value; };
+    const settleConfirmations = (): void => { confirmations = confirmOnBehalf(confirmations, assignments.records, allocations.stock ?? [], allocations.records, at).value; };
 
     // Rule (DECISIONS 246): after any change to the register, enrolments or a project, admission is decided for complete records and the waiting list is enrolled while there is room. Returns the line to show, or "".
     let poolTouched = false; // true once the pool rule changed anything, so a project save that did not touch it leaves the register's saved shape alone
@@ -125,7 +125,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     if (typeof b["action"] === "string" && b["action"].startsWith("asg-")) {
       const wosA = await d.store.listWorkOrders(org);
       const namesA = new Map(wosA.map((w) => [w.itemId, w.itemName]));
-      const ctx = contextFrom({ workOrders: wosA, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesA.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: placements.stock });
+      const ctx = contextFrom({ workOrders: wosA, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesA.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: allocations.stock });
       const r = applyAssignmentAction(ctx, assignments, b);
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
@@ -135,27 +135,27 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       await save({ ...config, assignments, confirmations, progress });
       return reply({ ...(r.message ? { warning: r.message } : {}) });
     }
-    // Placement, the rewired Allocation (DECISIONS 175): the same pure rule the demo uses. An assigned gift fills an open place (an enrolment) or creates an outcome. Results are separate records, so they can be reset.
-    if (typeof b["action"] === "string" && b["action"].startsWith("plc-")) {
+    // Allocation, the rewired Allocation (DECISIONS 175): the same pure rule the demo uses. An assigned gift fills an open place (an enrolment) or creates an outcome. Results are separate records, so they can be reset.
+    if (typeof b["action"] === "string" && b["action"].startsWith("alc-")) {
       const wos = await d.store.listWorkOrders(org);
       const names = new Map(wos.map((w) => [w.itemId, w.itemName]));
-      const actx = contextFrom({ workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: placements.stock });
-      const ctx = placementContext({ assignments: assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: enrolments.records, beneficiaries: beneficiaries.records, giftProjects, frameworks: fw, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), now: at, ...(config.itemUnits ? { itemUnits: config.itemUnits } : {}) });
-      const r = applyPlacementAction(ctx, placements, b);
+      const actx = contextFrom({ workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: allocations.stock });
+      const ctx = allocateContext({ assignments: assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: enrolments.records, beneficiaries: beneficiaries.records, giftProjects, frameworks: fw, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), now: at, ...(config.itemUnits ? { itemUnits: config.itemUnits } : {}) });
+      const r = applyAllocationAction(ctx, allocations, b);
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
-      placements = r.value;
+      allocations = r.value;
       settleConfirmations(); // new parked outcomes can confirm waiting assignments
-      await save({ ...config, placements, confirmations });
+      await save({ ...config, allocations, confirmations });
       return reply({ ...(r.message ? { warning: r.message } : {}) });
     }
     // Progress after allocation (DECISIONS 232): a person takes the next step of a gift, takes one back, or closes a batch. The same pure rule the demo uses.
     if (typeof b["action"] === "string" && b["action"].startsWith("prg-")) {
       const wosP = await d.store.listWorkOrders(org);
       const namesP = new Map(wosP.map((w) => [w.itemId, w.itemName]));
-      const actxP = contextFrom({ workOrders: wosP, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesP.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: placements.stock });
+      const actxP = contextFrom({ workOrders: wosP, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesP.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: allocations.stock });
       const fwOf = new Map(assignables(actxP).map((u) => [u.key, u.w.frameworkId ?? ""]));
-      const pctx = progressContext({ assignments: assignments.records, placements: placements.records, frameworkOf: (k) => fwOf.get(k) ?? "", frameworks: fw, sizeOf: (id) => batchSizeOf(projects.find((x) => x.id === id)), today: at.slice(0, 10) });
+      const pctx = progressContext({ assignments: assignments.records, allocations: allocations.records, frameworkOf: (k) => fwOf.get(k) ?? "", frameworks: fw, sizeOf: (id) => batchSizeOf(projects.find((x) => x.id === id)), today: at.slice(0, 10) });
       const r = applyProgressAction(pctx, progress, b, a.claims.name, at);
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
@@ -174,7 +174,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     }
     // The sample setup (DECISIONS 168): invented partners, projects, clusters, beneficiaries and enrolments, loaded and removed as one.
     if (b["action"] === "sample-load" || b["action"] === "sample-remove") {
-      const state = { partners: projects, giftProjects, partnerTypes, register: beneficiaries, enrolments, assignments, placements };
+      const state = { partners: projects, giftProjects, partnerTypes, register: beneficiaries, enrolments, assignments, allocations };
       let message = "";
       let next: SampleState = state;
       if (b["action"] === "sample-load") {
@@ -189,18 +189,18 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       }
       ({ partners: projects, giftProjects, partnerTypes, register: beneficiaries, enrolments } = next);
       if (next.assignments) assignments = next.assignments;
-      if (next.placements) placements = next.placements;
-      await save({ ...config, projects, giftProjects, partnerTypes, beneficiaries, enrolments, assignments, placements });
+      if (next.allocations) allocations = next.allocations;
+      await save({ ...config, projects, giftProjects, partnerTypes, beneficiaries, enrolments, assignments, allocations });
       return reply({ warning: message });
     }
     // Erasing one beneficiary for good (DECISIONS 240): the record, the enrolments and the places they held, and what the change log says about them.
     if (b["action"] === "ben-erase") {
-      const r = applyErasure(beneficiaries, enrolments, placements, b);
+      const r = applyErasure(beneficiaries, enrolments, allocations, b);
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
-      await save({ ...config, beneficiaries: r.register, enrolments: r.enrolments, placements: r.placements });
+      await save({ ...config, beneficiaries: r.register, enrolments: r.enrolments, allocations: r.allocations });
       await d.store.redactChanges(org, str("id"), r.enrolmentIds); // not in the try of save: a log that still holds the child's data must be reported
-      beneficiaries = r.register; enrolments = r.enrolments; placements = r.placements;
+      beneficiaries = r.register; enrolments = r.enrolments; allocations = r.allocations;
       return reply({ warning: r.message });
     }
     // The Beneficiary register (DECISIONS 163) and enrolments (DECISIONS 167): the same pure rules the demo uses. A beneficiary that is enrolled cannot be removed.
@@ -285,7 +285,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       case "auto": {
         const r = autoAllocate(await commitments(), outcomes, fw, outcomeAllocations, at, allocOptions(projects, graceDays, at.slice(0, 10), requireRef, giftProjects));
         outcomeAllocations = r.outcomeAllocations;
-        extra = { placed: r.placed, released: r.released, unplaced: r.unplaced };
+        extra = { allocated: r.allocated, released: r.released, unallocated: r.unallocated };
         break;
       }
       case "move": {
@@ -294,14 +294,14 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
         outcomeAllocations = r.value;
         break;
       }
-      case "place-in-node": {
-        const r = placeInNode(outcomeAllocations, await commitments(), outcomes, nodes, fw, str("commitmentKey"), str("nodeId"), at, allocOptions(projects, graceDays, at.slice(0, 10), requireRef, giftProjects).policy);
+      case "allocate-in-node": {
+        const r = allocateInNode(outcomeAllocations, await commitments(), outcomes, nodes, fw, str("commitmentKey"), str("nodeId"), at, allocOptions(projects, graceDays, at.slice(0, 10), requireRef, giftProjects).policy);
         if (r.error) return fail(r.error);
         outcomeAllocations = r.value;
         break;
       }
-      case "place-in-partner": {
-        const r = placeInPartner(outcomeAllocations, await commitments(), outcomes, projects, fw, str("commitmentKey"), str("projectId"), at, allocOptions(projects, graceDays, at.slice(0, 10), requireRef, giftProjects).policy);
+      case "allocate-in-partner": {
+        const r = allocateInPartner(outcomeAllocations, await commitments(), outcomes, projects, fw, str("commitmentKey"), str("projectId"), at, allocOptions(projects, graceDays, at.slice(0, 10), requireRef, giftProjects).policy);
         if (r.error) return fail(r.error);
         outcomeAllocations = r.value;
         break;

@@ -55,7 +55,7 @@ export function registerPage(v: View): string {
   const commitments = commitmentsFor(v.workOrders ?? [], perPeriodRule(fws), today);
   const partnerOfKey = new Map((v.assignments?.records ?? []).map((x) => [x.key, x.partnerId]));
   const partnerName = (id: string): string => (v.projects ?? []).find((p) => p.id === id)?.name ?? id;
-  const impl = implementationRows({ beneficiaryIds: pool.map((b) => b.id), enrolments: v.enrolments?.records ?? [], placements: v.placements?.records ?? [], commitments, whole, partnerOf: (k) => partnerOfKey.get(k) ?? "", months, today });
+  const impl = implementationRows({ beneficiaryIds: pool.map((b) => b.id), enrolments: v.enrolments?.records ?? [], allocations: v.allocations?.records ?? [], commitments, whole, partnerOf: (k) => partnerOfKey.get(k) ?? "", months, today });
   const profileHit = new Set(byText.map((b) => b.id));
   // Rule: the search finds a beneficiary by its profile (name, ID, area, guardian) or by the donor whose gift fills a unit, the partner or the project.
   const matches = (r: (typeof impl)[number]): boolean => {

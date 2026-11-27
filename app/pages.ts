@@ -18,7 +18,7 @@ import type { Confirmations } from "../modules/11-confirmation/confirmation";
 import type { Progress } from "../modules/12-progress/progress";
 import type { ConfirmFilter } from "./confirmation-page";
 import type { ProjectFilter } from "./projects-page";
-import type { Placements } from "../modules/09-placement/placement";
+import type { Allocations } from "../modules/09-allocation/allocation";
 import { filterWorkOrders, isFiltering, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
 import { partsOf } from "../modules/01c-crm-connector/work-orders";
 import type { OutcomeAllocation, Outcome } from "../modules/05-outcomes/outcomes";
@@ -54,14 +54,14 @@ export interface View {
   giftProjects?: GiftProject[]; // the projects donors choose and the partners that deliver them (DECISIONS 76)
   benFilter?: BenFilter; // the filters on the Outcomes list page
   beneficiaries?: Register; // the Beneficiary register (DECISIONS 163)
-  placements?: Placements; // which place each assigned gift fills (DECISIONS 175)
+  allocations?: Allocations; // which place each assigned gift fills (DECISIONS 175)
   assignments?: Assignments; // which partner each gift was assigned to (DECISIONS 170)
   confirmations?: Confirmations; // the partners' answers to those assignments (DECISIONS 231)
   progress?: Progress; // the steps taken after allocation and the batches closed (DECISIONS 232)
   prgFilter?: string; // the tile chosen on the Progress page
   cnfFilter?: ConfirmFilter; // the tile chosen on the Confirmation page
   pjFilter?: ProjectFilter; // the tile chosen on the Projects page
-  allocFilter?: string; // the filter on the Allocate page: all, open, placed
+  allocFilter?: string; // the filter on the Allocate page: all, open, allocated
   assignFilter?: string; // the filter on the Assignment page: all, open, assigned
   enrolments?: Enrolments; // who is enrolled in which cluster (DECISIONS 167)
   outcomeRecFilter?: { text: string; project: string; type: string; show: "" | "underfunded" | "missed" | "ended" }; // the filters on the Outcomes list (DECISIONS 197)

@@ -19,7 +19,7 @@ const slice = (): PartnerSlice => ({
   beneficiaries: [kid("PRS-1", "Amina Khan", "ready", { targetProjectId: "g1" }), kid("PRS-2", "Bilal Ahmed", "review"), kid("PRS-3", "Chand Ali", "ready", { targetProjectId: "g1" })],
   enrolments: [{ id: "EN-1", beneficiaryId: "PRS-3", giftProjectId: "g1", clusterId: "c", itemId: "S", role: "", status: "active", since: "2026-11-01" }],
   assignments: [{ key: "sub:1", partnerId: "p1", giftProjectId: "g1", itemId: "S", parts: 1, how: "auto", at: "2026-11-02T00:00:00Z" }],
-  confirmations: [], progress: [], placements: [], itemNames: { S: "Orphan Sponsorship Monthly" },
+  confirmations: [], progress: [], allocations: [], itemNames: { S: "Orphan Sponsorship Monthly" },
 });
 
 describe("the partner's home screen", () => {

@@ -7,7 +7,7 @@
  * Depends on: store.ts.
  *
  * Rule: every query filters by the organisation, passed as the first parameter ($1).
- * DECISIONS 237: the register, enrolments, assignments, placements, parked outcomes, confirmations and progress are rows in their own tables (record-tables.ts).
+ * DECISIONS 237: the register, enrolments, assignments, allocations, parked outcomes, confirmations and progress are rows in their own tables (record-tables.ts).
  */
 
 import type { ReviewItem, WorkOrder } from "../01c-crm-connector/work-orders.js";

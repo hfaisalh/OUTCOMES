@@ -22,10 +22,10 @@ export const PERMISSIONS = {
   approveRelease: "outcomes.approve_release", // a manager may approve releasing a sponsor's place after a missed payment (DECISIONS 74)
 } as const;
 
-export type PageId = "workflows" | "benefits" | "data-feed" | "data-files" | "work-orders" | "attention" | "projects" | "partners" | "beneficiaries" | "outcome-records" | "outcome-list" | "assignment" | "confirmation" | "placement" | "progress" | "audit" | "categories" | "dashboard" | "sources" | "settings";
+export type PageId = "workflows" | "benefits" | "data-feed" | "data-files" | "work-orders" | "attention" | "projects" | "partners" | "beneficiaries" | "outcome-records" | "outcome-list" | "assignment" | "confirmation" | "allocate" | "progress" | "audit" | "categories" | "dashboard" | "sources" | "settings";
 
 // Rule: the pages a link or a reload may open. Anything else (a mistyped or old address) is ignored and the usual first page is used.
-export const PAGE_IDS: readonly PageId[] = ["workflows", "benefits", "data-feed", "data-files", "work-orders", "attention", "projects", "partners", "beneficiaries", "outcome-records", "outcome-list", "assignment", "confirmation", "placement", "progress", "audit", "categories", "dashboard", "sources", "settings"];
+export const PAGE_IDS: readonly PageId[] = ["workflows", "benefits", "data-feed", "data-files", "work-orders", "attention", "projects", "partners", "beneficiaries", "outcome-records", "outcome-list", "assignment", "confirmation", "allocate", "progress", "audit", "categories", "dashboard", "sources", "settings"];
 export const isPageId = (x: string): x is PageId => (PAGE_IDS as readonly string[]).includes(x);
 
 export interface MenuItem {
@@ -62,8 +62,8 @@ export const MENU: MenuItem[] = [
   { id: "outcome-records", label: "Outcomes", icon: "◎", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "assignment", label: "Assignment", icon: "⇉", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "confirmation", label: "Confirmation", icon: "✓", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
-  { id: "placement", label: "Allocate", icon: "⇄", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
-  // Rule (DECISIONS 165): the older list of what gifts are placed on is not a main menu entry. Outcomes are made by the workflow, so it sits under Allocation until Allocation is rewired onto outcomes in clusters, then it goes.
+  { id: "allocate", label: "Allocate", icon: "⇄", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
+  // Rule (DECISIONS 165): the older list of what gifts are allocated on is not a main menu entry. Outcomes are made by the workflow, so it sits under Allocation until Allocation is rewired onto outcomes in clusters, then it goes.
   { id: "progress", label: "Progress", icon: "▶", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "outcome-list", label: "Outcome records (older)", icon: "◍", permission: PERMISSIONS.viewWorkOrders, section: "Work", module: "allocation" },
   { id: "dashboard", label: "Dashboard", icon: "◔", permission: PERMISSIONS.dashboards, section: "Work" },
@@ -97,7 +97,7 @@ export interface MenuEntry {
   module?: ModuleInfo;
 }
 
-// Rule: pages of a module collapse into one entry placed where its first allowed page was. A module with no allowed page does not appear.
+// Rule: pages of a module collapse into one entry allocated where its first allowed page was. A module with no allowed page does not appear.
 export function menuEntries(permissions: string[]): MenuEntry[] {
   const out: MenuEntry[] = [];
   for (const m of visibleMenu(permissions)) {

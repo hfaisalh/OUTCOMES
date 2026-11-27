@@ -2,7 +2,7 @@
  * beneficiaries-page.ts
  *
  * What it does: draws the Outcomes list page, once called Beneficiaries (DECISIONS 76, 163). Everyone who can be sponsored, across all partners, as one table with filters. Each belongs to
- * a partner and can be placed in that partner's branch and groups afterwards, with an ID of its own. New beneficiaries are added with a partner, a name,
+ * a partner and can be allocated in that partner's branch and groups afterwards, with an ID of its own. New beneficiaries are added with a partner, a name,
  * a number and how they are sponsored. Pure: it takes a View and returns HTML.
  * Who calls it: app/main.ts. Depends on: Modules 4b, 5 and 6, and esc and View from pages.ts.
  */
@@ -14,8 +14,8 @@ import { esc, type View } from "./pages";
 
 const MAX_ROWS = 300;
 const meter = (used: number, places: number) => `<span class="meter" aria-hidden="true"><i style="width:${places > 0 ? Math.min(Math.round((used / places) * 100), 100) : 0}%"></i></span>`;
-export interface BenFilter { partner: string; type: string; placed: string; text: string }
-export const NO_BEN_FILTER: BenFilter = { partner: "", type: "", placed: "", text: "" };
+export interface BenFilter { partner: string; type: string; located: string; text: string }
+export const NO_BEN_FILTER: BenFilter = { partner: "", type: "", located: "", text: "" };
 
 // The nodes of one partner that are inside a place, by name.
 const insidePlace = (nodes: Node[], placeId: string, id: string): boolean => { let up = nodes.find((n) => n.id === id)?.parentId ?? ""; while (up !== "" && up !== placeId) up = nodes.find((n) => n.id === up)?.parentId ?? ""; return up === placeId; };
@@ -34,7 +34,7 @@ export function beneficiariesPage(v: View): string {
   const held = new Set(outcomeAllocations.map((a) => a.outcomeId));
 
   const text = f.text.trim().toLowerCase();
-  const shown = all.filter((o) => (f.partner === "" || (f.partner === "none" ? o.projectId === undefined : o.projectId === f.partner)) && (f.type === "" || o.type === f.type) && (f.placed === "" || (f.placed === "yes" ? !!o.nodeId : !o.nodeId)) && (text === "" || `${o.name} ${o.ref ?? ""}`.toLowerCase().includes(text)));
+  const shown = all.filter((o) => (f.partner === "" || (f.partner === "none" ? o.projectId === undefined : o.projectId === f.partner)) && (f.type === "" || o.type === f.type) && (f.located === "" || (f.located === "yes" ? !!o.nodeId : !o.nodeId)) && (text === "" || `${o.name} ${o.ref ?? ""}`.toLowerCase().includes(text)));
   const types = [...new Set(all.map((o) => o.type))].filter((t) => t !== "").sort();
   const legacy = all.filter((o) => o.projectId === undefined).length;
 
@@ -53,7 +53,7 @@ export function beneficiariesPage(v: View): string {
 
   const filters = `<div class="filters"><select data-benf="partner" aria-label="Partner"><option value="">All partners</option>${partners.map((p) => `<option value="${esc(p.id)}"${p.id === f.partner ? " selected" : ""}>${esc(p.name)}</option>`).join("")}${legacy ? `<option value="none"${f.partner === "none" ? " selected" : ""}>Not in a partner (${legacy})</option>` : ""}</select>
     <select data-benf="type" aria-label="Kind"><option value="">All kinds</option>${types.map((t) => `<option value="${esc(t)}"${t === f.type ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>
-    <select data-benf="placed" aria-label="Located"><option value="">Located or not</option><option value="yes"${f.placed === "yes" ? " selected" : ""}>In a location</option><option value="no"${f.placed === "no" ? " selected" : ""}>Not in a location</option></select>
+    <select data-benf="located" aria-label="Located"><option value="">Located or not</option><option value="yes"${f.located === "yes" ? " selected" : ""}>In a location</option><option value="no"${f.located === "no" ? " selected" : ""}>Not in a location</option></select>
     <input data-benf="text" value="${esc(f.text)}" placeholder="Search name or ID" aria-label="Search" /></div>`;
 
   const rows = shown.slice(0, MAX_ROWS).map((o) => {

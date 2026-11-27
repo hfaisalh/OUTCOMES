@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { addBeneficiary, emptyRegister, type Register } from "../07-beneficiaries/beneficiaries";
-import { emptyPlacements } from "../09-placement/placement";
+import { emptyAllocations } from "../09-allocation/allocation";
 import { partnerSlice, type PartnerState } from "./scope";
 import type { GiftProject, Project } from "../06-projects/projects";
 
@@ -32,7 +32,7 @@ function state(): PartnerState {
     assignments: { records: [{ key: "sub:1", partnerId: "p1", giftProjectId: "g1", itemId: "SPONSOR", parts: 1, how: "auto", at: "2026-11-02T00:00:00Z", batch: 1 }, { key: "sub:2", partnerId: "p2", giftProjectId: "g2", itemId: "SPONSOR", parts: 1, how: "auto", at: "2026-11-02T00:00:00Z", batch: 1 }] },
     confirmations: { records: [{ key: "sub:1", partnerId: "p1", answer: "confirmed", at: "2026-11-03T00:00:00Z", by: "A", reason: "" }, { key: "sub:2", partnerId: "p2", answer: "rejected", at: "2026-11-03T00:00:00Z", by: "B", reason: "Full" }] },
     progress: { records: [{ key: "sub:1", kind: "phase", id: "visit", at: "2026-11-04T00:00:00Z", by: "A" }, { key: "sub:2", kind: "phase", id: "visit", at: "2026-11-04T00:00:00Z", by: "B" }, { key: "p1|1", kind: "batch", id: "closed", at: "2026-11-05T00:00:00Z", by: "A" }, { key: "p2|1", kind: "batch", id: "closed", at: "2026-11-05T00:00:00Z", by: "B" }] },
-    placements: { ...emptyPlacements(), records: [{ key: "sub:1", kind: "outcome", enrolmentId: "", outcomeRef: "OUT-1", giftProjectId: "g1", itemId: "SPONSOR", parts: 1, how: "auto", at: "2026-11-02T00:00:00Z" }, { key: "sub:2", kind: "outcome", enrolmentId: "", outcomeRef: "OUT-2", giftProjectId: "g2", itemId: "SPONSOR", parts: 1, how: "auto", at: "2026-11-02T00:00:00Z" }] },
+    allocations: { ...emptyAllocations(), records: [{ key: "sub:1", kind: "outcome", enrolmentId: "", outcomeRef: "OUT-1", giftProjectId: "g1", itemId: "SPONSOR", parts: 1, how: "auto", at: "2026-11-02T00:00:00Z" }, { key: "sub:2", kind: "outcome", enrolmentId: "", outcomeRef: "OUT-2", giftProjectId: "g2", itemId: "SPONSOR", parts: 1, how: "auto", at: "2026-11-02T00:00:00Z" }] },
   };
 }
 
@@ -45,7 +45,7 @@ describe("what a partner sees", () => {
     expect(s.assignments.map((a) => a.key)).toEqual(["sub:1"]);
     expect(s.confirmations.map((c) => c.key)).toEqual(["sub:1"]);
     expect(s.progress.map((r) => r.key)).toEqual(["sub:1", "p1|1"]);
-    expect(s.placements.map((r) => r.outcomeRef)).toEqual(["OUT-1"]);
+    expect(s.allocations.map((r) => r.outcomeRef)).toEqual(["OUT-1"]);
   });
 
   it("names only the benefits of the partner's own projects and gifts", () => {

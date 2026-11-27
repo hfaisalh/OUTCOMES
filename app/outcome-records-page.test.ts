@@ -10,24 +10,24 @@ import { NO_OUTCOME_FILTER, outcomeRecordsPage } from "./outcome-records-page";
 import type { View } from "./pages";
 import type { WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import type { FrameworkTemplate } from "../modules/02-project-rules/categories";
-import type { Placement } from "../modules/09-placement/placement";
+import type { Allocation } from "../modules/09-allocation/allocation";
 
 const wo = (n: number, paid: string, over: Partial<WorkOrder> = {}): WorkOrder => ({
   key: `L${n}`, lineId: `L${n}`, transactionRef: `T${n}`, paidDate: paid, supporterId: "S1", supporterName: "Invented Donor", group: "", itemId: "I20", itemName: "Small Pump", amount: 300, quantity: 1,
   intention: "", subscriptionId: "", instalmentNumber: "", instalmentCount: "", frameworkId: "wf", categoryId: "water", status: "ready", projectName: "Villages", ...over,
 }) as WorkOrder;
-const out = (over: Partial<Placement> = {}): Placement => ({ key: "L1", kind: "outcome", enrolmentId: "", outcomeRef: "OUT-0001", giftProjectId: "villages", itemId: "I20", parts: 1, how: "auto", at: "2026-10-02T00:00:00Z", ...over });
+const out = (over: Partial<Allocation> = {}): Allocation => ({ key: "L1", kind: "outcome", enrolmentId: "", outcomeRef: "OUT-0001", giftProjectId: "villages", itemId: "I20", parts: 1, how: "auto", at: "2026-10-02T00:00:00Z", ...over });
 const view = (over: Partial<View> = {}): View => ({
   workOrders: [wo(1, "2026-10-05")], today: "2026-11-24", frameworks: [{ id: "wf", unitsPerBeneficiary: 1 } as FrameworkTemplate],
   projects: [{ id: "builders", name: "Sample Builders Foundation", aliases: [], levels: [], types: [], status: "active", ddStatus: "approved" }],
   giftProjects: [{ id: "villages", name: "Sample Village Projects", crmNames: [], partnerIds: ["builders"], clusters: [] }],
   assignments: { records: [{ key: "L1", partnerId: "builders", giftProjectId: "villages", itemId: "I20", parts: 1, how: "auto", at: "x" }] },
-  placements: { records: [out()], counter: 1 }, ...over,
+  allocations: { records: [out()], counter: 1 }, ...over,
 }) as View;
 
 describe("the Outcomes list", () => {
   it("opens a one-off outcome's gift as once-<line>, even when a subscription has the same number as the line (the wrong gift opened before)", () => {
-    const html = outcomeRecordsPage(view({ workOrders: [wo(104, "2026-10-05", { key: "104", lineId: "104" })], placements: { records: [out({ key: "104" })], counter: 1 }, assignments: { records: [{ key: "104", partnerId: "builders", giftProjectId: "villages", itemId: "I20", parts: 1, how: "auto", at: "x" }] } }));
+    const html = outcomeRecordsPage(view({ workOrders: [wo(104, "2026-10-05", { key: "104", lineId: "104" })], allocations: { records: [out({ key: "104" })], counter: 1 }, assignments: { records: [{ key: "104", partnerId: "builders", giftProjectId: "villages", itemId: "I20", parts: 1, how: "auto", at: "x" }] } }));
     expect(html).toContain('data-gift-open="once-104"');
     expect(html).not.toContain('data-gift-open="104"');
   });
@@ -53,7 +53,7 @@ describe("the Outcomes list", () => {
     expect(part).toContain('class="seg g"');
   });
   it("keeps an ended outcome, marked ended with its reason, and the Ended filter finds it", () => {
-    const ended = view({ placements: { records: [out({ to: "2026-11-20", endReason: "cancelled" })], counter: 1 } });
+    const ended = view({ allocations: { records: [out({ to: "2026-11-20", endReason: "cancelled" })], counter: 1 } });
     const html = outcomeRecordsPage(ended);
     expect(html).toContain('class="dot off"');
     expect(html).toContain("The plan was cancelled");
@@ -69,7 +69,7 @@ describe("the Outcomes list", () => {
     expect(outcomeRecordsPage({ ...view(), outcomeRecSort: { key: "funded", dir: "desc" } } as View)).toContain("Funded ▼");
   });
   it("says when there are none, and never trusts a name as HTML", () => {
-    expect(outcomeRecordsPage(view({ placements: { records: [], counter: 0 } }))).toContain("No outcomes yet.");
+    expect(outcomeRecordsPage(view({ allocations: { records: [], counter: 0 } }))).toContain("No outcomes yet.");
     const html = outcomeRecordsPage(view({ workOrders: [wo(1, "2026-10-05", { itemName: "<img src=x onerror=alert(1)>", supporterName: "<script>1</script>" })] }));
     expect(html).not.toContain("<img src=x");
     expect(html).not.toContain("<script>1");

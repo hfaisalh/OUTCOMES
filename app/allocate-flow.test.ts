@@ -38,22 +38,22 @@ describe("Allocate, used like a person would", () => {
     click({ asg: "confirm" }, "data-asg"); await flush();
     expect(shell.innerHTML).toContain("Confirmed 2 suggestions.");
 
-    click({ page: "placement" }, "data-page");
+    click({ page: "allocate" }, "data-page");
     expect(shell.innerHTML).toContain("<h1>Allocate</h1>");
     expect(shell.innerHTML).toContain("<b>2</b><span>Assigned gifts</span>");
     expect(shell.innerHTML).toContain("Sample Amina"); // an open place: an approved child enrolled for the benefit
     expect(shell.innerHTML).toContain("Sample Orphan Homes");
-    expect(shell.innerHTML).toContain('data-plc="reset" disabled');
+    expect(shell.innerHTML).toContain('data-alc="reset" disabled');
 
-    click({ plc: "run" }, "data-plc"); await flush();
+    click({ alc: "run" }, "data-alc"); await flush();
     expect(shell.innerHTML).toMatch(/Allocated 2 with beneficiaries to fund and created 0 outcomes\. 0 wait/);
     expect(shell.innerHTML).toContain('<span class="pill">Allocated</span>');
-    expect(shell.innerHTML).not.toContain('data-plc="reset" disabled');
+    expect(shell.innerHTML).not.toContain('data-alc="reset" disabled');
 
-    const key = shell.innerHTML.match(/data-plc="unplace" data-key="([^"]+)"/)?.[1] ?? "";
+    const key = shell.innerHTML.match(/data-alc="undo" data-key="([^"]+)"/)?.[1] ?? "";
     expect(key).not.toBe("");
-    click({ plc: "unplace", key }, "data-plc"); await flush();
-    expect(shell.innerHTML).not.toContain(`data-plc="unplace" data-key="${key}"`);
+    click({ alc: "undo", key }, "data-alc"); await flush();
+    expect(shell.innerHTML).not.toContain(`data-alc="undo" data-key="${key}"`);
     expect(shell.innerHTML).toContain("Allocate automatically");
 
     // Taking it back did not delete it: it is in the gift's history, ended and kept (DECISIONS 186).
@@ -64,13 +64,13 @@ describe("Allocate, used like a person would", () => {
     expect(histRoot.innerHTML).toBe("");
 
     // Placing it again gives a second row: the first period and the second, both kept.
-    click({ plc: "run" }, "data-plc"); await flush();
+    click({ alc: "run" }, "data-alc"); await flush();
     click({ hist: "gift", id: key }, "data-hist");
     expect((histRoot.innerHTML.match(/<tr><td><b>/g) ?? []).length).toBe(2);
     expect(histRoot.innerHTML).toContain('<span class="pill">Now</span>');
     click({ hist: "close" }, "data-hist");
 
-    click({ plc: "reset" }, "data-plc"); await flush();
-    expect(shell.innerHTML).toContain('data-plc="reset" disabled');
+    click({ alc: "reset" }, "data-alc"); await flush();
+    expect(shell.innerHTML).toContain('data-alc="reset" disabled');
   });
 });

@@ -11,7 +11,7 @@
  */
 
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
-import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, autoCreateProjects, clearLegacy, placeInNode, placeInPartner, samplePartnerProfile, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
+import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, autoCreateProjects, clearLegacy, allocateInNode, allocateInPartner, samplePartnerProfile, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
 import { markCustomAmounts } from "../modules/04b-commitments/parts";
 import { enhanceTables, newTableTools } from "./table-tools";
 import { GIFT_COLUMNS, GIFT_HIDDEN_DEFAULT, giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts-page";
@@ -30,7 +30,7 @@ import { confirmationPage, type ConfirmFilter } from "./confirmation-page";
 import { assignmentPage } from "./assignment-page";
 import { allocatePage } from "./allocate-page";
 import { enrolmentHistoryHtml, giftHistoryHtml, type HistoryData } from "./history-window";
-import { applyPlacementAction, emptyPlacements, placementContext, syncPlacements, type Placements } from "../modules/09-placement/placement";
+import { applyAllocationAction, emptyAllocations, allocateContext, syncAllocations, type Allocations } from "../modules/09-allocation/allocation";
 import { applyProgressAction, emptyProgress, type Progress } from "../modules/12-progress/progress";
 import { progressContext } from "../modules/12-progress/context";
 import { batchSizeOf } from "../modules/08-assignment/batches";
@@ -129,7 +129,7 @@ const state = {
   benFilter: { ...NO_BEN_FILTER } as BenFilter, // the filters on the Outcomes list page
   beneficiaries: emptyRegister() as Register, // the Beneficiary register (DECISIONS 163)
   histWin: { open: false, kind: "gift" as "gift" | "enrolment", id: "" }, // the allocation history window (DECISIONS 186)
-  placements: emptyPlacements() as Placements, // which place each assigned gift fills (DECISIONS 175)
+  allocations: emptyAllocations() as Allocations, // which place each assigned gift fills (DECISIONS 175)
   allocFilter: "all", // the filter on the Allocate page
   cnfFilter: "all" as ConfirmFilter, // the tile chosen on the Confirmation page
   pjFilter: "all" as ProjectFilter, // the tile chosen on the Projects page
@@ -210,7 +210,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
-    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.outcomeAllocations = o.outcomeAllocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.itemUnits = o.itemUnits ?? state.itemUnits; state.enrolments = o.enrolments ?? state.enrolments; state.assignments = o.assignments ?? state.assignments; state.placements = o.placements ?? state.placements; state.itemIcons = o.itemIcons ?? state.itemIcons; }).catch(() => undefined);
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.outcomeAllocations = o.outcomeAllocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.itemUnits = o.itemUnits ?? state.itemUnits; state.enrolments = o.enrolments ?? state.enrolments; state.assignments = o.assignments ?? state.assignments; state.allocations = o.allocations ?? state.allocations; state.itemIcons = o.itemIcons ?? state.itemIcons; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
     state.message = "";
   } catch (e) {
@@ -286,7 +286,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, confirmations: state.confirmations, progress: state.progress, prgFilter: state.prgFilter, assignFilter: state.assignFilter, placements: state.placements, allocFilter: state.allocFilter, cnfFilter: state.cnfFilter, pjFilter: state.pjFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, outcomeAllocations: state.outcomeAllocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), message: state.message, config: MWF_CRM_CONFIG,
+    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, confirmations: state.confirmations, progress: state.progress, prgFilter: state.prgFilter, assignFilter: state.assignFilter, allocations: state.allocations, allocFilter: state.allocFilter, cnfFilter: state.cnfFilter, pjFilter: state.pjFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, outcomeAllocations: state.outcomeAllocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, itemUnits: state.itemUnits, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, ...(state.me?.logins ? { logins: state.me.logins } : {}), attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -327,14 +327,14 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.assignments = r.assignments ?? state.assignments;
       state.confirmations = r.confirmations ?? state.confirmations;
       state.progress = r.progress ?? state.progress;
-      state.placements = r.placements ?? state.placements;
+      state.allocations = r.allocations ?? state.allocations;
       state.itemIcons = r.itemIcons ?? state.itemIcons;
       state.itemKinds = r.itemKinds ?? state.itemKinds;
       state.kindFeatures = r.kindFeatures ?? state.kindFeatures;
       if (body["action"] === "remove-many") state.message = `Removed ${r.removed ?? 0}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`;
       else if (body["action"] === "adopt-legacy") state.message = `Moved ${(r as unknown as { moved?: number }).moved ?? 0} into the partner.`;
       else if (body["action"] === "clear-legacy") state.message = `Removed ${(r as unknown as { removed?: number }).removed ?? 0} and released ${(r as unknown as { released?: number }).released ?? 0} gifts.`;
-      else if (body["action"] === "auto") state.message = `Allocated ${r.placed ?? 0}, released ${r.released ?? 0}, ${r.unplaced?.length ?? 0} waiting.`;
+      else if (body["action"] === "auto") state.message = `Allocated ${r.allocated ?? 0}, released ${r.released ?? 0}, ${r.unallocated?.length ?? 0} waiting.`;
       else state.message = r.warning ?? "";
     } else {
       const commitments = allocatable(state.workOrders, perPeriodRule(state.frameworks), new Date().toISOString().slice(0, 10));
@@ -353,25 +353,25 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       const en = typeof body["action"] === "string" && (body["action"] as string).startsWith("enr-") ? applyEnrolmentAction({ beneficiaries: state.beneficiaries, giftProjects: state.giftProjects, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), today: new Date().toISOString().slice(0, 10) }, state.enrolments, body) : null;
       if (en) { if ("error" in en) error = en.error; else state.enrolments = en.value; }
       // Erasing one beneficiary (DECISIONS 240): the same pure rule the server uses.
-      const er = body["action"] === "ben-erase" ? applyErasure(state.beneficiaries, state.enrolments, state.placements, body) : null;
-      if (er) { if ("error" in er) error = er.error; else { state.beneficiaries = er.register; state.enrolments = er.enrolments; state.placements = er.placements; state.message = er.message; } }
+      const er = body["action"] === "ben-erase" ? applyErasure(state.beneficiaries, state.enrolments, state.allocations, body) : null;
+      if (er) { if ("error" in er) error = er.error; else { state.beneficiaries = er.register; state.enrolments = er.enrolments; state.allocations = er.allocations; state.message = er.message; } }
       if (kf || bn || en || er) { /* a kind feature request or a register request, applied above */ }
       else if (ot) { if ("error" in ot) error = ot.error; else state.outcomeTypes = ot.types; }
       else switch (body["action"]) {
         case "add": { const r = addOutcomes(state.outcomes, { name: str("name"), count: Number(body["count"] ?? 1), type: str("type"), cohort: str("cohort"), frameworkId: str("frameworkId") }); if (!state.frameworks.some((f) => f.id === str("frameworkId"))) error = "Choose a framework for the outcome."; else if (r.error) error = r.error; else state.outcomes = r.value; break; }
         case "active": state.outcomes = setActive(state.outcomes, str("id"), body["active"] === true); break;
         case "remove": { const r = removeOutcome(state.outcomes, state.outcomeAllocations, str("id")); if (r.error) error = r.error; else state.outcomes = r.value; break; }
-        case "auto": { const r = autoAllocate(commitments, state.outcomes, state.frameworks, state.outcomeAllocations, at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects)); state.outcomeAllocations = r.outcomeAllocations; state.message = `Allocated ${r.placed}, released ${r.released}, ${r.unplaced.length} waiting.`; break; }
+        case "auto": { const r = autoAllocate(commitments, state.outcomes, state.frameworks, state.outcomeAllocations, at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects)); state.outcomeAllocations = r.outcomeAllocations; state.message = `Allocated ${r.allocated}, released ${r.released}, ${r.unallocated.length} waiting.`; break; }
         case "move": { const r = moveAllocation(state.outcomeAllocations, commitments, state.outcomes, state.frameworks, str("commitmentKey"), str("outcomeId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.outcomeAllocations = r.value; break; }
         case "remove-many": { const r = removeUnused(state.outcomes, state.outcomeAllocations, Array.isArray(body["ids"]) ? (body["ids"] as string[]) : []); state.outcomes = r.value; state.message = `Removed ${r.removed}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`; break; }
-        case "place-in-node": { const r = placeInNode(state.outcomeAllocations, commitments, state.outcomes, state.nodes, state.frameworks, str("commitmentKey"), str("nodeId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.outcomeAllocations = r.value; break; }
-        case "place-in-partner": { const r = placeInPartner(state.outcomeAllocations, commitments, state.outcomes, state.projects, state.frameworks, str("commitmentKey"), str("projectId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.outcomeAllocations = r.value; break; }
+        case "allocate-in-node": { const r = allocateInNode(state.outcomeAllocations, commitments, state.outcomes, state.nodes, state.frameworks, str("commitmentKey"), str("nodeId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.outcomeAllocations = r.value; break; }
+        case "allocate-in-partner": { const r = allocateInPartner(state.outcomeAllocations, commitments, state.outcomes, state.projects, state.frameworks, str("commitmentKey"), str("projectId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.outcomeAllocations = r.value; break; }
         case "adopt-legacy": { const r = adoptLegacy(state.outcomes, state.projects, str("projectId")); if (r.error) error = r.error; else { state.outcomes = r.value; state.message = `Moved ${r.moved} into the partner.`; } break; }
         case "clear-legacy": { const r = clearLegacy(state.outcomes, state.outcomeAllocations); state.outcomes = r.outcomes; state.outcomeAllocations = r.outcomeAllocations; state.message = `Removed ${r.removed} and released ${r.released} gift${r.released === 1 ? "" : "s"}.`; break; }
         case "asg-run": case "asg-confirm": case "asg-set": case "asg-unassign": case "asg-reset": { // Assignment (DECISIONS 170): the same pure rule the server uses.
           const wosA = view().workOrders;
           const namesA = new Map(wosA.map((w) => [w.itemId, w.itemName]));
-          const ctx = contextFrom({ workOrders: wosA, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString(), enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, namesA.get(itemId) ?? ""), itemUnits: state.itemUnits, stock: state.placements.stock });
+          const ctx = contextFrom({ workOrders: wosA, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString(), enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, namesA.get(itemId) ?? ""), itemUnits: state.itemUnits, stock: state.allocations.stock });
           const r = applyAssignmentAction(ctx, state.assignments, body);
           if (!r) { error = "That request is not understood."; break; }
           if ("error" in r) { error = r.error; break; }
@@ -384,9 +384,9 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "prg-next": case "prg-undo": case "prg-close-batch": case "prg-open-batch": case "prg-reset": { // Progress after allocation (DECISIONS 232): the same pure rule the server uses.
           const wosP = view().workOrders;
           const namesP = new Map(wosP.map((w) => [w.itemId, w.itemName]));
-          const actxP = contextFrom({ workOrders: wosP, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: at.slice(0, 10), now: at, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, namesP.get(itemId) ?? ""), itemUnits: state.itemUnits, stock: state.placements.stock });
+          const actxP = contextFrom({ workOrders: wosP, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: at.slice(0, 10), now: at, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, namesP.get(itemId) ?? ""), itemUnits: state.itemUnits, stock: state.allocations.stock });
           const fwOf = new Map(assignables(actxP).map((u) => [u.key, u.w.frameworkId ?? ""]));
-          const pctx = progressContext({ assignments: state.assignments.records, placements: state.placements.records, frameworkOf: (k) => fwOf.get(k) ?? "", frameworks: state.frameworks, sizeOf: (id) => batchSizeOf(state.projects.find((x) => x.id === id)), today: at.slice(0, 10) });
+          const pctx = progressContext({ assignments: state.assignments.records, allocations: state.allocations.records, frameworkOf: (k) => fwOf.get(k) ?? "", frameworks: state.frameworks, sizeOf: (id) => batchSizeOf(state.projects.find((x) => x.id === id)), today: at.slice(0, 10) });
           const r = applyProgressAction(pctx, state.progress, body, "Demo administrator", at);
           if (!r) { error = "That request is not understood."; break; }
           if ("error" in r) { error = r.error; break; }
@@ -402,22 +402,22 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
           if (r.message) state.message = r.message;
           break;
         }
-        case "plc-run": case "plc-set": case "plc-unplace": case "plc-reset": { // Placement, the rewired Allocation (DECISIONS 175): the same pure rule the server uses.
+        case "alc-run": case "alc-set": case "alc-undo": case "alc-reset": { // Allocation, the rewired Allocation (DECISIONS 175): the same pure rule the server uses.
           const wos = view().workOrders;
           const names2 = new Map(wos.map((w) => [w.itemId, w.itemName]));
           const nowIso = new Date().toISOString();
-          const actx = contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: nowIso.slice(0, 10), now: nowIso, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names2.get(itemId) ?? ""), itemUnits: state.itemUnits, stock: state.placements.stock });
-          const pctx = placementContext({ assignments: state.assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, frameworks: state.frameworks, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names2.get(itemId) ?? ""), now: nowIso, itemUnits: state.itemUnits });
-          const r = applyPlacementAction(pctx, state.placements, body);
+          const actx = contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: nowIso.slice(0, 10), now: nowIso, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names2.get(itemId) ?? ""), itemUnits: state.itemUnits, stock: state.allocations.stock });
+          const pctx = allocateContext({ assignments: state.assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, frameworks: state.frameworks, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names2.get(itemId) ?? ""), now: nowIso, itemUnits: state.itemUnits });
+          const r = applyAllocationAction(pctx, state.allocations, body);
           if (!r) { error = "That request is not understood."; break; }
           if ("error" in r) { error = r.error; break; }
-          state.placements = r.value;
+          state.allocations = r.value;
           settleConfirmations();
           if (r.message) state.message = r.message;
           break;
         }
         case "sample-load": case "sample-remove": { // The sample setup (DECISIONS 168): the same pure rule the server uses.
-          const cur = { partners: state.projects, giftProjects: state.giftProjects, partnerTypes: state.partnerTypes, register: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, placements: state.placements };
+          const cur = { partners: state.projects, giftProjects: state.giftProjects, partnerTypes: state.partnerTypes, register: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, allocations: state.allocations };
           let next: SampleState = cur;
           if (body["action"] === "sample-load") {
             const r = loadSampleSetup({ items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), realProjects: realProjectsFor(state.giftProjects, state.workOrders), whole: wholeByItem(view().workOrders, state.frameworks, state.itemUnits), demand: demandByItem(contextFrom({ workOrders: view().workOrders, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString() })), itemKinds: state.itemKinds, kindFeatures: state.kindFeatures as SavedFeatures, ...cur, today: new Date().toISOString().slice(0, 10) });
@@ -427,7 +427,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
             const r = removeSampleSetup(cur);
             next = r.value; state.message = removedSummaryText(r);
           }
-          state.projects = next.partners; state.giftProjects = next.giftProjects; state.partnerTypes = next.partnerTypes; state.beneficiaries = next.register; state.enrolments = next.enrolments; if (next.assignments) state.assignments = next.assignments; if (next.placements) state.placements = next.placements;
+          state.projects = next.partners; state.giftProjects = next.giftProjects; state.partnerTypes = next.partnerTypes; state.beneficiaries = next.register; state.enrolments = next.enrolments; if (next.assignments) state.assignments = next.assignments; if (next.allocations) state.allocations = next.allocations;
           break;
         }
         case "set-require-ref": state.requireRef = body["on"] === true; break;
@@ -488,7 +488,7 @@ const mapping = createMapping(() => draw());
 let lastListSig = "";
 // Rule (DECISIONS 231): a partner holding a parked outcome ready for the gift's benefit is confirmed for. Run after anything that changes assignments or stock.
 function settleConfirmations(): void {
-  state.confirmations = confirmOnBehalf(state.confirmations, state.assignments.records, state.placements.stock ?? [], state.placements.records, new Date().toISOString()).value;
+  state.confirmations = confirmOnBehalf(state.confirmations, state.assignments.records, state.allocations.stock ?? [], state.allocations.records, new Date().toISOString()).value;
 }
 function draw(): void {
   // Rule (DECISIONS 91): until a session is found, or the demo is chosen, only the sign-in screen is shown.
@@ -516,7 +516,7 @@ function draw(): void {
     : state.page === "beneficiaries" ? registerPage(v)
     : state.page === "outcome-records" ? outcomeRecordsPage(v)
     : state.page === "assignment" ? assignmentPage(v)
-    : state.page === "placement" ? allocatePage(v)
+    : state.page === "allocate" ? allocatePage(v)
     : state.page === "confirmation" ? confirmationPage(v)
     : state.page === "progress" ? progressPage(v)
     : state.page === "outcome-list" ? beneficiariesPage(v)
@@ -1037,15 +1037,15 @@ document.addEventListener("change", (e) => {
   // A level moved under another, or to the top (DECISIONS 71).
   if (t.dataset.levelParent !== undefined) return void outcomeChange({ action: "move-level", projectId: state.openProject, levelId: t.dataset.levelParent, parentId: t.value });
   if (t.dataset.placeSelect !== undefined) {
-    if (t.value.startsWith("partner:")) void outcomeChange({ action: "place-in-partner", commitmentKey: t.dataset.placeSelect, projectId: t.value.slice(8) });
-    else if (t.value !== "") void outcomeChange({ action: "place-in-node", commitmentKey: t.dataset.placeSelect, nodeId: t.value });
+    if (t.value.startsWith("partner:")) void outcomeChange({ action: "allocate-in-partner", commitmentKey: t.dataset.placeSelect, projectId: t.value.slice(8) });
+    else if (t.value !== "") void outcomeChange({ action: "allocate-in-node", commitmentKey: t.dataset.placeSelect, nodeId: t.value });
     return;
   }
   if (t.dataset.grace !== undefined) return void outcomeChange({ action: "set-grace", days: Number(t.value) });
   if (t.dataset.ref !== undefined) return void outcomeChange({ action: "set-ref", outcomeId: t.dataset.ref, ref: t.value });
   // A CRM name put in a project, or in none (DECISIONS 76).
   if (t.dataset.crmProject !== undefined) return void outcomeChange({ action: "assign-crm-name", name: t.dataset.crmProject, giftProjectId: t.value });
-  // A beneficiary placed afterwards in a place, or in a group of a kind (DECISIONS 76).
+  // A beneficiary allocated afterwards in a place, or in a group of a kind (DECISIONS 76).
   if (t.dataset.setPlace !== undefined) return void outcomeChange({ action: "set-place", outcomeId: t.dataset.setPlace, nodeId: t.value });
   if (t.dataset.setGroup !== undefined) return void outcomeChange({ action: "set-group", outcomeId: t.dataset.setGroup, levelId: t.dataset.level, groupId: t.value });
   // The filters on the Beneficiaries page.
@@ -1153,13 +1153,13 @@ document.addEventListener("drop", (e) => {
   const gift = e.dataTransfer?.getData("text/plain") ?? "";
   if (partner && gift !== "") {
     e.preventDefault();
-    return void outcomeChange({ action: "place-in-partner", commitmentKey: gift, projectId: partner.dataset.dropPartner });
+    return void outcomeChange({ action: "allocate-in-partner", commitmentKey: gift, projectId: partner.dataset.dropPartner });
   }
   const place = (e.target as HTMLElement).closest("[data-drop-node]") as HTMLElement | null;
   const key = e.dataTransfer?.getData("text/plain") ?? "";
   if (place && key !== "") {
     e.preventDefault();
-    void outcomeChange({ action: "place-in-node", commitmentKey: key, nodeId: place.dataset.dropNode });
+    void outcomeChange({ action: "allocate-in-node", commitmentKey: key, nodeId: place.dataset.dropNode });
   }
 });
 
@@ -1299,7 +1299,7 @@ document.addEventListener("click", (e) => {
   if (!root) return;
   // Removing a partner (DECISIONS 104). The question says what goes with it. A partner with beneficiaries is removed together with them, only when none has a gift.
   if (what === "export") {
-    const x = exportBeneficiary(state.beneficiaries, state.enrolments, state.placements, state.benWin.id);
+    const x = exportBeneficiary(state.beneficiaries, state.enrolments, state.allocations, state.benWin.id);
     if (!x) return;
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([JSON.stringify(x, null, 2)], { type: "application/json" }));
@@ -1391,7 +1391,7 @@ function renderProjectWindow(error = "", draft?: Record<string, unknown>): void 
   }
   const existing = state.giftProjects.find((g) => g.id === w.id);
   const names = crmNamesOf(state.workOrders, state.giftProjects).filter((n) => n.giftProjectId === "").map((n) => ({ name: n.name, gifts: n.gifts })); // the CRM names no project has yet, to link a new project to
-  putWindow(root, projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), people: { beneficiaries: state.beneficiaries.records, enrolments: state.enrolments.records, placements: state.placements.records, stock: state.placements.stock ?? [], stockItemIds: view().flaggedItems.filter((i) => { const r = itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, i.id, i.name); return !!r && (r.first === "gift" || r.receiver === "none"); }).map((i) => i.id), receivers: Object.fromEntries(view().flaggedItems.map((i) => [i.id, itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, i.id, i.name)?.receiver ?? ""])) } }, error, w.tab ?? "details"));
+  putWindow(root, projectFormHtml((draft ?? existing ?? {}) as Partial<GiftProject>, w.id, { crmNames: names, partners: state.projects, items: view().flaggedItems.map((i) => ({ id: i.id, name: i.name })), people: { beneficiaries: state.beneficiaries.records, enrolments: state.enrolments.records, allocations: state.allocations.records, stock: state.allocations.stock ?? [], stockItemIds: view().flaggedItems.filter((i) => { const r = itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, i.id, i.name); return !!r && (r.first === "gift" || r.receiver === "none"); }).map((i) => i.id), receivers: Object.fromEntries(view().flaggedItems.map((i) => [i.id, itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, i.id, i.name)?.receiver ?? ""])) } }, error, w.tab ?? "details"));
   filterEnrolList();
 }
 document.addEventListener("input", (e) => { if ((e.target as HTMLElement | null)?.id === "en-search") filterEnrolList(); });
@@ -1662,8 +1662,8 @@ document.addEventListener("click", (e) => {
     case "goto": clusterUi.node = id; clusterUi.adding = ""; clusterUi.nodeTab = "details"; return clusterView(); // "" goes back to the tree
     case "enr-add": return clusterRequestThen("Enrolled.", { action: "enr-add", beneficiaryId: val("en-ben"), clusterId: id, itemId: val("en-item"), role: val("en-role") });
     case "enr-end": return clusterRequestThen("Enrolment ended.", { action: "enr-end", id });
-    case "stock-add": return clusterRequestThen("Parked outcome added.", { action: "plc-stock-add", clusterId: id, itemId: val("st-item"), partnerId: val("st-partner"), name: val("st-name") });
-    case "stock-rm": return clusterRequestThen("Parked outcome removed.", { action: "plc-stock-remove", id });
+    case "stock-add": return clusterRequestThen("Parked outcome added.", { action: "alc-stock-add", clusterId: id, itemId: val("st-item"), partnerId: val("st-partner"), name: val("st-name") });
+    case "stock-rm": return clusterRequestThen("Parked outcome removed.", { action: "alc-stock-remove", id });
     case "node-tab": clusterUi.nodeTab = b.dataset.tab === "inside" ? "inside" : b.dataset.tab === "people" ? "people" : b.dataset.tab === "outcomes" ? "outcomes" : "details"; clusterUi.adding = ""; return clusterView();
     case "node-save": return clusterRequestThen("Saved.", { action: "cluster-set", clusterId: id, name: val("cn-name"), label: val("cn-label"), place: val("cn-place"), roles: val("cn-roles"), status: val("cn-status"), ...(document.getElementById("cn-capacity") ? { capacity: val("cn-capacity") } : {}) });
     case "cluster-add": { // Rule: capacity belongs to the master cluster only, so a sub cluster is sent none.
@@ -1715,11 +1715,11 @@ function renderHistWindow(): void {
   const wos = view().workOrders;
   const names = new Map(wos.map((x) => [x.itemId, x.itemName]));
   const gifts = new Map(assignables(contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString() })).map((u) => [u.key, { donor: u.w.supporterName, item: u.w.itemName, payments: u.payments }]));
-  // The history shows the true state now (DECISIONS 187): a placement of a parked plan, a child who has left or a withdrawn assignment is shown as ended before a run records it.
+  // The history shows the true state now (DECISIONS 187): an allocation of a parked plan, a child who has left or a withdrawn assignment is shown as ended before a run records it.
   const nowIso = new Date().toISOString();
-  const actx = contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: nowIso.slice(0, 10), now: nowIso, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), itemUnits: state.itemUnits, stock: state.placements.stock });
-  const pctx = placementContext({ assignments: state.assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, frameworks: state.frameworks, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), now: nowIso, itemUnits: state.itemUnits });
-  const data: HistoryData = { placements: syncPlacements(pctx, state.placements).value.records, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, gifts, itemName: (id) => names.get(id) ?? id };
+  const actx = contextFrom({ workOrders: wos, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: nowIso.slice(0, 10), now: nowIso, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), itemUnits: state.itemUnits, stock: state.allocations.stock });
+  const pctx = allocateContext({ assignments: state.assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, frameworks: state.frameworks, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), now: nowIso, itemUnits: state.itemUnits });
+  const data: HistoryData = { allocations: syncAllocations(pctx, state.allocations).value.records, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, giftProjects: state.giftProjects, gifts, itemName: (id) => names.get(id) ?? id };
   putWindow(root, w.kind === "gift" ? giftHistoryHtml(data, w.id) : enrolmentHistoryHtml(data, w.id));
 }
 document.addEventListener("click", (e) => {
@@ -1735,16 +1735,16 @@ document.addEventListener("keydown", (e) => {
 
 // The Allocate page (DECISIONS 175): the buttons, the place list on each gift, and the filter.
 document.addEventListener("click", (e) => {
-  const b = (e.target as HTMLElement).closest?.("[data-plc]") as HTMLElement | null;
+  const b = (e.target as HTMLElement).closest?.("[data-alc]") as HTMLElement | null;
   if (!b || b.tagName === "SELECT") return;
-  const what = b.dataset.plc;
-  if (what === "run") void outcomeChange({ action: "plc-run" });
-  else if (what === "reset") void outcomeChange({ action: "plc-reset" });
-  else if (what === "unplace") void outcomeChange({ action: "plc-unplace", key: b.dataset.key ?? "" });
+  const what = b.dataset.alc;
+  if (what === "run") void outcomeChange({ action: "alc-run" });
+  else if (what === "reset") void outcomeChange({ action: "alc-reset" });
+  else if (what === "undo") void outcomeChange({ action: "alc-undo", key: b.dataset.key ?? "" });
 });
 document.addEventListener("change", (e) => {
   const t = e.target as HTMLSelectElement | null;
-  if (t?.dataset?.plc === "set" && t.value !== "") void outcomeChange({ action: "plc-set", key: t.dataset.key ?? "", enrolmentId: t.value });
+  if (t?.dataset?.alc === "set" && t.value !== "") void outcomeChange({ action: "alc-set", key: t.dataset.key ?? "", enrolmentId: t.value });
   else if (t?.dataset?.allocf === "filter") { state.allocFilter = t.value; draw(); }
 });
 

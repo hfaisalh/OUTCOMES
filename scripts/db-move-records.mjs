@@ -24,7 +24,7 @@ const { pgStore } = await load("modules/00-platform/pg-store.ts", "store.mjs");
 const { canon } = await load("modules/00-platform/record-tables.ts", "tables.mjs");
 const sql = neon(process.env.DATABASE_URL);
 const query = (text, params) => sql.query(text, params);
-const TABLES = ["beneficiaries", "enrolments", "assignments", "placements", "stock", "confirmations", "progress"];
+const TABLES = ["beneficiaries", "enrolments", "assignments", "allocations", "stock", "confirmations", "progress"];
 const fail = (m) => { console.error("FAILED: " + m); process.exit(1); };
 
 // --- 1. A throwaway organisation: the real SQL, the real tables ---
@@ -35,7 +35,7 @@ const config = { categories: [], itemMap: {}, usesFrameworks: true, feed: {}, cr
   beneficiaries: { records: [{ id: "PRS-0002", name: "B", z: 1 }, { id: "PRS-0001", name: "A" }], counters: { PRS: 2 } },
   enrolments: { records: [{ id: "EN-0001", beneficiaryId: "PRS-0001" }], counter: 1 },
   assignments: { records: [{ key: "L1", partnerId: "p" }, { key: "L2", partnerId: "p" }] },
-  placements: { records: [{ key: "L1", kind: "place" }, { key: "L1", kind: "place" }], counter: 2, stock: [{ id: "S1" }], stockCounter: 1 },
+  allocations: { records: [{ key: "L1", kind: "beneficiary" }, { key: "L1", kind: "beneficiary" }], counter: 2, stock: [{ id: "S1" }], stockCounter: 1 },
   confirmations: { records: [{ key: "L1", answer: "confirmed" }] }, progress: { records: [{ key: "L1", kind: "phase", id: "x" }] } };
 const a = pgStore(query);
 await a.putConfig(T, structuredClone(config)); // first save
@@ -44,7 +44,7 @@ const { version: v1, ...r1 } = read1;
 if (canon(r1) !== canon(config)) fail("what was read back differs from what was saved");
 const counts = async () => Object.fromEntries(await Promise.all(TABLES.map(async (t) => [t, Number((await query(`SELECT count(*) AS n FROM ${t} WHERE org = $1`, [T]))[0].n)])));
 const c1 = await counts();
-if (c1.beneficiaries !== 2 || c1.placements !== 2 || c1.stock !== 1) fail("row counts " + JSON.stringify(c1));
+if (c1.beneficiaries !== 2 || c1.allocations !== 2 || c1.stock !== 1) fail("row counts " + JSON.stringify(c1));
 // An edit: one record changes in place, one is added, one is removed. Another store (another server) does it.
 const b = pgStore(query);
 const read2 = await b.getConfig(T);

@@ -23,7 +23,7 @@ import type { Enrolments } from "../modules/07-beneficiaries/enrolments";
 import type { Assignments } from "../modules/08-assignment/assignment";
 import type { Confirmations } from "../modules/11-confirmation/confirmation";
 import type { Progress } from "../modules/12-progress/progress";
-import type { Placements } from "../modules/09-placement/placement";
+import type { Allocations } from "../modules/09-allocation/allocation";
 
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 
@@ -111,17 +111,17 @@ export interface OutcomesReply {
   assignments?: Assignments;
   confirmations?: Confirmations;
   progress?: Progress;
-  placements?: Placements;
+  allocations?: Allocations;
   itemIcons?: Record<string, string>;
   itemUnits?: Record<string, number>;
   itemKinds?: Record<string, string>;
   kindFeatures?: Record<string, unknown>;
   warning?: string;
-  placed?: number;
+  allocated?: number;
   removed?: number;
   kept?: number;
   released?: number;
-  unplaced?: { commitmentKey: string; why: string }[];
+  unallocated?: { commitmentKey: string; why: string }[];
 }
 export const loadOutcomes = () => call<OutcomesReply>("/api/outcomes");
 export const changeOutcomes = (body: Record<string, unknown>) => call<OutcomesReply>("/api/outcomes", { method: "POST", body });

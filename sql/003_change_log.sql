@@ -1,5 +1,5 @@
 -- 003_change_log.sql
--- What it does: adds the change log, one row for each record added or removed by a save in assignments, placements, confirmations, progress, enrolments and the Beneficiary register (DECISIONS 235).
+-- What it does: adds the change log, one row for each record added or removed by a save in assignments, allocations, confirmations, progress, enrolments and the Beneficiary register (DECISIONS 235).
 -- Who runs it: `npm run db:init`. Safe to run again. Additive: nothing reads it yet except developers.
 CREATE TABLE IF NOT EXISTS change_log (
   id      bigserial PRIMARY KEY,

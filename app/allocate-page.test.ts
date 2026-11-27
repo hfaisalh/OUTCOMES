@@ -37,8 +37,8 @@ describe("the Allocate page", () => {
     expect(html).toContain("<b>0</b><span>Allocated to a beneficiary</span>");
     expect(html).toContain("<b>0</b><span>Outcomes created</span>");
     expect(html).toContain("<b>0</b><span>Waiting, no beneficiary to fund</span>");
-    expect(html).toContain('data-plc="run"');
-    expect(html).toContain('data-plc="reset" disabled');
+    expect(html).toContain('data-alc="run"');
+    expect(html).toContain('data-alc="reset" disabled');
   });
   it("lists every open place, with its project and cluster and how full it is out of the units that make a child", () => {
     const html = allocatePage(view());
@@ -46,9 +46,9 @@ describe("the Allocate page", () => {
     expect(html).toContain("Aghosh › Class 1");
     expect(html).toContain('<td class="num">0 of 3</td>');
     expect(html).toContain('<span class="pill muted">Open</span>');
-    const placed = allocatePage(view({ placements: { counter: 0, records: [{ key: "G01", kind: "place", enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 3, how: "auto", at: "x" }] } }));
-    expect(placed).toContain('<td class="num">3 of 3</td>');
-    expect(placed).toContain('<span class="pill">Funded</span>');
+    const allocated = allocatePage(view({ allocations: { counter: 0, records: [{ key: "G01", kind: "beneficiary", enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 3, how: "auto", at: "x" }] } }));
+    expect(allocated).toContain('<td class="num">3 of 3</td>');
+    expect(allocated).toContain('<span class="pill">Funded</span>');
   });
   it("shows where each gift would go and the places it could fill, the open ones chosen from a list", () => {
     const html = allocatePage(view());
@@ -57,10 +57,10 @@ describe("the Allocate page", () => {
     expect(html).toContain('<option value="EN-2">Bilal (0 of 3)</option>');
   });
   it("shows a placed gift with the child and a button to take it back, and a gift that waits with the reason", () => {
-    const placed = allocatePage(view({ placements: { counter: 0, records: [{ key: "G01", kind: "place", enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto", at: "x" }] } }));
-    expect(placed).toContain('<span class="pill">Allocated</span>');
-    expect(placed).toContain('data-plc="unplace" data-key="G01"');
-    expect(placed).not.toContain('data-plc="reset" disabled');
+    const allocated = allocatePage(view({ allocations: { counter: 0, records: [{ key: "G01", kind: "beneficiary", enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto", at: "x" }] } }));
+    expect(allocated).toContain('<span class="pill">Allocated</span>');
+    expect(allocated).toContain('data-alc="undo" data-key="G01"');
+    expect(allocated).not.toContain('data-alc="reset" disabled');
     const none = allocatePage(view({ enrolments: { records: [], counter: 0 } }));
     expect(none).toContain("<b>3</b><span>Waiting, no beneficiary to fund</span>");
     expect(none).toContain("<b>Why gifts wait:</b> 3 no approved beneficiary is enrolled in the gift&#39;s project");
@@ -74,20 +74,20 @@ describe("the Allocate page", () => {
     expect(untyped).toContain("No project · Mystery Item (1)");
   });
   it("shows a gift spread over several children as one row, counted once, with the units each took", () => {
-    const records = [{ key: "G01", kind: "place" as const, enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 2, how: "auto" as const, at: "x" }, { key: "G01", kind: "place" as const, enrolmentId: "EN-2", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto" as const, at: "x" }];
-    const html = allocatePage(view({ placements: { counter: 0, records } }));
+    const records = [{ key: "G01", kind: "beneficiary" as const, enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 2, how: "auto" as const, at: "x" }, { key: "G01", kind: "beneficiary" as const, enrolmentId: "EN-2", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto" as const, at: "x" }];
+    const html = allocatePage(view({ allocations: { counter: 0, records } }));
     expect(html).toContain("<b>1</b><span>Allocated to a beneficiary</span>"); // one gift, however many children
     expect(html).toContain("Spread over 2 beneficiaries");
     expect(html).toContain('<span class="muted">(2 units)</span>');
     expect(html).toContain('<span class="muted">(1 unit)</span>');
-    expect((html.match(/data-plc="unplace" data-key="G01"/g) ?? []).length).toBe(1); // one button takes it all back
+    expect((html.match(/data-alc="undo" data-key="G01"/g) ?? []).length).toBe(1); // one button takes it all back
   });
   it("shows the true state now: a placement whose assignment was withdrawn is not counted, and a note says it will be recorded and kept (DECISIONS 187)", () => {
-    const stale = { counter: 0, records: [{ key: "G01", kind: "place" as const, enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto" as const, at: "2026-11-02T00:00:00Z" }] };
-    const html = allocatePage(view({ placements: stale, assignments: { records: [] } })); // the gift is no longer assigned
+    const stale = { counter: 0, records: [{ key: "G01", kind: "beneficiary" as const, enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto" as const, at: "2026-11-02T00:00:00Z" }] };
+    const html = allocatePage(view({ allocations: stale, assignments: { records: [] } })); // the gift is no longer assigned
     expect(html).toContain("<b>0</b><span>Allocated to a beneficiary</span>"); // not "Now"
     expect(html).toContain("1 allocation has ended (a plan was parked, a child left, or an assignment was withdrawn). Allocate automatically records it, and keeps it in the history.");
-    expect(html).not.toContain('data-plc="run" disabled'); // so a person can record it
+    expect(html).not.toContain('data-alc="run" disabled'); // so a person can record it
     expect(allocatePage(view())).not.toContain("has ended");
   });
   it("creates an outcome for a gift-first type, shown without a place", () => {
@@ -97,10 +97,10 @@ describe("the Allocate page", () => {
     expect(html).toContain("Creates an outcome. Its recipients are enrolled after.");
   });
   it("filters to the gifts that wait or are placed, and says so when nothing is assigned", () => {
-    const placements = { counter: 0, records: [{ key: "G01", kind: "place" as const, enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto" as const, at: "x" }] };
-    expect(allocatePage(view({ placements, allocFilter: "placed" }))).not.toContain('data-key="G02"');
-    expect(allocatePage(view({ placements, allocFilter: "ready" }))).not.toContain('data-plc="unplace" data-key="G01"');
-    expect(allocatePage(view({ placements, allocFilter: "ready" }))).toContain('data-key="G02"'); // ready to place
+    const allocations = { counter: 0, records: [{ key: "G01", kind: "beneficiary" as const, enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto" as const, at: "x" }] };
+    expect(allocatePage(view({ allocations, allocFilter: "allocated" }))).not.toContain('data-key="G02"');
+    expect(allocatePage(view({ allocations, allocFilter: "ready" }))).not.toContain('data-alc="undo" data-key="G01"');
+    expect(allocatePage(view({ allocations, allocFilter: "ready" }))).toContain('data-key="G02"'); // ready to place
     expect(allocatePage(view({ assignments: { records: [] } }))).toContain("No gift has been assigned yet.");
   });
   it("filters to the gifts that are really waiting, not those that are only not placed yet", () => {

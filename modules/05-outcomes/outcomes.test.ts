@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { Commitment } from "../04b-commitments/commitments";
-import { addOutcomes, autoAllocate, capacityOf, fillOf, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, monthStatus, holdingReport, inGrace, daysOverdue, releaseDue, releaseApprovals, asksForPlace, pickOutcome, monthsAround, timelineOf, takesCapacity, type OutcomeAllocation, type Outcome } from "./outcomes";
+import { addOutcomes, autoAllocate, capacityOf, fillOf, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, monthStatus, holdingReport, inGrace, daysOverdue, releaseDue, releaseApprovals, asksToBeAllocated, pickOutcome, monthsAround, timelineOf, takesCapacity, type OutcomeAllocation, type Outcome } from "./outcomes";
 
 const FW: FrameworkTemplate[] = [
   { id: "shared", name: "Shared parts", unit: "child", cycle: "quarterly", reportType: "Q", instalment: "per_period", unitsPerBeneficiary: 3 },
@@ -67,7 +67,7 @@ describe("automatic allocation", () => {
     const cs = [com("1", 1), com("2", 1, { manual: "40 is not a whole number of 35 parts" }), com("3", 1)];
     const r = autoAllocate(cs, outs, FW, [], AT);
     expect(r.outcomeAllocations.map((a) => a.commitmentKey)).toEqual(["1", "3"]);
-    // a person placed the manual one by hand: it is kept by the next automatic run
+    // a person allocated the manual one by hand: it is kept by the next automatic run
     const kept = autoAllocate(cs, outs, FW, [{ commitmentKey: "2", outcomeId: "orphan-1", parts: 1, how: "manual", at: AT }], AT);
     expect(kept.outcomeAllocations.map((a) => a.commitmentKey).sort()).toEqual(["1", "2", "3"]);
   });
@@ -78,7 +78,7 @@ describe("automatic allocation", () => {
     const where = Object.fromEntries(r.outcomeAllocations.map((a) => [a.commitmentKey, a.outcomeId]));
     // oldest first: 1, 2, 3, 4 by first paid. 1 and 2 share Orphan 1, then 3 needs a whole orphan and takes Orphan 2, then 4 fits in Orphan 1.
     expect(where).toEqual({ "1": "orphan-1", "2": "orphan-1", "3": "orphan-2", "4": "orphan-1" });
-    expect(r.placed).toBe(4);
+    expect(r.allocated).toBe(4);
     expect(fillOf(outs[0]!, FW, r.outcomeAllocations, cs).state).toBe("full");
     expect(fillOf(outs[1]!, FW, r.outcomeAllocations, cs).state).toBe("full");
   });
@@ -87,15 +87,15 @@ describe("automatic allocation", () => {
     const outs = orphans(1);
     const cs = [com("1", 3), com("2", 1)];
     const first = autoAllocate(cs, outs, FW, [], AT);
-    expect(first.unplaced).toEqual([{ commitmentKey: "2", why: "No outcome has room for it." }]);
+    expect(first.unallocated).toEqual([{ commitmentKey: "2", why: "No outcome has room for it." }]);
     const again = autoAllocate(cs, [...outs, ...orphans(2).slice(1)], FW, first.outcomeAllocations, AT); // adds Orphan 2
     expect(again.outcomeAllocations.find((a) => a.commitmentKey === "1")?.outcomeId).toBe("orphan-1");
-    expect(again.placed).toBe(1);
+    expect(again.allocated).toBe(1);
   });
 
   it("says when no outcome uses the commitment's framework", () => {
     const r = autoAllocate([com("1", 1, { frameworkId: "whole" })], orphans(1), FW, [], AT);
-    expect(r.unplaced[0]?.why).toContain("No active outcome");
+    expect(r.unallocated[0]?.why).toContain("No active outcome");
   });
 
   it("releases and places again what was allocated to an outcome that is made inactive", () => {
@@ -104,7 +104,7 @@ describe("automatic allocation", () => {
     const first = autoAllocate(cs, outs, FW, [], AT);
     expect(first.outcomeAllocations[0]?.outcomeId).toBe("orphan-1");
     const second = autoAllocate(cs, setActive(outs, "orphan-1", false), FW, first.outcomeAllocations, AT);
-    expect([second.released, second.placed, second.outcomeAllocations[0]?.outcomeId]).toEqual([1, 1, "orphan-2"]);
+    expect([second.released, second.allocated, second.outcomeAllocations[0]?.outcomeId]).toEqual([1, 1, "orphan-2"]);
   });
 
   it("releases a per-period commitment that has been fully paid", () => {
@@ -202,9 +202,9 @@ describe("one-off payments in outcomes (DECISIONS 64)", () => {
   it("fills a whole orphan and shows every covered month as paid", () => {
     const [o] = orphans(1);
     const c = year("once-A1");
-    const placed = autoAllocate([c], [o!], FW, [], AT);
-    expect(placed.placed).toBe(1);
-    const row = timelineOf(o!, FW, placed.outcomeAllocations, [c], monthsAround("2027-04-15", 5, 6), "2027-04-15");
+    const allocated = autoAllocate([c], [o!], FW, [], AT);
+    expect(allocated.allocated).toBe(1);
+    const row = timelineOf(o!, FW, allocated.outcomeAllocations, [c], monthsAround("2027-04-15", 5, 6), "2027-04-15");
     expect(row.every((m) => m.slots.every((s) => s.status === "p"))).toBe(true);
     expect(row.map((m) => m.month)[0]).toBe("2026-11");
   });
@@ -246,17 +246,17 @@ describe("directed and general gifts, spreading, and the payment buffer (DECISIO
   it("sends a directed gift to its own project only, and a general gift to any project", () => {
     const r = autoAllocate([gift("1", 3, "Bravo"), gift("2", 3, "Where Needed Most")], OUT, FW, [], AT, { projectIdsFor });
     expect(r.outcomeAllocations.find((a) => a.commitmentKey === "1")?.outcomeId).toMatch(/^b/);
-    expect(r.placed).toBe(2);
+    expect(r.allocated).toBe(2);
   });
   it("makes a directed gift wait when its project is full, even if another project has room", () => {
     const full = [gift("1", 3, "Bravo"), gift("2", 3, "Bravo"), gift("3", 3, "Bravo")];
     const r = autoAllocate(full, OUT, FW, [], AT, { projectIdsFor });
-    expect(r.placed).toBe(2);
-    expect(r.unplaced).toEqual([{ commitmentKey: "3", why: "The partner the donor chose is full. It waits for a person to decide." }]);
+    expect(r.allocated).toBe(2);
+    expect(r.unallocated).toEqual([{ commitmentKey: "3", why: "The partner the donor chose is full. It waits for a person to decide." }]);
   });
   it("lets a gift go to any of several partners that answer to its project name, spread across them", () => {
     const r = autoAllocate([gift("1", 3, "Both", { firstPaid: "2026-01-01" }), gift("2", 3, "Both", { firstPaid: "2026-01-02" })], OUT, FW, [], AT, { projectIdsFor });
-    expect(r.placed).toBe(2);
+    expect(r.allocated).toBe(2);
     expect(r.outcomeAllocations.map((a) => a.outcomeId)).toEqual(["a1", "a3"]); // the two places with the lowest share sponsored, one in each class of A first
   });
   it("places gifts only on beneficiaries that have an ID when the organisation asks for it, and says why when none do", () => {
@@ -264,20 +264,20 @@ describe("directed and general gifts, spreading, and the payment buffer (DECISIO
     const r = autoAllocate([gift("1", 3, "")], withId, FW, [], AT, { requireRef: true });
     expect(r.outcomeAllocations[0]?.outcomeId).toBe("a4");
     const none = autoAllocate([gift("1", 3, "")], OUT, FW, [], AT, { requireRef: true });
-    expect(none.placed).toBe(0);
-    expect(none.unplaced[0]?.why).toContain("has an ID yet");
-    expect(autoAllocate([gift("1", 3, "")], OUT, FW, [], AT, {}).placed).toBe(1); // the setting is off by default
+    expect(none.allocated).toBe(0);
+    expect(none.unallocated[0]?.why).toContain("has an ID yet");
+    expect(autoAllocate([gift("1", 3, "")], OUT, FW, [], AT, {}).allocated).toBe(1); // the setting is off by default
   });
   it("never offers a gift to a partner that is not active or does not deliver its item", () => {
     const partnerOk = (pid: string | undefined, item: string) => pid !== "A" || item === "I1"; // A delivers only I1
     const r = autoAllocate([gift("1", 3, "", { itemId: "I2" })], OUT.slice(0, 4), FW, [], AT, { partnerOk });
-    expect(r.placed).toBe(0);
-    expect(r.unplaced[0]?.why).toContain("No active partner that delivers this item");
-    expect(autoAllocate([gift("2", 3, "", { itemId: "I1" })], OUT.slice(0, 4), FW, [], AT, { partnerOk }).placed).toBe(1);
+    expect(r.allocated).toBe(0);
+    expect(r.unallocated[0]?.why).toContain("No active partner that delivers this item");
+    expect(autoAllocate([gift("2", 3, "", { itemId: "I1" })], OUT.slice(0, 4), FW, [], AT, { partnerOk }).allocated).toBe(1);
   });
   it("treats a project name it does not know as a general gift", () => {
     const r = autoAllocate([gift("1", 3, "Hope for Palestine")], OUT, FW, [], AT, { projectIdsFor });
-    expect(r.placed).toBe(1);
+    expect(r.allocated).toBe(1);
   });
   it("spreads general gifts across places, then fills a partly sponsored child before opening a new one", () => {
     // four one-part gifts: places c1, c2, d1 all start at nothing sponsored, so they take turns. Each place then packs one child first.
@@ -320,8 +320,8 @@ describe("directed and general gifts, spreading, and the payment buffer (DECISIO
     it("keeps the place until a manager approves: an overdue plan still holds capacity, but asks for no new place", () => {
       const late = behind("2026-10-01");
       expect(takesCapacity(late, FW)).toBe(true);
-      expect(asksForPlace(late, FW, policy)).toBe(false);
-      expect(asksForPlace(late, FW)).toBe(true); // no policy, no rule
+      expect(asksToBeAllocated(late, FW, policy)).toBe(false);
+      expect(asksToBeAllocated(late, FW)).toBe(true); // no policy, no rule
       const first = autoAllocate([late], OUT.slice(0, 1), FW, [], AT, {});
       const again = autoAllocate([late], OUT.slice(0, 1), FW, first.outcomeAllocations, AT, { policy });
       expect(again.released).toBe(0); // not released by itself
@@ -332,7 +332,7 @@ describe("directed and general gifts, spreading, and the payment buffer (DECISIO
       const a = behind("2026-10-01", { subscriptionId: "A" });
       const b = behind("2026-08-01", { subscriptionId: "B" });
       const ok = behind("2026-11-10", { subscriptionId: "C" });
-      expect(autoAllocate([a], OUT.slice(0, 1), FW, [], AT, { policy }).placed).toBe(0);
+      expect(autoAllocate([a], OUT.slice(0, 1), FW, [], AT, { policy }).allocated).toBe(0);
       const alloc: OutcomeAllocation[] = ["A", "B", "C"].map((k, i) => ({ commitmentKey: k, outcomeId: OUT[i]!.id, parts: 3, how: "auto" as const, at: AT }));
       expect(releaseApprovals(alloc, [a, b, ok], FW, policy).map((x) => [x.commitmentKey, x.daysOverdue])).toEqual([["B", 111], ["A", 50]]);
     });

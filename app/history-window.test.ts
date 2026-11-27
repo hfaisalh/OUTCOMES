@@ -7,11 +7,11 @@
 
 import { describe, expect, it } from "vitest";
 import { enrolmentHistoryHtml, giftHistoryHtml, type HistoryData } from "./history-window";
-import type { Placement } from "../modules/09-placement/placement";
+import type { Allocation } from "../modules/09-allocation/allocation";
 
-const p = (key: string, enrolmentId: string, at: string, over: Partial<Placement> = {}): Placement => ({ key, kind: "place", enrolmentId, outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 3, how: "auto", at: `${at}T10:00:00Z`, ...over });
+const p = (key: string, enrolmentId: string, at: string, over: Partial<Allocation> = {}): Allocation => ({ key, kind: "beneficiary", enrolmentId, outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 3, how: "auto", at: `${at}T10:00:00Z`, ...over });
 const data = (over: Partial<HistoryData> = {}): HistoryData => ({
-  placements: [
+  allocations: [
     p("sub:1", "EN-1", "2026-01-10", { to: "2026-04-01", endReason: "paused" }),
     p("sub:1", "EN-2", "2026-06-01"),
     p("sub:2", "EN-1", "2026-04-15", { to: "2026-09-30", endReason: "cancelled" }),
@@ -57,7 +57,7 @@ describe("the history of a place", () => {
     expect(html).toContain("Aghosh › Class 1");
   });
   it("says so when no gift has been allocated to the child", () => {
-    expect(enrolmentHistoryHtml(data({ placements: [] }), "EN-1")).toContain("No gift has been allocated to this beneficiary yet.");
+    expect(enrolmentHistoryHtml(data({ allocations: [] }), "EN-1")).toContain("No gift has been allocated to this beneficiary yet.");
   });
 });
 

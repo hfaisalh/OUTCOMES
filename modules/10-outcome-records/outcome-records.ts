@@ -3,11 +3,11 @@
  *
  * What it does: builds the Outcomes list (DECISIONS 197): one row for each outcome a gift has created (OUT-0001 and so on), for the benefits where the gift comes first (a pump, a camp) or that have no
  * beneficiary (a mosque). For each it says what was funded, for which project, who delivers it, who gave, how far funded it is, and what the gift did in each of the months shown.
- * Who calls it: app/outcome-records-page.ts. Depends on: placement.ts (the Placement type), implementation.ts (the gift lookup and the month cells), outcomes.ts (monthStatus) and commitments.ts (the Commitment type).
+ * Who calls it: app/outcome-records-page.ts. Depends on: allocation.ts (the Allocation type), implementation.ts (the gift lookup and the month cells), outcomes.ts (monthStatus) and commitments.ts (the Commitment type).
  * Pure functions: no database, no screen, so the rules can be ported to Salesforce (Apex) or another stack.
  *
  * Rules:
- * - Rule: one row for each outcome placement. A gift for a gift-first or no-beneficiary type creates one outcome (decision 175). One that has ended stays in the list, marked ended, with the reason.
+ * - Rule: one row for each outcome allocation. A gift for a gift-first or no-beneficiary type creates one outcome (decision 175). One that has ended stays in the list, marked ended, with the reason.
  * - Rule: funded is the units the gift holds out of the units that make one whole outcome (a pump is 1, a house may be more), at most 100. A gift paid in a fixed number of instalments counts only the share paid so far (decision 199).
  * - Rule: the months show what the gift did each month (paid, expected, missed, nothing expected), one slice for each unit of the whole outcome, as on the Beneficiaries list.
  * - Rule: stages after allocation (delivered, confirmed by the partner, reported) are not built yet, so a live outcome says "Allocated".
@@ -16,7 +16,7 @@
 
 import type { Commitment } from "../04b-commitments/commitments.js";
 import { monthStatus } from "../05-outcomes/outcomes.js";
-import { END_LABEL, isActive, type EndReason, type Placement } from "../09-placement/placement.js";
+import { END_LABEL, isActive, type EndReason, type Allocation } from "../09-allocation/allocation.js";
 import { commitmentOfKey, slotOf, type GiftInfo, type MonthCell, type Slot } from "../07-beneficiaries/implementation.js";
 import { needsLook } from "../04b-commitments/commitments.js";
 
@@ -31,7 +31,7 @@ export interface OutcomeRow {
   parts: number; // the units the gift holds
   whole: number; // the units that make one whole outcome
   funded: number; // 0 to 100
-  live: boolean; // false once the placement has ended
+  live: boolean; // false once the allocation has ended
   since: string; // YYYY-MM-DD
   endedOn: string; // "" while live
   why: string; // why it ended, "" while live
@@ -40,9 +40,9 @@ export interface OutcomeRow {
   cells: MonthCell[];
 }
 
-export function outcomeRows(a: { placements: Placement[]; commitments: Commitment[]; partnerOf: (key: string) => string; whole: (itemId: string) => number; months: string[]; today: string }): OutcomeRow[] {
+export function outcomeRows(a: { allocations: Allocation[]; commitments: Commitment[]; partnerOf: (key: string) => string; whole: (itemId: string) => number; months: string[]; today: string }): OutcomeRow[] {
   const rows: OutcomeRow[] = [];
-  for (const p of a.placements.filter((x) => x.kind === "outcome")) {
+  for (const p of a.allocations.filter((x) => x.kind === "outcome")) {
     const whole = Math.max(1, a.whole(p.itemId));
     const c = commitmentOfKey(a.commitments, p.key);
     const live = isActive(p);

@@ -14,7 +14,7 @@ import { addBeneficiary, emptyRegister, NO_FILTER, type Beneficiary, type Regist
 import type { View } from "./pages";
 import type { WorkOrder } from "../modules/01c-crm-connector/work-orders";
 import type { FrameworkTemplate } from "../modules/02-project-rules/categories";
-import type { Placement } from "../modules/09-placement/placement";
+import type { Allocation } from "../modules/09-allocation/allocation";
 
 const ok = (r: { value: Register } | { error: string }): Register => { if ("error" in r) throw new Error(r.error); return r.value; };
 const reg = (): Register => {
@@ -31,8 +31,8 @@ const sub = (n: number, paid: string, over: Partial<WorkOrder> = {}): WorkOrder 
 const fw = { id: "wf", unitsPerBeneficiary: 3 } as FrameworkTemplate;
 const gp = { id: "aghosh", name: "Aghosh", crmNames: [], partnerIds: [], clusters: [{ id: "c1", name: "Class 1", label: "Class", parentId: "", place: "", status: "active" as const }] };
 const enrol = { id: "EN-1", beneficiaryId: "PRS-0001", giftProjectId: "aghosh", clusterId: "c1", itemId: "I10", role: "", status: "active" as const, since: "2026-09-01" };
-const placed = (over: Partial<Placement> = {}): Placement => ({ key: "sub:SUB1", kind: "place", enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 3, how: "auto", at: "x", ...over });
-const live = (over: Partial<View> = {}): View => view({ workOrders: [sub(1, "2026-09-05"), sub(2, "2026-10-05")], frameworks: [fw], giftProjects: [gp], enrolments: { records: [enrol], counter: 1 }, placements: { records: [placed()], counter: 0 }, ...over });
+const allocated = (over: Partial<Allocation> = {}): Allocation => ({ key: "sub:SUB1", kind: "beneficiary", enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 3, how: "auto", at: "x", ...over });
+const live = (over: Partial<View> = {}): View => view({ workOrders: [sub(1, "2026-09-05"), sub(2, "2026-10-05")], frameworks: [fw], giftProjects: [gp], enrolments: { records: [enrol], counter: 1 }, allocations: { records: [allocated()], counter: 0 }, ...over });
 
 describe("the household picker", () => {
   const mk = (id: string, name: string, guardian: string, area = ""): Beneficiary => ({ id, name, guardian, area, kind: "person" }) as Beneficiary;
@@ -102,10 +102,10 @@ describe("the Beneficiaries page, month by month", () => {
     expect(html).not.toContain("Nothing expected");
   });
   it("shows a unit with no gift in its own colour so a gap stands out, and finds gaps, failed payments and donors", () => {
-    const part = registerPage(live({ placements: { records: [placed({ parts: 2 })], counter: 0 } }));
+    const part = registerPage(live({ allocations: { records: [allocated({ parts: 2 })], counter: 0 } }));
     expect(part).toContain('class="seg g"');
     expect(registerPage(live({ registerFilter: { ...NO_FILTER, show: "gaps" } }))).not.toContain("Ayesha Khan</b>");
-    expect(registerPage(live({ placements: { records: [placed({ parts: 2 })], counter: 0 }, registerFilter: { ...NO_FILTER, show: "gaps" } }))).toContain("Ayesha Khan</b>");
+    expect(registerPage(live({ allocations: { records: [allocated({ parts: 2 })], counter: 0 }, registerFilter: { ...NO_FILTER, show: "gaps" } }))).toContain("Ayesha Khan</b>");
     expect(registerPage(live({ registerFilter: { ...NO_FILTER, text: "invented donor" } }))).toContain("Ayesha Khan</b>");
     expect(registerPage(live({ registerFilter: { ...NO_FILTER, text: "nobody" } }))).toContain("Nothing matches.");
     const late = registerPage(live({ workOrders: [sub(1, "2026-08-05")], registerFilter: { ...NO_FILTER, show: "missed" } }));
@@ -119,16 +119,16 @@ describe("the Beneficiaries page, month by month", () => {
     expect(html).toContain('class="seg e"'); // a later month of a plan that still runs
   });
   it("shows units not filled as nothing expected, and a placement that has ended holds nothing", () => {
-    const part = registerPage(live({ placements: { records: [placed({ parts: 1 })], counter: 0 } }));
+    const part = registerPage(live({ allocations: { records: [allocated({ parts: 1 })], counter: 0 } }));
     expect(part).toContain('class="seg g"');
     expect(part).toContain('class="seg g"');
-    const ended = registerPage(live({ placements: { records: [placed({ to: "2026-11-01", endReason: "paused" })], counter: 0 } }));
+    const ended = registerPage(live({ allocations: { records: [allocated({ to: "2026-11-01", endReason: "paused" })], counter: 0 } }));
     expect(ended).toContain(">0%</td>");
     expect(ended).not.toContain('class="seg p"');
   });
   it("shows a single payment the rules do not count per period (a scholarship) with a plan and its paid month, and the months after it unfilled", () => {
     const one = sub(1, "2026-10-05", { key: "ONE1", subscriptionId: "", instalmentNumber: "", instalmentCount: "" });
-    const html = registerPage(live({ workOrders: [one], placements: { records: [placed({ key: "ONE1", parts: 3 })], counter: 0 } }));
+    const html = registerPage(live({ workOrders: [one], allocations: { records: [allocated({ key: "ONE1", parts: 3 })], counter: 0 } }));
     expect(html).toContain("1/1");
     expect(html).toContain('aria-label="Oct 2026"><circle class="ring" cx="12" cy="12" r="11.7" stroke-width=".7"/><circle class="ring" cx="12" cy="12" r="6.3" stroke-width=".7"/><circle class="seg p"');
     expect(html).toContain('title="One payment"');
@@ -136,7 +136,7 @@ describe("the Beneficiaries page, month by month", () => {
   });
   it("shows a single payment that covers a year as a complete plan, 12/12, all twelve months paid", () => {
     const one = sub(1, "2026-10-05", { key: "ONE1", subscriptionId: "", instalmentNumber: "", instalmentCount: "", periodCount: 12 });
-    const html = registerPage(live({ workOrders: [one], placements: { records: [placed({ key: "ONE1", parts: 3 })], counter: 0 } }));
+    const html = registerPage(live({ workOrders: [one], allocations: { records: [allocated({ key: "ONE1", parts: 3 })], counter: 0 } }));
     expect(html).toContain("12/12");
     expect((html.match(/class="seg p"/g) ?? []).length).toBe(3 * 8); // October to May are paid, 8 months of 3 units
     expect(html).toContain(">67%</td>");

@@ -3,7 +3,7 @@
  *
  * What it does: Confirmation (DECISIONS 139, 202). After a gift is assigned to a partner, the partner has a number of days to say yes (confirm) or no (reject). This file holds the rules: when the answer is due, whether
  * the partner is waiting, confirmed, rejected or late, and what confirming or rejecting records.
- * Who calls it: the server (modules/00-platform/handlers.ts) and the demo (app/main.ts) through applyConfirmationAction, and the Confirmation page. Depends on: modules/09-placement/stock.ts (a partner with parked outcomes is confirmed for).
+ * Who calls it: the server (modules/00-platform/handlers.ts) and the demo (app/main.ts) through applyConfirmationAction, and the Confirmation page. Depends on: modules/09-allocation/stock.ts (a partner with parked outcomes is confirmed for).
  * Pure functions: no database, no screen, so the rules can be ported to Salesforce (Apex) or another stack.
  *
  * Rules:
@@ -16,7 +16,7 @@
  * - Nothing is changed in place: every function returns a new value.
  */
 
-import { freeStock, usedStock, type StockItem } from "../09-placement/stock.js";
+import { freeStock, usedStock, type StockItem } from "../09-allocation/stock.js";
 
 export const DEFAULT_CONFIRM_DAYS = 3;
 
@@ -87,12 +87,12 @@ export interface StockAssignment extends ConfirmAssignment { itemId: string; gif
 
 /**
  * Rule: a partner holding a parked outcome ready for the benefit (in the gift's project) has nothing to decide, so each such assignment still waiting is confirmed for it.
- * Run after every change to assignments. `placed` are the placement records, so a parked outcome a gift already took is not counted twice.
+ * Run after every change to assignments. `allocated` are the allocation records, so a parked outcome a gift already took is not counted twice.
  */
-export function confirmOnBehalf(existing: Confirmations, assignments: StockAssignment[], stock: StockItem[], placed: { stockId?: string; to?: string }[], at: string): { value: Confirmations; added: number } {
+export function confirmOnBehalf(existing: Confirmations, assignments: StockAssignment[], stock: StockItem[], allocated: { stockId?: string; to?: string }[], at: string): { value: Confirmations; added: number } {
   let records = existing.records;
   let added = 0;
-  const taken = usedStock(placed);
+  const taken = usedStock(allocated);
   for (const a of assignments) {
     if (answerFor(a, records)) continue;
     if (!freeStock(stock, taken, a.partnerId, a.itemId, a.giftProjectId)) continue;

@@ -1,16 +1,16 @@
 /**
  * history.test.ts
  *
- * What it does: tests the allocation history (DECISIONS 186) on invented placements: a gift that held one child, was paused, and later held another; a child sponsored by several gifts over time; a gift
+ * What it does: tests the allocation history (DECISIONS 186) on invented allocations: a gift that held one child, was paused, and later held another; a child sponsored by several gifts over time; a gift
  * spread over two children; newest first; and the counts. These tests double as examples. Who calls it: vitest. Depends on: history.ts.
  */
 
 import { describe, expect, it } from "vitest";
 import { countOfEnrolment, countOfGift, historyOfEnrolment, historyOfGift } from "./history";
-import type { Placement } from "./placement";
+import type { Allocation } from "./allocation";
 
-const p = (key: string, enrolmentId: string, at: string, over: Partial<Placement> = {}): Placement => ({ key, kind: "place", enrolmentId, outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 3, how: "auto", at: `${at}T10:00:00Z`, ...over });
-const records: Placement[] = [
+const p = (key: string, enrolmentId: string, at: string, over: Partial<Allocation> = {}): Allocation => ({ key, kind: "beneficiary", enrolmentId, outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 3, how: "auto", at: `${at}T10:00:00Z`, ...over });
+const records: Allocation[] = [
   p("sub:1", "EN-1", "2026-01-10", { to: "2026-04-01", endReason: "paused" }), // gift 1 held Amina, then its plan paused
   p("sub:1", "EN-2", "2026-06-01"), // and when it ran again it was given Bilal, since Amina had been taken
   p("sub:2", "EN-1", "2026-04-15", { to: "2026-09-30", endReason: "cancelled" }), // gift 2 took Amina in April, and its plan was cancelled

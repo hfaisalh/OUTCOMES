@@ -10,7 +10,7 @@ import { migrateGiftProjects } from "../06-projects/projects.js";
 import { emptyRegister } from "../07-beneficiaries/beneficiaries.js";
 import { emptyEnrolments } from "../07-beneficiaries/enrolments.js";
 import { emptyAssignments } from "../08-assignment/assignment.js";
-import { emptyPlacements } from "../09-placement/placement.js";
+import { emptyAllocations } from "../09-allocation/allocation.js";
 import { emptyConfirmations } from "../11-confirmation/confirmation.js";
 import { emptyProgress } from "../12-progress/progress.js";
 import { partnerSlice, PARTNER_PERMISSION } from "../13-partner-portal/scope.js";
@@ -35,7 +35,7 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
     assignments: config.assignments ?? emptyAssignments(),
     confirmations: config.confirmations ?? emptyConfirmations(),
     progress: config.progress ?? emptyProgress(),
-    placements: config.placements ?? emptyPlacements(),
+    allocations: config.allocations ?? emptyAllocations(),
   }, a.claims.partner as string);
   return slice ? json(200, slice, { "cache-control": "no-store" }) : json(404, { error: "This partner was not found." });
 }

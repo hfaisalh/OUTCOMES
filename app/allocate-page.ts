@@ -5,21 +5,21 @@
  * where the gift comes first, creates an outcome. The page shows how many assigned gifts are allocated, have created an outcome or wait, why the waiting ones wait, every beneficiary to fund and how much of the need is met, and every gift with
  * where it went or why not. A button allocates every gift that can be allocated, and one clears the lot so a test can be run again. A person can choose another beneficiary for any gift. Pure: it takes a View and
  * returns HTML.
- * Who calls it: app/main.ts. Depends on: modules/09-placement/placement.ts, 08-assignment, 07-beneficiaries (enrolments) and esc and View from pages.ts.
+ * Who calls it: app/main.ts. Depends on: modules/09-allocation/allocation.ts, 08-assignment, 07-beneficiaries (enrolments) and esc and View from pages.ts.
  */
 
 import { assignables, contextFrom, emptyAssignments } from "../modules/08-assignment/assignment";
 import { clusterStateOf, pathOf } from "../modules/06-projects/clusters";
 import { itemRulesOf, emptyEnrolments } from "../modules/07-beneficiaries/enrolments";
-import { emptyPlacements, fills, isActive, placementContext, suggestPlacements, syncPlacements, type PlaceSuggestion } from "../modules/09-placement/placement";
+import { emptyAllocations, fills, isActive, allocateContext, suggestAllocations, syncAllocations, type AllocationSuggestion } from "../modules/09-allocation/allocation";
 import { emptyRegister } from "../modules/07-beneficiaries/beneficiaries";
 import type { SavedFeatures } from "../modules/02-project-rules/kind-features";
 import { esc, type View } from "./pages";
 
 const MAX_ROWS = 150;
-// The filters say what they mean: ready to be placed, waiting with no beneficiary to fund, or already placed (DECISIONS 179).
-const FILTERS = [{ id: "all", label: "All gifts" }, { id: "ready", label: "Ready to allocate" }, { id: "waiting", label: "Waiting, no beneficiary to fund" }, { id: "placed", label: "Allocated" }];
-const WHY: Record<string, string> = { "no-places": "no approved beneficiary is enrolled in the gift's project", "no-project-places": "no approved beneficiary is enrolled with the assigned partner", full: "every beneficiary for the benefit is fully funded", "no-type": "the item has no type yet (choose one on the Benefits page)" };
+// The filters say what they mean: ready to be allocated, waiting with no beneficiary to fund, or already allocated (DECISIONS 179).
+const FILTERS = [{ id: "all", label: "All gifts" }, { id: "ready", label: "Ready to allocate" }, { id: "waiting", label: "Waiting, no beneficiary to fund" }, { id: "allocated", label: "Allocated" }];
+const WHY: Record<string, string> = { "no-beneficiary": "no approved beneficiary is enrolled in the gift's project", "no-project-beneficiary": "no approved beneficiary is enrolled with the assigned partner", full: "every beneficiary for the benefit is fully funded", "no-type": "the item has no type yet (choose one on the Benefits page)" };
 
 export function allocatePage(v: View): string {
   const partners = v.projects ?? [];
@@ -27,24 +27,24 @@ export function allocatePage(v: View): string {
   const today = v.today ?? "2026-01-01";
   const now = `${today}T00:00:00Z`;
   const assignments = (v.assignments ?? emptyAssignments()).records;
-  const recorded = v.placements ?? emptyPlacements(); // all of it, history included
+  const recorded = v.allocations ?? emptyAllocations(); // all of it, history included
   const enrolments = (v.enrolments ?? emptyEnrolments()).records;
   const people = (v.beneficiaries ?? emptyRegister()).records;
   const actx = contextFrom({ workOrders: v.workOrders, partners, giftProjects: gps, frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now });
   const units = assignables(actx);
   const unitOf = new Map(units.map((u) => [u.key, u]));
   const names = new Map(v.workOrders.map((w) => [w.itemId, w.itemName]));
-  const ctx = placementContext({ assignments, assignables: units, workOrders: v.workOrders, enrolments, beneficiaries: people, giftProjects: gps, frameworks: v.frameworks ?? [], rulesOf: (i) => itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, i, names.get(i) ?? ""), now, itemUnits: v.itemUnits });
-  // Rule (DECISIONS 187): the page shows the true state now. A placement of a gift whose plan has been parked, whose child has left, or whose assignment was withdrawn is shown as ended even before a run records it.
-  const synced = syncPlacements(ctx, recorded);
-  const placements = synced.value;
+  const ctx = allocateContext({ assignments, assignables: units, workOrders: v.workOrders, enrolments, beneficiaries: people, giftProjects: gps, frameworks: v.frameworks ?? [], rulesOf: (i) => itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, i, names.get(i) ?? ""), now, itemUnits: v.itemUnits });
+  // Rule (DECISIONS 187): the page shows the true state now. An allocation of a gift whose plan has been parked, whose child has left, or whose assignment was withdrawn is shown as ended even before a run records it.
+  const synced = syncAllocations(ctx, recorded);
+  const allocations = synced.value;
   const pendingEnds = synced.ended;
-  const heldRecords = placements.records.filter(isActive); // the placements that hold a beneficiary now (DECISIONS 186)
+  const heldRecords = allocations.records.filter(isActive); // the allocations that hold a beneficiary now (DECISIONS 186)
   const pname = (id: string): string => partners.find((p) => p.id === id)?.name ?? id;
   const person = (id: string): string => people.find((b) => b.id === id)?.name ?? id;
-  const sug = suggestPlacements(ctx, placements);
+  const sug = suggestAllocations(ctx, allocations);
   const filter = v.allocFilter ?? "all";
-  const placedCount = new Set(heldRecords.filter((p) => p.kind === "place").map((p) => p.key)).size; // a gift spread over several beneficiaries counts once
+  const allocatedCount = new Set(heldRecords.filter((p) => p.kind === "beneficiary").map((p) => p.key)).size; // a gift spread over several beneficiaries counts once
   const outcomeCount = heldRecords.filter((p) => p.kind === "outcome").length;
   const waiting = sug.filter((s) => s.kind === "").length;
   const ready = sug.filter((s) => s.kind !== "").length;
@@ -64,36 +64,36 @@ export function allocatePage(v: View): string {
     const gp = gps.find((g) => g.id === gpId);
     return `${gp ? esc(gp.name) : ""} › ${esc(pathOf(clusterStateOf(gp?.levels, gp?.clusters), clusterId).map((c) => c.name).join(" › "))}`;
   };
-  const placeLabel = (enrolmentId: string): string => { const e = enrolments.find((x) => x.id === enrolmentId); return e ? `${esc(person(e.beneficiaryId))} <span class="muted">${esc(e.id)}</span>` : esc(enrolmentId); };
+  const allocationLabel = (enrolmentId: string): string => { const e = enrolments.find((x) => x.id === enrolmentId); return e ? `${esc(person(e.beneficiaryId))} <span class="muted">${esc(e.id)}</span>` : esc(enrolmentId); };
 
   // Every beneficiary to fund, and how much of the need is met.
-  const fillList = fills(ctx, placements);
+  const fillList = fills(ctx, allocations);
   const placeRows = fillList.slice(0, MAX_ROWS).map((f) => {
     const e = enrolments.find((x) => x.id === f.enrolmentId);
     if (!e) return "";
     const state = f.used >= f.capacity ? '<span class="pill">Funded</span>' : f.used > 0 ? '<span class="pill warn">Part funded</span>' : '<span class="pill muted">Open</span>';
-    return `<tr><td>${placeLabel(e.id)}</td><td>${esc(names.get(e.itemId) ?? e.itemId)}</td><td class="muted">${where(e.giftProjectId, e.clusterId)}</td><td class="num">${f.used} of ${f.capacity}</td><td>${state}</td></tr>`;
+    return `<tr><td>${allocationLabel(e.id)}</td><td>${esc(names.get(e.itemId) ?? e.itemId)}</td><td class="muted">${where(e.giftProjectId, e.clusterId)}</td><td class="num">${f.used} of ${f.capacity}</td><td>${state}</td></tr>`;
   }).join("");
 
-  // Every gift: placed, creating an outcome, or waiting.
+  // Every gift: allocated, creating an outcome, or waiting.
   // A gift spread over several places has several records (DECISIONS 181): they are one row, with each child and the units it took.
-  const recsByKey = new Map<string, (typeof placements.records)>();
+  const recsByKey = new Map<string, (typeof allocations.records)>();
   for (const rec of heldRecords) recsByKey.set(rec.key, [...(recsByKey.get(rec.key) ?? []), rec]);
-  const rowsAll: { key: string; rec?: (typeof placements.records)[number]; recs?: (typeof placements.records); s?: PlaceSuggestion }[] = [
+  const rowsAll: { key: string; rec?: (typeof allocations.records)[number]; recs?: (typeof allocations.records); s?: AllocationSuggestion }[] = [
     ...sug.map((s) => ({ key: s.key, s })),
     ...[...recsByKey.entries()].map(([key, recs]) => ({ key, rec: recs[0], recs })),
   ];
-  const shown = rowsAll.filter((r) => unitOf.has(r.key)).filter((r) => filter === "all" || (filter === "placed" ? !!r.rec : filter === "waiting" ? !r.rec && r.s?.kind === "" : filter === "ready" ? !r.rec && r.s?.kind !== "" : true));
+  const shown = rowsAll.filter((r) => unitOf.has(r.key)).filter((r) => filter === "all" || (filter === "allocated" ? !!r.rec : filter === "waiting" ? !r.rec && r.s?.kind === "" : filter === "ready" ? !r.rec && r.s?.kind !== "" : true));
   const rows = shown.slice(0, MAX_ROWS).map((r) => {
     const u = unitOf.get(r.key)!;
     const a = assignments.find((x) => x.key === r.key);
     const opts = r.s ? r.s.options : [];
-    const choose = (selected: string): string => `<select data-plc="set" data-key="${esc(r.key)}" aria-label="Choose a beneficiary"><option value="">${selected ? "" : r.s?.enrolmentId ? "Suggested: " + esc(person(enrolments.find((e) => e.id === r.s?.enrolmentId)?.beneficiaryId ?? "")) : "No beneficiary needs funding"}</option>${opts.map((o) => `<option value="${esc(o.enrolmentId)}"${o.enrolmentId === (selected || r.s?.enrolmentId) ? " selected" : ""}${o.fits ? "" : " disabled"}>${esc(o.name)} (${o.used} of ${o.capacity})</option>`).join("")}</select>`;
+    const choose = (selected: string): string => `<select data-alc="set" data-key="${esc(r.key)}" aria-label="Choose a beneficiary"><option value="">${selected ? "" : r.s?.enrolmentId ? "Suggested: " + esc(person(enrolments.find((e) => e.id === r.s?.enrolmentId)?.beneficiaryId ?? "")) : "No beneficiary needs funding"}</option>${opts.map((o) => `<option value="${esc(o.enrolmentId)}"${o.enrolmentId === (selected || r.s?.enrolmentId) ? " selected" : ""}${o.fits ? "" : " disabled"}>${esc(o.name)} (${o.used} of ${o.capacity})</option>`).join("")}</select>`;
     let place: string, note: string;
-    if (r.rec?.kind === "outcome") { place = `<b>${esc(r.rec.outcomeRef)}</b> <button type="button" class="iconact" data-plc="unplace" data-key="${esc(r.key)}" title="Take the allocation back" aria-label="Take the allocation back">&times;</button>`; note = '<span class="pill">Outcome created</span>'; }
+    if (r.rec?.kind === "outcome") { place = `<b>${esc(r.rec.outcomeRef)}</b> <button type="button" class="iconact" data-alc="undo" data-key="${esc(r.key)}" title="Take the allocation back" aria-label="Take the allocation back">&times;</button>`; note = '<span class="pill">Outcome created</span>'; }
     else if (r.rec) {
       const recs = r.recs ?? [r.rec];
-      place = `${recs.map((x) => `${placeLabel(x.enrolmentId)}${recs.length > 1 ? ` <span class="muted">(${x.parts} unit${x.parts === 1 ? "" : "s"})</span>` : ""}`).join("<br>")} <button type="button" class="iconact" data-plc="unplace" data-key="${esc(r.key)}" title="Take the allocation back" aria-label="Take the allocation back">&times;</button>`;
+      place = `${recs.map((x) => `${allocationLabel(x.enrolmentId)}${recs.length > 1 ? ` <span class="muted">(${x.parts} unit${x.parts === 1 ? "" : "s"})</span>` : ""}`).join("<br>")} <button type="button" class="iconact" data-alc="undo" data-key="${esc(r.key)}" title="Take the allocation back" aria-label="Take the allocation back">&times;</button>`;
       note = `<span class="pill">Allocated</span> ${recs.length > 1 ? `<span class="muted">Spread over ${recs.length} beneficiaries</span>` : `<span class="muted">${esc(where(r.rec.giftProjectId, enrolments.find((e) => e.id === r.rec?.enrolmentId)?.clusterId ?? ""))}</span>`}`;
     }
     else if (r.s?.kind === "outcome") { place = '<span class="muted">Outcome, no beneficiary to fund</span>'; note = `<span class="muted">${esc(r.s.why)}</span>`; }
@@ -107,10 +107,10 @@ export function allocatePage(v: View): string {
   return `<h1>Allocate</h1>
     <p class="sub">An assigned gift is allocated. Where the beneficiary comes first (sponsorship), it supports a beneficiary who still needs funding: an approved beneficiary enrolled in a cluster of its project for its benefit, the one least funded first. Where the gift comes first (a pump, a camp), it creates an outcome and its recipients are enrolled after. A gift with no beneficiary to fund waits, and says why.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
-    <div class="metrics">${metric(assignments.length, "Assigned gifts")}${tile("placed", placedCount, "Allocated to a beneficiary")}${metric(outcomeCount, "Outcomes created")}${tile("waiting", waiting, "Waiting, no beneficiary to fund", waiting ? "warn" : "")}</div>
+    <div class="metrics">${metric(assignments.length, "Assigned gifts")}${tile("allocated", allocatedCount, "Allocated to a beneficiary")}${metric(outcomeCount, "Outcomes created")}${tile("waiting", waiting, "Waiting, no beneficiary to fund", waiting ? "warn" : "")}</div>
     ${why.length ? `<p class="muted"><b>Why gifts wait:</b> ${why.map((x) => `${x.n} ${esc(x.label)}`).join(" · ")}.</p>` : ""}
     ${waitingList.length ? `<p class="muted"><b>Waiting, by project and benefit:</b> ${waitingList.map(([l, n]) => `${esc(l)} (${n})`).join(" · ")}${waitingBy.size > waitingList.length ? ` · and ${waitingBy.size - waitingList.length} more` : ""}.</p>` : ""}
-    <div class="actions"><button class="primary" data-plc="run"${ready || pendingEnds ? "" : " disabled"}>Allocate automatically</button><button data-plc="reset"${placements.records.length ? "" : " disabled"}>Reset allocations</button></div>
+    <div class="actions"><button class="primary" data-alc="run"${ready || pendingEnds ? "" : " disabled"}>Allocate automatically</button><button data-alc="reset"${allocations.records.length ? "" : " disabled"}>Reset allocations</button></div>
     ${pendingEnds ? `<p class="muted">${pendingEnds} allocation${pendingEnds === 1 ? " has" : "s have"} ended (a plan was parked, a child left, or an assignment was withdrawn). Allocate automatically records it, and keeps it in the history.</p>` : ""}
     ${assignments.length === 0 ? '<div class="empty">No gift has been assigned yet. Assign gifts to partners on the Assignment tab first.</div>' : ""}
     <div class="card"><h2>Beneficiaries to fund <span class="muted">(${fillList.length})</span></h2>${placeRows ? `<div class="tablewrap"><table><thead><tr><th>Beneficiary</th><th>Benefit</th><th>Where</th><th class="num">Units</th><th>State</th></tr></thead><tbody>${placeRows}</tbody></table></div>${fillList.length > MAX_ROWS ? `<p class="muted">The first ${MAX_ROWS} are shown.</p>` : ""}` : '<div class="empty">No beneficiary needs funding. Enrol approved beneficiaries in a cluster, on the cluster\'s Beneficiaries tab.</div>'}</div>

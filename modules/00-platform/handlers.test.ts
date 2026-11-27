@@ -441,8 +441,8 @@ describe("outcomes (DECISIONS 61)", () => {
     await handleImport(as(cookie, { method: "POST", body: up([line("1", "501", "1"), line("2", "502", "1")]) }), d);
     await handleConfig(as(cookie, { method: "PUT", body: fwSetup }), d);
     expect((await post(cookie, { action: "add", name: "Orphan", count: 2, type: "child", cohort: "A", frameworkId: "shared" })).status).toBe(200);
-    const r = (await post(cookie, { action: "auto" })).body as { placed: number; outcomeAllocations: { commitmentKey: string; outcomeId: string }[] };
-    expect(r.placed).toBe(2);
+    const r = (await post(cookie, { action: "auto" })).body as { allocated: number; outcomeAllocations: { commitmentKey: string; outcomeId: string }[] };
+    expect(r.allocated).toBe(2);
     expect(r.outcomeAllocations.map((a) => a.outcomeId)).toEqual(["orphan-1", "orphan-1"]); // two single parts share the first orphan
     expect(((await handleOutcomes(as(cookie), d)).body as { outcomes: unknown[] }).outcomes).toHaveLength(2);
   });
@@ -457,7 +457,7 @@ describe("outcomes (DECISIONS 61)", () => {
     expect((await post(cookie, { action: "remove", id: "orphan-2" })).status).toBe(400);
     expect((await post(cookie, { action: "active", id: "orphan-2", active: false })).status).toBe(200);
     const again = (await post(cookie, { action: "auto" })).body as { released: number; outcomeAllocations: { outcomeId: string }[] };
-    expect([again.released, again.outcomeAllocations[0]?.outcomeId]).toEqual([1, "orphan-1"]); // released from the inactive one, placed in the active one
+    expect([again.released, again.outcomeAllocations[0]?.outcomeId]).toEqual([1, "orphan-1"]); // released from the inactive one, allocated in the active one
     expect((await post(cookie, { action: "release", commitmentKey: "501" })).body).toMatchObject({ outcomeAllocations: [] });
   });
 
@@ -486,8 +486,8 @@ describe("outcomes (DECISIONS 61)", () => {
     const added = (await post(cookie, { action: "add", name: "Orphan", count: 2, type: "child", cohort: "", frameworkId: "shared" })).body as { outcomes: { ref?: string; outcomeTypeId?: string }[] };
     expect(added.outcomes.map((o) => o.ref)).toEqual(["ORP-0001", "ORP-0002"]);
     expect(added.outcomes[0]?.outcomeTypeId).toBe("orphan");
-    const placed = (await post(cookie, { action: "auto" })).body as { outcomeAllocations: { ref?: string }[] };
-    expect(placed.outcomeAllocations.map((a) => a.ref)).toEqual(["AL-0001", "AL-0002"]);
+    const allocated = (await post(cookie, { action: "auto" })).body as { outcomeAllocations: { ref?: string }[] };
+    expect(allocated.outcomeAllocations.map((a) => a.ref)).toEqual(["AL-0001", "AL-0002"]);
     // a new outcome continues the count, and a changed prefix is for new IDs only
     await post(cookie, { action: "ot-prefix", typeId: "orphan", prefix: "kid" });
     const more = (await post(cookie, { action: "add", name: "Orphan B", count: 1, type: "child", cohort: "", frameworkId: "shared" })).body as { outcomes: { ref?: string }[] };
@@ -627,7 +627,7 @@ describe("placing gifts and the payment buffer (DECISIONS 66)", () => {
   });
   it("answers a plain error when a gift is placed in a place that does not exist", async () => {
     const cookie = await signIn(d);
-    expect((await post(cookie, { action: "place-in-node", commitmentKey: "nope", nodeId: "nope" })).status).toBe(400);
+    expect((await post(cookie, { action: "allocate-in-node", commitmentKey: "nope", nodeId: "nope" })).status).toBe(400);
   });
 });
 

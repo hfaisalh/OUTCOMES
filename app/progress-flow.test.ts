@@ -37,8 +37,8 @@ describe("Progress, used like a person would", () => {
     click({ asg: "confirm" }, "data-asg"); await flush();
     click({ page: "progress" }, "data-page");
     expect(shell.innerHTML).toContain("No gift is allocated yet"); // placing comes first
-    click({ page: "placement" }, "data-page");
-    click({ plc: "run" }, "data-plc"); await flush();
+    click({ page: "allocate" }, "data-page");
+    click({ alc: "run" }, "data-alc"); await flush();
 
     click({ page: "progress" }, "data-page");
     expect(shell.innerHTML).toContain("<h1>Progress</h1>");

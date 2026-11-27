@@ -5,7 +5,7 @@
  * Who calls it: pg-store.ts (reads and saves), scripts/db-move-records.mjs (through pg-store). Depends on: store.ts types, node:crypto for the content fingerprint.
  *
  * Rules:
- * - Seven lists live in tables: the Beneficiary register, enrolments, assignments, placements, the parked outcomes (stock), confirmations and progress.
+ * - Seven lists live in tables: the Beneficiary register, enrolments, assignments, allocations, the parked outcomes (stock), confirmations and progress.
  * - A row's id is the record's own ID where it has one (a beneficiary, an enrolment), otherwise a fingerprint of its content, so the same record is always the same row. Two identical records get "#2", "#3".
  * - A row remembers its place in the list, so lists come back in exactly the order they were saved.
  * - A setup saved before this (records still inside the document) is read as it is and moved to the tables by its next save.
@@ -13,18 +13,18 @@
 import { createHash } from "node:crypto";
 import type { OrgConfig } from "./store.js";
 
-export const TABLES = ["beneficiaries", "enrolments", "assignments", "placements", "stock", "confirmations", "progress"] as const;
+export const TABLES = ["beneficiaries", "enrolments", "assignments", "allocations", "stock", "confirmations", "progress"] as const;
 export type Table = (typeof TABLES)[number];
 export interface RecordRow { rid: string; pos: number; data: unknown }
 
 // Where each list sits inside the setup. "natural" is the field that is already a permanent ID.
-type Container = "beneficiaries" | "enrolments" | "assignments" | "placements" | "confirmations" | "progress";
+type Container = "beneficiaries" | "enrolments" | "assignments" | "allocations" | "confirmations" | "progress";
 const SPEC: Record<Table, { container: Container; field: "records" | "stock"; natural?: string; blank: () => Record<string, unknown> }> = {
   beneficiaries: { container: "beneficiaries", field: "records", natural: "id", blank: () => ({ counters: {} }) },
   enrolments: { container: "enrolments", field: "records", natural: "id", blank: () => ({ counter: 0 }) },
   assignments: { container: "assignments", field: "records", blank: () => ({}) },
-  placements: { container: "placements", field: "records", blank: () => ({ counter: 0 }) },
-  stock: { container: "placements", field: "stock", blank: () => ({ counter: 0 }) },
+  allocations: { container: "allocations", field: "records", blank: () => ({ counter: 0 }) },
+  stock: { container: "allocations", field: "stock", blank: () => ({ counter: 0 }) },
   confirmations: { container: "confirmations", field: "records", blank: () => ({}) },
   progress: { container: "progress", field: "records", blank: () => ({}) },
 };

@@ -11,9 +11,9 @@
 
 import { ELIGIBILITY_LABEL, type Beneficiary } from "../modules/07-beneficiaries/beneficiaries";
 import { activeIn, masterOf, type Enrolment } from "../modules/07-beneficiaries/enrolments";
-import { countOfEnrolment } from "../modules/09-placement/history";
-import type { Placement } from "../modules/09-placement/placement";
-import { usedStock, type StockItem } from "../modules/09-placement/stock";
+import { countOfEnrolment } from "../modules/09-allocation/history";
+import type { Allocation } from "../modules/09-allocation/allocation";
+import { usedStock, type StockItem } from "../modules/09-allocation/stock";
 import { pathOf, type Cluster, type ClusterState } from "../modules/06-projects/clusters";
 import { esc } from "./pages";
 
@@ -29,7 +29,7 @@ export interface PeopleContext {
   stock?: StockItem[]; // the parked outcomes partners have loaded in this project (DECISIONS 209)
   stockItems?: { id: string; name: string }[]; // the benefits that can have parked outcomes: the gift comes first, or there is no beneficiary
   partners?: { id: string; name: string }[]; // the partners of this project
-  placements?: Placement[]; // every placement, ended ones included, for the history button (DECISIONS 186)
+  allocations?: Allocation[]; // every allocation, ended ones included, for the history button (DECISIONS 186)
 }
 
 // How many people are enrolled in a cluster and everything inside it (role holders are not counted), for the tab's count.
@@ -55,7 +55,7 @@ export function clusterPeopleHtml(state: ClusterState, c: Cluster, ctx: PeopleCo
   const moveTargets = (e: Enrolment): string => `<select data-cl="enr-move" data-id="${esc(e.id)}" aria-label="Move to another cluster"><option value="">Move to...</option>${state.clusters.filter((x) => x.id !== e.clusterId && x.status === "active").map((x) => `<option value="${esc(x.id)}">${esc(pathOf(state, x.id).map((p) => p.name).join(" \u203A "))}</option>`).join("")}</select>`;
   const rows = here.map((e) => {
     const b = name(e.beneficiaryId);
-    const n = countOfEnrolment(ctx.placements ?? [], e.id);
+    const n = countOfEnrolment(ctx.allocations ?? [], e.id);
     return `<tr><td class="nm"><b>${esc(b?.name ?? e.beneficiaryId)}</b> <span class="muted">${esc(e.beneficiaryId)}</span></td><td>${esc(itemName(e.itemId))}</td><td>${esc(e.role)}</td><td class="muted">${esc(e.clusterId === c.id ? "Here" : where(e.clusterId))}</td><td class="muted">${esc(e.since)}</td>
       <td class="actcol">${n > 0 ? `<button type="button" class="linkish" data-hist="enrolment" data-id="${esc(e.id)}" title="Every gift that has sponsored this beneficiary">History (${n})</button> ` : '<span class="linkish"></span>'}${rowMenu(`${moveTargets(e)}<button type="button" class="danger" data-cl="enr-end" data-id="${esc(e.id)}">End this enrolment</button>`)}</td></tr>`;
   }).join("");
@@ -86,8 +86,8 @@ export const stockHere = (state: ClusterState, ctx: PeopleContext, clusterId: st
 export function clusterStockHtml(state: ClusterState, c: Cluster, ctx: PeopleContext): string {
   const itemName = (id: string): string => ctx.itemNames?.[id] ?? ctx.items.find((i) => i.id === id)?.name ?? id;
   const where = (id: string): string => { const p = pathOf(state, id); return p.slice(pathOf(state, c.id).length - 1).map((x) => x.name).join(" \u203A "); };
-  const used = usedStock((ctx.placements ?? []).filter((p) => p.to === undefined));
-  const refOf = (id: string): string => (ctx.placements ?? []).find((p) => p.stockId === id && p.to === undefined)?.outcomeRef ?? "";
+  const used = usedStock((ctx.allocations ?? []).filter((p) => p.to === undefined));
+  const refOf = (id: string): string => (ctx.allocations ?? []).find((p) => p.stockId === id && p.to === undefined)?.outcomeRef ?? "";
   const here = stockHere(state, ctx, c.id);
   const partnerName = (id: string): string => ctx.partners?.find((p) => p.id === id)?.name ?? id;
   const rows = here.map((s) => `<tr><td class="nm"><b>${esc(s.name)}</b> <span class="muted">${esc(s.id)}</span></td><td>${esc(itemName(s.itemId))}</td><td>${esc(partnerName(s.partnerId))}</td><td class="muted">${esc(s.clusterId === c.id ? "Here" : where(s.clusterId))}</td><td>${used.has(s.id) ? `<span class="pill">Used by ${esc(refOf(s.id))}</span>` : '<span class="pill ready">Free</span>'}</td><td class="actcol">${used.has(s.id) ? "" : rowMenu(`<button type="button" class="danger" data-cl="stock-rm" data-id="${esc(s.id)}">Remove this outcome</button>`)}</td></tr>`).join("");

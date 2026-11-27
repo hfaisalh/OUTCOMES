@@ -9,7 +9,7 @@
 
 import { assignables, contextFrom, emptyAssignments, loads, projectOfOrder, suggestAssignments, toAssign, type Suggestion } from "../modules/08-assignment/assignment";
 import { batchRollup, batchSizeOf, labelBatches } from "../modules/08-assignment/batches";
-import { isActive } from "../modules/09-placement/placement";
+import { isActive } from "../modules/09-allocation/allocation";
 import { eligiblePartners } from "../modules/06-projects/projects";
 import { itemRulesOf } from "../modules/07-beneficiaries/enrolments";
 import type { SavedFeatures } from "../modules/02-project-rules/kind-features";
@@ -26,7 +26,7 @@ export function assignmentPage(v: View): string {
   const existing = { records: labelBatches((v.assignments ?? emptyAssignments()).records, (id) => batchSizeOf((v.projects ?? []).find((p) => p.id === id))) }; // an assignment made before batches existed is labelled here, oldest first
   const today = v.today ?? "2026-01-01";
   const names = new Map(v.workOrders.map((w) => [w.itemId, w.itemName]));
-  const ctx = contextFrom({ workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now: `${today}T00:00:00Z`, enrolments: v.enrolments?.records ?? [], beneficiaries: v.beneficiaries?.records ?? [], rulesOf: (i) => itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, i, names.get(i) ?? ""), itemUnits: v.itemUnits, stock: v.placements?.stock });
+  const ctx = contextFrom({ workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now: `${today}T00:00:00Z`, enrolments: v.enrolments?.records ?? [], beneficiaries: v.beneficiaries?.records ?? [], rulesOf: (i) => itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, i, names.get(i) ?? ""), itemUnits: v.itemUnits, stock: v.allocations?.stock });
   const pname = (id: string): string => partners.find((p) => p.id === id)?.name ?? id;
   const units = new Map(assignables(ctx).map((u) => [u.key, u])); // a recurring gift is one row, however many payments it has (DECISIONS 172)
   const suggestions = suggestAssignments(ctx, existing);
@@ -51,7 +51,7 @@ export function assignmentPage(v: View): string {
   }).join("");
 
   // Rule (DECISIONS 203): a batch is a rolling label on each partner's assignments, and a work order is covered once it has a beneficiary to fund or an outcome. The count is what the partner and MWF both look at.
-  const coveredKeys = new Set((v.placements?.records ?? []).filter(isActive).map((p) => p.key));
+  const coveredKeys = new Set((v.allocations?.records ?? []).filter(isActive).map((p) => p.key));
   const sizeOf = (id: string): number => batchSizeOf(partners.find((p) => p.id === id));
   // Rule (DECISIONS 232): a batch whose every gift is complete is ready to close, and a person closes it.
   const completeKeys = new Set(standingsOf(v).filter((x) => x.complete).map((x) => x.key));

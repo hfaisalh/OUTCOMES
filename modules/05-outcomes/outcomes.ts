@@ -13,7 +13,7 @@
  * - A commitment takes capacity equal to its parts per instalment, from the first outcome that has it free
  *   and uses the same framework, oldest commitment first (the order donations were given).
  * - A limited per-period commitment that is fully paid stops taking capacity. A commitment to a whole item keeps it.
- * - An inactive outcome takes nothing new, and what was allocated to it is released and placed again (decision 60c).
+ * - An inactive outcome takes nothing new, and what was allocated to it is released and allocated again (decision 60c).
  * - A person can move a commitment to another outcome that has room (reallocation at a donor's request, decision 60d).
  * - A one-off payment for a per-period item is allocated too (DECISIONS 64): it is paid up front for the months of the item's plan, and frees its parts after the last of them.
  * - Nothing is changed in place: every function returns a new value.
@@ -35,7 +35,7 @@ export interface Outcome {
   outcomeTypeId?: string; // the organisation's outcome type it is (child, water pump, ...), which gives its profile fields (DECISIONS 103)
   profile?: Record<string, string>; // its profile: field id to value, for the fields of its outcome type
   groupIds?: string[]; // the groups it is in inside its place, such as a class and a house (DECISIONS 71)
-  ref?: string; // its own ID in the organisation's records, such as the child ID. Unique. Gifts can be placed only on beneficiaries that have one, if the organisation asks for it (DECISIONS 75)
+  ref?: string; // its own ID in the organisation's records, such as the child ID. Unique. Gifts can be allocated only on beneficiaries that have one, if the organisation asks for it (DECISIONS 75)
 }
 
 export interface OutcomeAllocation {
@@ -103,7 +103,7 @@ export function takesCapacity(c: Commitment, fw: FrameworkTemplate[]): boolean {
 }
 
 // Rule: does it ask for a new place? Only if it would hold one, and is not overdue beyond the grace days.
-export const asksForPlace = (c: Commitment, fw: FrameworkTemplate[], policy?: Policy): boolean => takesCapacity(c, fw) && !(policy && releaseDue(c, policy));
+export const asksToBeAllocated = (c: Commitment, fw: FrameworkTemplate[], policy?: Policy): boolean => takesCapacity(c, fw) && !(policy && releaseDue(c, policy));
 
 export interface ReleaseApproval {
   commitmentKey: string;
@@ -209,9 +209,9 @@ export function removeUnused(outcomes: Outcome[], outcomeAllocations: OutcomeAll
 
 export interface AutoResult {
   outcomeAllocations: OutcomeAllocation[];
-  placed: number; // commitments newly allocated
+  allocated: number; // commitments newly allocated
   released: number; // allocations dropped because their outcome is inactive, gone, or the commitment no longer holds capacity
-  unplaced: { commitmentKey: string; why: string }[]; // commitments that take capacity but found none, with the reason
+  unallocated: { commitmentKey: string; why: string }[]; // commitments that take capacity but found none, with the reason
 }
 
 export interface AllocOptions {
@@ -256,42 +256,42 @@ export function pickOutcome(candidates: Outcome[], fw: FrameworkTemplate[], used
 export function autoAllocate(commitments: Commitment[], outcomes: Outcome[], fw: FrameworkTemplate[], outcomeAllocations: OutcomeAllocation[], at: string, opts: AllocOptions = {}): AutoResult {
   const byId = new Map(outcomes.map((o) => [o.id, o]));
   const holding = new Map(commitments.filter((c) => takesCapacity(c, fw)).map((c) => [c.subscriptionId, c])); // a plan that is behind keeps its place until a manager approves the release
-  const asking = new Map([...holding].filter(([, c]) => asksForPlace(c, fw, opts.policy)));
+  const asking = new Map([...holding].filter(([, c]) => asksToBeAllocated(c, fw, opts.policy)));
   const kept = outcomeAllocations.filter((a) => byId.get(a.outcomeId)?.active === true && holding.has(a.commitmentKey));
   const released = outcomeAllocations.length - kept.length;
   const next = [...kept];
-  const placedKeys = new Set(next.map((a) => a.commitmentKey));
+  const allocatedKeys = new Set(next.map((a) => a.commitmentKey));
   const used = new Map<string, number>();
   for (const a of next) used.set(a.outcomeId, (used.get(a.outcomeId) ?? 0) + a.parts);
 
-  // Rule (DECISIONS 113): a gift marked manual (a custom amount) is never placed by itself. A person allocates it.
-  const todo = [...asking.values()].filter((c) => !placedKeys.has(c.subscriptionId) && !c.manual).sort((a, b) => (a.firstPaid || "9999").localeCompare(b.firstPaid || "9999") || a.subscriptionId.localeCompare(b.subscriptionId));
-  const unplaced: AutoResult["unplaced"] = [];
-  let placed = 0;
+  // Rule (DECISIONS 113): a gift marked manual (a custom amount) is never allocated by itself. A person allocates it.
+  const todo = [...asking.values()].filter((c) => !allocatedKeys.has(c.subscriptionId) && !c.manual).sort((a, b) => (a.firstPaid || "9999").localeCompare(b.firstPaid || "9999") || a.subscriptionId.localeCompare(b.subscriptionId));
+  const unallocated: AutoResult["unallocated"] = [];
+  let allocated = 0;
   for (const c of todo) {
     const activeKind = outcomes.filter((o) => o.active && o.frameworkId === c.frameworkId);
     const ofKind = activeKind.filter((o) => !opts.requireRef || (o.ref ?? "") !== "");
     const sameFramework = ofKind.filter((o) => opts.partnerOk?.(o.projectId, c.itemId) ?? true);
     if (sameFramework.length === 0) {
-      unplaced.push({ commitmentKey: c.subscriptionId, why: activeKind.length === 0 ? "No active outcome uses its framework." : ofKind.length === 0 ? "None of the beneficiaries of this kind has an ID yet. Give them IDs, or turn the setting off." : "No active partner that delivers this item has capacity of this kind." });
+      unallocated.push({ commitmentKey: c.subscriptionId, why: activeKind.length === 0 ? "No active outcome uses its framework." : ofKind.length === 0 ? "None of the beneficiaries of this kind has an ID yet. Give them IDs, or turn the setting off." : "No active partner that delivers this item has capacity of this kind." });
       continue;
     }
     const directedTo = opts.projectIdsFor?.(c.projectName) ?? [];
     const candidates = directedTo.length > 0 ? sameFramework.filter((o) => o.projectId !== undefined && directedTo.includes(o.projectId)) : sameFramework;
     if (candidates.length === 0) {
-      unplaced.push({ commitmentKey: c.subscriptionId, why: "The partner the donor chose has no one of this kind." });
+      unallocated.push({ commitmentKey: c.subscriptionId, why: "The partner the donor chose has no one of this kind." });
       continue;
     }
     const target = pickOutcome(candidates, fw, used, c.partsPerInstalment);
     if (!target) {
-      unplaced.push({ commitmentKey: c.subscriptionId, why: directedTo.length > 0 ? "The partner the donor chose is full. It waits for a person to decide." : "No outcome has room for it." });
+      unallocated.push({ commitmentKey: c.subscriptionId, why: directedTo.length > 0 ? "The partner the donor chose is full. It waits for a person to decide." : "No outcome has room for it." });
       continue;
     }
     next.push({ commitmentKey: c.subscriptionId, outcomeId: target.id, parts: c.partsPerInstalment, how: "auto", at });
     used.set(target.id, (used.get(target.id) ?? 0) + c.partsPerInstalment);
-    placed++;
+    allocated++;
   }
-  return { outcomeAllocations: next, placed, released, unplaced };
+  return { outcomeAllocations: next, allocated, released, unallocated };
 }
 
 // Rule: reallocation at a donor's request. Move one commitment to another active outcome with the same framework and room for it.

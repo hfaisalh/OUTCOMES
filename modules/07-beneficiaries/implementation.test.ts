@@ -1,20 +1,20 @@
 /**
  * implementation.test.ts
  *
- * What it does: tests the implementation rows of the Beneficiaries list (DECISIONS 190) on invented data: a row per enrolment, units filled by active placements, month status from the gift, and no row for
- * an ended placement. These tests double as examples. Who calls it: vitest. Depends on: implementation.ts.
+ * What it does: tests the implementation rows of the Beneficiaries list (DECISIONS 190) on invented data: a row per enrolment, units filled by active allocations, month status from the gift, and no row for
+ * an ended allocation. These tests double as examples. Who calls it: vitest. Depends on: implementation.ts.
  */
 
 import { describe, expect, it } from "vitest";
-import { commitmentOfKey, giftKeyOfPlacementKey, implementationRows } from "./implementation";
+import { commitmentOfKey, giftKeyOfAllocationKey, implementationRows } from "./implementation";
 import type { Commitment } from "../04b-commitments/commitments";
 import type { Enrolment } from "./enrolments";
-import type { Placement } from "../09-placement/placement";
+import type { Allocation } from "../09-allocation/allocation";
 
 const c = { subscriptionId: "SUB1", planStatus: "active", state: "open", paidMonths: ["2026-10"], supporterName: "Invented Donor", conflict: false, partsVary: false, gaps: [], startsLate: false, legacyOpening: false, nextDue: "2026-11-05", planned: 12, paid: 1, planPaid: 1 } as unknown as Commitment;
 const e = (id: string, itemId: string): Enrolment => ({ id, beneficiaryId: "B1", giftProjectId: "p", clusterId: "c", itemId, role: "", status: "active", since: "2026-09-01" });
-const pl = (over: Partial<Placement> = {}): Placement => ({ key: "sub:SUB1", kind: "place", enrolmentId: "E1", outcomeRef: "", giftProjectId: "p", itemId: "I1", parts: 2, how: "auto", at: "x", ...over });
-const base = { beneficiaryIds: ["B1"], enrolments: [e("E1", "I1")], placements: [pl()], commitments: [c], whole: () => 3, months: ["2026-10", "2026-12"], today: "2026-11-24" };
+const pl = (over: Partial<Allocation> = {}): Allocation => ({ key: "sub:SUB1", kind: "beneficiary", enrolmentId: "E1", outcomeRef: "", giftProjectId: "p", itemId: "I1", parts: 2, how: "auto", at: "x", ...over });
+const base = { beneficiaryIds: ["B1"], enrolments: [e("E1", "I1")], allocations: [pl()], commitments: [c], whole: () => 3, months: ["2026-10", "2026-12"], today: "2026-11-24" };
 
 describe("implementationRows", () => {
   it("fills as many units as the placement has parts, and takes each month's status from the gift", () => {
@@ -38,7 +38,7 @@ describe("implementationRows", () => {
     expect(none[0]?.cells).toEqual([]);
   });
   it("ignores an ended placement, and finds a gift by its key", () => {
-    expect(implementationRows({ ...base, placements: [pl({ to: "2026-11-01", endReason: "paused" })] })[0]?.filled).toBe(0);
+    expect(implementationRows({ ...base, allocations: [pl({ to: "2026-11-01", endReason: "paused" })] })[0]?.filled).toBe(0);
     expect(commitmentOfKey([c], "sub:SUB1")).toBe(c);
     expect(commitmentOfKey([c], "nope")).toBeUndefined();
   });
@@ -46,7 +46,7 @@ describe("implementationRows", () => {
 
 describe("the gift a placement key names", () => {
   it("is the subscription for sub:, and once- plus the line for a one-off, so a line id equal to a subscription id opens the right gift", () => {
-    expect(giftKeyOfPlacementKey("sub:104")).toBe("104");
-    expect(giftKeyOfPlacementKey("104")).toBe("once-104"); // a one-off line numbered 104 is not subscription 104
+    expect(giftKeyOfAllocationKey("sub:104")).toBe("104");
+    expect(giftKeyOfAllocationKey("104")).toBe("once-104"); // a one-off line numbered 104 is not subscription 104
   });
 });

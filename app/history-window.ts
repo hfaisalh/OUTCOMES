@@ -4,24 +4,24 @@
  * What it does: the allocation history windows (DECISIONS 186), small pop-ups so the history does not crowd the gift window or a cluster. Two of them: for one gift, every child (or outcome) it has held; for one place
  * (a child enrolled in a cluster for a benefit), every gift that has sponsored it. Each row has the day it started, the day it ended or "Now", the units, and why it ended. Newest first.
  * Pure: it takes the records and the lookups and returns HTML.
- * Who calls it: app/main.ts. Depends on: modules/09-placement/history.ts, 06-projects/clusters.ts and esc from pages.ts.
+ * Who calls it: app/main.ts. Depends on: modules/09-allocation/history.ts, 06-projects/clusters.ts and esc from pages.ts.
  */
 
 import { clusterStateOf, pathOf } from "../modules/06-projects/clusters";
 import type { GiftProject } from "../modules/06-projects/projects";
 import type { Beneficiary } from "../modules/07-beneficiaries/beneficiaries";
 import type { Enrolment } from "../modules/07-beneficiaries/enrolments";
-import { historyOfEnrolment, historyOfGift, type HistoryRow } from "../modules/09-placement/history";
-import type { Placement } from "../modules/09-placement/placement";
+import { historyOfEnrolment, historyOfGift, type HistoryRow } from "../modules/09-allocation/history";
+import type { Allocation } from "../modules/09-allocation/allocation";
 import { shortDate } from "./dates";
 import { esc } from "./pages";
 
 export interface HistoryData {
-  placements: Placement[]; // every record, ended ones included
+  allocations: Allocation[]; // every record, ended ones included
   enrolments: Enrolment[];
   beneficiaries: Beneficiary[];
   giftProjects: GiftProject[];
-  gifts: Map<string, { donor: string; item: string; payments: number }>; // by placement key: the donor, the item, and how many payments it has
+  gifts: Map<string, { donor: string; item: string; payments: number }>; // by allocation key: the donor, the item, and how many payments it has
   itemName: (itemId: string) => string;
 }
 
@@ -50,7 +50,7 @@ const childOf = (d: HistoryData, enrolmentId: string): { name: string; id: strin
 // The history of one gift: every child (or outcome) it has held.
 export function giftHistoryHtml(d: HistoryData, key: string): string {
   const g = d.gifts.get(key);
-  const rows = historyOfGift(d.placements, key);
+  const rows = historyOfGift(d.allocations, key);
   const body = rows.length === 0 ? '<div class="empty">This gift has not been allocated yet.</div>' : `<div class="tablewrap"><table class="subtable"><thead><tr><th>Beneficiary or outcome</th><th>Where</th><th class="num">Units</th><th>From</th><th>To</th><th>Why it ended</th></tr></thead><tbody>${rows.map((r) => {
     const who = r.outcomeRef ? `<b>${esc(r.outcomeRef)}</b> <span class="muted">outcome</span>` : `<b>${esc(childOf(d, r.enrolmentId).name)}</b> <span class="muted">${esc(childOf(d, r.enrolmentId).id)}</span>`;
     return `<tr><td>${who}</td><td class="muted">${r.outcomeRef ? "" : where(d, r.enrolmentId)}</td><td class="num">${r.units}</td>${when(r)}${why(r)}</tr>`;
@@ -62,7 +62,7 @@ export function giftHistoryHtml(d: HistoryData, key: string): string {
 export function enrolmentHistoryHtml(d: HistoryData, enrolmentId: string): string {
   const e = d.enrolments.find((x) => x.id === enrolmentId);
   const c = childOf(d, enrolmentId);
-  const rows = historyOfEnrolment(d.placements, enrolmentId);
+  const rows = historyOfEnrolment(d.allocations, enrolmentId);
   const body = rows.length === 0 ? '<div class="empty">No gift has been allocated to this beneficiary yet.</div>' : `<div class="tablewrap"><table class="subtable"><thead><tr><th>Gift</th><th class="num">Units</th><th>From</th><th>To</th><th>Why it ended</th></tr></thead><tbody>${rows.map((r) => {
     const g = d.gifts.get(r.key);
     return `<tr><td>${g ? `<b>${esc(g.donor)}</b> <span class="muted">${esc(g.item)}${g.payments > 1 ? ` · recurring, ${g.payments} payments` : ""}</span>` : `<span class="muted">${esc(r.key)}</span>`}</td><td class="num">${r.units}</td>${when(r)}${why(r)}</tr>`;

@@ -1,7 +1,7 @@
 /**
  * progress-page.test.ts
  *
- * What it does: tests the Progress page (DECISIONS 232) on invented gifts: only placed gifts are listed, the next step and its button, a late phase is flagged, and the tiles filter. These tests double as examples.
+ * What it does: tests the Progress page (DECISIONS 232) on invented gifts: only allocated gifts are listed, the next step and its button, a late phase is flagged, and the tiles filter. These tests double as examples.
  * Who calls it: vitest. Depends on: progress-page.ts.
  */
 import { describe, expect, it } from "vitest";
@@ -20,7 +20,7 @@ const place = (key: string) => ({ key, kind: "outcome" as const, enrolmentId: ""
 const fw = { id: "wf", name: "Pump", unitsPerBeneficiary: 1, unit: "pump", cycle: "one_off", reportType: "r", stages: [{ id: "check", label: "Basic check", days: 14, needs: [], photo: false, canPause: true, tell: "" }] };
 const view = (over: Partial<View> = {}): View => ({
   workOrders: [wo("G01"), wo("G02"), wo("G03")], projects: [partner], giftProjects: [], today: "2026-11-26", frameworks: [fw] as unknown as View["frameworks"],
-  assignments: { records: [asg("G01"), asg("G02"), asg("G03")] }, placements: { records: [place("G01"), place("G02")], counter: 2 }, progress: { records: [] }, ...over,
+  assignments: { records: [asg("G01"), asg("G02"), asg("G03")] }, allocations: { records: [place("G01"), place("G02")], counter: 2 }, progress: { records: [] }, ...over,
 }) as View;
 
 describe("the Progress page", () => {
@@ -28,9 +28,9 @@ describe("the Progress page", () => {
     const html = progressPage(view());
     expect(html).toContain("<h1>Progress</h1>");
     expect(html).toContain("Donor G01");
-    expect(html).not.toContain("Donor G03"); // assigned but not placed yet
+    expect(html).not.toContain("Donor G03"); // assigned but not allocated yet
     expect(html).toContain('data-prg="next" data-key="G01">Done: Basic check');
-    expect(html).toContain("Late 11 days"); // placed 01/11, the check was due in 14 days, which was 15/11
+    expect(html).toContain("Late 11 days"); // allocated 01/11, the check was due in 14 days, which was 15/11
     expect(html).toContain('metric tile warn" data-tile="prg:late" aria-pressed="false"><b>2</b><span>Late</span>');
   });
   it("shows a gift whose steps are all taken as complete, and filters by the tile chosen", () => {
@@ -43,6 +43,6 @@ describe("the Progress page", () => {
     expect(only).not.toContain("Donor G02");
   });
   it("asks for a placed gift when there is none", () => {
-    expect(progressPage(view({ placements: { records: [], counter: 0 } }))).toContain("No gift is allocated yet");
+    expect(progressPage(view({ allocations: { records: [], counter: 0 } }))).toContain("No gift is allocated yet");
   });
 });

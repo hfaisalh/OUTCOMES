@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { applyProgressAction, emptyProgress, isClosed, progressOf, stepsOf, type ProgressContext, type Steps } from "./progress";
 
 const steps: Steps = { phases: [{ id: "check", label: "Basic check", days: 14 }, { id: "photo", label: "Photo update", days: 30 }], review: true, feedback: true };
-const PLACED = "2026-11-01T09:00:00Z";
+const ALLOCATED = "2026-11-01T09:00:00Z";
 
 describe("the steps of a gift", () => {
   it("run phases, then review, report, complete and feedback, leaving out review and feedback when the workflow does not ask", () => {
@@ -17,31 +17,31 @@ describe("the steps of a gift", () => {
   });
   it("has no progress until the gift is placed", () => {
     const p = progressOf("sub:S1", undefined, [], steps, "2026-11-26");
-    expect(p.placed).toBe(false);
+    expect(p.allocated).toBe(false);
     expect(p.next).toBeUndefined();
   });
 });
 
 describe("what is next, due and late", () => {
   it("starts with the first phase, due its days after placing, and late when past it", () => {
-    const early = progressOf("sub:S1", PLACED, [], steps, "2026-11-10");
+    const early = progressOf("sub:S1", ALLOCATED, [], steps, "2026-11-10");
     expect(early.next).toMatchObject({ id: "check", due: "2026-11-15", lateDays: 0 });
-    expect(progressOf("sub:S1", PLACED, [], steps, "2026-11-20").next).toMatchObject({ id: "check", lateDays: 5 });
+    expect(progressOf("sub:S1", ALLOCATED, [], steps, "2026-11-20").next).toMatchObject({ id: "check", lateDays: 5 });
   });
   it("counts the next phase from when the one before was taken, and says where the gift stands", () => {
     const recs = [{ key: "sub:S1", kind: "phase" as const, id: "check", at: "2026-11-10T00:00:00Z", by: "Sam" }];
-    const p = progressOf("sub:S1", PLACED, recs, steps, "2026-11-26");
+    const p = progressOf("sub:S1", ALLOCATED, recs, steps, "2026-11-26");
     expect(p.next).toMatchObject({ id: "photo", due: "2026-12-10" });
     expect(p.stage).toBe("allocation"); // still with the partner
     const all = [...recs, ...["photo", "review"].map((id, i) => ({ key: "sub:S1", kind: (id === "photo" ? "phase" : "stage") as "phase" | "stage", id, at: `2026-11-1${i + 1}T00:00:00Z`, by: "Sam" }))];
-    expect(progressOf("sub:S1", PLACED, all, steps, "2026-11-26")).toMatchObject({ stage: "review", complete: false });
+    expect(progressOf("sub:S1", ALLOCATED, all, steps, "2026-11-26")).toMatchObject({ stage: "review", complete: false });
   });
 });
 
 describe("the requests the page makes", () => {
   const ctx: ProgressContext = {
     today: "2026-11-26",
-    gift: (k) => (k === "sub:S1" || k === "sub:S2" ? { placedAt: PLACED, steps } : k === "sub:S3" ? { placedAt: undefined, steps } : undefined),
+    gift: (k) => (k === "sub:S1" || k === "sub:S2" ? { allocatedAt: ALLOCATED, steps } : k === "sub:S3" ? { allocatedAt: undefined, steps } : undefined),
     batchKeys: (p, b) => (p === "trust" && b === 1 ? ["sub:S1", "sub:S2"] : []),
     batchOf: (k) => (k === "sub:S1" || k === "sub:S2" ? { partnerId: "trust", batch: 1 } : undefined),
   };
@@ -79,11 +79,11 @@ describe("the context built from the app's records", () => {
     const fw = { id: "wf", name: "W", unitsPerBeneficiary: 1, unit: "x", cycle: "monthly", reportType: "r", approve: false, stages: [{ id: "check", label: "Check", days: 7, needs: [], photo: false, canPause: true, tell: "" }] } as never;
     const ctx = progressContext({
       assignments: [{ key: "sub:S1", partnerId: "trust", at: "2026-11-01T00:00:00Z" }, { key: "sub:S2", partnerId: "trust", at: "2026-11-02T00:00:00Z" }],
-      placements: [{ key: "sub:S1", at: "2026-11-05T00:00:00Z" }, { key: "sub:S1", at: "2026-10-30T00:00:00Z", to: "2026-11-04" }],
+      allocations: [{ key: "sub:S1", at: "2026-11-05T00:00:00Z" }, { key: "sub:S1", at: "2026-10-30T00:00:00Z", to: "2026-11-04" }],
       frameworkOf: () => "wf", frameworks: [fw], sizeOf: () => 10, today: "2026-11-26",
     });
-    expect(ctx.gift("sub:S1")?.placedAt).toBe("2026-11-05T00:00:00Z"); // the ended placement does not count
-    expect(ctx.gift("sub:S2")?.placedAt).toBeUndefined();
+    expect(ctx.gift("sub:S1")?.allocatedAt).toBe("2026-11-05T00:00:00Z"); // the ended allocation does not count
+    expect(ctx.gift("sub:S2")?.allocatedAt).toBeUndefined();
     expect(ctx.gift("sub:S1")?.steps).toMatchObject({ review: false, feedback: true, phases: [{ id: "check", days: 7 }] });
     expect(ctx.gift("other")).toBeUndefined();
     expect(ctx.batchKeys("trust", 1)).toEqual(["sub:S1", "sub:S2"]);

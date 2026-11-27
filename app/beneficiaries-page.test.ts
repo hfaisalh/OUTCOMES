@@ -24,8 +24,8 @@ function built() {
   let nodes = addNode([], partners, id, "branch", "", "Branch 1").value;
   nodes = addNode(nodes, partners, id, "class", nodes[0]!.id, "Class 5A").value;
   nodes = addNode(nodes, partners, id, "class", nodes[0]!.id, "Class 5B").value;
-  const placed = addBeneficiaries([], partners, nodes, { projectId: id, nodeId: nodes[0]!.id, typeId: "child", name: "Orphan", count: 2, groupIds: [nodes[1]!.id] }).value;
-  const loose = addBeneficiaries(placed, partners, nodes, { projectId: id, nodeId: "", typeId: "child", name: "Waiting", count: 1 }).value;
+  const allocated = addBeneficiaries([], partners, nodes, { projectId: id, nodeId: nodes[0]!.id, typeId: "child", name: "Orphan", count: 2, groupIds: [nodes[1]!.id] }).value;
+  const loose = addBeneficiaries(allocated, partners, nodes, { projectId: id, nodeId: "", typeId: "child", name: "Waiting", count: 1 }).value;
   return { partners, nodes, outcomes: loose, id };
 }
 
@@ -57,14 +57,14 @@ describe("beneficiariesPage", () => {
   });
   it("filters by partner, by placed or not, and by search, and offers an ID tool for one partner", () => {
     const { partners, nodes, outcomes, id } = built();
-    const unplaced = beneficiariesPage(base({ projects: partners, nodes, outcomes, benFilter: { partner: "", type: "", placed: "no", text: "" } }));
-    expect(unplaced).toContain("Waiting");
-    expect(unplaced).not.toContain('aria-label="ID of Orphan 2"'); // the placed ones are hidden
-    expect(beneficiariesPage(base({ projects: partners, nodes, outcomes, benFilter: { partner: "", type: "", placed: "", text: "orphan 2" } }))).not.toContain('aria-label="ID of Waiting"');
-    const one = beneficiariesPage(base({ projects: partners, nodes, outcomes, benFilter: { partner: id, type: "", placed: "", text: "" } }));
+    const unallocated = beneficiariesPage(base({ projects: partners, nodes, outcomes, benFilter: { partner: "", type: "", located: "no", text: "" } }));
+    expect(unallocated).toContain("Waiting");
+    expect(unallocated).not.toContain('aria-label="ID of Orphan 2"'); // the allocated ones are hidden
+    expect(beneficiariesPage(base({ projects: partners, nodes, outcomes, benFilter: { partner: "", type: "", located: "", text: "orphan 2" } }))).not.toContain('aria-label="ID of Waiting"');
+    const one = beneficiariesPage(base({ projects: partners, nodes, outcomes, benFilter: { partner: id, type: "", located: "", text: "" } }));
     expect(one).toContain('data-action="assign-refs"');
     expect(beneficiariesPage(base({ projects: partners, nodes, outcomes }))).not.toContain('data-action="assign-refs"');
-    expect(beneficiariesPage(base({ projects: partners, nodes, outcomes, benFilter: { partner: "", type: "", placed: "", text: "nobody" } }))).toContain("No beneficiaries match the filters");
+    expect(beneficiariesPage(base({ projects: partners, nodes, outcomes, benFilter: { partner: "", type: "", located: "", text: "nobody" } }))).toContain("No beneficiaries match the filters");
   });
   it("shows beneficiaries that belong to no partner under their own filter, and never trusts names as HTML", () => {
     const { partners, nodes } = built();

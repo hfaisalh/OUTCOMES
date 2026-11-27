@@ -1,7 +1,7 @@
 /**
  * outcomes.test.ts
  *
- * What it does: tests how a partner follows each gift (DECISIONS 251): where a gift stands (to answer, confirmed, placed, complete, refused), what it funds, the last step, the counts for the journey strip, and that nothing about a donor is carried.
+ * What it does: tests how a partner follows each gift (DECISIONS 251): where a gift stands (to answer, confirmed, allocated, complete, refused), what it funds, the last step, the counts for the journey strip, and that nothing about a donor is carried.
  * Invented gifts. These tests double as examples. Who calls it: vitest. Depends on: outcomes.ts.
  */
 import { describe, expect, it } from "vitest";
@@ -26,8 +26,8 @@ const slice = (): PartnerSlice => ({
     { key: "sub:4", kind: "stage", id: "complete", at: "x", by: "A" },
     { key: "p1|1", kind: "batch", id: "closed", at: "x", by: "A" },
   ],
-  placements: [
-    { key: "sub:3", kind: "place", enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "g1", itemId: "S", parts: 1, how: "auto", at: "x" },
+  allocations: [
+    { key: "sub:3", kind: "beneficiary", enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "g1", itemId: "S", parts: 1, how: "auto", at: "x" },
     { key: "sub:4", kind: "outcome", enrolmentId: "", outcomeRef: "OUT-0007", giftProjectId: "g1", itemId: "S", parts: 1, how: "auto", at: "x" },
   ],
   itemNames: { S: "Orphan Sponsorship Monthly" },

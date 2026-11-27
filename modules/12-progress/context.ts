@@ -1,7 +1,7 @@
 /**
  * context.ts
  *
- * What it does: builds what the Progress rules need to know about gifts (DECISIONS 232) from the records the app holds: which gifts are assigned, when each was placed, its workflow's phases and flags, and which gifts share a batch. One builder, so the server and the demo cannot differ.
+ * What it does: builds what the Progress rules need to know about gifts (DECISIONS 232) from the records the app holds: which gifts are assigned, when each was allocated, its workflow's phases and flags, and which gifts share a batch. One builder, so the server and the demo cannot differ.
  * Who calls it: the server (modules/00-platform/handlers.ts), the demo (app/main.ts) and the Progress page. Depends on: progress.ts, modules/08-assignment/batches.ts, modules/02-project-rules (the workflow's shape and flags). Pure: no store, no screen.
  */
 import { labelBatches } from "../08-assignment/batches.js";
@@ -11,7 +11,7 @@ import { progressOf, type GiftProgress, type ProgressContext, type ProgressEntry
 
 export interface ProgressInput {
   assignments: { key: string; partnerId: string; at: string; batch?: number }[];
-  placements: { key: string; at: string; to?: string }[]; // every placement record, the live ones count
+  allocations: { key: string; at: string; to?: string }[]; // every allocation record, the live ones count
   frameworkOf: (key: string) => string; // the workflow id of an assigned gift, "" when it has none
   frameworks: FrameworkTemplate[];
   sizeOf: (partnerId: string) => number; // the partner's batch size, for an assignment made before batches existed
@@ -25,10 +25,10 @@ export function stepsFor(fw: FrameworkTemplate | undefined): Steps {
 
 export function progressContext(a: ProgressInput): ProgressContext {
   const assigned = labelBatches(a.assignments, a.sizeOf);
-  const placedAt = (key: string): string | undefined => a.placements.filter((p) => p.key === key && p.to === undefined).map((p) => p.at).sort()[0];
+  const allocatedAt = (key: string): string | undefined => a.allocations.filter((p) => p.key === key && p.to === undefined).map((p) => p.at).sort()[0];
   return {
     today: a.today,
-    gift: (key) => (assigned.some((x) => x.key === key) ? { placedAt: placedAt(key), steps: stepsFor(a.frameworks.find((f) => f.id === a.frameworkOf(key))) } : undefined),
+    gift: (key) => (assigned.some((x) => x.key === key) ? { allocatedAt: allocatedAt(key), steps: stepsFor(a.frameworks.find((f) => f.id === a.frameworkOf(key))) } : undefined),
     batchOf: (key) => { const x = assigned.find((y) => y.key === key); return x && x.batch !== undefined ? { partnerId: x.partnerId, batch: x.batch } : undefined; },
     batchKeys: (partnerId, batch) => assigned.filter((x) => x.partnerId === partnerId && x.batch === batch).map((x) => x.key),
   };
@@ -40,6 +40,6 @@ export function standings(a: ProgressInput, records: ProgressEntry[]): GiftStand
   const ctx = progressContext(a);
   return labelBatches(a.assignments, a.sizeOf).flatMap((x) => {
     const g = ctx.gift(x.key);
-    return g ? [{ ...progressOf(x.key, g.placedAt, records, g.steps, a.today), key: x.key, partnerId: x.partnerId, batch: x.batch }] : [];
+    return g ? [{ ...progressOf(x.key, g.allocatedAt, records, g.steps, a.today), key: x.key, partnerId: x.partnerId, batch: x.batch }] : [];
   });
 }

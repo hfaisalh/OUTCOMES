@@ -18,7 +18,7 @@
  */
 
 import { slugify, type FrameworkTemplate } from "../02-project-rules/categories.js";
-import { addOutcomes, autoAllocate, capacityOf, DEFAULT_GRACE_DAYS, fillOf, inGrace, asksForPlace, pickOutcome, releaseDue, takesCapacity, type AllocOptions, type OutcomeAllocation, type Outcome, type Policy } from "../05-outcomes/outcomes.js";
+import { addOutcomes, autoAllocate, capacityOf, DEFAULT_GRACE_DAYS, fillOf, inGrace, asksToBeAllocated, pickOutcome, releaseDue, takesCapacity, type AllocOptions, type OutcomeAllocation, type Outcome, type Policy } from "../05-outcomes/outcomes.js";
 import type { Commitment } from "../04b-commitments/commitments.js";
 import { applyClusterAction, clusterStateOf, type Cluster, type ClusterLevel } from "./clusters.js";
 
@@ -208,7 +208,7 @@ export function addType(projects: Project[], projectId: string, t: { name: strin
   const name = clean(t.name);
   if (name === "") return { value: projects, error: "Give the type a name, such as orphan or teacher." };
   if (p.types.some((x) => same(x.name, name))) return { value: projects, error: `There is already a type called "${name}".` };
-  // Rule (DECISIONS 72): a type does not have to belong to a level. With none, its beneficiaries belong to the partner as a whole and can be placed later.
+  // Rule (DECISIONS 72): a type does not have to belong to a level. With none, its beneficiaries belong to the partner as a whole and can be allocated later.
   if (t.levelId !== "" && !p.levels.some((l) => l.id === t.levelId)) return { value: projects, error: "That level was not found." };
   if (!fw.some((f) => f.id === t.frameworkId)) return { value: projects, error: "Choose how it is sponsored." };
   // Rule (DECISIONS 71): a grouping is a level under the level the beneficiaries belong to, such as Class or House under Branch.
@@ -271,7 +271,7 @@ export function pathOf(nodes: Node[], projects: Project[], nodeId: string): stri
 
 // ---- Beneficiaries ----
 
-// Rule (DECISIONS 71, 72): add numbered beneficiaries of a type to a partner. The place and the groups are optional, so beneficiaries can be added first and placed later.
+// Rule (DECISIONS 71, 72): add numbered beneficiaries of a type to a partner. The place and the groups are optional, so beneficiaries can be added first and allocated later.
 // When a place is given and the type belongs to a level, the place must be of that level. A group must be of a level the type is grouped by, inside that same place,
 // with at most one group of each level. Groups need a place, since they are inside it.
 export function addBeneficiaries(outcomes: Outcome[], projects: Project[], nodes: Node[], o: { projectId: string; nodeId: string; typeId: string; name: string; count: number; groupIds?: string[] }): Changed<Outcome[]> {
@@ -387,7 +387,7 @@ export function rollupOf(nodes: Node[], outcomes: Outcome[], fw: FrameworkTempla
   for (const o of outcomes) {
     if (!o.projectId || !o.active) continue;
     const f = fillOf(o, fw, outcomeAllocations, commitments, policy);
-    bump(byProject, o.projectId, capacityOf(o, fw), f.used); // everyone in the partner counts, placed or not (DECISIONS 72)
+    bump(byProject, o.projectId, capacityOf(o, fw), f.used); // everyone in the partner counts, allocated or not (DECISIONS 72)
     if (!o.nodeId) continue;
     // The place it belongs to, the groups it is in, and everything above them, each counted once.
     const ids = new Set<string>();
@@ -553,7 +553,7 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
   const strings = (k: string): string[] => (Array.isArray(body[k]) ? (body[k] as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 50) : []);
   const done = (state: ProjectState, warning?: string) => ({ state, ...(warning ? { warning } : {}) });
   const fail = (error: string) => ({ state: s, error });
-  // Clusters of a project (DECISIONS 158): the same pure rule for the server and the demo. Nothing is placed in a cluster yet, so none holds beneficiaries.
+  // Clusters of a project (DECISIONS 158): the same pure rule for the server and the demo. Nothing is allocated in a cluster yet, so none holds beneficiaries.
   if (action.startsWith("cluster-")) {
     const id = str("giftProjectId");
     const gp = s.giftProjects.find((g) => g.id === id);
@@ -709,8 +709,8 @@ export interface AllocationSummary {
  * project is general and counted on its own line, since it can go anywhere.
  */
 export function allocationSummary(projects: Project[], outcomes: Outcome[], fw: FrameworkTemplate[], outcomeAllocations: OutcomeAllocation[], commitments: Commitment[], opts: AllocOptions): AllocationSummary {
-  const placed = new Set(outcomeAllocations.map((a) => a.commitmentKey));
-  const waiting = commitments.filter((c) => asksForPlace(c, fw, opts.policy) && !placed.has(c.subscriptionId));
+  const allocated = new Set(outcomeAllocations.map((a) => a.commitmentKey));
+  const waiting = commitments.filter((c) => asksToBeAllocated(c, fw, opts.policy) && !allocated.has(c.subscriptionId));
   const projectOfOutcome = new Map(outcomes.map((o) => [o.id, o.projectId ?? ""]));
   const byId = new Map(commitments.map((c) => [c.subscriptionId, c]));
   const keys = [...projects.map((p) => p.id), ...(outcomes.some((o) => !o.projectId) ? [""] : [])];
@@ -746,29 +746,29 @@ export function placesUnder(nodes: Node[], nodeId: string): Set<string> {
 
 /**
  * Rule: a person drops a gift on a place. It goes to a beneficiary in that place, or under it, that uses the gift's framework and has room,
- * chosen the same way as automatic allocation. A gift already placed is moved. A person may place a directed gift outside its project:
+ * chosen the same way as automatic allocation. A gift already allocated is moved. A person may place a directed gift outside its project:
  * that is their decision.
  */
-export function placeInNode(outcomeAllocations: OutcomeAllocation[], commitments: Commitment[], outcomes: Outcome[], nodes: Node[], fw: FrameworkTemplate[], commitmentKey: string, nodeId: string, at: string, policy?: Policy): Changed<OutcomeAllocation[]> {
+export function allocateInNode(outcomeAllocations: OutcomeAllocation[], commitments: Commitment[], outcomes: Outcome[], nodes: Node[], fw: FrameworkTemplate[], commitmentKey: string, nodeId: string, at: string, policy?: Policy): Changed<OutcomeAllocation[]> {
   const node = nodes.find((x) => x.id === nodeId);
   if (!node) return { value: outcomeAllocations, error: "That location was not found." };
   const under = placesUnder(nodes, nodeId);
   // A beneficiary is in a place when it belongs to it, or to a group of it, or is in the place or group dropped on.
-  return placeAmong(outcomeAllocations, commitments, outcomes, fw, commitmentKey, (o) => (o.nodeId !== undefined && under.has(o.nodeId)) || (o.groupIds ?? []).some((g) => under.has(g)), node.name, at, policy);
+  return allocateAmong(outcomeAllocations, commitments, outcomes, fw, commitmentKey, (o) => (o.nodeId !== undefined && under.has(o.nodeId)) || (o.groupIds ?? []).some((g) => under.has(g)), node.name, at, policy);
 }
 
-// Rule (DECISIONS 73): a person drops a gift on a partner as a whole, for beneficiaries that are not placed in a branch or group. It goes to one of that partner's beneficiaries with room.
-export function placeInPartner(outcomeAllocations: OutcomeAllocation[], commitments: Commitment[], outcomes: Outcome[], projects: Project[], fw: FrameworkTemplate[], commitmentKey: string, projectId: string, at: string, policy?: Policy): Changed<OutcomeAllocation[]> {
+// Rule (DECISIONS 73): a person drops a gift on a partner as a whole, for beneficiaries that are not allocated in a branch or group. It goes to one of that partner's beneficiaries with room.
+export function allocateInPartner(outcomeAllocations: OutcomeAllocation[], commitments: Commitment[], outcomes: Outcome[], projects: Project[], fw: FrameworkTemplate[], commitmentKey: string, projectId: string, at: string, policy?: Policy): Changed<OutcomeAllocation[]> {
   const p = projects.find((x) => x.id === projectId);
   if (!p) return { value: outcomeAllocations, error: "That partner was not found." };
-  return placeAmong(outcomeAllocations, commitments, outcomes, fw, commitmentKey, (o) => o.projectId === projectId, p.name, at, policy);
+  return allocateAmong(outcomeAllocations, commitments, outcomes, fw, commitmentKey, (o) => o.projectId === projectId, p.name, at, policy);
 }
 
-// The shared part: put one gift into one of the beneficiaries that fit, chosen as in automatic allocation. A gift already placed is moved.
-function placeAmong(outcomeAllocations: OutcomeAllocation[], commitments: Commitment[], outcomes: Outcome[], fw: FrameworkTemplate[], commitmentKey: string, fits: (o: Outcome) => boolean, where: string, at: string, policy?: Policy): Changed<OutcomeAllocation[]> {
+// The shared part: put one gift into one of the beneficiaries that fit, chosen as in automatic allocation. A gift already allocated is moved.
+function allocateAmong(outcomeAllocations: OutcomeAllocation[], commitments: Commitment[], outcomes: Outcome[], fw: FrameworkTemplate[], commitmentKey: string, fits: (o: Outcome) => boolean, where: string, at: string, policy?: Policy): Changed<OutcomeAllocation[]> {
   const c = commitments.find((x) => x.subscriptionId === commitmentKey);
   if (!c) return { value: outcomeAllocations, error: "That gift was not found." };
-  if (!asksForPlace(c, fw, policy)) return { value: outcomeAllocations, error: "That gift no longer asks to be allocated: it is cancelled, fully paid, or unpaid beyond the grace days." };
+  if (!asksToBeAllocated(c, fw, policy)) return { value: outcomeAllocations, error: "That gift no longer asks to be allocated: it is cancelled, fully paid, or unpaid beyond the grace days." };
   const candidates = outcomes.filter((o) => o.active && o.frameworkId === c.frameworkId && fits(o));
   const others = outcomeAllocations.filter((a) => a.commitmentKey !== commitmentKey);
   const live = new Set(commitments.filter((x) => takesCapacity(x, fw)).map((x) => x.subscriptionId));

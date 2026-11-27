@@ -1,13 +1,13 @@
 /**
  * progress.ts
  *
- * What it does: Progress after allocation (DECISIONS 232). Once a gift is placed (a child enrolled for it, or an outcome made), it moves through the partner's implementation phases, then Review, Report, Complete and Feedback. This file holds the rules: the steps a gift has, which is next, when a phase is due and late, how a step is taken back, and when a batch may be closed.
+ * What it does: Progress after allocation (DECISIONS 232). Once a gift is allocated (a child enrolled for it, or an outcome made), it moves through the partner's implementation phases, then Review, Report, Complete and Feedback. This file holds the rules: the steps a gift has, which is next, when a phase is due and late, how a step is taken back, and when a batch may be closed.
  * Who calls it: the server (modules/00-platform/handlers.ts) and the demo (app/main.ts) through applyProgressAction, the Progress page, the Gifts list (the stage it shows) and the Batches card (Ready and Closed). Depends on: nothing but its own types. Pure functions: no database, no screen, so they can be ported to Salesforce (Apex) or another stack.
  *
  * Rules:
- * - Rule: a gift has no progress until it is placed. Placing it is what starts the partner's work.
+ * - Rule: a gift has no progress until it is allocated. Placing it is what starts the partner's work.
  * - Rule: the steps run in order: the workflow's implementation phases, then Review (unless the workflow does not ask MWF to approve), Report, Complete, and Feedback (unless the workflow does not ask the donor). The next step is the first one not yet taken.
- * - Rule: a phase is due its number of days after the step before it was taken (the first, after the gift was placed). A phase not taken past its due day is late. Late is advised, not acted on.
+ * - Rule: a phase is due its number of days after the step before it was taken (the first, after the gift was allocated). A phase not taken past its due day is late. Late is advised, not acted on.
  * - Rule: a person can take back the latest step, one at a time, so a slip can be put right without a record being edited.
  * - Rule: a step of a gift in a closed batch cannot be taken back until the batch is opened again, so a closed batch never holds a gift that is not complete.
  * - Rule: a gift is complete once its Complete step is taken (or any later one). A batch is ready to close when every gift in it is complete, and is closed by a person, never by itself. A closed batch can be opened again.
@@ -33,7 +33,7 @@ export interface Steps { phases: { id: string; label: string; days: number }[]; 
 
 export interface StepRow { kind: "phase" | "stage"; id: string; label: string; done: boolean; doneAt: string; due: string; lateDays: number }
 export interface GiftProgress {
-  placed: boolean;
+  allocated: boolean;
   steps: StepRow[]; // every step in order, taken or not
   next: StepRow | undefined; // the first not taken, undefined when all are
   stage: "allocation" | StageId; // where the gift stands: still with the partner, or the last stage taken
@@ -54,22 +54,22 @@ export function stepsOf(s: Steps): { kind: "phase" | "stage"; id: string; label:
   ];
 }
 
-export function progressOf(key: string, placedAt: string | undefined, records: ProgressEntry[], steps: Steps, today: string): GiftProgress {
-  const placed = placedAt !== undefined;
+export function progressOf(key: string, allocatedAt: string | undefined, records: ProgressEntry[], steps: Steps, today: string): GiftProgress {
+  const allocated = allocatedAt !== undefined;
   const mine = records.filter((r) => r.key === key && r.kind !== "batch");
-  let from = placedAt ?? "";
+  let from = allocatedAt ?? "";
   const rows: StepRow[] = stepsOf(steps).map((s) => {
     const hit = mine.filter((r) => r.kind === s.kind && r.id === s.id).sort((x, y) => y.at.localeCompare(x.at))[0];
-    // Rule: a phase is due its days after the step before it was taken (the first, after the gift was placed).
-    const due = placed && s.days > 0 && from !== "" ? addDays(from, s.days) : "";
+    // Rule: a phase is due its days after the step before it was taken (the first, after the gift was allocated).
+    const due = allocated && s.days > 0 && from !== "" ? addDays(from, s.days) : "";
     const late = !hit && due !== "" ? Math.max(0, Math.round((Date.parse(today.slice(0, 10) + "T00:00:00Z") - Date.parse(due + "T00:00:00Z")) / DAY)) : 0;
     if (hit) from = hit.at;
     return { kind: s.kind, id: s.id, label: s.label, done: hit !== undefined, doneAt: hit?.at ?? "", due, lateDays: late };
   });
-  const next = placed ? rows.find((r) => !r.done) : undefined;
+  const next = allocated ? rows.find((r) => !r.done) : undefined;
   const lastStage = [...rows].reverse().find((r) => r.kind === "stage" && r.done);
   const complete = rows.some((r) => r.kind === "stage" && r.done && (r.id === "complete" || r.id === "feedback"));
-  return { placed, steps: rows, next, stage: lastStage ? (lastStage.id as StageId) : "allocation", complete };
+  return { allocated, steps: rows, next, stage: lastStage ? (lastStage.id as StageId) : "allocation", complete };
 }
 
 // ---- Batches (DECISIONS 232): closed by a person once every gift in them is complete ----
@@ -79,9 +79,9 @@ export const isClosed = (records: ProgressEntry[], partnerId: string, batch: num
   return last?.id === "closed";
 };
 
-// What the requests need to know about the gifts, supplied by the caller from assignments, placements and workflows, so this file never reads a store.
+// What the requests need to know about the gifts, supplied by the caller from assignments, allocations and workflows, so this file never reads a store.
 export interface ProgressContext {
-  gift: (key: string) => { placedAt: string | undefined; steps: Steps } | undefined; // undefined: not an assigned gift
+  gift: (key: string) => { allocatedAt: string | undefined; steps: Steps } | undefined; // undefined: not an assigned gift
   batchKeys: (partnerId: string, batch: number) => string[]; // the gifts in a batch
   batchOf: (key: string) => { partnerId: string; batch: number } | undefined; // the batch a gift is in
   today: string;
@@ -98,8 +98,8 @@ export function applyProgressAction(ctx: ProgressContext, existing: Progress, bo
     case "prg-next": {
       const g = ctx.gift(str("key"));
       if (!g) return { error: "That gift was not found, or it is not assigned to a partner." };
-      const p = progressOf(str("key"), g.placedAt, existing.records, g.steps, ctx.today);
-      if (!p.placed) return { error: "That gift is not allocated yet. Allocate it first." };
+      const p = progressOf(str("key"), g.allocatedAt, existing.records, g.steps, ctx.today);
+      if (!p.allocated) return { error: "That gift is not allocated yet. Allocate it first." };
       if (!p.next) return { error: "Every step of that gift is already taken." };
       return { value: { records: [...existing.records, { key: str("key"), kind: p.next.kind, id: p.next.id, at, by }] }, message: `${p.next.label} taken.` };
     }
@@ -116,7 +116,7 @@ export function applyProgressAction(ctx: ProgressContext, existing: Progress, bo
       const keys = ctx.batchKeys(partnerId, batch);
       if (keys.length === 0) return { error: "That batch was not found." };
       if (isClosed(existing.records, partnerId, batch)) return { error: "That batch is already closed." };
-      const open = keys.filter((k) => { const g = ctx.gift(k); return !g || !progressOf(k, g.placedAt, existing.records, g.steps, ctx.today).complete; }).length;
+      const open = keys.filter((k) => { const g = ctx.gift(k); return !g || !progressOf(k, g.allocatedAt, existing.records, g.steps, ctx.today).complete; }).length;
       if (open > 0) return { error: `${open} of its ${keys.length} gifts ${open === 1 ? "is" : "are"} not complete yet. A batch closes when every gift in it is complete.` };
       return { value: { records: [...existing.records, { key: batchKey(partnerId, batch), kind: "batch", id: "closed", at, by }] }, message: "The batch is closed." };
     }

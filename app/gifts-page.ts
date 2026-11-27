@@ -16,9 +16,9 @@ import { SYM } from "./symbols";
 import { popoverHtml } from "./popover";
 import { standingsOf } from "./progress-page";
 import type { GiftStanding } from "../modules/12-progress/context";
-import { giftKeyOfPlacementKey } from "../modules/07-beneficiaries/implementation";
+import { giftKeyOfAllocationKey } from "../modules/07-beneficiaries/implementation";
 import { batchSizeOf, labelBatches } from "../modules/08-assignment/batches";
-import { countOfGift } from "../modules/09-placement/history";
+import { countOfGift } from "../modules/09-allocation/history";
 import { iconHtml, itemIcon } from "./icons";
 import { plusMonths } from "../modules/04b-commitments/catch-up";
 import { allocatable, type Commitment } from "../modules/04b-commitments/commitments";
@@ -166,7 +166,7 @@ export function sortGifts(rows: GiftRow[], sort: { key: string; dir: "asc" | "de
 // Rule (DECISIONS 217): a column can be filtered by the values in it. A person ticks the values to keep (Project, Plan status, Stage, Assigned to, Allocation), and a gift stays when its value in each filtered column is one of the ticked.
 // Within a column the ticked values are alternatives (this or that), and across columns they all apply (and). The list of values in a column is counted from the gifts the other filters leave, so no value is offered that would give nothing.
 export const FILTER_COLUMNS: [string, string][] = [["project", "Project"], ["plan", "Plan status"], ["stage", "Stage"], ["assigned", "Assigned to"], ["alloc", "Allocation"]];
-const ALLOC_LABEL: Record<string, string> = { placed: "Allocated", waiting: "Waiting for allocation", manual: "Allocate manually", none: "Not allocated", "n/a": "Not needed" };
+const ALLOC_LABEL: Record<string, string> = { allocated: "Allocated", waiting: "Waiting for allocation", manual: "Allocate manually", none: "Not allocated", "n/a": "Not needed" };
 function columnValue(col: string, g: GiftRow, v: View, where: ReturnType<typeof allocationContext>): string {
   if (col === "project") return g.projectName || "No project";
   if (col === "plan") return g.kind === "one_off" ? "One payment" : g.kind === "excluded" ? "Excluded" : g.planStatus || "No status";
@@ -220,25 +220,25 @@ const projectCell = (name: string, cause = ""): string => {
 // The icon of a gift's item (DECISIONS 107): the one chosen, else a suggestion from its name, else its outcome type's icon.
 const giftIcon = (v: View, g: GiftRow, size: "sm" | "lg" = "sm"): string => iconHtml(itemIcon(g.itemId, g.itemName, v.itemIcons, (v.outcomeTypes ?? []).find((t) => g.frameworkId !== "" && t.frameworkIds.includes(g.frameworkId))?.icon ?? ""), g.itemName, size);
 
-// The key a gift's placements are kept under: "sub:" and the subscription id for a recurring gift, the line id for a one-off payment (DECISIONS 173).
-export const giftPlacementKey = (g: GiftRow): string => (g.kind === "recurring" ? `sub:${g.key}` : g.kind === "one_off" ? g.payments[0]?.key ?? "" : "");
+// The key a gift's allocations are kept under: "sub:" and the subscription id for a recurring gift, the line id for a one-off payment (DECISIONS 173).
+export const giftAllocationKey = (g: GiftRow): string => (g.kind === "recurring" ? `sub:${g.key}` : g.kind === "one_off" ? g.payments[0]?.key ?? "" : "");
 
 // Everything about where gifts are allocated, worked out once for the list and for the window.
 // Rule (DECISIONS 141): the stage of a gift's workflow it is in now, shown as a small pill with the reason in its tooltip. Excluded payments have none.
-// Rule (DECISIONS 232): a placed gift moves on through the partner's phases, then Reviewed, Reported, Completed and Feedback, as a person takes the steps on the Progress page.
+// Rule (DECISIONS 232): a allocated gift moves on through the partner's phases, then Reviewed, Reported, Completed and Feedback, as a person takes the steps on the Progress page.
 // The standings are worked out once for each View, since the list asks for every row.
 const standingCache = new WeakMap<View, Map<string, GiftStanding>>();
 function standingFor(v: View, g: GiftRow): GiftStanding | undefined {
   let m = standingCache.get(v);
-  if (!m) { m = new Map(standingsOf(v).map((x) => [giftKeyOfPlacementKey(x.key), x])); standingCache.set(v, m); }
+  if (!m) { m = new Map(standingsOf(v).map((x) => [giftKeyOfAllocationKey(x.key), x])); standingCache.set(v, m); }
   return m.get(g.key);
 }
-function stageFor(v: View, g: GiftRow, a: { state: "placed" | "waiting" | "manual" | "none" | "n/a"; who: string; partner: string }): StageResult {
+function stageFor(v: View, g: GiftRow, a: { state: "allocated" | "waiting" | "manual" | "none" | "n/a"; who: string; partner: string }): StageResult {
   const fw = (v.frameworks ?? []).find((f) => f.id === g.frameworkId);
-  const r = giftStage({ kind: g.kind, hasWorkflow: g.frameworkId !== "" && !g.unrouted, holdUntilPaid: fw?.instalment === "share_of_whole", planStatus: g.planStatus, paid: g.paid, planned: g.planned, placement: a.state, assignedTo: a.state === "waiting" ? a.partner : "", where: a.state === "placed" ? `${a.who} at ${a.partner}` : "" });
+  const r = giftStage({ kind: g.kind, hasWorkflow: g.frameworkId !== "" && !g.unrouted, holdUntilPaid: fw?.instalment === "share_of_whole", planStatus: g.planStatus, paid: g.paid, planned: g.planned, allocation: a.state, assignedTo: a.state === "waiting" ? a.partner : "", where: a.state === "allocated" ? `${a.who} at ${a.partner}` : "" });
   if (r.stage !== "allocation") return r;
   const st = standingFor(v, g);
-  if (!st?.placed) return r;
+  if (!st?.allocated) return r;
   if (st.stage !== "allocation") return { stage: st.stage, note: st.next ? `Next: ${st.next.label}` : "Every step taken" };
   return { stage: "allocation", note: st.next ? `${r.note}. Next: ${st.next.label}` : r.note };
 }
@@ -255,25 +255,25 @@ function allocationContext(v: View) {
   // Where a gift is allocated: the beneficiary and its partner, or why it is not.
   // Rule (DECISIONS 113): a gift marked manual (a custom amount, or marked by a person) is not waiting for the system. A person allocates it.
   const waits = (g: GiftRow, why: string) => (g.manual !== "" ? { state: "manual" as const, who: "", partner: "", parts: null, why: g.manual } : { state: "waiting" as const, who: "", partner: "", parts: null, why });
-  // Rule (DECISIONS 176): where a gift stands now is read from Assignment and Placement first. A recurring gift is kept under "sub:" and its subscription id, a one-off under its line id.
+  // Rule (DECISIONS 176): where a gift stands now is read from Assignment and Allocation first. A recurring gift is kept under "sub:" and its subscription id, a one-off under its line id.
   const assigned = new Map(labelBatches(v.assignments?.records ?? [], (id) => batchSizeOf((v.projects ?? []).find((p) => p.id === id))).map((a) => [a.key, a])); // batches: an older assignment is labelled oldest first (DECISIONS 203)
-  const placed = new Map((v.placements?.records ?? []).filter((p) => p.to === undefined).map((p) => [p.key, p])); // only a placement that still holds its place (DECISIONS 186)
+  const allocated = new Map((v.allocations?.records ?? []).filter((p) => p.to === undefined).map((p) => [p.key, p])); // only an allocation that still holds its place (DECISIONS 186)
   const enrolled = new Map((v.enrolments?.records ?? []).map((e) => [e.id, e]));
   const personName = (id: string): string => (v.beneficiaries?.records ?? []).find((b) => b.id === id)?.name ?? id;
-  const newKey = giftPlacementKey;
-  return (g: GiftRow): { state: "placed" | "waiting" | "manual" | "none" | "n/a"; who: string; partner: string; parts: number | null; why: string; ref?: string; allocRef?: string; batch?: number } => {
+  const newKey = giftAllocationKey;
+  return (g: GiftRow): { state: "allocated" | "waiting" | "manual" | "none" | "n/a"; who: string; partner: string; parts: number | null; why: string; ref?: string; allocRef?: string; batch?: number } => {
     // A paused, cancelled or completed plan holds no place and is shown by the older rule (parked, or needing none) (DECISIONS 185).
     const nk = ["paused", "cancelled", "completed"].includes(g.planStatus) ? "" : newKey(g);
     const asg = nk !== "" ? assigned.get(nk) : undefined;
-    const plc = nk !== "" ? placed.get(nk) : undefined;
-    // A placement whose place no longer exists (the child was removed) is not a placement: the gift is assigned and waiting for a place again.
-    if (asg && plc && (plc.kind === "outcome" || enrolled.has(plc.enrolmentId))) return { state: "placed", who: plc.kind === "outcome" ? plc.outcomeRef + ((v.placements?.stock ?? []).find((s) => s.id === plc.stockId)?.name ? ` \u00B7 ${(v.placements?.stock ?? []).find((s) => s.id === plc.stockId)?.name}` : "") : personName(enrolled.get(plc.enrolmentId)?.beneficiaryId ?? ""), partner: partnerName(asg.partnerId) || "No partner", parts: null, why: "", ...(asg.batch !== undefined ? { batch: asg.batch } : {}) };
+    const alc = nk !== "" ? allocated.get(nk) : undefined;
+    // An allocation whose place no longer exists (the child was removed) is not an allocation: the gift is assigned and waiting for a place again.
+    if (asg && alc && (alc.kind === "outcome" || enrolled.has(alc.enrolmentId))) return { state: "allocated", who: alc.kind === "outcome" ? alc.outcomeRef + ((v.allocations?.stock ?? []).find((s) => s.id === alc.stockId)?.name ? ` \u00B7 ${(v.allocations?.stock ?? []).find((s) => s.id === alc.stockId)?.name}` : "") : personName(enrolled.get(alc.enrolmentId)?.beneficiaryId ?? ""), partner: partnerName(asg.partnerId) || "No partner", parts: null, why: "", ...(asg.batch !== undefined ? { batch: asg.batch } : {}) };
     if (asg) return { state: "waiting", who: "", partner: partnerName(asg.partnerId) || "A partner", parts: null, why: `Assigned to ${partnerName(asg.partnerId) || "a partner"}, waiting for a beneficiary to fund`, ...(asg.batch !== undefined ? { batch: asg.batch } : {}) };
     if (g.allocationKey === "") return { state: "n/a", who: "", partner: "", parts: null, why: "" };
     if (keys.has(g.allocationKey)) {
       const a = allocationOf.get(g.allocationKey);
       const o = a ? outcomeById.get(a.outcomeId) : undefined;
-      return o ? { state: "placed", who: o.name, partner: partnerName(o.projectId) || "No partner", parts: a && a.parts !== g.parts ? a.parts : null, why: "", ref: o.ref ?? "", allocRef: a?.ref ?? "" } : waits(g, g.planStatus === "paused" ? "Plan paused, parked until payments resume" : "");
+      return o ? { state: "allocated", who: o.name, partner: partnerName(o.projectId) || "No partner", parts: a && a.parts !== g.parts ? a.parts : null, why: "", ref: o.ref ?? "", allocRef: a?.ref ?? "" } : waits(g, g.planStatus === "paused" ? "Plan paused, parked until payments resume" : "");
     }
     // Rule (DECISIONS 98): every gift needs an allocation. One that cannot be allocated yet is waiting, with the reason, except a cancelled plan, which needs none.
     // Rule (DECISIONS 102): a paused plan stays parked and says so. A cancelled one is parked as cancelled, and can be excluded manually until the donor pays again.
@@ -361,7 +361,7 @@ export function giftListHtml(v: View): string {
   const allocCell = (g: GiftRow): string => {
     const a = where(g);
     // Rule (DECISIONS 184): Allocated to is the beneficiary (or the outcome). The partner is Assigned to, in its own column.
-    if (a.state === "placed") return `<span title="${esc(a.who)} ${esc(a.ref ?? "")}">${esc(a.who)} <span class="muted">${esc(a.ref ?? "")}</span></span>`;
+    if (a.state === "allocated") return `<span title="${esc(a.who)} ${esc(a.ref ?? "")}">${esc(a.who)} <span class="muted">${esc(a.ref ?? "")}</span></span>`;
     if (a.state === "manual") return icon("manual", SYMBOL.manual, `Allocate manually. ${a.why}`);
     if (a.state === "waiting") return a.why.startsWith("Plan paused") ? icon("muted", PLAN_ICON["paused"]![0], a.why) : icon("warn", SYMBOL.waiting, a.why ? `Waiting for allocation. ${a.why}` : "Waiting for allocation");
     return a.state === "none" ? `<span class="muted" title="${esc(a.why)}">\u2013</span>` : "";
@@ -418,7 +418,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   const row = (label: string, value: string, wide = false) => value === "" ? "" : `<div class="f${wide ? " w" : ""}"><span>${label}</span><div>${value}</div></div>`;
   const progress = g.kind === "recurring" || g.kind === "unlinked" ? `${g.paid} of ${g.planned ?? INFINITY}${g.planned ? `<div class="bar"><span style="width:${Math.min(100, Math.round((g.paid / g.planned) * 100))}%"></span></div>` : ""}` : g.periodCount > 0 ? `covers ${g.periodCount} month${g.periodCount === 1 ? "" : "s"}` : "";
   // Rule (DECISIONS 184): Allocated to is the beneficiary or outcome. The partner it was assigned to has its own line, Assigned to.
-  const allocation = a.state === "placed" ? `${esc(a.who)}${a.ref ? ` <b>${esc(a.ref)}</b>` : ""}${a.allocRef || a.parts !== null ? `<div class="muted">${a.allocRef ? `Allocation ${esc(a.allocRef)}` : ""}${a.allocRef && a.parts !== null ? " \u00B7 " : ""}${a.parts !== null ? `${a.parts} part${a.parts === 1 ? "" : "s"}` : ""}</div>` : ""}` : a.state === "manual" ? `<span class="pill review">Allocate manually</span><div class="muted">${esc(a.why)}</div>` : a.state === "waiting" ? `<span class="pill review">Waiting for allocation</span>${a.why ? `<div class="muted">${esc(a.why)}</div>` : ""}` : a.why ? `<span class="muted">${esc(a.why)}</span>` : "";
+  const allocation = a.state === "allocated" ? `${esc(a.who)}${a.ref ? ` <b>${esc(a.ref)}</b>` : ""}${a.allocRef || a.parts !== null ? `<div class="muted">${a.allocRef ? `Allocation ${esc(a.allocRef)}` : ""}${a.allocRef && a.parts !== null ? " \u00B7 " : ""}${a.parts !== null ? `${a.parts} part${a.parts === 1 ? "" : "s"}` : ""}</div>` : ""}` : a.state === "manual" ? `<span class="pill review">Allocate manually</span><div class="muted">${esc(a.why)}</div>` : a.state === "waiting" ? `<span class="pill review">Waiting for allocation</span>${a.why ? `<div class="muted">${esc(a.why)}</div>` : ""}` : a.why ? `<span class="muted">${esc(a.why)}</span>` : "";
   const status = [
     g.kind === "excluded" ? "" : g.unrouted ? `<span class="pill unrouted">Unrouted</span>` : `<span class="pill ready">Ready</span>`,
     g.inReview ? `<span class="pill review">Review</span>` : "",
@@ -470,7 +470,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Stage", `${stagePill(stageFor(v, g, a))}${stageFor(v, g, a).note ? `<div class="muted">${esc(stageFor(v, g, a).note)}</div>` : ""}`)}
         ${row("Assigned to", a.partner ? `${esc(a.partner)}${a.batch !== undefined ? ` <span class="muted">Batch ${a.batch}</span>` : ""}` : `<span class="muted">Not assigned to a partner yet</span>`)}
         ${row("Allocated to", allocation)}
-        ${(() => { const hk = giftPlacementKey(g); const hn = hk === "" ? 0 : countOfGift(v.placements?.records ?? [], hk); return hn > 0 ? row("Allocation history", `<button type="button" class="linkish" data-hist="gift" data-id="${esc(hk)}">View history (${hn})</button>`) : ""; })()}
+        ${(() => { const hk = giftAllocationKey(g); const hn = hk === "" ? 0 : countOfGift(v.allocations?.records ?? [], hk); return hn > 0 ? row("Allocation history", `<button type="button" class="linkish" data-hist="gift" data-id="${esc(hk)}">View history (${hn})</button>`) : ""; })()}
         </div></section>
         <section class="gw-card"><h3>The gift</h3><div class="fgrid two">
         ${row("Workflow", `${g.unrouted && first ? workflowPicker(v, first.itemId) : `<span class="muted">${esc((v.frameworks ?? []).find((f) => f.id === g.frameworkId)?.name ?? "")}${first && first.bundleQty && first.bundleQty > 1 && g.kind !== "recurring" ? ` \u00B7 bundle of ${first.bundleQty}${first.quantity > 1 ? ` x ${first.quantity}` : ""}` : ""}</span>`}`)}
@@ -513,7 +513,7 @@ export function giftMetricsHtml(v: View): string {
   const tile = (filter: string, cls: string, inner: string): string => `<button type="button" class="metric tile${cls}" data-filter="${filter}" aria-pressed="${v.filter === filter ? "true" : "false"}">${inner}</button>`;
   return `${tile("all", "", `<b>${rows.length}</b><span>Gifts</span><div class="smrow">${small(recurring, "recurring")}${small(count((g) => g.kind === "one_off"), "one payments")}</div>`)}
     <div class="metric"><b>${value}</b><span>Value</span><div class="smrow">${small(payments.length, "payments")}</div></div>
-    ${tile("waiting", waiting ? " warn" : "", `<b>${waiting}</b><span>Unallocated</span><div class="smrow">${small(count((g) => where(g).state === "placed"), "allocated")}${small(count((g) => where(g).state === "manual"), "manual")}${small(count((g) => where(g).state === "none"), "need none")}</div>`)}
+    ${tile("waiting", waiting ? " warn" : "", `<b>${waiting}</b><span>Unallocated</span><div class="smrow">${small(count((g) => where(g).state === "allocated"), "allocated")}${small(count((g) => where(g).state === "manual"), "manual")}${small(count((g) => where(g).state === "none"), "need none")}</div>`)}
     ${tile("stopped", "", `<b>${stopped}</b><span>Plans stopped</span><div class="smrow">${small(status("cancelled"), "cancelled")}${small(status("paused"), "paused")}${small(status("completed"), "completed")}</div>`)}
     ${tile("attention", review ? " warn" : "", `<b>${review}</b><span>Review</span><div class="smrow">${small(count((g) => g.unrouted), "unrouted")}${small(count((g) => g.inReview), "held")}${small(count((g) => g.needsLook), "a look")}</div>`)}`;
 }

@@ -13,7 +13,7 @@ const full = (): OrgConfig => ({
   beneficiaries: { records: [{ id: "PRS-0002", name: "B" }, { id: "PRS-0001", name: "A" }] as never, counters: { PRS: 2 } },
   enrolments: { records: [{ id: "EN-0001", beneficiaryId: "PRS-0001" }] as never, counter: 1 },
   assignments: { records: [{ key: "L1", partnerId: "p" }, { key: "L2", partnerId: "p" }] as never },
-  placements: { records: [{ key: "L1", kind: "place" }, { key: "L1", kind: "place" }] as never, counter: 2, stock: [{ id: "S1" }] as never, stockCounter: 1 },
+  allocations: { records: [{ key: "L1", kind: "beneficiary" }, { key: "L1", kind: "beneficiary" }] as never, counter: 2, stock: [{ id: "S1" }] as never, stockCounter: 1 },
   confirmations: { records: [{ key: "L1", answer: "confirmed" }] as never },
   progress: { records: [{ key: "L1", kind: "phase", id: "x" }] as never },
 });
@@ -24,7 +24,7 @@ describe("record tables", () => {
     const c = full();
     const { blob, lists } = splitConfig(c);
     expect(blob.beneficiaries).toEqual({ records: [], counters: { PRS: 2 } }); // the counters stay in the document
-    expect(blob.placements).toMatchObject({ records: [], stock: [], counter: 2, stockCounter: 1 });
+    expect(blob.allocations).toMatchObject({ records: [], stock: [], counter: 2, stockCounter: 1 });
     expect(lists.beneficiaries).toHaveLength(2);
     const back = assembleConfig(blob, lists);
     expect(back.legacy).toBe(false);
@@ -34,8 +34,8 @@ describe("record tables", () => {
   it("keeps the order of a list, gives each record a stable row id, and numbers identical records", () => {
     const rows = rowsOf("beneficiaries", [{ id: "PRS-0002" }, { id: "PRS-0001" }]);
     expect(rows.map((r) => [r.rid, r.pos])).toEqual([["PRS-0002", 0], ["PRS-0001", 1]]);
-    const same = rowsOf("placements", [{ a: 1, b: 2 }, { b: 2, a: 1 }]); // the same content written in another order
-    expect(same[0]!.rid).toBe(rowsOf("placements", [{ b: 2, a: 1 }])[0]!.rid);
+    const same = rowsOf("allocations", [{ a: 1, b: 2 }, { b: 2, a: 1 }]); // the same content written in another order
+    expect(same[0]!.rid).toBe(rowsOf("allocations", [{ b: 2, a: 1 }])[0]!.rid);
     expect(same[1]!.rid).toBe(`${same[0]!.rid}#2`);
     expect(canon({ b: 1, a: [2, { d: 1, c: undefined }] })).toBe('{"a":[2,{"d":1}],"b":1}');
   });
@@ -76,7 +76,7 @@ describe("pgStore with records in tables", () => {
     const c = (await s.getConfig("o"))!;
     expect(c.version).toBe(7);
     expect(c.beneficiaries!.records).toHaveLength(2);
-    expect(c.placements!.stock).toHaveLength(1);
+    expect(c.allocations!.stock).toHaveLength(1);
     const next: OrgConfig = { ...c, confirmations: { records: [...c.confirmations!.records, { key: "L2", partnerId: "p", answer: "rejected", at: "t", by: "x", reason: "r" }] } };
     await s.putConfig("o", next);
     const save = statements.filter((x) => x.sql.startsWith("WITH fence"));

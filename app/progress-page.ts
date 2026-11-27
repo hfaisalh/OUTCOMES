@@ -1,7 +1,7 @@
 /**
  * progress-page.ts
  *
- * What it does: draws the Progress page (DECISIONS 232), the step after Allocate where each placed gift moves through its partner's implementation phases, then Review, Report, Complete and Feedback. Four tiles (with the partner, late, in review and report, complete) that filter the list, and a list with the gift, partner and batch, the stage it has reached, the next step with its due day, and the buttons for a person to take the next step or take the latest one back. A late phase is advised, never acted on.
+ * What it does: draws the Progress page (DECISIONS 232), the step after Allocate where each allocated gift moves through its partner's implementation phases, then Review, Report, Complete and Feedback. Four tiles (with the partner, late, in review and report, complete) that filter the list, and a list with the gift, partner and batch, the stage it has reached, the next step with its due day, and the buttons for a person to take the next step or take the latest one back. A late phase is advised, never acted on.
  * Who calls it: app/main.ts. Also exports standingsOf, the one place the pages read where each gift stands. Depends on: modules/12-progress (the rules), modules/08-assignment, and View and esc from app/pages.ts. Pure: it takes a View and returns HTML.
  */
 
@@ -22,7 +22,7 @@ export function standingsOf(v: View): GiftStanding[] {
   const partners = v.projects ?? [];
   const ctx = contextFrom({ workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now: `${today}T00:00:00Z` });
   const fwOf = new Map(assignables(ctx).map((u) => [u.key, u.w.frameworkId ?? ""]));
-  return standings({ assignments: v.assignments?.records ?? [], placements: v.placements?.records ?? [], frameworkOf: (k) => fwOf.get(k) ?? "", frameworks: v.frameworks ?? [], sizeOf: (id) => batchSizeOf(partners.find((p) => p.id === id)), today }, v.progress?.records ?? []);
+  return standings({ assignments: v.assignments?.records ?? [], allocations: v.allocations?.records ?? [], frameworkOf: (k) => fwOf.get(k) ?? "", frameworks: v.frameworks ?? [], sizeOf: (id) => batchSizeOf(partners.find((p) => p.id === id)), today }, v.progress?.records ?? []);
 }
 
 // Rule: a gift still with the partner is in its phases. Otherwise it is at the last stage taken. Late is the next step past its due day.
@@ -31,14 +31,14 @@ const isLate = (s: GiftStanding): boolean => (s.next?.lateDays ?? 0) > 0;
 const matches = (s: GiftStanding, f: ProgressFilter): boolean => f === "all" || (f === "partner" ? s.stage === "allocation" : f === "late" ? isLate(s) : f === "review" ? s.stage === "review" || s.stage === "report" : s.complete);
 
 export function progressPage(v: View): string {
-  const placed = standingsOf(v).filter((s) => s.placed);
+  const allocated = standingsOf(v).filter((s) => s.allocated);
   const filter = (v.prgFilter ?? "all") as ProgressFilter;
   const partners = v.projects ?? [];
   const ctx = contextFrom({ workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today: v.today ?? "2026-01-01", now: `${v.today ?? "2026-01-01"}T00:00:00Z` });
   const units = new Map(assignables(ctx).map((u) => [u.key, u]));
-  const count = (f: ProgressFilter): number => placed.filter((s) => matches(s, f)).length;
+  const count = (f: ProgressFilter): number => allocated.filter((s) => matches(s, f)).length;
   const tile = (f: ProgressFilter, label: string, cls = ""): string => `<button type="button" class="metric tile${cls}" data-tile="prg:${f}" aria-pressed="${filter === f ? "true" : "false"}"><b>${count(f)}</b><span>${label}</span></button>`;
-  const shown = placed.filter((s) => matches(s, filter)).sort((x, y) => Number(isLate(y)) - Number(isLate(x)) || (x.next?.due || "9").localeCompare(y.next?.due || "9"));
+  const shown = allocated.filter((s) => matches(s, filter)).sort((x, y) => Number(isLate(y)) - Number(isLate(x)) || (x.next?.due || "9").localeCompare(y.next?.due || "9"));
   const rows = shown.slice(0, MAX_ROWS).map((s) => {
     const u = units.get(s.key);
     const next = s.next
@@ -53,5 +53,5 @@ export function progressPage(v: View): string {
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics">${tile("partner", "With the partner")}${tile("late", "Late", count("late") ? " warn" : "")}${tile("review", "In review and report")}${tile("complete", "Complete")}</div>
     <div class="card"><h2>Allocated gifts <span class="muted">(${shown.length})</span></h2>
-      ${rows ? `<div class="tablewrap"><table><thead><tr><th>Gift</th><th>Partner</th><th class="num">Batch</th><th>Stage</th><th>Next step</th><th class="num">Due</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${shown.length > MAX_ROWS ? `<p class="muted">The first ${MAX_ROWS} are shown. Use the tiles to narrow the list.</p>` : ""}` : `<div class="empty">${placed.length === 0 ? "No gift is allocated yet. A gift appears here once Allocate gives it a beneficiary to fund or an outcome." : "Nothing matches this tile."}</div>`}</div>`;
+      ${rows ? `<div class="tablewrap"><table><thead><tr><th>Gift</th><th>Partner</th><th class="num">Batch</th><th>Stage</th><th>Next step</th><th class="num">Due</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${shown.length > MAX_ROWS ? `<p class="muted">The first ${MAX_ROWS} are shown. Use the tiles to narrow the list.</p>` : ""}` : `<div class="empty">${allocated.length === 0 ? "No gift is allocated yet. A gift appears here once Allocate gives it a beneficiary to fund or an outcome." : "Nothing matches this tile."}</div>`}</div>`;
 }

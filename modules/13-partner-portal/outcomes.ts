@@ -34,13 +34,13 @@ export function partnerOutcomes(s: PartnerSlice): PartnerOutcome[] {
   const nameOfEnrolment = (id: string): string => { const e = s.enrolments.find((x) => x.id === id); return s.beneficiaries.find((b) => b.id === e?.beneficiaryId)?.name ?? ""; };
   return s.assignments.map((a): PartnerOutcome => {
     const answer = s.confirmations.find((c) => c.key === a.key);
-    const held = s.placements.filter((p) => p.key === a.key && p.to === undefined);
+    const held = s.allocations.filter((p) => p.key === a.key && p.to === undefined);
     const steps = s.progress.filter((r) => r.key === a.key && r.kind !== "batch");
     const last = steps[steps.length - 1];
     const standing: Standing = answer?.answer === "rejected" ? "refused" : steps.some((r) => r.kind === "stage" && r.id === "complete") ? "complete" : held.length > 0 ? "allocated" : answer ? "confirmed" : "to-answer";
     return {
       key: a.key, batch: a.batch, benefit: s.itemNames[a.itemId] ?? a.itemId, project: s.giftProjects.find((g) => g.id === a.giftProjectId)?.name ?? "",
-      funds: held.map((p) => (p.kind === "place" ? nameOfEnrolment(p.enrolmentId) : p.outcomeRef)).filter((x) => x !== "").join(", "),
+      funds: held.map((p) => (p.kind === "beneficiary" ? nameOfEnrolment(p.enrolmentId) : p.outcomeRef)).filter((x) => x !== "").join(", "),
       standing, step: last ? (last.kind === "stage" ? STAGE_LABELS[last.id as StageId] ?? words(last.id) : words(last.id)) : "", reason: answer?.reason ?? "", since: a.at.slice(0, 10),
     };
   }).sort((x, y) => y.since.localeCompare(x.since) || x.key.localeCompare(y.key));

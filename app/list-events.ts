@@ -1,7 +1,7 @@
 /**
  * list-events.ts
  *
- * What it does: the clicks, changes and keys of the lists' shared tools (DECISIONS 222, 224, 226, 229, 231, 232): sort by a heading, filter by value, choose columns, the tiles that filter a page, the drop-down panel (placed under its button, closed by a click outside or Escape, searched as you type), and the buttons of the Confirmation and Progress pages.
+ * What it does: the clicks, changes and keys of the lists' shared tools (DECISIONS 222, 224, 226, 229, 231, 232): sort by a heading, filter by value, choose columns, the tiles that filter a page, the drop-down panel (allocated under its button, closed by a click outside or Escape, searched as you type), and the buttons of the Confirmation and Progress pages.
  * Who calls it: app/main.ts, once, at the end of its set-up, handing in the state, the redraw and the server request. Depends on: nothing of main.ts, only the shape of the state it is given (ListEventState), so it can be read and tested on its own.
  * It changes the state it is given and asks for a redraw. The rules these buttons trigger live in the modules (confirmation, progress), never here.
  */

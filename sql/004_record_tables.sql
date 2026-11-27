@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS beneficiaries (org text NOT NULL, rid text NOT NULL, pos integer NOT NULL, data jsonb NOT NULL, PRIMARY KEY (org, rid));
 CREATE TABLE IF NOT EXISTS enrolments    (org text NOT NULL, rid text NOT NULL, pos integer NOT NULL, data jsonb NOT NULL, PRIMARY KEY (org, rid));
 CREATE TABLE IF NOT EXISTS assignments   (org text NOT NULL, rid text NOT NULL, pos integer NOT NULL, data jsonb NOT NULL, PRIMARY KEY (org, rid));
-CREATE TABLE IF NOT EXISTS placements    (org text NOT NULL, rid text NOT NULL, pos integer NOT NULL, data jsonb NOT NULL, PRIMARY KEY (org, rid));
+CREATE TABLE IF NOT EXISTS allocations    (org text NOT NULL, rid text NOT NULL, pos integer NOT NULL, data jsonb NOT NULL, PRIMARY KEY (org, rid));
 CREATE TABLE IF NOT EXISTS stock         (org text NOT NULL, rid text NOT NULL, pos integer NOT NULL, data jsonb NOT NULL, PRIMARY KEY (org, rid));
 CREATE TABLE IF NOT EXISTS confirmations (org text NOT NULL, rid text NOT NULL, pos integer NOT NULL, data jsonb NOT NULL, PRIMARY KEY (org, rid));
 CREATE TABLE IF NOT EXISTS progress      (org text NOT NULL, rid text NOT NULL, pos integer NOT NULL, data jsonb NOT NULL, PRIMARY KEY (org, rid));

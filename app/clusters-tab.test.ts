@@ -147,7 +147,7 @@ describe("the Clusters tab, one cluster", () => {
 
 describe("parked outcomes in a cluster (DECISIONS 209)", () => {
   const stock = [{ id: "STK-0001", partnerId: "trust", giftProjectId: "p", clusterId: "physics", itemId: "I11", name: "Chak 5 pump", at: "2026-11-01T00:00:00Z" }, { id: "STK-0002", partnerId: "trust", giftProjectId: "p", clusterId: "physics", itemId: "I11", name: "Dhok 2 pump", at: "2026-11-02T00:00:00Z" }];
-  const ctx = { projectId: "p", items: [{ id: "I11", name: "Small Pump" }], beneficiaries: [], enrolments: [], stock, stockItems: [{ id: "I11", name: "Small Pump" }], partners: [{ id: "trust", name: "Sample Trust" }], placements: [{ key: "sub:S1", kind: "outcome" as const, enrolmentId: "", outcomeRef: "OUT-0001", stockId: "STK-0001", giftProjectId: "p", itemId: "I11", parts: 1, how: "auto" as const, at: "x" }] };
+  const ctx = { projectId: "p", items: [{ id: "I11", name: "Small Pump" }], beneficiaries: [], enrolments: [], stock, stockItems: [{ id: "I11", name: "Small Pump" }], partners: [{ id: "trust", name: "Sample Trust" }], allocations: [{ key: "sub:S1", kind: "outcome" as const, enrolmentId: "", outcomeRef: "OUT-0001", stockId: "STK-0001", giftProjectId: "p", itemId: "I11", parts: 1, how: "auto" as const, at: "x" }] };
   it("lists what is parked in the cluster and inside it, free or used by an outcome, and lets a free one be removed", () => {
     reset();
     clusterUi.node = "science"; clusterUi.nodeTab = "outcomes"; // the stock is in Physics, inside Science

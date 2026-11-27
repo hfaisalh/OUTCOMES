@@ -21,7 +21,7 @@ import type { Enrolments } from "../07-beneficiaries/enrolments.js";
 import type { Assignments } from "../08-assignment/assignment.js";
 import type { Confirmations } from "../11-confirmation/confirmation.js";
 import type { Progress } from "../12-progress/progress.js";
-import type { Placements } from "../09-placement/placement.js";
+import type { Allocations } from "../09-allocation/allocation.js";
 import { migrateSetup, type Category, type FrameworkTemplate, type ItemMap, type Setup } from "../02-project-rules/categories.js";
 import type { AuditRecord } from "../01f-batch-audit/audit.js";
 import type { TriageMark } from "../04-triage/triage.js";
@@ -47,7 +47,7 @@ export interface OrgConfig {
   itemUnits?: Record<string, number>; // the units that make one whole beneficiary, by item id. Absent: the workflow's (DECISIONS 188)
   itemKinds?: Record<string, string>; // the kind of benefit chosen for an item, by item id. Absent: the kind is suggested from the name (DECISIONS 143)
   itemIcons?: Record<string, string>; // the icon chosen for an item, by item id. Absent: the icon is suggested from the name (DECISIONS 107)
-  placements?: Placements; // which place each assigned gift fills, or which outcome it created, kept apart from the gifts so a test run can be reset (DECISIONS 175)
+  allocations?: Allocations; // which place each assigned gift fills, or which outcome it created, kept apart from the gifts so a test run can be reset (DECISIONS 175)
   assignments?: Assignments; // which partner each gift was assigned to, kept apart from the gifts so a test run can be reset (DECISIONS 170)
   progress?: Progress; // the steps taken after allocation (phases, review, report, complete, feedback) and the batches closed (DECISIONS 232)
   confirmations?: Confirmations; // the partners' answers to assignments: confirmed or rejected, with who and why (DECISIONS 231)
