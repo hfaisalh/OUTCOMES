@@ -25,16 +25,16 @@ describe("the Projects page figures and tiles (DECISIONS 245)", () => {
     { id: "c", name: "Auto one", crmNames: [], partnerIds: [], auto: true },
   ] as never;
   const view = (f?: View["pjFilter"]) => base({ giftProjects: gps, enrolments: { records: [enrol("1", "P1", "a", "h1"), enrol("2", "P2", "a", "h1"), enrol("3", "P3", "b", "h2")], counter: 3 }, ...(f ? { pjFilter: f } : {}) });
-  it("counts people, places and what is vacant for each project", () => {
+  it("counts people, capacity and what is vacant for each project", () => {
     const html = projectsPage(view());
-    expect(html).toMatch(/<b>Aghosh<\/b>.*?<td class="num">2<\/td><td class="num">1<\/td>.*?<td class="num">3<\/td><td class="num" title="2 of 3 places taken">1<\/td>/s); // 2 people, 1 cluster, 3 places, 1 vacant
-    expect(html).toContain('class="num full" title="1 of 1 places taken">0</td>'); // Dadyal is full
+    expect(html).toMatch(/<b>Aghosh<\/b>.*?<td class="num">2<\/td><td class="num">1<\/td>.*?<td class="num">3<\/td><td class="num" title="2 of 3 enrolled">1<\/td>/s); // 2 people, 1 cluster, 3 places, 1 vacant
+    expect(html).toContain('class="num full" title="1 of 1 enrolled">0</td>'); // Dadyal is full
   });
   it("has four tiles that filter the list", () => {
     const html = projectsPage(view());
     expect(html).toContain('data-tile="pj:all" aria-pressed="true"><b>3</b><span>Projects</span>');
     expect(html).toContain('metric tile warn" data-tile="pj:setup" aria-pressed="false"><b>1</b><span>Need set-up</span>');
-    expect(html).toContain('data-tile="pj:vacant" aria-pressed="false"><b>1</b><span>With vacant places</span>');
+    expect(html).toContain('data-tile="pj:vacant" aria-pressed="false"><b>1</b><span>With vacancies</span>');
     expect(html).toContain('metric tile warn" data-tile="pj:full" aria-pressed="false"><b>1</b><span>Full</span>');
     const full = projectsPage(view("full"));
     expect(full).toContain("<b>Dadyal</b>");
@@ -55,7 +55,7 @@ describe("projectsPage", () => {
     const html = projectsPage(base({ projects: partners, giftProjects: gps, workOrders: [wo("Aghosh"), wo("Aghosh"), wo("aghosh")] }));
     expect(html).toContain('data-pj="open" data-id="aghosh"');
     expect(html).toContain("<th>Display Name</th><th>Status</th>");
-    for (const h of [">Gifts</th>", ">Beneficiaries</th>", ">Clusters</th>", ">Benefits</th>", ">Partners</th>", ">Places</th>", ">Vacant</th>", ">Roles</th>"]) expect(html).toContain(h);
+    for (const h of [">Gifts</th>", ">Enrolled</th>", ">Clusters</th>", ">Benefits</th>", ">Partners</th>", ">Capacity</th>", ">Vacancies</th>", ">Waiting</th>", ">Roles</th>"]) expect(html).toContain(h);
     expect(html).not.toContain("Original Name</th>"); // the CRM name is in a tooltip now
     expect(html).not.toContain("Partners / vendors</th>");
     expect(html).toContain("<b>Aghosh Homes</b>"); // the name shown in OUTCOMES

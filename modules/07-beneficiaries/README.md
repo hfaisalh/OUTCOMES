@@ -37,6 +37,7 @@ The Beneficiaries page shows one row per active enrolment with a pie per month (
 |---|---|
 | `beneficiaries.ts` | The rules as pure functions (add, change, remove, duplicate check, filter, age) and `applyBeneficiaryAction`, which the server and the demo both use |
 | `beneficiaries.test.ts` | Tests and examples on invented people |
+| `waiting.ts` | The pool and the waiting list (DECISIONS 246): automatic admission by completeness, the waiting list of a project (first in first out), enrolling the next in line when there is room (`settlePool`), and where a person stands (`standingOf`). Pure |
 | `enrolments.ts` | Enrolment rules as pure functions (enrol, end, move, capacity, who a type allows) and `applyEnrolmentAction`, used by the server and the demo |
 | `enrolments.test.ts` | Tests and examples: an orphan home with classes, a water project |
 | `sample-setup.ts` | Loads and removes the invented sample setup (partners, projects, clusters, beneficiaries, enrolments) as pure functions (DECISIONS 168) |

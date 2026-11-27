@@ -19,6 +19,10 @@ describe("projectFormHtml", () => {
     expect(html).not.toMatch(/class="pr-item" value="I1" checked/);
     expect(html).toContain("With none ticked, it offers any");
   });
+  it("has an Enrol automatically tick that shows what the project has (DECISIONS 246)", () => {
+    expect(projectFormHtml({ name: "Dadyal", enrolAuto: true }, "dadyal", ctx)).toMatch(/id="pr-enrolauto" checked/);
+    expect(projectFormHtml({ name: "Dadyal" }, "dadyal", ctx)).not.toMatch(/id="pr-enrolauto" checked/);
+  });
   it("lists the project's vendors first, in their priority order, then the other partners, each with arrows", () => {
     const html = projectFormHtml({ name: "Dadyal", partnerIds: ["c", "a"] }, "dadyal", ctx);
     const order = [...html.matchAll(/class="pr-partner" value="([^"]+)"/g)].map((m) => m[1]);

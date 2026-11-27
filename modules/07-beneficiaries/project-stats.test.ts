@@ -7,6 +7,8 @@ import { describe, expect, it } from "vitest";
 import { projectStats } from "./project-stats";
 import type { GiftProject } from "../06-projects/projects";
 import type { Enrolment, Enrolments } from "./enrolments";
+import { addBeneficiary, emptyRegister } from "./beneficiaries";
+import { autoAdmit } from "./waiting";
 
 const en = (id: string, who: string, cluster: string, over: Partial<Enrolment> = {}): Enrolment => ({ id, beneficiaryId: who, giftProjectId: "p", clusterId: cluster, itemId: "I1", role: "", status: "active", since: "2026-09-01", ...over });
 const gp = (over: Partial<GiftProject> = {}): GiftProject => ({
@@ -45,5 +47,17 @@ describe("the figures of a project", () => {
     expect(s.setup).toBe("no-partner");
     expect(projectStats(gp({ auto: true }), enr([])).setup).toBe("automatic");
     expect(projectStats(gp({ clusters: undefined, itemIds: undefined }), enr([])).benefits).toBe(0);
+  });
+  it("counts who is waiting (ready, not enrolled) and who needs a person to look first, from the register (DECISIONS 246)", () => {
+    let reg = emptyRegister();
+    for (const [name, extra] of [["Ana", {}], ["Bea", {}], ["Cy", { guardian: "" }]] as const) {
+      const r = addBeneficiary(reg, "person", { name, dob: "2016-01-01", guardian: "Mother", idNumber: `B-${name}`, targetProjectId: "p", ...extra }, false, "2026-11-01");
+      if ("error" in r) throw new Error(r.error);
+      reg = r.value;
+    }
+    const s = projectStats(gp(), enr([en("1", "PRS-0001", "home")]), autoAdmit(reg)); // Ana is enrolled, Bea waits, Cy has no guardian
+    expect(s.waiting).toBe(1);
+    expect(s.review).toBe(1);
+    expect(projectStats(gp(), enr([])).waiting).toBe(0); // no register given
   });
 });

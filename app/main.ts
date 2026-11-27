@@ -38,6 +38,7 @@ import { applyConfirmationAction, confirmOnBehalf, emptyConfirmations, type Conf
 import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments, type Assignments } from "../modules/08-assignment/assignment";
 import { registerFormHtml } from "./register-form";
 import { loadSampleSetup, realProjectsFor, wholeByItem, type SampleState, removeSampleSetup, removedSummaryText, sampleSummaryText } from "../modules/07-beneficiaries/sample-setup";
+import { poolMessage, settlePool, standingOf } from "../modules/07-beneficiaries/waiting";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf, type Enrolments } from "../modules/07-beneficiaries/enrolments";
 import { applyBeneficiaryAction, emptyRegister, NO_FILTER as NO_REGISTER_FILTER, type Beneficiary, type BeneficiaryFilter, type BeneficiaryKind, type Register } from "../modules/07-beneficiaries/beneficiaries";
 import { projectFormHtml, readProjectForm } from "./project-form";
@@ -335,7 +336,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       if (kf) { if ("error" in kf) error = kf.error; else state.kindFeatures = kf.value; }
       const ot = typeof body["action"] === "string" && (body["action"] as string).startsWith("ot-") ? applyOutcomeTypeAction(state.outcomeTypes, state.frameworks.map((f) => f.id), [...new Set(state.outcomes.map((o) => o.outcomeTypeId ?? "").filter((x) => x !== ""))], body) : null;
       // The Beneficiary register (DECISIONS 163): the same pure rule the server uses.
-      const bn = typeof body["action"] === "string" && (body["action"] as string).startsWith("ben-") ? applyBeneficiaryAction(state.beneficiaries, body, (id) => heldByBeneficiary(state.enrolments, id)) : null;
+      const bn = typeof body["action"] === "string" && (body["action"] as string).startsWith("ben-") ? applyBeneficiaryAction(state.beneficiaries, body, (id) => heldByBeneficiary(state.enrolments, id), new Date().toISOString().slice(0, 10)) : null;
       if (bn) { if ("error" in bn) error = bn.error; else { state.beneficiaries = bn.value; if (bn.message) state.message = bn.message; } }
       // Enrolments (DECISIONS 167): the same pure rule the server uses. The type of each item says who it takes and who comes first.
       const names = new Map(view().flaggedItems.map((i) => [i.id, i.name]));
@@ -433,6 +434,13 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
           else if (r.error) error = r.error;
           else { state.projects = r.state.projects; state.nodes = r.state.nodes; state.outcomes = r.state.outcomes; state.partnerTypes = r.state.partnerTypes; state.partnerFields = r.state.partnerFields; state.giftProjects = r.state.giftProjects; if (r.warning) state.message = r.warning; }
         }
+      }
+      // Rule (DECISIONS 246): after a change to the register, enrolments or a project, complete records are admitted and the waiting list is enrolled while there is room. The same pure rule the server uses.
+      if (error === undefined) {
+        const poolNames = new Map(view().flaggedItems.map((i) => [i.id, i.name]));
+        const pool = settlePool({ giftProjects: state.giftProjects, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, poolNames.get(itemId) ?? ""), today: new Date().toISOString().slice(0, 10) }, state.beneficiaries, state.enrolments);
+        state.beneficiaries = pool.register; state.enrolments = pool.enrolments;
+        if (poolMessage(pool)) state.message = [state.message, poolMessage(pool)].filter((x) => x).join(" ");
       }
       // Rule (DECISIONS 105): every outcome and allocation has an ID, in the demo too.
       const refs = ensureRefs({ outcomes: state.outcomes, allocations: state.allocations, counters: state.idCounters }, state.outcomeTypes);
@@ -1744,13 +1752,13 @@ function renderBenWindow(error = "", draft?: Partial<Beneficiary>): void {
   if (!root) { root = document.createElement("div"); root.id = "ben-root"; document.body.appendChild(root); }
   const existing = state.beneficiaries.records.find((r) => r.id === w.id);
   const persons = state.beneficiaries.records.filter((r) => r.kind === "person");
-  putWindow(root, registerFormHtml(draft ?? existing ?? {}, w.id, existing?.kind ?? w.kind, persons, error, state.projects.map((p) => ({ id: p.id, name: p.name })), state.beneficiaries.records.filter((r) => r.kind === "household")));
+  putWindow(root, registerFormHtml(draft ?? existing ?? {}, w.id, existing?.kind ?? w.kind, persons, error, state.projects.map((p) => ({ id: p.id, name: p.name })), state.beneficiaries.records.filter((r) => r.kind === "household"), state.giftProjects.map((p) => ({ id: p.id, name: p.name })), existing ? standingOf(state.beneficiaries, state.enrolments, state.giftProjects, existing) : ""));
 }
 // What the window holds, as the fields of a request.
 function readBenWindow(): Record<string, unknown> {
   const val = (i: string) => (document.getElementById(i) as HTMLInputElement | null)?.value ?? "";
   return {
-    name: val("rg-name"), dob: val("rg-dob"), gender: val("rg-gender"), guardian: val("rg-guardian"), guardianRelation: val("rg-guardianrel"), placeOfBirth: val("rg-pob"), idNumber: val("rg-idnumber"), fatherStatus: val("rg-father"), motherStatus: val("rg-mother"), eligibility: val("rg-eligibility"), eligibilityNote: val("rg-eligibilitynote"), partnerId: val("rg-partner"), partnerRef: val("rg-partnerref"), area: val("rg-area"), notes: val("rg-notes"), size: val("rg-size"),
+    name: val("rg-name"), dob: val("rg-dob"), gender: val("rg-gender"), guardian: val("rg-guardian"), guardianRelation: val("rg-guardianrel"), placeOfBirth: val("rg-pob"), idNumber: val("rg-idnumber"), fatherStatus: val("rg-father"), motherStatus: val("rg-mother"), eligibility: val("rg-eligibility"), eligibilityNote: val("rg-eligibilitynote"), partnerId: val("rg-partner"), partnerRef: val("rg-partnerref"), targetProjectId: val("rg-target"), area: val("rg-area"), notes: val("rg-notes"), size: val("rg-size"),
     memberIds: [...document.querySelectorAll<HTMLInputElement>(".rg-member:checked")].map((c) => c.value),
     allowSimilar: (document.getElementById("rg-different") as HTMLInputElement | null)?.checked === true,
   };

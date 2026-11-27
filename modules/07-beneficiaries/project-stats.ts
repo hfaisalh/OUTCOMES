@@ -1,7 +1,7 @@
 /**
  * project-stats.ts
  *
- * What it does: the figures of one project for the Projects list (DECISIONS 245): the people enrolled in it, its clusters, the places in its top clusters and how many are taken and vacant, and the roles it needs.
+ * What it does: the figures of one project for the Projects list (DECISIONS 245): the people enrolled in it, its clusters, the capacity of its top clusters and how many are enrolled and vacant, who is waiting, and the roles it needs.
  * Who calls it: app/projects-page.ts. Depends on: the project and cluster types (module 6) and the enrolment rules (activeIn). Pure: no database, no page, so it can be ported (CLAUDE.md rule 4).
  *
  * Rules:
@@ -12,7 +12,9 @@
  */
 import { clusterStateOf } from "../06-projects/clusters.js";
 import type { GiftProject } from "../06-projects/projects.js";
+import type { Register } from "./beneficiaries.js";
 import { activeIn, type Enrolments } from "./enrolments.js";
+import { poolOf } from "./waiting.js";
 
 export interface ProjectStats {
   beneficiaries: number; // distinct people or households with an active enrolment in the project
@@ -20,13 +22,16 @@ export interface ProjectStats {
   capacity: number | undefined; // places in the top clusters that have a capacity, undefined when none has
   taken: number;
   vacant: number | undefined;
+  waiting: number; // ready and meant for this project, in line for a vacancy (DECISIONS 246)
+  review: number; // meant for this project, but a person has to look at the record first
   roles: number; // roles the clusters need, added up
   benefits: number; // benefits it offers, 0 meaning any
   partners: number;
   setup: "ready" | "automatic" | "no-partner"; // what needs doing, if anything
 }
 
-export function projectStats(g: GiftProject, enr: Enrolments): ProjectStats {
+export function projectStats(g: GiftProject, enr: Enrolments, reg?: Register): ProjectStats {
+  const pool = reg ? poolOf(reg, enr, g.id) : { waiting: [], review: [] };
   const state = clusterStateOf(g.levels, g.clusters);
   const live = state.clusters.filter((c) => c.status === "active");
   const tops = live.filter((c) => c.parentId === "" && c.capacity !== undefined);
@@ -42,6 +47,8 @@ export function projectStats(g: GiftProject, enr: Enrolments): ProjectStats {
     capacity: tops.length > 0 ? tops.reduce((n, t) => n + (t.capacity as number), 0) : undefined,
     taken,
     vacant: tops.length > 0 ? vacant : undefined,
+    waiting: pool.waiting.length,
+    review: pool.review.length,
     roles: live.reduce((n, c) => n + (c.roles?.length ?? 0), 0),
     benefits: (g.itemIds ?? []).length,
     partners: g.partnerIds.length,

@@ -37,6 +37,7 @@ export interface Enrolment {
   since: string; // YYYY-MM-DD
   endedOn?: string;
   sample?: true; // made by the sample setup (DECISIONS 168)
+  auto?: true; // enrolled by itself from the waiting list (DECISIONS 246)
 }
 export interface Enrolments { records: Enrolment[]; counter: number }
 export const emptyEnrolments = (): Enrolments => ({ records: [], counter: 0 });

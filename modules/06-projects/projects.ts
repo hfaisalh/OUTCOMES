@@ -819,6 +819,7 @@ export interface GiftProject {
   sample?: true; // made by the sample setup (DECISIONS 168), so it can be removed again
   sampleAttached?: { partnerIds: string[]; clusters: boolean }; // a real project the sample setup gave partners (and clusters, when `clusters` is true) to (DECISIONS 169, 171). Removing the sample takes those off again and leaves the rest
   auto?: true; // made automatically from the project name a gift carried, and not changed by a person since (DECISIONS 155)
+  enrolAuto?: true; // the next in line on its waiting list is enrolled by itself whenever there is room (DECISIONS 246)
   itemIds?: string[]; // the benefits (gift items) it offers. Absent or empty means any item (DECISIONS 154)
   notes?: string;
 }
@@ -843,7 +844,8 @@ export function saveGiftProject(gps: GiftProject[], partners: Project[], raw: Re
   const partnerIds = [...new Set((Array.isArray(raw["partnerIds"]) ? raw["partnerIds"] : []).filter((x): x is string => typeof x === "string" && partners.some((p) => p.id === x)))];
   const notes = text(raw["notes"], 1000);
   const itemIds = [...new Set((Array.isArray(raw["itemIds"]) ? raw["itemIds"] : []).filter((x): x is string => typeof x === "string" && x !== "").map((x) => x.slice(0, 100)))].slice(0, 1000);
-  const gp: GiftProject = { id: existing?.id ?? uniqueId(name, new Set(gps.map((g) => g.id))), name, crmName, crmNames: existing?.crmNames ?? [], partnerIds, ...(itemIds.length ? { itemIds } : {}), ...(existing?.levels ? { levels: existing.levels } : {}), ...(existing?.clusters ? { clusters: existing.clusters } : {}), ...(notes !== "" ? { notes } : {}) }; // saving the details keeps its clusters
+  const enrolAuto = raw["enrolAuto"] === undefined ? existing?.enrolAuto === true : raw["enrolAuto"] === true; // a request that does not mention it keeps what the project has
+  const gp: GiftProject = { id: existing?.id ?? uniqueId(name, new Set(gps.map((g) => g.id))), name, crmName, crmNames: existing?.crmNames ?? [], partnerIds, ...(enrolAuto ? { enrolAuto: true as const } : {}), ...(itemIds.length ? { itemIds } : {}), ...(existing?.levels ? { levels: existing.levels } : {}), ...(existing?.clusters ? { clusters: existing.clusters } : {}), ...(notes !== "" ? { notes } : {}) }; // saving the details keeps its clusters
   return { value: existing ? gps.map((g) => (g.id === gp.id ? gp : g)) : [...gps, gp] };
 }
 

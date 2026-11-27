@@ -187,6 +187,12 @@ describe("the beneficiary window", () => {
     expect(html).not.toContain('data-bn="remove"');
     expect(html).toContain("Contact details, health records, fingerprints and documents are not kept here");
   });
+  it("lets a person be meant for a project, and says where they stand in the line (DECISIONS 246)", () => {
+    const html = registerFormHtml({ targetProjectId: "p1" }, "PRS-0001", "person", [], "", [], [], [{ id: "p1", name: "Aghosh" }], "Waiting for Aghosh: 2 of 5 in line (first in, first out).");
+    expect(html).toMatch(/id="rg-target">.*<option value="p1" selected>Aghosh<\/option>/s);
+    expect(html).toContain("2 of 5 in line");
+    expect(registerFormHtml({}, "", "household", [], "", [], [], [{ id: "p1", name: "Aghosh" }])).not.toContain('id="rg-target"'); // a household has no target
+  });
   it("offers the partners a record may come from, and the admission decisions, and shows them selected", () => {
     const html = registerFormHtml({ partnerId: "al-noor", partnerRef: "AN-77", eligibility: "review", fatherStatus: "deceased" }, "PRS-0001", "person", [], "", [{ id: "al-noor", name: "Al-Noor" }, { id: "other", name: "Other" }]);
     expect(html).toContain('<option value="al-noor" selected>Al-Noor</option>');

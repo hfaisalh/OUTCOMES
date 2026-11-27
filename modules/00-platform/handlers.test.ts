@@ -674,3 +674,27 @@ describe("change log (DECISIONS 235)", () => {
   });
 });
 
+describe("the waiting list enrols by itself (DECISIONS 246)", () => {
+  it("enrols a complete record at once, keeps the next one waiting when the project is full, and enrols it when room opens", async () => {
+    const cookie = await signIn(d);
+    const post = (body: unknown) => handleOutcomes(as(cookie, { method: "POST", body }), d);
+    const get = async () => (await handleOutcomes(as(cookie), d)).body as { beneficiaries: { records: { id: string; name: string; eligibility: string }[] }; enrolments: { records: { id: string; beneficiaryId: string; status: string; auto?: boolean }[] } };
+    await post({ action: "save-gift-project", giftProjectId: "", profile: { name: "Auto Home", itemIds: ["I1"], enrolAuto: true } });
+    const gp = ((await handleOutcomes(as(cookie), d)).body as { giftProjects: { id: string; name: string }[] }).giftProjects.find((g) => g.name === "Auto Home")!.id;
+    await post({ action: "cluster-add", giftProjectId: gp, name: "Home", parentId: "", capacity: 1 });
+    const child = (name: string, id: string) => post({ action: "ben-add", kind: "person", name, dob: "2016-05-05", guardian: "Mother", idNumber: id, targetProjectId: gp });
+    const first = await child("First Child", "B-1");
+    expect((first.body as { warning?: string }).warning).toBe("1 enrolled automatically from the waiting list.");
+    await child("Second Child", "B-2");
+    let now = await get();
+    expect(now.enrolments.records.filter((e) => e.status === "active")).toHaveLength(1); // full: the second waits
+    expect(now.beneficiaries.records.find((b) => b.name === "Second Child")!.eligibility).toBe("ready"); // admitted by itself
+    const ended = await post({ action: "enr-end", id: now.enrolments.records[0]!.id });
+    expect((ended.body as { warning?: string }).warning).toBe("1 enrolled automatically from the waiting list.");
+    now = await get();
+    const active = now.enrolments.records.filter((e) => e.status === "active");
+    expect(active).toHaveLength(1);
+    expect(now.beneficiaries.records.find((b) => b.id === active[0]!.beneficiaryId)!.name).toBe("Second Child");
+    expect(active[0]!.auto).toBe(true);
+  });
+});

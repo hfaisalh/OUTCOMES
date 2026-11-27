@@ -27,6 +27,7 @@ import { changesBetween } from "./change-log.js";
 import { progressContext } from "../12-progress/context.js";
 import { batchSizeOf } from "../08-assignment/batches.js";
 import { loadSampleSetup, realProjectsFor, wholeByItem, type SampleState, removeSampleSetup, sampleSummaryText, removedSummaryText } from "../07-beneficiaries/sample-setup.js";
+import { poolMessage, settlePool } from "../07-beneficiaries/waiting.js";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf } from "../07-beneficiaries/enrolments.js";
 import { json, need, text, type Deps, type HttpRequest, type HttpResponse } from "./http.js";
 
@@ -89,6 +90,16 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     };
     // Rule (DECISIONS 231): a partner holding a parked outcome ready for the gift's benefit is confirmed for. Run after anything that changes assignments or stock.
     const settleConfirmations = (): void => { confirmations = confirmOnBehalf(confirmations, assignments.records, placements.stock ?? [], placements.records, at).value; };
+
+    // Rule (DECISIONS 246): after any change to the register, enrolments or a project, admission is decided for complete records and the waiting list is enrolled while there is room. Returns the line to show, or "".
+    let poolTouched = false; // true once the pool rule changed anything, so a project save that did not touch it leaves the register's saved shape alone
+    const settlePoolNow = async (): Promise<string> => {
+      const names = new Map((await d.store.listWorkOrders(org)).map((w) => [w.itemId, w.itemName]));
+      const r = settlePool({ giftProjects, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), today: at.slice(0, 10) }, beneficiaries, enrolments);
+      poolTouched = poolTouched || r.register !== beneficiaries || r.enrolments !== enrolments;
+      beneficiaries = r.register; enrolments = r.enrolments;
+      return poolMessage(r);
+    };
 
     // The icon chosen for an item (DECISIONS 107). An empty icon takes the choice back, so the name's suggestion shows again.
     if (b["action"] === "item-icon") {
@@ -191,12 +202,14 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     }
     // The Beneficiary register (DECISIONS 163) and enrolments (DECISIONS 167): the same pure rules the demo uses. A beneficiary that is enrolled cannot be removed.
     if (typeof b["action"] === "string" && b["action"].startsWith("ben-")) {
-      const r = applyBeneficiaryAction(beneficiaries, b, (id) => heldByBeneficiary(enrolments, id));
+      const r = applyBeneficiaryAction(beneficiaries, b, (id) => heldByBeneficiary(enrolments, id), at.slice(0, 10));
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
       beneficiaries = r.value;
-      await save({ ...config, beneficiaries });
-      return reply(r.message ? { warning: r.message } : {});
+      const pooled = await settlePoolNow();
+      await save({ ...config, beneficiaries, enrolments });
+      const say = [r.message, pooled].filter((x) => x).join(" ");
+      return reply(say ? { warning: say } : {});
     }
     if (typeof b["action"] === "string" && b["action"].startsWith("enr-")) {
       const names = new Map((await d.store.listWorkOrders(org)).map((w) => [w.itemId, w.itemName]));
@@ -204,8 +217,9 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
       enrolments = r.value;
-      await save({ ...config, enrolments });
-      return reply();
+      const pooled = await settlePoolNow(); // an enrolment that ended may have opened room
+      await save({ ...config, beneficiaries, enrolments });
+      return reply(pooled ? { warning: pooled } : {});
     }
     // The units that make one whole beneficiary of an item (DECISIONS 188). An empty number takes the item's own back, so its workflow's applies.
     if (b["action"] === "item-units") {
@@ -332,10 +346,12 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
         if (r.error) return fail(r.error);
         ({ projects, nodes, outcomes, partnerTypes, partnerFields, giftProjects } = r.state);
         if (r.warning) extra = { warning: r.warning };
+        const pooled = await settlePoolNow(); // a bigger capacity, a new cluster or "Enrol automatically" may have opened room
+        if (pooled) extra = { ...extra, warning: [extra["warning"], pooled].filter((x) => x).join(" ") };
       }
     }
     settle();
-    await save({ ...config, outcomes, allocations, projects, giftProjects, nodes, graceDays, releaseLog, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters });
+    await save({ ...config, outcomes, allocations, projects, giftProjects, nodes, graceDays, releaseLog, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, ...(poolTouched ? { beneficiaries, enrolments } : {}) });
   } else if (settle()) {
     await d.store.putConfig(org, { ...config, outcomes, allocations, outcomeTypes, idCounters }); // a read that only gives older records their IDs: not one of the logged parts
   }

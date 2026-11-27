@@ -48,6 +48,8 @@ export interface Beneficiary {
   partnerId: string; // the partner that gave this record, "" when none
   partnerRef: string; // the partner's own ID for it, so their records and ours can be matched
   sample?: true; // made by the sample setup (DECISIONS 168), so it can be removed again
+  targetProjectId?: string; // person: the project they are meant for. With it, admission is decided by completeness and they join the project's waiting list (DECISIONS 246)
+  registeredOn?: string; // YYYY-MM-DD, when they were put in the register: the order of the waiting list
   memberIds: string[]; // household: the persons in it
   size?: number; // household: how many people, when the persons are not listed
 }
@@ -100,7 +102,7 @@ export function findDuplicates(reg: Register, c: { kind: BeneficiaryKind; name: 
 
 const describe = (r: Beneficiary): string => `${r.name} (${r.id}${r.kind === "person" ? (r.dob ? `, born ${r.dob}` : "") + (r.idNumber ? `, ID ${r.idNumber}` : "") : r.area ? `, ${r.area}` : ""})`;
 
-interface Fields { name: unknown; dob?: unknown; gender?: unknown; guardian?: unknown; guardianRelation?: unknown; placeOfBirth?: unknown; idNumber?: unknown; fatherStatus?: unknown; motherStatus?: unknown; eligibility?: unknown; eligibilityNote?: unknown; partnerId?: unknown; partnerRef?: unknown; area?: unknown; notes?: unknown; memberIds?: unknown; size?: unknown }
+interface Fields { name: unknown; dob?: unknown; gender?: unknown; guardian?: unknown; guardianRelation?: unknown; placeOfBirth?: unknown; idNumber?: unknown; fatherStatus?: unknown; motherStatus?: unknown; eligibility?: unknown; eligibilityNote?: unknown; partnerId?: unknown; partnerRef?: unknown; targetProjectId?: unknown; area?: unknown; notes?: unknown; memberIds?: unknown; size?: unknown }
 
 // Checks the fields for a kind and returns the record's details (without ID and status), or an error.
 function readFields(reg: Register, kind: BeneficiaryKind, f: Fields, selfId: string): Omit<Beneficiary, "id" | "kind" | "status"> | { error: string } {
@@ -136,7 +138,7 @@ function readFields(reg: Register, kind: BeneficiaryKind, f: Fields, selfId: str
   return {
     name, area: clean(f.area).slice(0, 120), notes: clean(f.notes).slice(0, 500), dob, gender: (kind === "person" ? gender : "") as Gender, guardian: mine(f.guardian, 80), guardianRelation: mine(f.guardianRelation, 40),
     placeOfBirth: mine(f.placeOfBirth, 80), idNumber: kind === "person" ? clean(f.idNumber).replace(/\s+/g, "").slice(0, 30) : "", fatherStatus: kind === "person" ? father : "", motherStatus: kind === "person" ? mother : "",
-    eligibility: (kind === "person" ? eligibility : "") as Eligibility, eligibilityNote: mine(f.eligibilityNote, 200), partnerId: clean(f.partnerId).slice(0, 80), partnerRef: clean(f.partnerRef).slice(0, 60), memberIds, ...(size !== undefined ? { size } : {}),
+    eligibility: (kind === "person" ? eligibility : "") as Eligibility, eligibilityNote: mine(f.eligibilityNote, 200), partnerId: clean(f.partnerId).slice(0, 80), partnerRef: clean(f.partnerRef).slice(0, 60), targetProjectId: kind === "person" ? clean(f.targetProjectId).slice(0, 80) : "", memberIds, ...(size !== undefined ? { size } : {}),
   };
 }
 
@@ -161,7 +163,7 @@ function moveMembers(records: Beneficiary[], householdId: string, memberIds: str
   return moved.length ? { records: next, message: `Moved ${moved.join(", ")}.` } : { records: next };
 }
 
-export function addBeneficiary(reg: Register, kind: BeneficiaryKind, f: Fields, allowSimilar = false): Result {
+export function addBeneficiary(reg: Register, kind: BeneficiaryKind, f: Fields, allowSimilar = false, today = ""): Result {
   if (kind !== "person" && kind !== "household") return { error: "Choose person or household." };
   const d = readFields(reg, kind, f, "");
   if ("error" in d) return d;
@@ -171,11 +173,11 @@ export function addBeneficiary(reg: Register, kind: BeneficiaryKind, f: Fields, 
   const next = Math.max(reg.counters[prefix] ?? 0, ...reg.records.filter((r) => r.id.startsWith(`${prefix}-`)).map((r) => Number(r.id.slice(prefix.length + 1)) || 0)) + 1;
   const id = `${prefix}-${String(next).padStart(4, "0")}`;
   const moved = moveMembers(reg.records, id, d.memberIds);
-  return { value: { records: [...moved.records, { id, kind, status: "active", ...d }], counters: { ...reg.counters, [prefix]: next } }, id, ...(moved.message ? { message: moved.message } : {}) };
+  return { value: { records: [...moved.records, { id, kind, status: "active", ...d, ...(today !== "" ? { registeredOn: today } : {}) }], counters: { ...reg.counters, [prefix]: next } }, id, ...(moved.message ? { message: moved.message } : {}) };
 }
 
 // Rule: a record's kind and ID never change. Everything else can, and the duplicate check runs again.
-export function setBeneficiary(reg: Register, id: string, f: Fields & { status?: unknown }, allowSimilar = false): Result {
+export function setBeneficiary(reg: Register, id: string, f: Fields & { status?: unknown }, allowSimilar = false, today = ""): Result {
   const r = reg.records.find((x) => x.id === id);
   if (!r) return { error: "That beneficiary was not found." };
   const status = f.status === undefined ? r.status : f.status;
@@ -184,8 +186,12 @@ export function setBeneficiary(reg: Register, id: string, f: Fields & { status?:
   if ("error" in d) return d;
   const dup = duplicateError(reg, r.kind, d, id, allowSimilar);
   if (dup !== "") return { error: dup };
-  const moved = moveMembers(reg.records, id, d.memberIds);
-  return { value: { ...reg, records: moved.records.map((x) => (x.id === id ? { ...x, ...d, status } : x)) }, id, ...(moved.message ? { message: moved.message } : {}) };
+  // Rule (DECISIONS 246): a person who changes an automatic decision owns it from then on, so it is not worked out again over theirs.
+  const mine = d.eligibility !== (r.eligibility ?? "") && d.eligibilityNote === (r.eligibilityNote ?? "") && (r.eligibilityNote ?? "").startsWith("Automatic: ") ? { ...d, eligibilityNote: "Decided by a person" } : d;
+  // Rule: the date registered is set once, when a person first has a project to wait for.
+  const registeredOn = r.registeredOn ?? (today !== "" ? today : undefined);
+  const moved = moveMembers(reg.records, id, mine.memberIds);
+  return { value: { ...reg, records: moved.records.map((x) => (x.id === id ? { ...x, ...mine, status, ...(registeredOn !== undefined ? { registeredOn } : {}) } : x)) }, id, ...(moved.message ? { message: moved.message } : {}) };
 }
 
 // Rule: a person in a household cannot be removed until taken out of it, and one that is enrolled (held) cannot be removed at all. The ID stays used.
@@ -216,13 +222,13 @@ export const householdCount = (h: Beneficiary): number => (h.memberIds.length > 
  * The requests the page makes on the register, applied by one pure function so the server and the demo behave the same.
  * Returns null for a request that is not about the register. `held` says how many times a record is enrolled (none until enrolment is built).
  */
-export function applyBeneficiaryAction(reg: Register, body: Record<string, unknown>, held: (id: string) => number = () => 0): Result | null {
+export function applyBeneficiaryAction(reg: Register, body: Record<string, unknown>, held: (id: string) => number = () => 0, today = ""): Result | null {
   const str = (k: string) => (typeof body[k] === "string" ? (body[k] as string) : "");
-  const fields: Fields = { name: body["name"], dob: body["dob"], gender: body["gender"], guardian: body["guardian"], guardianRelation: body["guardianRelation"], placeOfBirth: body["placeOfBirth"], idNumber: body["idNumber"], fatherStatus: body["fatherStatus"], motherStatus: body["motherStatus"], eligibility: body["eligibility"], eligibilityNote: body["eligibilityNote"], partnerId: body["partnerId"], partnerRef: body["partnerRef"], area: body["area"], notes: body["notes"], memberIds: body["memberIds"], size: body["size"] };
+  const fields: Fields = { name: body["name"], dob: body["dob"], gender: body["gender"], guardian: body["guardian"], guardianRelation: body["guardianRelation"], placeOfBirth: body["placeOfBirth"], idNumber: body["idNumber"], fatherStatus: body["fatherStatus"], motherStatus: body["motherStatus"], eligibility: body["eligibility"], eligibilityNote: body["eligibilityNote"], partnerId: body["partnerId"], partnerRef: body["partnerRef"], targetProjectId: body["targetProjectId"], area: body["area"], notes: body["notes"], memberIds: body["memberIds"], size: body["size"] };
   const allow = body["allowSimilar"] === true;
   switch (body["action"]) {
-    case "ben-add": return addBeneficiary(reg, str("kind") as BeneficiaryKind, fields, allow);
-    case "ben-set": return setBeneficiary(reg, str("id"), { ...fields, status: str("status") || undefined }, allow);
+    case "ben-add": return addBeneficiary(reg, str("kind") as BeneficiaryKind, fields, allow, today);
+    case "ben-set": return setBeneficiary(reg, str("id"), { ...fields, status: str("status") || undefined }, allow, today);
     case "ben-remove": return removeBeneficiary(reg, str("id"), held(str("id")));
     default: return null;
   }
