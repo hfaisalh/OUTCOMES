@@ -42,6 +42,14 @@ describe("adaptExports", () => {
     expect(rows.every((r) => r["currency"] === "")).toBe(true); // unknown: left blank
   });
 
+  it("carries the donor's tribute from the Tribute column, trimmed, and leaves it blank when the export has none (DECISIONS 247)", () => {
+    const lines = load("export-donation-lines-sample.csv").map((r, i) => (i === 0 ? { ...r, Tribute: "  In loving memory of Hajra Begum " } : r));
+    const rows = adaptExports(lines, load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), load("export-catalogue-prices-sample.csv")).rows;
+    expect(rows[0]!["tribute"]).toBe("In loving memory of Hajra Begum");
+    expect(readFeed(rows.slice(0, 1), MWF_CRM_CONFIG).lines[0]?.tribute).toBe("In loving memory of Hajra Begum");
+    expect(byLine("9001")["tribute"]).toBe(""); // the sample export has no Tribute column
+  });
+
   it("keeps the CRM's line total beside the unit price, never working it out (DECISIONS 83)", () => {
     expect(byLine("9004")["amount"]).toBe("20"); // the price of one unit
     expect(byLine("9004")["quantity"]).toBe("2");

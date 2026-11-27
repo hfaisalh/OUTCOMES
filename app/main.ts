@@ -1758,7 +1758,7 @@ function renderBenWindow(error = "", draft?: Partial<Beneficiary>): void {
 function readBenWindow(): Record<string, unknown> {
   const val = (i: string) => (document.getElementById(i) as HTMLInputElement | null)?.value ?? "";
   return {
-    name: val("rg-name"), dob: val("rg-dob"), gender: val("rg-gender"), guardian: val("rg-guardian"), guardianRelation: val("rg-guardianrel"), placeOfBirth: val("rg-pob"), idNumber: val("rg-idnumber"), fatherStatus: val("rg-father"), motherStatus: val("rg-mother"), eligibility: val("rg-eligibility"), eligibilityNote: val("rg-eligibilitynote"), partnerId: val("rg-partner"), partnerRef: val("rg-partnerref"), targetProjectId: val("rg-target"), area: val("rg-area"), notes: val("rg-notes"), size: val("rg-size"),
+    name: val("rg-name"), dob: val("rg-dob"), gender: val("rg-gender"), guardian: val("rg-guardian"), guardianRelation: val("rg-guardianrel"), placeOfBirth: val("rg-pob"), idNumber: val("rg-idnumber"), fatherStatus: val("rg-father"), motherStatus: val("rg-mother"), eligibility: val("rg-eligibility"), eligibilityNote: val("rg-eligibilitynote"), partnerId: val("rg-partner"), partnerRef: val("rg-partnerref"), targetProjectId: val("rg-target"), priority: (document.getElementById("rg-priority") as HTMLInputElement | null)?.checked === true, priorityNote: val("rg-prioritynote"), area: val("rg-area"), notes: val("rg-notes"), size: val("rg-size"),
     memberIds: [...document.querySelectorAll<HTMLInputElement>(".rg-member:checked")].map((c) => c.value),
     allowSimilar: (document.getElementById("rg-different") as HTMLInputElement | null)?.checked === true,
   };

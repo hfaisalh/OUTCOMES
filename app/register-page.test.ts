@@ -193,6 +193,12 @@ describe("the beneficiary window", () => {
     expect(html).toContain("2 of 5 in line");
     expect(registerFormHtml({}, "", "household", [], "", [], [], [{ id: "p1", name: "Aghosh" }])).not.toContain('id="rg-target"'); // a household has no target
   });
+  it("has a Priority switch with a reason, ticked when the person has priority (DECISIONS 247)", () => {
+    const on = registerFormHtml({ priority: true, priorityNote: "Both parents deceased" }, "PRS-0001", "person", []);
+    expect(on).toMatch(/id="rg-priority" checked/);
+    expect(on).toContain('value="Both parents deceased"');
+    expect(registerFormHtml({}, "", "person", [])).not.toMatch(/id="rg-priority" checked/);
+  });
   it("offers the partners a record may come from, and the admission decisions, and shows them selected", () => {
     const html = registerFormHtml({ partnerId: "al-noor", partnerRef: "AN-77", eligibility: "review", fatherStatus: "deceased" }, "PRS-0001", "person", [], "", [{ id: "al-noor", name: "Al-Noor" }, { id: "other", name: "Other" }]);
     expect(html).toContain('<option value="al-noor" selected>Al-Noor</option>');

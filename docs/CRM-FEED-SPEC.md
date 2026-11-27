@@ -27,6 +27,7 @@ Paid lines only is not required: OUTCOMES filters by status itself. Send all lin
 | `line_total` | Optional. What the whole line cost (the CRM's Total Amount). When present it is shown as the value, otherwise `amount` x `quantity` is | Decision 82 |
 | `currency` | Optional. The currency code of the amount, for example GBP. Shown beside values, never used in a rule | Decision 80 |
 | `project_name` | Optional. The project the donor chose on the line, as the CRM names it (for example "Aghosh"). Blank or "Where Needed Most" means a general gift that can go to any project. Matched to an OUTCOMES project by name or alias | Decision 66 |
+| `tribute` | Optional. The donor's tribute or dedication for the gift (for example "In loving memory of Hajra Begum"), up to 500 characters. For an outcome with a plaque it is what the plaque says, and the partner needs it to carry out the work order. Later it may also appear in donor reports as a prayer for the tribute | Decision 247 |
 | `cause` | Optional. The cause the gift was given to (for example Water for All, Orphan Care). Shown beside gifts that have no named project | Decision 109 |
 | `custom_amount` | Optional. `1` when the line is of the CRM's Custom Amount item (the donor chose the amount). Such gifts are allocated by hand | Decision 129 |
 | `period_count` | Optional. For a one-off line: the months it covers, which is the item's instalment plan length (for example 12). Blank or missing means one period. Ignored on recurring lines | Decision 64 |

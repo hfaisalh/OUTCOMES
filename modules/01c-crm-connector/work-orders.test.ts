@@ -31,6 +31,14 @@ describe("planWorkOrders", () => {
     expect([w.subscriptionId, w.instalmentNumber, w.instalmentCount]).toEqual(["S50", "1", "12"]);
   });
 
+  it("carries the tribute onto the work order, and adds one that arrives on a later feed (DECISIONS 247)", () => {
+    const withTribute = feed.map((l) => (l.lineId === "L001" ? { ...l, tribute: "In memory of Hajra Begum" } : l));
+    expect(planWorkOrders(withTribute, [], options).created.find((w) => w.lineId === "L001")?.tribute).toBe("In memory of Hajra Begum");
+    expect(plan.created.find((w) => w.lineId === "L001")?.tribute).toBeUndefined(); // none sent, none kept
+    const later = planWorkOrders(withTribute, plan.created, options);
+    expect([...later.updated, ...later.unchanged].find((w) => w.lineId === "L001")?.tribute).toBe("In memory of Hajra Begum"); // a tribute added in the CRM after the first import is picked up
+  });
+
   it("is idempotent: the same feed again creates nothing", () => {
     const again = planWorkOrders(feed, plan.created, options);
     expect(again.created).toEqual([]);

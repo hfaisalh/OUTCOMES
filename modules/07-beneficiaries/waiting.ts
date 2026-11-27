@@ -9,6 +9,7 @@
  * Rules:
  * - Rule: admission by completeness. A person who has a target project and no decision yet is marked Ready when the date of birth, the guardian and the ID number are all given, and Needs review (with what is missing) when not.
  *   An automatic decision carries the note "Automatic: ..." and is worked out again when the record changes. A decision a person made (any other note, or Declined) is never changed here.
+ * - Rule: priority (DECISIONS 247). A person marked Priority goes ahead of everyone who is not, and between people with priority it is first come, first served. A priority person still needs a complete record (Ready) first.
  * - Rule: the waiting list of a project is the active persons who are Ready, have that project as their target, and have never been enrolled in it. First in, first out: by the date registered, then by ID (IDs only go up).
  * - Rule: a project with "Enrol automatically" on enrols the next in line whenever it has room, into the top cluster with the most vacancies, for the first benefit of the project that takes a person.
  *   A project with no benefits listed, or no active cluster, enrols no one by itself. Capacity is still checked by the enrolment rule itself (enrol), so this module cannot overfill a cluster.
@@ -55,8 +56,8 @@ export function autoAdmit(reg: Register): Register {
 // Rule: someone who has ever been enrolled in the project (even if it has ended) is not waiting for it: leaving does not put a child back in the queue.
 const enrolledIn = (enr: Enrolments, projectId: string): Set<string> => new Set(enr.records.filter((e) => e.giftProjectId === projectId).map((e) => e.beneficiaryId));
 
-// First in, first out: the date registered, then the ID.
-const byArrival = (a: Beneficiary, b: Beneficiary): number => (a.registeredOn ?? "").localeCompare(b.registeredOn ?? "") || a.id.localeCompare(b.id);
+// Priority first, then first in, first out between people of the same standing: the date registered, then the ID.
+const byArrival = (a: Beneficiary, b: Beneficiary): number => Number(b.priority === true) - Number(a.priority === true) || (a.registeredOn ?? "").localeCompare(b.registeredOn ?? "") || a.id.localeCompare(b.id);
 
 export interface Pool { waiting: Beneficiary[]; review: Beneficiary[] }
 
@@ -123,6 +124,6 @@ export function standingOf(reg: Register, enr: Enrolments, giftProjects: GiftPro
   if (mine.length > 0) return `Was enrolled in ${name}.`;
   if (b.eligibility === "declined") return `Cannot be offered a place in ${name}.`;
   const pos = positionOf(reg, enr, b);
-  if (pos) return `Waiting for ${name}: ${pos.position} of ${pos.of} in line (first in, first out).`;
+  if (pos) return `Waiting for ${name}: ${pos.position} of ${pos.of} in line (${b.priority ? "priority, then first come first served" : "first in, first out"}).`;
   return `Waiting for ${name}, but a person has to look at the record first${b.eligibilityNote ? ` (${b.eligibilityNote.replace(AUTO_NOTE, "").trim()})` : ""}.`;
 }

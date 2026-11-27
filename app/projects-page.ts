@@ -57,7 +57,7 @@ export function projectsPage(v: View): string {
       <td class="num">${x.gifts}</td><td class="num">${s.beneficiaries}</td><td class="num">${s.clusters || dash}</td>
       <td class="num" title="${esc(benefitNames.length ? benefitNames.join(", ") : "Any benefit")}">${s.benefits === 0 ? '<span class="muted">Any</span>' : s.benefits}</td>
       <td class="num" title="${esc(g.partnerIds.map((id, n) => `${n + 1}. ${partnerName(id)}`).join("\n"))}">${s.partners || dash}</td>
-      <td class="num">${s.capacity ?? dash}</td><td class="num${s.vacant === 0 ? " full" : ""}" title="${s.capacity === undefined ? "No capacity set on its clusters" : `${s.taken} of ${s.capacity} enrolled`}">${s.vacant ?? dash}</td><td class="num" title="${esc(s.review ? `${s.waiting} ready and waiting for a vacancy, first in first out. ${s.review} more need a person to look at the record.` : `${s.waiting} ready and waiting for a vacancy, first in first out.`)}">${s.waiting || dash}</td><td class="num">${s.roles || dash}</td></tr>`;
+      <td class="num">${s.capacity ?? dash}</td><td class="num${s.vacant === 0 ? " full" : ""}" title="${s.capacity === undefined ? "No capacity set on its clusters" : `${s.taken} of ${s.capacity} enrolled`}">${s.vacant ?? dash}</td><td class="num" title="${esc(s.review ? `${s.waiting} ready and waiting for a vacancy, priority first then first in first out. ${s.review} more need a person to look at the record.` : `${s.waiting} ready and waiting for a vacancy, priority first then first in first out.`)}">${s.waiting || dash}</td><td class="num">${s.roles || dash}</td></tr>`;
   };
   const shown = all.filter((x) => matches(x.s, filter));
   const table = gps.length

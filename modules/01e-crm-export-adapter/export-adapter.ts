@@ -295,6 +295,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
       cause: pick(r, "Cause"), // the cause the gift was given to, shown when there is no named project (DECISIONS 109)
       custom_amount: customItems.has(pick(r, "Item Code")) ? "1" : "", // the donor chose the amount (DECISIONS 129)
       period_count: !recurring ? (planLength.get(`${code}|${bundleName}`) ?? "") : "", // months a one-off covers
+      tribute: pick(r, "Tribute"), // the donor's tribute or dedication, for the outcome's plaque (DECISIONS 247)
       intention: pick(r, "Intention"),
     });
   }

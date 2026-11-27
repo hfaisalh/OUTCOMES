@@ -31,7 +31,9 @@ export function registerFormHtml(rec: Partial<Beneficiary>, id: string, kind: Be
   const family = card("Family", `${parent("rg-father", "Father", rec.fatherStatus)}${parent("rg-mother", "Mother", rec.motherStatus)}
     ${input("rg-guardian", "Parent or guardian", rec.guardian ?? "")}${input("rg-guardianrel", "Guardian's relation to the child", rec.guardianRelation ?? "", ' placeholder="For example mother, uncle"')}`);
   const admission = card("Admission", `<label>Decision<select id="rg-eligibility">${(["", "ready", "review", "declined"] as Eligibility[]).map((e) => `<option value="${e}"${(rec.eligibility ?? "") === e ? " selected" : ""}>${esc(ELIGIBILITY_LABEL[e])}</option>`).join("")}</select></label>
-    ${input("rg-eligibilitynote", "Reason for the decision", rec.eligibilityNote ?? "")}`);
+    ${input("rg-eligibilitynote", "Reason for the decision", rec.eligibilityNote ?? "")}
+    <label class="w tick"><input type="checkbox" id="rg-priority"${rec.priority ? " checked" : ""}> Priority: go to the front of the waiting list</label>
+    ${input("rg-prioritynote", "Why they have priority", rec.priorityNote ?? "", ' placeholder="For example both parents deceased"', true)}`);
   // --- Cards of a household ---
   const householdIdentity = card("Household", `${input("rg-name", "Family or household name", rec.name ?? "", "", true)}${input("rg-size", "Number of people (if the persons are not listed)", rec.size === undefined ? "" : String(rec.size), ' type="number" min="1" max="60"', true)}`);
   const membersCard = `<section class="gw-card rg-card"><h3>Persons in this household</h3>${pickerHtml(persons, [...members], households, id)}</section>`;

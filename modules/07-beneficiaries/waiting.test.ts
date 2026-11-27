@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { addBeneficiary, setBeneficiary, emptyRegister, type Register } from "./beneficiaries";
 import { emptyEnrolments, endEnrolment, type Enrolments, type ItemRules } from "./enrolments";
-import { autoAdmit, poolMessage, poolOf, positionOf, settlePool } from "./waiting";
+import { autoAdmit, poolMessage, poolOf, positionOf, settlePool, standingOf } from "./waiting";
 import type { GiftProject } from "../06-projects/projects";
 
 const rules: Record<string, ItemRules> = { SPONSOR: { first: "beneficiary", receiver: "person", kindLabel: "Person(s)" } };
@@ -75,6 +75,35 @@ describe("the waiting list", () => {
     expect(names(pool.review)).toEqual(["Incomplete"]);
     const second = reg.records.find((b) => b.name === "Second")!;
     expect(positionOf(reg, emptyEnrolments(), second)).toEqual({ projectId: "aghosh", position: 2, of: 2 });
+  });
+});
+
+describe("priority", () => {
+  it("puts people with priority first, first come first served between them, and gives the others the rest in order", () => {
+    let reg = person(emptyRegister(), "Early", "2026-11-01");
+    reg = person(reg, "LateUrgent", "2026-11-09", { priority: true, priorityNote: "Both parents deceased" });
+    reg = person(reg, "MiddleUrgent", "2026-11-05", { priority: true });
+    reg = person(reg, "Normal", "2026-11-03");
+    reg = autoAdmit(reg);
+    expect(names(poolOf(reg, emptyEnrolments(), "aghosh").waiting)).toEqual(["MiddleUrgent", "LateUrgent", "Early", "Normal"]);
+    expect(standingOf(reg, emptyEnrolments(), [project()], reg.records.find((b) => b.name === "LateUrgent")!)).toContain("2 of 4 in line (priority, then first come first served)");
+    const r = settlePool(ctx([project()]), reg, emptyEnrolments());
+    expect(enrolledNames(r.register, r.enrolments)).toEqual(["MiddleUrgent", "LateUrgent", "Early"]); // 3 places: the two urgent ones, then the earliest of the rest
+  });
+
+  it("does not let priority skip the complete-record check", () => {
+    const reg = autoAdmit(person(emptyRegister(), "Urgent but incomplete", "2026-11-01", { priority: true, guardian: "" }));
+    expect(poolOf(reg, emptyEnrolments(), "aghosh").waiting).toHaveLength(0);
+    expect(names(poolOf(reg, emptyEnrolments(), "aghosh").review)).toEqual(["Urgent but incomplete"]);
+  });
+
+  it("takes priority away when a save unticks it", () => {
+    const reg = person(emptyRegister(), "Amina", "2026-11-01", { priority: true, priorityNote: "Orphaned" });
+    expect(reg.records[0]).toMatchObject({ priority: true, priorityNote: "Orphaned" });
+    const r = setBeneficiary(reg, reg.records[0]!.id, { name: "Amina", ...full, idNumber: "B-Amina", targetProjectId: "aghosh", priority: false });
+    if ("error" in r) throw new Error(r.error);
+    expect(r.value.records[0]!.priority).toBeUndefined();
+    expect(r.value.records[0]!.priorityNote).toBeUndefined();
   });
 });
 

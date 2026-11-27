@@ -181,6 +181,7 @@ A person or household that receives what a gift delivers. Stored on the organisa
 | `fatherStatus`, `motherStatus` | Person: living, deceased, or empty when not known |
 | `eligibility` | Person: the admission decision: ready (prepare for enrolment), review (needs management consent or further review), declined (cannot offer a place), or empty when not checked |
 | `eligibilityNote` | Person: the reason, in a few words |
+| `priority`, `priorityNote` | Person: true goes to the front of the waiting list, and why. Between people with priority, first come first served (DECISIONS 247) |
 | `targetProjectId`, `registeredOn` | Person: the project they are meant for, and the date they were put in the register. With a target project, admission is decided by completeness and they join that project's waiting list, first in first out by `registeredOn` then ID (DECISIONS 246) |
 | `partnerId`, `partnerRef` | The partner that gave the record, and that partner's own ID for it. For a sponsorship benefit the partner's room is the units of its own approved enrolled children (DECISIONS 183) |
 | `memberIds` | Household: the IDs of the persons in it |

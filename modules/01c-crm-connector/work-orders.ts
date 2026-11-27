@@ -52,6 +52,7 @@ export interface WorkOrder {
   legacyUpload?: true; // uploaded from an old system, so paid date is the upload date (DECISIONS 55). Absent means a normal line
   bundleQty?: number; // parts of the item in the bundle bought, absent means 1 (DECISIONS 51)
   cause?: string; // the cause the gift was given to (DECISIONS 109)
+  tribute?: string; // the donor's tribute or dedication: what the plaque of the outcome says, and what the partner needs to carry out the work order (DECISIONS 247)
   projectName?: string; // the project the donor chose on the line, absent when none or when general (DECISIONS 66)
   periodsFixed?: number; // the months a one-off payment covers, as a person set them when the CRM's count was missing or wrong (DECISIONS 126). Wins over periodCount
   periodCount?: number; // for a one-off payment: the months it covers (the item's plan length), absent means one period (DECISIONS 64)
@@ -173,6 +174,7 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
         ...(line.periodCount > 0 ? { periodCount: line.periodCount } : {}),
         ...(line.projectName !== "" ? { projectName: line.projectName } : {}),
         ...(line.cause !== "" ? { cause: line.cause } : {}),
+        ...(line.tribute !== "" ? { tribute: line.tribute } : {}),
         ...(line.customAmount ? { customAmount: true as const } : {}),
         ...(line.legacyUpload ? { legacyUpload: true as const } : {}),
         intention: line.intention,
@@ -201,8 +203,8 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
     const refFilled = current.transactionRef === "" && line.transactionRef !== "";
     const planFactsChanged = (current.planStatus ?? "") !== line.planStatus || (current.planNextDue ?? "") !== line.planNextDue || (current.planPaid ?? null) !== line.planPaid;
     const planChanged = refFilled || planFactsChanged || current.subscriptionId !== line.subscriptionId || current.instalmentNumber !== line.instalmentNumber || current.instalmentCount !== line.instalmentCount;
-    if (fwMissing || (current.currency ?? "") !== line.currency || (current.lineTotal ?? null) !== line.lineTotal || (current.bundleQty ?? 1) !== line.bundleQty || (current.periodCount ?? 0) !== line.periodCount || (current.projectName ?? "") !== line.projectName || (current.cause ?? "") !== line.cause || (current.customAmount === true) !== line.customAmount || (current.legacyUpload === true) !== line.legacyUpload || planChanged) {
-      const { customAmount: _cu2, cause: _ca, lineTotal: _lt, currency: _cu, bundleQty: _b, periodCount: _c, projectName: _j, legacyUpload: _l, planStatus: _s, planNextDue: _n, planPaid: _p, ...rest } = current;
+    if (fwMissing || (current.currency ?? "") !== line.currency || (current.lineTotal ?? null) !== line.lineTotal || (current.bundleQty ?? 1) !== line.bundleQty || (current.periodCount ?? 0) !== line.periodCount || (current.projectName ?? "") !== line.projectName || (current.cause ?? "") !== line.cause || (current.tribute ?? "") !== line.tribute || (current.customAmount === true) !== line.customAmount || (current.legacyUpload === true) !== line.legacyUpload || planChanged) {
+      const { customAmount: _cu2, cause: _ca, tribute: _tr, lineTotal: _lt, currency: _cu, bundleQty: _b, periodCount: _c, projectName: _j, legacyUpload: _l, planStatus: _s, planNextDue: _n, planPaid: _p, ...rest } = current;
       have = {
         ...rest,
         ...(fwMissing ? fwOf(current.itemId, options) : {}),
@@ -217,6 +219,7 @@ export function planWorkOrders(feed: FeedLine[], existing: WorkOrder[], options:
         ...(line.periodCount > 0 ? { periodCount: line.periodCount } : {}),
         ...(line.projectName !== "" ? { projectName: line.projectName } : {}),
         ...(line.cause !== "" ? { cause: line.cause } : {}),
+        ...(line.tribute !== "" ? { tribute: line.tribute } : {}),
         ...(line.customAmount ? { customAmount: true as const } : {}),
         ...(line.legacyUpload ? { legacyUpload: true as const } : {}),
       };
