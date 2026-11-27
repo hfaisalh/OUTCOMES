@@ -229,9 +229,18 @@ describe("adding and completing beneficiaries (DECISIONS 260)", () => {
     s.beneficiaries = [kid("PRS-2", "Bilal Ahmed", "review", { guardian: "", idNumber: "", dob: "2015-01-01" })];
     expect(partnerHomeHtml(s, "Sara", "dev", QUIET)).toContain('<span class="pill unrouted">Needs details</span><div class="muted">Add guardian, ID number</div>');
   });
-  it("opens the form in place with a visible label for every field, the required ones marked, and the projects to choose from", () => {
+  it("opens the form as a pop-up window with a title, Close, and Cancel and Save in the footer", () => {
+    const html = partnerHomeHtml(slice(), "Sara", "dev", { ...QUIET, form: { id: "", values: {}, error: "", similar: false, fresh: true } });
+    expect(html).toContain('class="pf-overlay pe-in" role="dialog" aria-modal="true" aria-labelledby="pe-title"');
+    expect(html).toContain('<h2 id="pe-title">Add a beneficiary</h2>');
+    expect(html).toContain('data-action="pt-form-cancel" aria-label="Close">Close</button>');
+    expect(html).toContain('data-action="pt-form-cancel">Cancel</button><button type="button" class="primary" data-action="pt-form-save">Add beneficiary</button></footer>');
+    expect(partnerHomeHtml(slice(), "Sara", "dev", { ...QUIET, form: { id: "", values: {}, error: "", similar: false } })).not.toContain("pe-in"); // not eased in again on a redraw
+    expect(partnerHomeHtml(slice(), "Sara", "dev", QUIET)).not.toContain('role="dialog"'); // closed at first
+  });
+  it("opens the form with a visible label for every field, the required ones marked, and the projects to choose from", () => {
     const html = partnerHomeHtml(slice(), "Sara", "dev", { ...QUIET, form: { id: "", values: {}, error: "", similar: false } });
-    expect(html).toContain('id="pe-form" aria-label="Add a beneficiary"');
+    expect(html).toContain('id="pe-form"');
     for (const label of ["Name", "Date of birth", "Gender", "National ID or B-form number", "Father", "Mother", "Parent or guardian", "Meant for project", "Area", "Your own reference"]) expect(html).toContain(label);
     expect(html).toContain('id="pe-name" value="" autocomplete="off" required');
     expect(html).toContain('id="pe-dob" value="" autocomplete="off" type="date"');
@@ -239,16 +248,15 @@ describe("adding and completing beneficiaries (DECISIONS 260)", () => {
     const form = html.slice(html.indexOf('<form class="pe"'), html.indexOf("</form>"));
     expect(form).not.toMatch(/eligib|priorit|id="pe-status|id="pe-notes/i); // MWF's decisions are never asked
     expect(html).toContain('data-action="pt-form-cancel"');
-    expect(html).toContain('<button class="primary" data-action="pt-add" disabled>Add beneficiary</button>'); // no second form while one is open
   });
   it("fills the form with what was saved when editing, and keeps what was typed after an error, announced and with the same-person box only for a possible match", () => {
     const edit = partnerHomeHtml(slice(), "Sara", "dev", { ...QUIET, form: { id: "PRS-1", values: { name: "Amina <Khan>", guardian: "A mother" }, error: "", similar: false } });
-    expect(edit).toContain('aria-label="Complete this beneficiary"');
+    expect(edit).toContain('<h2 id="pe-title">Complete this beneficiary</h2>');
     expect(edit).toContain('id="pe-name" value="Amina &lt;Khan&gt;"');
     expect(edit).toContain(">Save</button>");
     expect(edit).not.toContain('id="pe-different"');
     const dup = partnerHomeHtml(slice(), "Sara", "dev", { ...QUIET, form: { id: "", values: { name: "Amina Khan" }, error: "Possible match: Amina Khan (PRS-1).", similar: true } });
-    expect(dup).toContain('id="pe-error" class="pe-error" role="alert" tabindex="-1">Possible match: Amina Khan (PRS-1).');
+    expect(dup).toContain('id="pe-error" class="pf-error" role="alert" tabindex="-1">Possible match: Amina Khan (PRS-1).');
     expect(dup).toContain('id="pe-different"');
   });
   it("tells a partner with no project that it needs one first, and shows the saved message", () => {

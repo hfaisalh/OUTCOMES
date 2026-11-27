@@ -69,7 +69,7 @@ import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from ".
 import { ensureRefs } from "../modules/05-outcomes/refs";
 import { checkingHtml, signinHtml } from "./signin-page";
 import { partnerHomeHtml } from "./partner-home";
-import { handlePartnerAction, partnerUi, switchView } from "./partner-session";
+import { handlePartnerAction, partnerKeys, partnerUi, switchView } from "./partner-session";
 import { viewAsMenu } from "./view-as-menu";
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
@@ -639,6 +639,7 @@ document.addEventListener("keydown", (e) => {
   // A row opens with Enter too, since the info button at its end is gone (DECISIONS 109).
   const row = (e.target as HTMLElement | null)?.closest?.("tr[data-gift-open]") as HTMLElement | null;
   if (row && e.key === "Enter" && !(e.target as HTMLElement).closest("input,select,button,a")) { state.giftWin.key = row.dataset.giftOpen ?? ""; state.giftWin.log = false; renderGiftWindow(); return; }
+  if (state.gate === "partner") partnerKeys(e, draw);
   if (e.key !== "Escape" || state.giftWin.key === "") return;
   if (state.giftWin.log) state.giftWin.log = false; else state.giftWin.key = "";
   renderGiftWindow();

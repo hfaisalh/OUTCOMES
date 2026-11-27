@@ -34,6 +34,7 @@ async function send(request: Record<string, unknown>, apply: (s: PartnerSlice) =
 export async function handlePartnerAction(action: string, el: HTMLElement, current: PartnerSlice | null, apply: (s: PartnerSlice) => void, redraw: () => void): Promise<void> {
   partnerUi.message = "";
   partnerUi.lastOpened = "";
+  if (partnerUi.form) partnerUi.form = { ...partnerUi.form, fresh: false }; // the window eases in only when it opens
   const viaKeyboard = el.matches?.(":focus-visible") ?? false; // only a keyboard user gets the focus ring put back, so a mouse click leaves no outline behind
   if (action === "pt-toggle") {
     const id = el.dataset["batch"] ?? "";
@@ -41,10 +42,10 @@ export async function handlePartnerAction(action: string, el: HTMLElement, curre
     partnerUi.open = wasOpen ? partnerUi.open.filter((b) => b !== id) : [...partnerUi.open, id];
     if (!wasOpen) partnerUi.lastOpened = id; // only the batch just opened fades in, not every one on each redraw
   } else if (action === "pt-add") {
-    partnerUi.form = { id: "", values: {}, error: "", similar: false };
+    partnerUi.form = { id: "", values: {}, error: "", similar: false, fresh: true };
   } else if (action === "pt-edit") {
     const b = current?.beneficiaries.find((x) => x.id === el.dataset["id"]);
-    if (b) partnerUi.form = { id: b.id, values: valuesOf(b), error: "", similar: false };
+    if (b) partnerUi.form = { id: b.id, values: valuesOf(b), error: "", similar: false, fresh: true };
   } else if (action === "pt-form-cancel") {
     partnerUi.form = null;
   } else if (action === "pt-form-save") {
@@ -104,5 +105,21 @@ export async function switchView(partnerId: string): Promise<void> {
   } catch (e) {
     partnerUi.error = e instanceof Error ? e.message : "Could not switch the view.";
     (globalThis as { alert?: (m: string) => void }).alert?.(partnerUi.error);
+  }
+}
+
+// --- The window's keys: Escape closes it, and Tab stays inside it (a dialog must not let focus wander to the page behind) ---
+export function partnerKeys(e: KeyboardEvent, redraw: () => void): void {
+  if (!partnerUi.form) return;
+  if (e.key === "Escape") {
+    partnerUi.form = null;
+    redraw();
+    (document.querySelector('[data-action="pt-add"]') as HTMLElement | null)?.focus();
+  } else if (e.key === "Tab") {
+    const items = [...(document.querySelectorAll('.pf-overlay button:not([disabled]), .pf-overlay input, .pf-overlay select, .pf-overlay textarea') as unknown as HTMLElement[])];
+    const first = items[0], last = items[items.length - 1];
+    if (!first || !last) return;
+    const now = document.activeElement;
+    if (e.shiftKey && now === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && now === last) { e.preventDefault(); first.focus(); }
   }
 }

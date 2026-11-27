@@ -28,7 +28,7 @@ export function beneficiariesCardHtml(slice: PartnerSlice, ui: PartnerUi): strin
   const notes = `${ui.message && !ui.form ? `<div class="note" role="status">${esc(ui.message)}</div>` : ""}`;
   const table = rows ? `<div class="tablewrap"><table><thead><tr><th>ID</th><th>Name</th><th>Project</th><th>Where they stand</th><th><span class="sr-only">Edit</span></th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">No beneficiaries yet. Add the first one.</div>`;
   const canAdd = slice.giftProjects.length > 0;
-  return `<section class="card" aria-label="Your beneficiaries"><div class="pe-head"><h2>Your beneficiaries</h2>${canAdd ? `<button class="primary" data-action="pt-add"${ui.form ? " disabled" : ""}>Add beneficiary</button>` : ""}</div>
+  return `<section class="card" aria-label="Your beneficiaries"><div class="pe-head"><h2>Your beneficiaries</h2>${canAdd ? `<button class="primary" data-action="pt-add">Add beneficiary</button>` : ""}</div>
     ${canAdd ? "" : `<p class="muted">You can add beneficiaries once MWF gives you a project to deliver.</p>`}${notes}
     ${ui.form ? entryFormHtml(ui.form, slice.giftProjects) : ""}${table}</section>`;
 }

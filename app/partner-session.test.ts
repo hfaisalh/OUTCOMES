@@ -5,7 +5,7 @@
  * A fake page and server stand in for the browser and the network. Who calls it: vitest. Depends on: partner-session.ts.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { handlePartnerAction, partnerUi } from "./partner-session";
+import { handlePartnerAction, partnerKeys, partnerUi } from "./partner-session";
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 
 const sent: Record<string, unknown>[] = [];
@@ -27,7 +27,7 @@ beforeEach(() => {
 describe("the beneficiary form", () => {
   it("opens empty to add, opens with the saved values to edit, and closes on Cancel", async () => {
     await run("pt-add");
-    expect(partnerUi.form).toEqual({ id: "", values: {}, error: "", similar: false });
+    expect(partnerUi.form).toEqual({ id: "", values: {}, error: "", similar: false, fresh: true });
     await run("pt-form-cancel");
     expect(partnerUi.form).toBeNull();
     await run("pt-edit", { id: "PRS-1" });
@@ -78,5 +78,40 @@ describe("the toggles", () => {
     await run("pt-toggle", { batch: "1" });
     await run("pt-details", { key: "sub:1" });
     expect(partnerUi).toMatchObject({ open: [], details: [] });
+  });
+});
+
+describe("the window's keys", () => {
+  const key = (k: string, shift = false) => { const e = { key: k, shiftKey: shift, prevented: false, preventDefault() { this.prevented = true; } }; return e as unknown as KeyboardEvent & { prevented: boolean };
+  };
+  it("closes on Escape, and does nothing when no window is open", async () => {
+    let redraws = 0;
+    partnerKeys(key("Escape"), () => redraws++);
+    expect(redraws).toBe(0);
+    await run("pt-add");
+    expect(partnerUi.form).toMatchObject({ fresh: true });
+    partnerKeys(key("Escape"), () => redraws++);
+    expect(partnerUi.form).toBeNull();
+    expect(redraws).toBe(1);
+  });
+
+  it("keeps Tab inside the window: from the last control back to the first, and Shift+Tab from the first to the last", async () => {
+    const first = { focus: vi.fn() }, last = { focus: vi.fn() };
+    let active: unknown = last;
+    vi.stubGlobal("document", { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [first, { focus() {} }, last], get activeElement() { return active; } });
+    await run("pt-add");
+    const forward = key("Tab");
+    partnerKeys(forward, () => undefined);
+    expect(forward.prevented).toBe(true);
+    expect(first.focus).toHaveBeenCalled();
+    active = first;
+    const back = key("Tab", true);
+    partnerKeys(back, () => undefined);
+    expect(back.prevented).toBe(true);
+    expect(last.focus).toHaveBeenCalled();
+    active = { not: "an end" };
+    const middle = key("Tab");
+    partnerKeys(middle, () => undefined);
+    expect(middle.prevented).toBe(false);
   });
 });
