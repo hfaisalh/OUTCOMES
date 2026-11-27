@@ -46,7 +46,7 @@ describe("Allocate, used like a person would", () => {
     expect(shell.innerHTML).toContain('data-plc="reset" disabled');
 
     click({ plc: "run" }, "data-plc"); await flush();
-    expect(shell.innerHTML).toMatch(/Placed 2 in open places and created 0 outcomes\. 0 wait/);
+    expect(shell.innerHTML).toMatch(/Placed 2 with beneficiaries to fund and created 0 outcomes\. 0 wait/);
     expect(shell.innerHTML).toContain('<span class="pill">Placed</span>');
     expect(shell.innerHTML).not.toContain('data-plc="reset" disabled');
 

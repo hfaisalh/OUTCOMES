@@ -37,7 +37,7 @@ function treeHtml(state: ClusterState, rootId: string, adding: string): string {
   const shown = (parentId: string): boolean => parentId === rootId || (!closedClusters.has(parentId) && shown(byId.get(parentId)?.parentId ?? rootId));
   const kids = (id: string): number => state.clusters.filter((x) => x.parentId === id).length;
   const lines = (guides: boolean[], last: boolean, depth: number): string => (depth === 0 ? "" : `<span class="tls">${guides.slice(1).map((g) => `<span class="tl${g ? " v" : ""}"></span>`).join("")}<span class="tl ${last ? "end" : "mid"}"></span></span>`);
-  const addSub = (parentId: string, depth: number): string => `<tr class="cl-addrow"><td colspan="6"><div class="cl-add" style="margin-left:${(depth + 1) * 22 + 12}px"><input id="cl-sname" placeholder="New sub cluster name" aria-label="New sub cluster name"><input id="cl-slabel" list="cl-labels" value="${esc(suggestLabel(state, parentId))}" placeholder="Called" aria-label="What it is called"><input id="cl-splace" placeholder="Place" aria-label="Place">
+  const addSub = (parentId: string, depth: number): string => `<tr class="cl-addrow"><td colspan="6"><div class="cl-add" style="margin-left:${(depth + 1) * 22 + 12}px"><input id="cl-sname" placeholder="New sub cluster name" aria-label="New sub cluster name"><input id="cl-slabel" list="cl-labels" value="${esc(suggestLabel(state, parentId))}" placeholder="Called" aria-label="What it is called"><input id="cl-splace" placeholder="Location" aria-label="Location">
       <button type="button" class="iconact ok" data-cl="cluster-add" data-id="${esc(parentId)}" title="Add the sub cluster" aria-label="Add the sub cluster">+</button><button type="button" class="iconact" data-cl="sub-cancel" title="Cancel" aria-label="Cancel">&times;</button></div></td></tr>`;
   const body = rows.filter(({ cluster: x }) => shown(x.parentId)).map(({ cluster: x, depth, last, guides }) => {
     const n = kids(x.id);
@@ -51,7 +51,7 @@ function treeHtml(state: ClusterState, rootId: string, adding: string): string {
   }).join("");
   const anyFolder = rows.some((r) => kids(r.cluster.id) > 0);
   return `${anyFolder ? '<div class="cl-bar"><button type="button" data-cl="expand-all">Expand all</button><button type="button" data-cl="collapse-all">Collapse all</button></div>' : ""}
-    <div class="tablewrap"><table class="subtable cl-table cl-tree"><thead><tr><th>Cluster</th><th>Called</th><th>Place</th><th class="num">Capacity</th><th>Status</th><th class="actcol"></th></tr></thead><tbody>${body}</tbody></table></div>`;
+    <div class="tablewrap"><table class="subtable cl-table cl-tree"><thead><tr><th>Cluster</th><th>Called</th><th>Location</th><th class="num">Capacity</th><th>Status</th><th class="actcol"></th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 // ---- The list: every cluster as a tree ----
@@ -63,7 +63,7 @@ function listHtml(state: ClusterState): string {
     ${tops.length ? treeHtml(state, "", clusterUi.adding) : '<p class="muted">No clusters yet. Add the first one below.</p>'}
     ${labelsList(state)}
     <div class="cl-add"><input id="cl-tname" placeholder="New cluster, for example Lahore University" aria-label="New cluster name">
-      <input id="cl-tlabel" list="cl-labels" value="${esc(suggestLabel(state, ""))}" placeholder="Called, for example University" aria-label="What it is called"><input id="cl-tplace" placeholder="Place" aria-label="Place"><input id="cl-tcap" type="number" min="0" placeholder="Total capacity" aria-label="Total capacity">
+      <input id="cl-tlabel" list="cl-labels" value="${esc(suggestLabel(state, ""))}" placeholder="Called, for example University" aria-label="What it is called"><input id="cl-tplace" placeholder="Location" aria-label="Location"><input id="cl-tcap" type="number" min="0" placeholder="Total capacity" aria-label="Total capacity">
       <button type="button" class="iconact ok" data-cl="cluster-add" data-id="" title="Add the cluster" aria-label="Add the cluster">+</button></div></section>`;
 }
 
@@ -86,7 +86,7 @@ function insideHtml(state: ClusterState, c: Cluster, adding: string): string {
   const n = insideCount(state, c.id);
   return `<section>${searchBox(n)}
     ${n ? treeHtml(state, c.id, adding) : "<p class=\"muted\">No sub clusters yet. Add the first one below.</p>"}
-    <div class="cl-add"><input id="cl-bname" placeholder="New sub cluster, for example Classroom 1" aria-label="New sub cluster name"><input id="cl-blabel" list="cl-labels" value="${esc(suggestLabel(state, c.id))}" placeholder="Called" aria-label="What it is called"><input id="cl-bplace" placeholder="Place" aria-label="Place">
+    <div class="cl-add"><input id="cl-bname" placeholder="New sub cluster, for example Classroom 1" aria-label="New sub cluster name"><input id="cl-blabel" list="cl-labels" value="${esc(suggestLabel(state, c.id))}" placeholder="Called" aria-label="What it is called"><input id="cl-bplace" placeholder="Location" aria-label="Location">
       <button type="button" class="iconact ok" data-cl="cluster-add-b" data-id="${esc(c.id)}" title="Add inside ${esc(c.name)}" aria-label="Add inside ${esc(c.name)}">+</button></div>${labelsList(state)}</section>`;
 }
 

@@ -268,7 +268,7 @@ function allocationContext(v: View) {
     const plc = nk !== "" ? placed.get(nk) : undefined;
     // A placement whose place no longer exists (the child was removed) is not a placement: the gift is assigned and waiting for a place again.
     if (asg && plc && (plc.kind === "outcome" || enrolled.has(plc.enrolmentId))) return { state: "placed", who: plc.kind === "outcome" ? plc.outcomeRef + ((v.placements?.stock ?? []).find((s) => s.id === plc.stockId)?.name ? ` \u00B7 ${(v.placements?.stock ?? []).find((s) => s.id === plc.stockId)?.name}` : "") : personName(enrolled.get(plc.enrolmentId)?.beneficiaryId ?? ""), partner: partnerName(asg.partnerId) || "No partner", parts: null, why: "", ...(asg.batch !== undefined ? { batch: asg.batch } : {}) };
-    if (asg) return { state: "waiting", who: "", partner: partnerName(asg.partnerId) || "A partner", parts: null, why: `Assigned to ${partnerName(asg.partnerId) || "a partner"}, waiting for a place`, ...(asg.batch !== undefined ? { batch: asg.batch } : {}) };
+    if (asg) return { state: "waiting", who: "", partner: partnerName(asg.partnerId) || "A partner", parts: null, why: `Assigned to ${partnerName(asg.partnerId) || "a partner"}, waiting for a beneficiary to fund`, ...(asg.batch !== undefined ? { batch: asg.batch } : {}) };
     if (g.allocationKey === "") return { state: "n/a", who: "", partner: "", parts: null, why: "" };
     if (keys.has(g.allocationKey)) {
       const a = allocationOf.get(g.allocationKey);
@@ -279,7 +279,7 @@ function allocationContext(v: View) {
     // Rule (DECISIONS 102): a paused plan stays parked and says so. A cancelled one is parked as cancelled, and can be excluded manually until the donor pays again.
     if (g.planStatus === "paused") return waits(g, "Plan paused, parked until payments resume");
     if (g.planStatus === "cancelled") return { state: "none", who: "", partner: "", parts: null, why: "Plan cancelled, parked. Exclude it manually if it is not coming back" };
-    if (g.planStatus === "completed") return { state: "none", who: "", partner: "", parts: null, why: "Plan completed. It holds no place" };
+    if (g.planStatus === "completed") return { state: "none", who: "", partner: "", parts: null, why: "Plan completed. It funds no beneficiary" };
     return waits(g, g.frameworkId === "" ? "It needs a workflow first" : "Not allocated yet. Allocation for this kind of gift is built later");
   };
 }

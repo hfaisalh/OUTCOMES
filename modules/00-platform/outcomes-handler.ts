@@ -328,10 +328,10 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       }
       // Rule (DECISIONS 74): a place is released only when a manager approves it, and only if it is really due. The server checks, and keeps a record of who approved.
       case "approve-release": {
-        if (!a.claims.perms.includes(P.approveRelease)) return json(403, { error: "Only a manager can approve releasing a place." });
+        if (!a.claims.perms.includes(P.approveRelease)) return json(403, { error: "Only a manager can approve releasing a sponsorship." });
         const policy = allocOptions(projects, graceDays, at.slice(0, 10), requireRef, giftProjects).policy;
         const due = releaseApprovals(allocations, await commitments(), fw, policy).find((x) => x.commitmentKey === str("commitmentKey"));
-        if (!due) return fail("That place is not due for release.");
+        if (!due) return fail("That release is not due.");
         allocations = releaseAllocation(allocations, due.commitmentKey);
         releaseLog = [...releaseLog, { commitmentKey: due.commitmentKey, outcomeId: due.outcomeId, by: a.claims.name, at, daysOverdue: due.daysOverdue }].slice(-2000);
         break;

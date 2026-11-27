@@ -35,15 +35,15 @@ function structureHtml(v: View, project: Project): string {
   // Levels: the first is the place, and the others sit under a level as ways of grouping people inside it.
   const levelRows = tree.map(({ level: l, depth }) => {
     const below = levelsBelow(project, l.id);
-    const canMoveTo = [{ id: "", name: "Top, a place" }, ...tree.filter((x) => x.level.id !== l.id && !below.has(x.level.id)).map((x) => ({ id: x.level.id, name: `Under ${x.level.name}` }))];
+    const canMoveTo = [{ id: "", name: "Top, a location" }, ...tree.filter((x) => x.level.id !== l.id && !below.has(x.level.id)).map((x) => ({ id: x.level.id, name: `Under ${x.level.name}` }))];
     const leaf = !project.levels.some((x) => x.parentId === l.id);
     return `<tr><td style="padding-left:${8 + depth * 18}px"><b>${esc(l.name)}</b></td><td><select data-level-parent="${esc(l.id)}" aria-label="Where ${esc(l.name)} sits">${canMoveTo.map((o) => `<option value="${esc(o.id)}"${o.id === l.parentId ? " selected" : ""}>${esc(o.name)}</option>`).join("")}</select></td><td>${nodes.filter((n) => n.levelId === l.id).length}</td><td>${leaf ? `<button data-action="remove-level" data-id="${esc(l.id)}">Remove</button>` : ""}</td></tr>`;
   }).join("");
   const levelsCard = `<section><h3>Levels</h3>
     <div class="note">Clusters (regions, classrooms, tent villages, camps) are now set up on the <b>project</b>: open <b>Projects</b>, click a project, then its <b>Clusters</b> tab. This older structure stays until beneficiaries move to the new register.</div>
-    <p class="muted">The first level is the place: a branch or a site. A partner can have many places. The other levels are ways of grouping people inside a place, such as Class, House or School. A child can be in a class and a house at the same time.</p>
-    ${tree.length ? `<div class="twrap"><table><thead><tr><th>Level</th><th>Sits</th><th>Places</th><th></th></tr></thead><tbody>${levelRows}</tbody></table></div>` : `<div class="empty">No levels yet. Add the place first, for example Branch.</div>`}
-    <div class="actions"><input id="pj-level" placeholder="${tree.length ? "Another level, for example Class" : "First level, for example Branch"}" /><select id="pj-level-parent" aria-label="Where it sits">${tree.length ? "" : `<option value="">Top, a place</option>`}${tree.map((x) => `<option value="${esc(x.level.id)}">Under ${esc(x.level.name)}</option>`).join("")}${tree.length ? `<option value="">Top, another kind of place</option>` : ""}</select><button data-action="add-level">Add level</button></div></section>`;
+    <p class="muted">The first level is the location: a branch or a site. A partner can have many locations. The other levels are ways of grouping people inside a location, such as Class, House or School. A child can be in a class and a house at the same time.</p>
+    ${tree.length ? `<div class="twrap"><table><thead><tr><th>Level</th><th>Sits</th><th>Locations</th><th></th></tr></thead><tbody>${levelRows}</tbody></table></div>` : `<div class="empty">No levels yet. Add the location first, for example Branch.</div>`}
+    <div class="actions"><input id="pj-level" placeholder="${tree.length ? "Another level, for example Class" : "First level, for example Branch"}" /><select id="pj-level-parent" aria-label="Where it sits">${tree.length ? "" : `<option value="">Top, a location</option>`}${tree.map((x) => `<option value="${esc(x.level.id)}">Under ${esc(x.level.name)}</option>`).join("")}${tree.length ? `<option value="">Top, another kind of location</option>` : ""}</select><button data-action="add-level">Add level</button></div></section>`;
 
   // Types: which place the beneficiaries belong to, which groupings apply to them, and how they are sponsored.
   const typeRows = project.types.map((t) => `<tr><td><b>${esc(t.name)}</b></td><td>${t.levelId === "" ? '<span class="muted">Anywhere</span>' : esc(levelName(t.levelId))}</td><td>${(t.groupingIds ?? []).map((g) => esc(levelName(g))).join(", ") || '<span class="muted">none</span>'}</td><td>${esc(fwName(t.frameworkId))}</td><td>${outcomes.filter((o) => o.typeId === t.id).length}</td><td><button data-action="remove-type" data-id="${esc(t.id)}">Remove</button></td></tr>`).join("");
@@ -66,11 +66,11 @@ function structureHtml(v: View, project: Project): string {
   }).join("");
   const parentOptions = nodes.map((n) => `<option value="${esc(n.id)}" data-level="${esc(n.levelId)}">${esc(n.name)} (${esc(levelName(n.levelId))})</option>`).join("");
   const levelOptions = tree.map((x) => `<option value="${esc(x.level.id)}" data-parent-level="${esc(x.level.parentId)}">${esc(x.level.name)}</option>`).join("");
-  const placesCard = `<section><h3>Places and groups <span class="muted">(${nodes.length})</span></h3>
-    ${nodes.length ? `<div class="twrap"><table><thead><tr><th>Name</th><th>Level</th><th>Profile</th><th>Beneficiaries</th><th>Sponsored of units</th><th></th></tr></thead><tbody>${placeRows}</tbody></table></div>${ordered.length > MAX_ROWS ? `<p class="muted">Showing ${MAX_ROWS} of ${ordered.length}.</p>` : ""}` : `<div class="empty">None yet. Add the first place, for example Aghosh Lahore.</div>`}
+  const placesCard = `<section><h3>Locations and groups <span class="muted">(${nodes.length})</span></h3>
+    ${nodes.length ? `<div class="twrap"><table><thead><tr><th>Name</th><th>Level</th><th>Profile</th><th>Beneficiaries</th><th>Sponsored of units</th><th></th></tr></thead><tbody>${placeRows}</tbody></table></div>${ordered.length > MAX_ROWS ? `<p class="muted">Showing ${MAX_ROWS} of ${ordered.length}.</p>` : ""}` : `<div class="empty">None yet. Add the first location, for example Aghosh Lahore.</div>`}
     <div class="actions"><input id="pj-node-name" placeholder="Name, for example Aghosh Lahore or Class 5A" /><select id="pj-node-level" aria-label="Level"><option value="">Level...</option>${levelOptions}</select>
       <select id="pj-node-parent" aria-label="Inside"><option value="">Inside...</option>${parentOptions}</select><input id="pj-node-loc" placeholder="Location (optional)" /><button data-action="add-node"${tree.length ? "" : " disabled"}>Add</button></div>
-    <p class="muted">Choose the level first, and for a group the place it is in. A place of the first level is not inside anything.</p></section>`;
+    <p class="muted">Choose the level first, and for a group the location it is in. A location of the first level is not inside anything.</p></section>`;
   return `${levelsCard}${typesCard}${placesCard}`;
 }
 

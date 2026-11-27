@@ -109,6 +109,6 @@ export function outcomeRecordsPage(v: View): string {
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     ${all.length === 0 ? "" : tiles}
     ${filters}
-    ${all.length === 0 ? '<div class="empty">No outcomes yet. They appear when Allocate places a gift for a benefit where the gift comes first, or that has no beneficiary.</div>' : list.length === 0 ? '<div class="empty">Nothing matches.</div>' : `${legend}<div class="tablewrap regwrap"><table class="octable regtable">${head}<tbody>${rows}</tbody></table></div>
+    ${all.length === 0 ? '<div class="empty">No outcomes yet. They appear when Allocate matches a gift to a benefit where the gift comes first, or that has no beneficiary.</div>' : list.length === 0 ? '<div class="empty">Nothing matches.</div>' : `${legend}<div class="tablewrap regwrap"><table class="octable regtable">${head}<tbody>${rows}</tbody></table></div>
     <p class="muted">${list.length} of ${all.length} outcomes${list.length > MAX_ROWS ? `, the first ${MAX_ROWS} shown` : ""}.</p>`}`;
 }

@@ -33,15 +33,15 @@ describe("filling an open place", () => {
     const c = ctx({ assignments: ["G1", "G2", "G3", "G4"].map((k) => asg(k)) });
     const s = suggestPlacements(c, emptyPlacements());
     expect(s.map((x) => x.enrolmentId)).toEqual(["EN-1", "EN-2", "EN-1", "EN-2"]); // each child gets a part before either gets a second
-    expect(s[0]?.why).toBe("Fills a place for Amina (0 of 3 units taken)");
-    expect(s[2]?.why).toBe("Fills a place for Amina (1 of 3 units taken)");
+    expect(s[0]?.why).toBe("Supports Amina (0 of 3 units taken)");
+    expect(s[2]?.why).toBe("Supports Amina (1 of 3 units taken)");
   });
   it("takes the units from the child's whole, and a full child takes no more", () => {
     const c = ctx({ assignments: ["G1", "G2"].map((k) => asg(k, { parts: 3 })).concat([asg("G3", { parts: 1 })]) });
     const r = runPlacement(c, emptyPlacements());
     expect(r).toMatchObject({ placed: 2, outcomes: 0, waiting: 1 }); // two whole children, nobody left for the third gift
     const s = suggestPlacements(c, r.value);
-    expect(s[0]).toMatchObject({ key: "G3", blocked: "full", why: "Every place for this benefit is full." });
+    expect(s[0]).toMatchObject({ key: "G3", blocked: "full", why: "Every beneficiary for this benefit is already fully funded." });
   });
   it("needs the gift's units to fit: a gift of two parts skips a child with one part left", () => {
     const c = ctx({ assignments: [asg("G1", { parts: 2 }), asg("G2", { parts: 2 })] });
@@ -134,7 +134,7 @@ describe("history: nothing is deleted (DECISIONS 186)", () => {
     const resumed = ctx({ assignments: [asg("G1", { parts: 3 }), asg("G2", { parts: 3 })], now: "2026-12-10T09:00:00Z" });
     const s = suggestPlacements(resumed, other).find((x) => x.key === "G1")!;
     expect(s.enrolmentId).toBe("EN-2"); // Bilal, a new place
-    expect(s.why).toBe("Fills a place for Bilal (0 of 3 units taken)");
+    expect(s.why).toBe("Supports Bilal (0 of 3 units taken)");
   });
   it("does not offer the previous child back to a plan that ended for another reason", () => {
     const left = syncPlacements(ctx({ assignments: [asg("G1", { parts: 3 })], enrolments: [enr("EN-1", "B1", "I10", "aghosh", { status: "ended" }), enr("EN-2", "B2")], now: "2026-12-02T09:00:00Z" }), held()).value;
@@ -212,7 +212,7 @@ describe("a gift spread over several places (DECISIONS 181)", () => {
     const c = ctx({ frameworks: [scholar], itemFramework: { I10: "wf-scholar" }, assignments: [asg("G1", { parts: 2 })] });
     const s = suggestPlacements(c, emptyPlacements())[0]!;
     expect(s).toMatchObject({ kind: "place", shares: [{ enrolmentId: "EN-1", parts: 1 }, { enrolmentId: "EN-2", parts: 1 }] });
-    expect(s.why).toBe("Spread over 2 places, Amina (1), Bilal (1), since no single place can take 2 units");
+    expect(s.why).toBe("Spread over 2 beneficiaries, Amina (1), Bilal (1), since no single beneficiary can take 2 units");
     const r = runPlacement(c, emptyPlacements());
     expect(r).toMatchObject({ placed: 1, waiting: 0 }); // one gift placed, over two children
     expect(r.value.records.map((p) => [p.key, p.enrolmentId, p.parts])).toEqual([["G1", "EN-1", 1], ["G1", "EN-2", 1]]);
@@ -285,7 +285,7 @@ describe("a person placing", () => {
     expect(placeManual(c(), emptyPlacements(), "nope", "EN-1")).toHaveProperty("error");
     expect(placeManual(c(), emptyPlacements(), "G1", "EN-99")).toHaveProperty("error");
     const full = placeManual(c(), placed(), "G2", "EN-1"); // EN-1 holds G1's two parts, G2 needs two of the one left
-    expect("error" in full && full.error).toBe("Amina's place is full: 2 of 3 units taken, and this gift needs 2.");
+    expect("error" in full && full.error).toBe("Amina is already funded: 2 of 3 units taken, and this gift needs 2.");
     const pump = ctx({ assignments: [asg("G1", { itemId: "I11" })] });
     expect(placeManual(pump, emptyPlacements(), "G1", "EN-1")).toEqual({ error: "This gift creates an outcome. It does not fill a place." });
   });
@@ -306,7 +306,7 @@ describe("fill and the page's requests", () => {
     const run = applyPlacementAction(c, emptyPlacements(), { action: "plc-run" });
     if (!run || "error" in run) throw new Error("run");
     expect(run.value.records).toHaveLength(2);
-    expect(run.message).toBe("Placed 2 in open places and created 0 outcomes. 0 wait with no open place.");
+    expect(run.message).toBe("Placed 2 with beneficiaries to fund and created 0 outcomes. 0 wait with no beneficiary to fund.");
     expect(applyPlacementAction(c, run.value, { action: "plc-set", key: "G1", enrolmentId: "EN-2" })).toHaveProperty("value");
     expect(applyPlacementAction(c, run.value, { action: "plc-unplace", key: "G1" })).toHaveProperty("value");
     const reset = applyPlacementAction(c, run.value, { action: "plc-reset" });

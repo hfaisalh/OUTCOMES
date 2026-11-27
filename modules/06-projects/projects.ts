@@ -175,7 +175,7 @@ export function removeLevel(projects: Project[], nodes: Node[], projectId: strin
   if (!p) return { value: projects, error: "That project was not found." };
   if (p.levels.some((l) => l.parentId === levelId)) return { value: projects, error: "Remove the levels under it first." };
   if (p.types.some((t) => t.levelId === levelId || (t.groupingIds ?? []).includes(levelId))) return { value: projects, error: "A type of beneficiary uses this level. Change or remove the type first." };
-  if (nodes.some((nd) => nd.projectId === projectId && nd.levelId === levelId)) return { value: projects, error: "There are places at this level. Remove them first." };
+  if (nodes.some((nd) => nd.projectId === projectId && nd.levelId === levelId)) return { value: projects, error: "There are locations at this level. Remove them first." };
   return { value: withProject(projects, projectId, (x) => ({ ...x, levels: x.levels.filter((l) => l.id !== levelId) })) };
 }
 
@@ -187,7 +187,7 @@ export function moveLevel(projects: Project[], nodes: Node[], projectId: string,
   if (parentId !== "" && !p.levels.some((l) => l.id === parentId)) return { value: projects, error: "The level to put it under was not found." };
   if (parentId === levelId || levelsBelow(p, levelId).has(parentId)) return { value: projects, error: "A level cannot go under itself or under a level below it." };
   if (level.parentId === parentId) return { value: projects };
-  if (nodes.some((nd) => nd.projectId === projectId && nd.levelId === levelId)) return { value: projects, error: "There are places at this level, so it cannot move. Remove them first." };
+  if (nodes.some((nd) => nd.projectId === projectId && nd.levelId === levelId)) return { value: projects, error: "There are locations at this level, so it cannot move. Remove them first." };
   return { value: withProject(projects, projectId, (x) => ({ ...x, levels: x.levels.map((l) => (l.id === levelId ? { ...l, parentId } : l)) })) };
 }
 
@@ -233,20 +233,20 @@ export function removeType(projects: Project[], outcomes: Outcome[], projectId: 
 export function addNode(nodes: Node[], projects: Project[], projectId: string, levelId: string, parentId: string, name: string, fields: Record<string, string> = {}): Changed<Node[]> {
   const p = projects.find((x) => x.id === projectId);
   const level = p?.levels.find((l) => l.id === levelId);
-  if (!p || !level) return { value: nodes, error: "Choose a level for the place." };
+  if (!p || !level) return { value: nodes, error: "Choose a level for the location." };
   const n = clean(name);
-  if (n === "") return { value: nodes, error: "Give the place a name." };
+  if (n === "") return { value: nodes, error: "Give the location a name." };
   // Rule: a place sits under a place of the level above it, or directly under the project when its level is the first.
   const parent = nodes.find((x) => x.id === parentId && x.projectId === projectId);
-  if (level.parentId === "" ? parentId !== "" : !parent || parent.levelId !== level.parentId) return { value: nodes, error: level.parentId === "" ? "A place at the first level sits directly under the project." : "Choose the place it sits under." };
-  if (nodes.some((x) => x.projectId === projectId && x.parentId === parentId && x.levelId === levelId && same(x.name, n))) return { value: nodes, error: `There is already a place called "${n}" there.` };
+  if (level.parentId === "" ? parentId !== "" : !parent || parent.levelId !== level.parentId) return { value: nodes, error: level.parentId === "" ? "A location at the first level sits directly under the project." : "Choose the location it sits under." };
+  if (nodes.some((x) => x.projectId === projectId && x.parentId === parentId && x.levelId === levelId && same(x.name, n))) return { value: nodes, error: `There is already a location called "${n}" there.` };
   const node: Node = { id: uniqueId(`${projectId}-${n}`, new Set(nodes.map((x) => x.id))), projectId, levelId, parentId, name: n, fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [clean(k), clean(v)]).filter(([k]) => k !== "")) };
   return { value: [...nodes, node] };
 }
 
 // Rule: a place with places under it, or with beneficiaries in it, cannot be removed.
 export function removeNode(nodes: Node[], outcomes: Outcome[], nodeId: string): Changed<Node[]> {
-  if (nodes.some((x) => x.parentId === nodeId)) return { value: nodes, error: "Remove the places under it first." };
+  if (nodes.some((x) => x.parentId === nodeId)) return { value: nodes, error: "Remove the locations under it first." };
   if (outcomes.some((o) => o.nodeId === nodeId || (o.groupIds ?? []).includes(nodeId))) return { value: nodes, error: "There are beneficiaries here. Remove them first." };
   return { value: nodes.filter((x) => x.id !== nodeId) };
 }
@@ -279,10 +279,10 @@ export function addBeneficiaries(outcomes: Outcome[], projects: Project[], nodes
   const type = p?.types.find((t) => t.id === o.typeId);
   if (!p || !type) return { value: outcomes, error: "Choose a type of beneficiary." };
   const node = o.nodeId === "" ? undefined : nodes.find((x) => x.id === o.nodeId && x.projectId === o.projectId);
-  if (o.nodeId !== "" && !node) return { value: outcomes, error: "That place was not found." };
-  if (node && type.levelId !== "" && node.levelId !== type.levelId) return { value: outcomes, error: `${type.name} beneficiaries belong to a ${p.levels.find((l) => l.id === type.levelId)?.name ?? "place"}, not a ${p.levels.find((l) => l.id === node.levelId)?.name ?? "this one"}. Choose a ${p.levels.find((l) => l.id === type.levelId)?.name ?? "place"}, or leave the place empty and place them later.` };
+  if (o.nodeId !== "" && !node) return { value: outcomes, error: "That location was not found." };
+  if (node && type.levelId !== "" && node.levelId !== type.levelId) return { value: outcomes, error: `${type.name} beneficiaries belong to a ${p.levels.find((l) => l.id === type.levelId)?.name ?? "location"}, not a ${p.levels.find((l) => l.id === node.levelId)?.name ?? "this one"}. Choose a ${p.levels.find((l) => l.id === type.levelId)?.name ?? "place"}, or leave the place empty and place them later.` };
   const groupIds = [...new Set((o.groupIds ?? []).filter((g) => g !== ""))];
-  if (groupIds.length > 0 && !node) return { value: outcomes, error: "Choose the place first, since a group is inside a place." };
+  if (groupIds.length > 0 && !node) return { value: outcomes, error: "Choose the location first, since a group is inside a location." };
   const seen = new Set<string>();
   for (const gid of groupIds) {
     const g = nodes.find((x) => x.id === gid && x.projectId === o.projectId);
@@ -309,8 +309,8 @@ export function setPlace(outcomes: Outcome[], partners: Project[], nodes: Node[]
   const p = partners.find((x) => x.id === o.projectId);
   const type = p?.types.find((t) => t.id === o.typeId);
   const node = nodeId === "" ? undefined : nodes.find((x) => x.id === nodeId && x.projectId === o.projectId);
-  if (nodeId !== "" && !node) return { value: outcomes, error: "That place was not found in this partner." };
-  if (node && type && type.levelId !== "" && node.levelId !== type.levelId) return { value: outcomes, error: `${type.name} beneficiaries belong to a ${p?.levels.find((l) => l.id === type.levelId)?.name ?? "place"}, not a ${p?.levels.find((l) => l.id === node.levelId)?.name ?? "this one"}.` };
+  if (nodeId !== "" && !node) return { value: outcomes, error: "That location was not found in this partner." };
+  if (node && type && type.levelId !== "" && node.levelId !== type.levelId) return { value: outcomes, error: `${type.name} beneficiaries belong to a ${p?.levels.find((l) => l.id === type.levelId)?.name ?? "location"}, not a ${p?.levels.find((l) => l.id === node.levelId)?.name ?? "this one"}.` };
   const inside = (gid: string): boolean => { let up = nodes.find((x) => x.id === gid)?.parentId ?? ""; while (up !== "" && up !== node?.id) up = nodes.find((x) => x.id === up)?.parentId ?? ""; return node !== undefined && up === node.id; };
   const groupIds = (o.groupIds ?? []).filter(inside);
   return { value: outcomes.map((x) => { if (x.id !== outcomeId) return x; const { nodeId: _n, groupIds: _g, ...rest } = x; return { ...rest, ...(node ? { nodeId: node.id } : {}), ...(groupIds.length ? { groupIds } : {}) }; }) };
@@ -320,7 +320,7 @@ export function setPlace(outcomes: Outcome[], partners: Project[], nodes: Node[]
 export function setGroup(outcomes: Outcome[], partners: Project[], nodes: Node[], outcomeId: string, levelId: string, groupId: string): Changed<Outcome[]> {
   const o = outcomes.find((x) => x.id === outcomeId);
   if (!o || !o.projectId) return { value: outcomes, error: "That beneficiary was not found, or it belongs to no partner." };
-  if (!o.nodeId) return { value: outcomes, error: "Put the beneficiary in a place first, since a group is inside a place." };
+  if (!o.nodeId) return { value: outcomes, error: "Put the beneficiary in a location first, since a group is inside a location." };
   const p = partners.find((x) => x.id === o.projectId);
   const type = p?.types.find((t) => t.id === o.typeId);
   if (!type || !(type.groupingIds ?? []).includes(levelId)) return { value: outcomes, error: "That kind of group does not apply to this kind of beneficiary." };
@@ -331,7 +331,7 @@ export function setGroup(outcomes: Outcome[], partners: Project[], nodes: Node[]
     if (!g) return { value: outcomes, error: "That group was not found." };
     let up = g.parentId;
     while (up !== "" && up !== o.nodeId) up = nodes.find((x) => x.id === up)?.parentId ?? "";
-    if (up !== o.nodeId) return { value: outcomes, error: `${g.name} is not in this beneficiary's place.` };
+    if (up !== o.nodeId) return { value: outcomes, error: `${g.name} is not in this beneficiary's location.` };
     next = [...without, g.id];
   }
   return { value: outcomes.map((x) => { if (x.id !== outcomeId) return x; const { groupIds: _g, ...rest } = x; return next.length ? { ...rest, groupIds: next } : rest; }) };
@@ -645,7 +645,7 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
       return r.error ? fail(r.error) : done({ ...s, nodes: r.value });
     }
     case "set-field":
-      return s.nodes.some((x) => x.id === str("nodeId")) ? done({ ...s, nodes: setNodeField(s.nodes, str("nodeId"), str("key", 60), str("value", 200)) }) : fail("That place was not found.");
+      return s.nodes.some((x) => x.id === str("nodeId")) ? done({ ...s, nodes: setNodeField(s.nodes, str("nodeId"), str("key", 60), str("value", 200)) }) : fail("That location was not found.");
     default: {
       // Rule (DECISIONS 72): with no type chosen, the name is the kind. A kind of that name is used if the partner has one, otherwise it is made, sponsored
       // as chosen and belonging to no level. So the first beneficiaries need only a name, a number and how they are sponsored.
@@ -751,7 +751,7 @@ export function placesUnder(nodes: Node[], nodeId: string): Set<string> {
  */
 export function placeInNode(allocations: Allocation[], commitments: Commitment[], outcomes: Outcome[], nodes: Node[], fw: FrameworkTemplate[], commitmentKey: string, nodeId: string, at: string, policy?: Policy): Changed<Allocation[]> {
   const node = nodes.find((x) => x.id === nodeId);
-  if (!node) return { value: allocations, error: "That place was not found." };
+  if (!node) return { value: allocations, error: "That location was not found." };
   const under = placesUnder(nodes, nodeId);
   // A beneficiary is in a place when it belongs to it, or to a group of it, or is in the place or group dropped on.
   return placeAmong(allocations, commitments, outcomes, fw, commitmentKey, (o) => (o.nodeId !== undefined && under.has(o.nodeId)) || (o.groupIds ?? []).some((g) => under.has(g)), node.name, at, policy);

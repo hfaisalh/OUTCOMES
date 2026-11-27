@@ -34,9 +34,9 @@ describe("the Allocate page", () => {
     const html = allocatePage(view());
     expect(html).toContain("<h1>Allocate</h1>");
     expect(html).toContain("<b>3</b><span>Assigned gifts</span>");
-    expect(html).toContain("<b>0</b><span>Placed in a place</span>");
+    expect(html).toContain("<b>0</b><span>Placed with a beneficiary</span>");
     expect(html).toContain("<b>0</b><span>Outcomes created</span>");
-    expect(html).toContain("<b>0</b><span>Wait, no open place</span>");
+    expect(html).toContain("<b>0</b><span>Waiting, no beneficiary to fund</span>");
     expect(html).toContain('data-plc="run"');
     expect(html).toContain('data-plc="reset" disabled');
   });
@@ -48,12 +48,12 @@ describe("the Allocate page", () => {
     expect(html).toContain('<span class="pill muted">Open</span>');
     const placed = allocatePage(view({ placements: { counter: 0, records: [{ key: "G01", kind: "place", enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 3, how: "auto", at: "x" }] } }));
     expect(placed).toContain('<td class="num">3 of 3</td>');
-    expect(placed).toContain('<span class="pill">Full</span>');
+    expect(placed).toContain('<span class="pill">Funded</span>');
   });
   it("shows where each gift would go and the places it could fill, the open ones chosen from a list", () => {
     const html = allocatePage(view());
     expect(html).toContain("Suggested: Amina");
-    expect(html).toContain("Fills a place for Amina (0 of 3 units taken)");
+    expect(html).toContain("Supports Amina (0 of 3 units taken)");
     expect(html).toContain('<option value="EN-2">Bilal (0 of 3)</option>');
   });
   it("shows a placed gift with the child and a button to take it back, and a gift that waits with the reason", () => {
@@ -62,9 +62,9 @@ describe("the Allocate page", () => {
     expect(placed).toContain('data-plc="unplace" data-key="G01"');
     expect(placed).not.toContain('data-plc="reset" disabled');
     const none = allocatePage(view({ enrolments: { records: [], counter: 0 } }));
-    expect(none).toContain("<b>3</b><span>Wait, no open place</span>");
+    expect(none).toContain("<b>3</b><span>Waiting, no beneficiary to fund</span>");
     expect(none).toContain("<b>Why gifts wait:</b> 3 no approved beneficiary is enrolled in the gift&#39;s project");
-    expect(none).toContain("No place is open. Enrol approved beneficiaries");
+    expect(none).toContain("No beneficiary needs funding. Enrol approved beneficiaries");
   });
   it("says which project and benefit the waiting gifts belong to, and names an item with no type", () => {
     const none = allocatePage(view({ enrolments: { records: [], counter: 0 } }));
@@ -76,8 +76,8 @@ describe("the Allocate page", () => {
   it("shows a gift spread over several children as one row, counted once, with the units each took", () => {
     const records = [{ key: "G01", kind: "place" as const, enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 2, how: "auto" as const, at: "x" }, { key: "G01", kind: "place" as const, enrolmentId: "EN-2", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto" as const, at: "x" }];
     const html = allocatePage(view({ placements: { counter: 0, records } }));
-    expect(html).toContain("<b>1</b><span>Placed in a place</span>"); // one gift, however many children
-    expect(html).toContain("Spread over 2 places");
+    expect(html).toContain("<b>1</b><span>Placed with a beneficiary</span>"); // one gift, however many children
+    expect(html).toContain("Spread over 2 beneficiaries");
     expect(html).toContain('<span class="muted">(2 units)</span>');
     expect(html).toContain('<span class="muted">(1 unit)</span>');
     expect((html.match(/data-plc="unplace" data-key="G01"/g) ?? []).length).toBe(1); // one button takes it all back
@@ -85,7 +85,7 @@ describe("the Allocate page", () => {
   it("shows the true state now: a placement whose assignment was withdrawn is not counted, and a note says it will be recorded and kept (DECISIONS 187)", () => {
     const stale = { counter: 0, records: [{ key: "G01", kind: "place" as const, enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto" as const, at: "2026-11-02T00:00:00Z" }] };
     const html = allocatePage(view({ placements: stale, assignments: { records: [] } })); // the gift is no longer assigned
-    expect(html).toContain("<b>0</b><span>Placed in a place</span>"); // not "Now"
+    expect(html).toContain("<b>0</b><span>Placed with a beneficiary</span>"); // not "Now"
     expect(html).toContain("1 placement has ended (a plan was parked, a child left, or an assignment was withdrawn). Place automatically records it, and keeps it in the history.");
     expect(html).not.toContain('data-plc="run" disabled'); // so a person can record it
     expect(allocatePage(view())).not.toContain("has ended");
@@ -93,7 +93,7 @@ describe("the Allocate page", () => {
   it("creates an outcome for a gift-first type, shown without a place", () => {
     const pump = view({ workOrders: [wo("G01", { itemId: "I11", itemName: "Small Pump" })], itemKinds: { I11: "build" }, assignments: { records: [{ key: "G01", partnerId: "trust", giftProjectId: "aghosh", itemId: "I11", parts: 1, how: "auto", at: "x" }] } });
     const html = allocatePage(pump);
-    expect(html).toContain("Outcome, no place needed");
+    expect(html).toContain("Outcome, no beneficiary to fund");
     expect(html).toContain("Creates an outcome. Its recipients are enrolled after.");
   });
   it("filters to the gifts that wait or are placed, and says so when nothing is assigned", () => {
@@ -109,7 +109,7 @@ describe("the Allocate page", () => {
     expect(html).toContain('data-key="G02"');
     expect(waiting).toContain('data-key="G02"'); // its project has no one enrolled
     expect(waiting).not.toContain('data-key="G01"'); // it has a place, so it is ready, not waiting
-    expect(waiting).toContain('<option value="waiting" selected>Waiting, no place</option>');
+    expect(waiting).toContain('<option value="waiting" selected>Waiting, no beneficiary to fund</option>');
   });
   it("never trusts a name as HTML", () => {
     const html = allocatePage(view({ beneficiaries: { records: [child("B1", "<img src=x onerror=alert(1)>"), child("B2", "Bilal")], counters: {} } }));

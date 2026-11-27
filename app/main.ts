@@ -422,7 +422,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         }
         case "set-require-ref": state.requireRef = body["on"] === true; break;
         case "set-grace": { const n = Number(body["days"]); if (!Number.isInteger(n) || n < 0 || n > 90) error = "The grace period is a whole number of days, from 0 to 90."; else state.graceDays = n; break; }
-        case "approve-release": { const due = releaseApprovals(state.allocations, commitments, state.frameworks, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy).find((x) => x.commitmentKey === str("commitmentKey")); if (!due) error = "That place is not due for release."; else state.allocations = releaseAllocation(state.allocations, due.commitmentKey); break; }
+        case "approve-release": { const due = releaseApprovals(state.allocations, commitments, state.frameworks, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy).find((x) => x.commitmentKey === str("commitmentKey")); if (!due) error = "That release is not due."; else state.allocations = releaseAllocation(state.allocations, due.commitmentKey); break; }
         case "release": state.allocations = releaseAllocation(state.allocations, str("commitmentKey")); break;
         case "item-icon": { const icon = str("icon"); const next = { ...state.itemIcons }; if (icon === "") delete next[str("itemId")]; else next[str("itemId")] = icon; state.itemIcons = next; break; }
         case "item-units": { const r = setItemUnits(state.itemUnits, str("itemId"), body["units"]); if ("error" in r) error = r.error; else state.itemUnits = r.value; break; }
@@ -1217,12 +1217,12 @@ function filterPlaces(): void {
   if (fwSel) fwSel.disabled = type.value !== ""; // a kind that is set up already says how it is sponsored
   const level = picked?.dataset.level ?? "";
   const groups = (picked?.dataset.groups ?? "").split(" ").filter((x) => x !== "");
-  narrow(place, (o) => level === "" || o.dataset.level === level, "No place of this kind yet. Add one on the Structure tab.", "Place...");
+  narrow(place, (o) => level === "" || o.dataset.level === level, "No location of this kind yet. Add one on the Structure tab.", "Place...");
   for (const g of document.querySelectorAll(".pj-ben-group") as NodeListOf<HTMLSelectElement>) {
     const used = groups.includes(g.dataset.groupLevel ?? "");
     g.hidden = !used;
     if (!used) g.value = "";
-    narrow(g, (o) => place.value !== "" && (o.dataset.in ?? "").split(" ").includes(place.value), place.value === "" ? "Choose the place first" : "None in this place yet", g.getAttribute("aria-label") + "...");
+    narrow(g, (o) => place.value !== "" && (o.dataset.in ?? "").split(" ").includes(place.value), place.value === "" ? "Choose the location first" : "None in this location yet", g.getAttribute("aria-label") + "...");
   }
 }
 // Adding a place or a group: only the places of the level above are offered to sit inside (DECISIONS 71).
@@ -1232,7 +1232,7 @@ function filterParents(): void {
   if (!level || !parent) return;
   const above = (level.selectedOptions[0] as HTMLOptionElement | undefined)?.dataset.parentLevel;
   parent.disabled = level.value !== "" && above === "";
-  narrow(parent, (o) => above !== undefined && o.dataset.level === above, level.value === "" ? "Inside..." : above === "" ? "Not inside anything" : "No place of that kind yet", "Inside...");
+  narrow(parent, (o) => above !== undefined && o.dataset.level === above, level.value === "" ? "Inside..." : above === "" ? "Not inside anything" : "No location of that kind yet", "Inside...");
   if (above === "") (parent.options[0] as HTMLOptionElement).textContent = "Not inside anything";
 }
 document.addEventListener("change", (e) => {
@@ -1308,7 +1308,7 @@ document.addEventListener("click", (e) => {
     const p = state.projects.find((x) => x.id === id);
     const own = state.outcomes.filter((o) => o.projectId === id).length;
     const places = state.nodes.filter((n) => n.projectId === id).length;
-    const words = `${p?.name ?? "This partner"}${own || places ? `, its ${own} beneficiar${own === 1 ? "y" : "ies"} and ${places} place${places === 1 ? "" : "s"} and group${places === 1 ? "" : "s"}` : ""}`;
+    const words = `${p?.name ?? "This partner"}${own || places ? `, its ${own} beneficiar${own === 1 ? "y" : "ies"} and ${places} location${places === 1 ? "" : "s"} and group${places === 1 ? "" : "s"}` : ""}`;
     if (!window.confirm(`Remove ${words}? This cannot be undone. A beneficiary with a gift allocated is never removed: release the gift first.`)) return;
     void outcomeChange({ action: "remove-partner", projectId: id, withBeneficiaries: own > 0 }).then(() => {
       if (lastError !== "") { const box = document.getElementById("pf-error"); if (box) box.textContent = lastError; return; }

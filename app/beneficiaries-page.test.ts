@@ -41,7 +41,7 @@ describe("beneficiariesPage", () => {
   it("lists everyone in one table with their ID, partner, kind, place, groups and units sponsored", () => {
     const { partners, nodes, outcomes } = built();
     const html = beneficiariesPage(base({ projects: partners, nodes, outcomes }));
-    for (const w of ["<th>ID</th>", "<th>Partner</th>", "<th>Place</th>", "<th>Groups</th>", "Orphan 1", "Waiting", "Aghosh Orphan Homes", "0 of 3"]) expect(html).toContain(w);
+    for (const w of ["<th>ID</th>", "<th>Partner</th>", "<th>Location</th>", "<th>Groups</th>", "Orphan 1", "Waiting", "Aghosh Orphan Homes", "0 of 3"]) expect(html).toContain(w);
     expect(html).toContain('data-ref="orphan-1"');
   });
   it("lets a beneficiary be placed afterwards: a place list, and a list of groups once it has a place", () => {

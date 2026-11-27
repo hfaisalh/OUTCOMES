@@ -62,7 +62,7 @@ export function clusterPeopleHtml(state: ClusterState, c: Cluster, ctx: PeopleCo
   // Capacity: the total belongs to the master cluster, and counts everyone inside it except role holders.
   const top = masterOf(state, c.id);
   const taken = top ? activeIn(enr, state, ctx.projectId, top.id, true).length : 0;
-  const capacity = top && top.capacity !== undefined ? `<p class="muted"><b>${taken}</b> of <b>${top.capacity}</b> places taken in ${esc(top.name)}.</p>` : "";
+  const capacity = top && top.capacity !== undefined ? `<p class="muted"><b>${taken}</b> of <b>${top.capacity}</b> enrolled in ${esc(top.name)} (capacity).</p>` : "";
   const people = ctx.beneficiaries.filter((b) => b.status === "active");
   const roles = c.roles ?? [];
   // Rule (DECISIONS 210): only a benefit that takes a person or a household is offered here. A benefit where the gift comes first, or with no beneficiary, is parked on the Outcomes tab instead.
@@ -73,7 +73,7 @@ export function clusterPeopleHtml(state: ClusterState, c: Cluster, ctx: PeopleCo
       <select id="en-ben" aria-label="Beneficiary">${benOptions(people)}</select>
       <select id="en-role" aria-label="Role"><option value="">No role (an ordinary beneficiary)</option>${roles.map((r) => `<option value="${esc(r)}">${esc(r)}</option>`).join("")}</select>
       <button type="button" class="iconact ok" data-cl="enr-add" data-id="${esc(c.id)}" title="Enrol in ${esc(c.name)}" aria-label="Enrol in ${esc(c.name)}">+</button></div>
-      <p class="muted small">A person must have the admission decision Ready before being enrolled where a beneficiary comes first. The benefit's type decides whether it takes a person or a household. A role holder does not use up a place.</p>`;
+      <p class="muted small">A person must have the admission decision Ready before being enrolled where a beneficiary comes first. The benefit's type decides whether it takes a person or a household. A role holder does not use up capacity.</p>`;
   return `<section>${capacity}
     <h4 class="wf-h">Enrol someone in ${esc(c.name)}</h4>
     ${form}

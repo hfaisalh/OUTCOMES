@@ -98,7 +98,7 @@ describe("capacity on the master cluster", () => {
     enr = ok(add(enr, "PRS-0002", { clusterId: "class-2" }));
     enr = ok(add(enr, "PRS-0003"));
     const full = add(enr, "PRS-0004", { clusterId: "class-2" });
-    expect("error" in full && full.error).toBe("Aghosh Home - Lahore is full: 3 of 3 places are taken.");
+    expect("error" in full && full.error).toBe("Aghosh Home - Lahore is full: 3 of 3 enrolled.");
     enr = ok(endEnrolment(enr, "EN-0001", "2026-11-25")); // a place is freed
     expect(add(enr, "PRS-0004", { clusterId: "class-2" })).toHaveProperty("value");
   });

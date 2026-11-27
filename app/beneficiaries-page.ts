@@ -53,7 +53,7 @@ export function beneficiariesPage(v: View): string {
 
   const filters = `<div class="filters"><select data-benf="partner" aria-label="Partner"><option value="">All partners</option>${partners.map((p) => `<option value="${esc(p.id)}"${p.id === f.partner ? " selected" : ""}>${esc(p.name)}</option>`).join("")}${legacy ? `<option value="none"${f.partner === "none" ? " selected" : ""}>Not in a partner (${legacy})</option>` : ""}</select>
     <select data-benf="type" aria-label="Kind"><option value="">All kinds</option>${types.map((t) => `<option value="${esc(t)}"${t === f.type ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>
-    <select data-benf="placed" aria-label="Placed"><option value="">Placed or not</option><option value="yes"${f.placed === "yes" ? " selected" : ""}>In a place</option><option value="no"${f.placed === "no" ? " selected" : ""}>Not in a place</option></select>
+    <select data-benf="placed" aria-label="Placed"><option value="">Placed or not</option><option value="yes"${f.placed === "yes" ? " selected" : ""}>In a location</option><option value="no"${f.placed === "no" ? " selected" : ""}>Not in a location</option></select>
     <input data-benf="text" value="${esc(f.text)}" placeholder="Search name or ID" aria-label="Search" /></div>`;
 
   const rows = shown.slice(0, MAX_ROWS).map((o) => {
@@ -71,6 +71,6 @@ export function beneficiariesPage(v: View): string {
   const table = `<div class="card"><h2>Beneficiaries <span class="muted">(${shown.length}${shown.length !== all.length ? ` of ${all.length}` : ""})</span></h2>
     ${filters}${idTool}
     ${unused.length && (f.partner !== "" || f.type !== "" || text !== "") ? `<div class="actions"><button data-action="remove-unused" data-ids="${esc(unused.slice(0, 1000).join(","))}">Remove the ${Math.min(unused.length, 1000)} shown that have no sponsor</button></div>` : ""}
-    ${shown.length ? `<div class="twrap"><table class="ptable"><thead><tr><th>ID</th><th>Name</th><th>Partner</th><th>Kind</th><th>Place</th><th>Groups</th><th>Sponsored of units</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${shown.length > MAX_ROWS ? `<p class="muted">Showing ${MAX_ROWS} of ${shown.length}. Use the filters to narrow the list.</p>` : ""}` : `<div class="empty">${all.length ? "No beneficiaries match the filters." : "No beneficiaries yet. Add the first above."}</div>`}</div>`;
+    ${shown.length ? `<div class="twrap"><table class="ptable"><thead><tr><th>ID</th><th>Name</th><th>Partner</th><th>Kind</th><th>Location</th><th>Groups</th><th>Sponsored of units</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${shown.length > MAX_ROWS ? `<p class="muted">Showing ${MAX_ROWS} of ${shown.length}. Use the filters to narrow the list.</p>` : ""}` : `<div class="empty">${all.length ? "No beneficiaries match the filters." : "No beneficiaries yet. Add the first above."}</div>`}</div>`;
   return `${head}${add}${table}`;
 }

@@ -75,7 +75,7 @@ function capacityError(enr: Enrolments, state: ClusterState, giftProjectId: stri
   const top = masterOf(state, clusterId);
   if (!top || top.capacity === undefined) return "";
   const n = activeIn(enr, state, giftProjectId, top.id, true).filter((e) => e.id !== ignoreId).length;
-  return n >= top.capacity ? `${top.name} is full: ${top.capacity} of ${top.capacity} places are taken.` : "";
+  return n >= top.capacity ? `${top.name} is full: ${top.capacity} of ${top.capacity} enrolled.` : "";
 }
 
 export function enrol(ctx: EnrolContext, enr: Enrolments, raw: { beneficiaryId: unknown; giftProjectId: unknown; clusterId: unknown; itemId: unknown; role?: unknown }): Result {

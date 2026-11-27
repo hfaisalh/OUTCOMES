@@ -52,7 +52,7 @@ describe("the sample setup, used like a person would", () => {
     click({ cl: "node-tab", tab: "people" }, "data-cl");
     expect(root.innerHTML).toContain("Sample Amina");
     expect(root.innerHTML).toContain("Sample Principal Hamid");
-    expect(root.innerHTML).toContain("places taken in Sample Home - North");
+    expect(root.innerHTML).toContain("enrolled in Sample Home - North (capacity)");
     click({ pj: "cancel" }, "data-pj");
 
     // A second load adds nothing and says why.

@@ -19,7 +19,7 @@
  * - Rule (DECISIONS 186): nothing is deleted. A placement has a start (when it was made) and, once it ends, an end date and a reason (the plan paused, cancelled or completed; the child left; a person moved or took it back).
  *   An ended placement is history: it frees the child's place and is kept. Each run first ends the placements of a gift whose plan is now parked and of a child who has left. A plan that runs again is given its previous
  *   child back if that child is still free, else a new place like any gift. Only a reset (a test run) clears history.
- * - A gift with no place waits, with the reason: no one is enrolled for the benefit, or every place for it is full. A gift for an item with no type yet waits too, and says the type is missing (DECISIONS 178).
+ * - A gift with no beneficiary to fund waits, with the reason: no one is enrolled for the benefit, or every beneficiary for it is already fully funded. A gift for an item with no type yet waits too, and says the type is missing (DECISIONS 178).
  * - A person can place a gift in a chosen place that is open and fits, or take a placement back. Nothing is changed in place: every function returns a new value.
  */
 
@@ -163,10 +163,10 @@ export function suggestPlacements(ctx: PlaceContext, existing: Placements): Plac
     if (shares.length > 0) {
       for (const sh of shares) running.push({ key: a.key, kind: "place", enrolmentId: sh.enrolmentId, outcomeRef: "", giftProjectId: options.find((o) => o.enrolmentId === sh.enrolmentId)?.giftProjectId ?? a.giftProjectId, itemId: a.itemId, parts: sh.parts, how: "auto", at: ctx.now });
       const first = options.find((o) => o.enrolmentId === shares[0]?.enrolmentId) as PlaceOption;
-      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "place", enrolmentId: first.enrolmentId, shares, blocked: "", options, why: shares.length === 1 ? `${previous.has(first.enrolmentId) ? "Takes back its previous child, " : "Fills a place for "}${first.name} (${first.used} of ${first.capacity} units taken)` : `Spread over ${shares.length} places, ${shares.map((x) => `${options.find((o) => o.enrolmentId === x.enrolmentId)?.name ?? x.enrolmentId} (${x.parts})`).join(", ")}, since no single place can take ${a.parts} units` });
+      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "place", enrolmentId: first.enrolmentId, shares, blocked: "", options, why: shares.length === 1 ? `${previous.has(first.enrolmentId) ? "Takes back its previous child, " : "Supports "}${first.name} (${first.used} of ${first.capacity} units taken)` : `Spread over ${shares.length} beneficiaries, ${shares.map((x) => `${options.find((o) => o.enrolmentId === x.enrolmentId)?.name ?? x.enrolmentId} (${x.parts})`).join(", ")}, since no single beneficiary can take ${a.parts} units` });
     } else {
       const blocked: Blocked = options.length > 0 ? "full" : a.giftProjectId !== "" ? "no-places" : "no-project-places";
-      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "", enrolmentId: "", shares: [], blocked, options, why: options.length > 0 ? "Every place for this benefit is full." : a.giftProjectId !== "" ? "No approved beneficiary is enrolled for this benefit in the gift's project." : "No approved beneficiary is enrolled for this benefit with the assigned partner." });
+      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "", enrolmentId: "", shares: [], blocked, options, why: options.length > 0 ? "Every beneficiary for this benefit is already fully funded." : a.giftProjectId !== "" ? "No approved beneficiary is enrolled for this benefit in the gift's project." : "No approved beneficiary is enrolled for this benefit with the assigned partner." });
     }
   }
   return out;
@@ -238,8 +238,8 @@ export function placeManual(ctx: PlaceContext, existing: Placements, key: string
   existing = { ...existing, records: existing.records.filter((p) => !(p.key === key && p.kind === "outcome" && isActive(p))) };
   const others = existing.records.filter((p) => p.key !== key || !isActive(p)); // the gift's own active placements leave the count while it is moved
   const option = placesFor(ctx, a, others).find((o) => o.enrolmentId === enrolmentId);
-  if (!option) return { error: "That place is not open for this gift: it must be an approved beneficiary enrolled for this benefit in the right project." };
-  if (!option.fits) return { error: `${option.name}'s place is full: ${option.used} of ${option.capacity} units taken, and this gift needs ${a.parts}.` };
+  if (!option) return { error: "That beneficiary cannot take this gift: it must be an approved beneficiary enrolled for this benefit in the right project." };
+  if (!option.fits) return { error: `${option.name} is already funded: ${option.used} of ${option.capacity} units taken, and this gift needs ${a.parts}.` };
   // Rule (DECISIONS 186): the gift's earlier placement ends as moved and stays as history.
   const ended = existing.records.map((p) => (p.key === key && isActive(p) && p.kind === "place" ? { ...p, to: ctx.now.slice(0, 10), endReason: "moved" as const } : p));
   return { value: { ...existing, records: [...ended, { key, kind: "place", enrolmentId, outcomeRef: "", giftProjectId: option.giftProjectId, itemId: a.itemId, parts: a.parts, how: "manual", at: ctx.now }] } };
@@ -269,7 +269,7 @@ export function applyPlacementAction(ctx: PlaceContext, existing: Placements, bo
   switch (body["action"]) {
     case "plc-run": {
       const r = runPlacement(ctx, existing);
-      return { value: r.value, message: `Placed ${r.placed} in open places and created ${r.outcomes} outcome${r.outcomes === 1 ? "" : "s"}. ${r.waiting} wait with no open place.${r.ended ? ` ${r.ended} placement${r.ended === 1 ? "" : "s"} ended (a plan was parked or a child left) and ${r.ended === 1 ? "is" : "are"} kept as history.` : ""}` };
+      return { value: r.value, message: `Placed ${r.placed} with beneficiaries to fund and created ${r.outcomes} outcome${r.outcomes === 1 ? "" : "s"}. ${r.waiting} wait with no beneficiary to fund.${r.ended ? ` ${r.ended} placement${r.ended === 1 ? "" : "s"} ended (a plan was parked or a child left) and ${r.ended === 1 ? "is" : "are"} kept as history.` : ""}` };
     }
     case "plc-set": return placeManual(ctx, existing, str("key"), str("enrolmentId"));
     case "plc-unplace": return unplace(existing, str("key"), ctx.now.slice(0, 10));

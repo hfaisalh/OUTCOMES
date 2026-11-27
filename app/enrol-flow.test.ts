@@ -74,7 +74,7 @@ describe("enrolling in a cluster, used like a person would", () => {
     if (first.includes("needs an admission decision")) throw new Error(`the item is not a beneficiary-first type, so the rule differs: ${first.match(/role="alert">[^<]*/)?.[0]}`);
     expect(root.innerHTML).toContain("Ayesha Khan");
     expect(root.innerHTML).toContain("Enrolled.");
-    expect(root.innerHTML).toContain("<b>1</b> of <b>2</b> places taken");
+    expect(root.innerHTML).toContain("<b>1</b> of <b>2</b> enrolled");
     // A child who is not approved is refused, with the reason, and a person cannot take a pump, which goes to a household.
     Object.assign(values, { "en-ben": "PRS-0002" });
     click({ cl: "enr-add", id: "home" }, "data-cl"); await flush();
@@ -87,7 +87,7 @@ describe("enrolling in a cluster, used like a person would", () => {
     fire("change", { target: { dataset: { cl: "enr-move", id: "EN-0001" }, value: "class-1" } }); await flush();
     expect(root.innerHTML).toContain("Moved.");
     expect(root.innerHTML).toContain("Class 1");
-    expect(root.innerHTML).toContain("<b>1</b> of <b>2</b> places taken");
+    expect(root.innerHTML).toContain("<b>1</b> of <b>2</b> enrolled");
 
     // An enrolled child and a cluster that holds an enrolment cannot be removed.
     click({ pj: "cancel" }, "data-pj");
@@ -110,6 +110,6 @@ describe("enrolling in a cluster, used like a person would", () => {
     click({ cl: "enr-end", id: "EN-0001" }, "data-cl"); await flush();
     expect(root.innerHTML).toContain("Enrolment ended.");
     expect(root.innerHTML).toContain("Nobody is enrolled here yet.");
-    expect(root.innerHTML).toContain("<b>0</b> of <b>2</b> places taken");
+    expect(root.innerHTML).toContain("<b>0</b> of <b>2</b> enrolled");
   });
 });

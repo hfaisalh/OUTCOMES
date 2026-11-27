@@ -66,7 +66,7 @@ describe("levels", () => {
     expect(removeLevel(projects, nodes, id, "block").error).toContain("under it");
     expect(removeLevel(projects, nodes, id, "class").error).toContain("type of beneficiary");
     const noType = removeType(projects, [], id, "child").value;
-    expect(removeLevel(noType, nodes, id, "class").error).toContain("places");
+    expect(removeLevel(noType, nodes, id, "class").error).toContain("locations");
     expect(removeLevel(noType, [], id, "class").error).toBeUndefined();
   });
 });
@@ -278,7 +278,7 @@ describe("projects: what a donor chooses, and the partners that deliver it (DECI
     expect(setPlace(bare, projects, nodes, bare[0]!.id, nodes[0]!.id).error).toContain("belong to a");
     expect(setPlace(placed.value, projects, nodes, bare[0]!.id, "").value[0]).not.toHaveProperty("nodeId");
     expect(setPlace(bare, projects, nodes, "nope", "x").error).toContain("not found");
-    expect(setGroup(bare, projects, nodes, bare[0]!.id, "class", "x").error).toContain("place first");
+    expect(setGroup(bare, projects, nodes, bare[0]!.id, "class", "x").error).toContain("location first");
   });
 });
 

@@ -44,7 +44,7 @@ describe("the Beneficiaries tab of a cluster", () => {
   });
   it("says how many of the master cluster's places are taken, not counting a role holder, and offers only open clusters to move to", () => {
     const html = clusterPeopleHtml(state, state.clusters[1]!, ctx());
-    expect(html).toContain("<b>1</b> of <b>10</b> places taken in Aghosh Home.");
+    expect(html).toContain("<b>1</b> of <b>10</b> enrolled in Aghosh Home (capacity).");
     expect(peopleCount(state, ctx(), "home")).toBe(1);
     expect(html).toContain('<option value="home">Aghosh Home</option>');
     expect(html).not.toContain('<option value="class-2">'); // closed
