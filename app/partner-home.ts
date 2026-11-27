@@ -8,7 +8,8 @@
 
 import { partnerOutcomes } from "../modules/13-partner-portal/outcomes";
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
-import { answerCardHtml, journeyHtml, outcomesTableHtml, type PartnerUi } from "./partner-outcomes";
+import { batchesHtml } from "./partner-batches";
+import { journeyHtml, type PartnerUi } from "./partner-outcomes";
 
 // --- Helpers ---
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -40,10 +41,10 @@ export function partnerHomeHtml(slice: PartnerSlice, who: string, version: strin
       <div class="phome-who"><span class="badge-demo">${canReturn ? "Testing as partner" : "Partner"}</span><span class="ver" title="The version of this page. If it is not the latest, refresh the page.">${esc(version)}</span><span>${esc(who)}</span>${canReturn ? `<button data-action="view-as" data-partner="">Back to staff</button>` : ""}<button data-action="sign-out">Sign out</button></div></header>
     <main class="phome-main">
       <h1>Welcome, ${esc(p.name)}</h1><p class="sub">Your gifts, beneficiaries and outcomes. You see only your own.</p>
-      ${journeyHtml(gifts)}${answerCardHtml(gifts, ui)}
+      ${journeyHtml(gifts)}
       <div class="metrics">${tile(all.length, "Beneficiaries")}${tile(enrolled.size, "Enrolled")}${tile(waiting, "Waiting for a vacancy")}${tile(review, "Need details")}</div>
       <div class="phome-grid">
-        <div class="phome-col">${outcomesTableHtml(gifts)}
+        <div class="phome-col">${batchesHtml(gifts, ui)}
           <section class="card"><h2>Your beneficiaries</h2>${rows ? `<div class="tablewrap"><table><thead><tr><th>ID</th><th>Name</th><th>Project</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">No beneficiaries yet. Adding them comes next.</div>`}</section></div>
         <aside class="phome-side">
           <section class="card"><h2>Your projects</h2>${projects ? `<ul class="phome-list">${projects}</ul>` : `<div class="empty">No project has been given to you yet.</div>`}</section>

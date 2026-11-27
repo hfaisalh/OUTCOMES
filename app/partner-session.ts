@@ -11,7 +11,7 @@ import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 import type { PartnerUi } from "./partner-outcomes";
 
 // --- State of the screen: the open refusal form and the last message or error ---
-export const partnerUi: PartnerUi = { refusing: null, message: "", error: "" };
+export const partnerUi: PartnerUi = { open: [], lastOpened: "", refusing: null, message: "", error: "" };
 
 const keysOf = (el: HTMLElement): string[] => (el.dataset["keys"] ?? "").split("|").filter((k) => k !== "");
 const body = (yes: boolean, keys: string[], reason: string): Record<string, unknown> =>
@@ -32,7 +32,13 @@ async function send(request: Record<string, unknown>, apply: (s: PartnerSlice) =
 
 export async function handlePartnerAction(action: string, el: HTMLElement, apply: (s: PartnerSlice) => void, redraw: () => void): Promise<void> {
   partnerUi.message = "";
-  if (action === "pt-accept") await send(body(true, keysOf(el), ""), apply);
+  partnerUi.lastOpened = "";
+  if (action === "pt-toggle") {
+    const id = el.dataset["batch"] ?? "";
+    const wasOpen = partnerUi.open.includes(id);
+    partnerUi.open = wasOpen ? partnerUi.open.filter((b) => b !== id) : [...partnerUi.open, id];
+    if (!wasOpen) partnerUi.lastOpened = id; // only the batch just opened fades in, not every one on each redraw
+  } else if (action === "pt-accept") await send(body(true, keysOf(el), ""), apply);
   else if (action === "pt-refuse") { partnerUi.refusing = keysOf(el); partnerUi.error = ""; }
   else if (action === "pt-refuse-cancel") { partnerUi.refusing = null; partnerUi.error = ""; }
   else if (action === "pt-refuse-send") {
@@ -41,6 +47,13 @@ export async function handlePartnerAction(action: string, el: HTMLElement, apply
     else await send(body(false, partnerUi.refusing ?? [], reason), apply);
   }
   redraw();
+  restoreFocus(action, el);
+}
+
+// A redraw replaces the page, so keyboard focus is put back where the person was: the batch button they pressed, or the reason box they just opened.
+function restoreFocus(action: string, el: HTMLElement): void {
+  if (action === "pt-toggle") (document.querySelector(`[data-action="pt-toggle"][data-batch="${el.dataset["batch"] ?? ""}"]`) as HTMLElement | null)?.focus();
+  else if (action === "pt-refuse") (document.getElementById("pt-reason") as HTMLElement | null)?.focus();
 }
 
 // --- Switch between the staff view and a partner's view (testing, DECISIONS 255) ---

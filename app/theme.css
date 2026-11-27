@@ -570,5 +570,14 @@ tr.rowlink[data-cnfwin]{cursor:pointer}tr.rowlink[data-cnfwin]:hover td{backgrou
 @media (prefers-reduced-motion:reduce){.pj-step{transition:none}.pj-step:hover{transform:none}}
 @media (max-width:980px){.phome-grid{grid-template-columns:minmax(0,1fr)}.pj-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.pj-step:not(:last-child)::after{display:none}}
 @media (max-width:560px){.phome-bar,.phome-main{padding-left:16px;padding-right:16px}.pj-steps{grid-template-columns:minmax(0,1fr)}}
-.pt-batches{list-style:none;margin:0 0 4px;padding:0;display:grid;gap:8px}.pt-batch{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
 .pt-refuse{display:grid;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}.pt-refuse textarea{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;resize:vertical}
+/* Partner batch list (DECISIONS 256): each batch is a row that opens to its gifts. Touch targets 44px, a visible focus ring, and the fade is off for reduced motion. */
+.pb-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}.pb{border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}.pb.open{border-color:var(--accent,#2f4b9a)}
+.pb-head{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;padding:4px 8px 4px 4px}.pb-head .actions{display:flex;gap:8px;flex-wrap:wrap}.pb-head button,.pb-ans button{min-height:44px}
+.pb-toggle{display:flex;align-items:center;gap:10px;flex:1 1 280px;min-width:0;padding:6px 10px;background:none;border:0;border-radius:10px;text-align:left;font:inherit;color:inherit;cursor:pointer;flex-wrap:wrap}.pb-toggle:hover{background:rgba(0,0,0,.04)}.pb-toggle:focus-visible,.pb-head button:focus-visible,.pb-ans button:focus-visible{outline:2px solid var(--accent,#2f4b9a);outline-offset:2px}
+.pb-chev{flex:none;transition:transform .18s ease}.pb-toggle[aria-expanded="true"] .pb-chev{transform:rotate(90deg)}.pb-sum{display:flex;gap:6px;flex-wrap:wrap}.pb-name{min-width:0;overflow-wrap:anywhere}
+.pb-body{border-top:1px solid var(--line);padding:8px 12px 12px}.pb-in{animation:pb-open .18s ease-out}@keyframes pb-open{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.pb-ans{display:flex;gap:8px;justify-content:flex-end;white-space:nowrap}.pb-hint{margin:0 0 10px;font-size:12px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){.pb-in{animation:none}.pb-chev{transition:none}}
+@media (max-width:560px){.pb-head .actions{width:100%}.pb-head .actions button{flex:1}}

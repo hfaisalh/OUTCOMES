@@ -13,7 +13,7 @@ import type { Beneficiary } from "../modules/07-beneficiaries/beneficiaries";
 import type { View } from "./pages";
 import type { PartnerUi } from "./partner-outcomes";
 
-const QUIET: PartnerUi = { refusing: null, message: "", error: "" };
+const QUIET: PartnerUi = { open: [], lastOpened: "", refusing: null, message: "", error: "" };
 
 const kid = (id: string, name: string, eligibility: string, over: Partial<Beneficiary> = {}): Beneficiary => ({ id, kind: "person", name, status: "active", area: "", notes: "", dob: "", gender: "", guardian: "", guardianRelation: "", placeOfBirth: "", idNumber: "", fatherStatus: "", motherStatus: "", eligibility, eligibilityNote: "", partnerId: "p1", partnerRef: "", memberIds: [], ...over } as Beneficiary);
 const slice = (): PartnerSlice => ({
@@ -36,7 +36,7 @@ describe("the partner's home screen", () => {
     expect(html).toContain('class="ver"');
     expect(html).toContain("v0.1.0 · abc123");
     expect(html).toContain("How outcomes work");
-    expect(html).toContain("Orphan Sponsorship Monthly");
+    expect(partnerHomeHtml(slice(), "Sara", "dev", { ...QUIET, open: ["none"] })).toContain("Orphan Sponsorship Monthly"); // a batch shows its gifts when opened
     expect(html).toContain("Orphan homes");
     expect(html).toContain('data-action="sign-out"');
     expect(html).not.toContain("<Trust>");
@@ -67,13 +67,13 @@ describe("the partner's home screen", () => {
 describe("answering a gift", () => {
   it("offers Accept and Refuse for each batch waiting, with the gift keys", () => {
     const html = partnerHomeHtml(slice(), "Sara", "dev", QUIET);
-    expect(html).toContain("Waiting for your answer");
+    expect(html).toContain("Your batches");
     expect(html).toContain('data-action="pt-accept" data-keys="sub:1"');
     expect(html).toContain('data-action="pt-refuse" data-keys="sub:1"');
     expect(html).not.toContain("pt-reason");
   });
   it("shows the refusal form with its reason box, and an error or message safely", () => {
-    const form = partnerHomeHtml(slice(), "Sara", "dev", { refusing: ["sub:1"], message: "", error: "Say <why>." });
+    const form = partnerHomeHtml(slice(), "Sara", "dev", { ...QUIET, refusing: ["sub:1"], error: "Say <why>." });
     expect(form).toContain('id="pt-reason"');
     expect(form).toContain('data-action="pt-refuse-send"');
     expect(form).toContain('data-action="pt-refuse-cancel"');
@@ -85,10 +85,12 @@ describe("answering a gift", () => {
     s.assignments = [...s.assignments, { ...s.assignments[0]!, key: "sub:2" }];
     expect(partnerHomeHtml(s, "Sara", "dev", QUIET)).toContain('data-keys="sub:1|sub:2"');
   });
-  it("shows nothing to answer when everything is answered", () => {
+  it("offers no Accept or Refuse once everything is answered, but still lists the batch", () => {
     const s = slice();
     s.confirmations = [{ key: "sub:1", partnerId: "p1", answer: "confirmed", at: "x", by: "A", reason: "" }];
-    expect(partnerHomeHtml(s, "Sara", "dev", QUIET)).not.toContain("Waiting for your answer");
+    const html = partnerHomeHtml(s, "Sara", "dev", QUIET);
+    expect(html).toContain("Gifts without a batch");
+    expect(html).not.toContain('data-action="pt-accept"');
   });
 });
 
@@ -131,5 +133,44 @@ describe("switching views while testing (DECISIONS 255)", () => {
     const real = partnerHomeHtml(slice(), "Sara", "dev", QUIET);
     expect(real).not.toContain("Back to staff");
     expect(real).toContain(">Partner<");
+  });
+});
+
+describe("the batch list opens to show what is in a batch (DECISIONS 256)", () => {
+  const two = (): PartnerSlice => {
+    const s = slice();
+    const g = (key: string, batch: number) => ({ ...s.assignments[0]!, key, batch });
+    s.assignments = [g("sub:1", 1), g("sub:2", 1), g("sub:3", 2)];
+    s.confirmations = [{ key: "sub:3", partnerId: "p1", answer: "confirmed", at: "x", by: "A", reason: "" }];
+    return s;
+  };
+  it("shows each batch closed, with a summary, an accessible toggle and no gifts listed below", () => {
+    const html = partnerHomeHtml(two(), "Sara", "dev", QUIET);
+    expect(html).toContain('data-action="pt-toggle" data-batch="1" aria-expanded="false" aria-controls="pb-body-1"');
+    expect(html).toContain("2 gifts");
+    expect(html).toContain("2 to answer");
+    expect(html).toContain("1 confirmed");
+    expect(html).not.toContain('id="pb-body-1"'); // closed: the gifts are not shown
+    expect(html).not.toContain("Your gifts and outcomes"); // and not listed again in a long table below
+  });
+  it("puts the batch waiting for an answer first, and offers the whole batch Accept all and Refuse all", () => {
+    const html = partnerHomeHtml(two(), "Sara", "dev", QUIET);
+    expect(html.indexOf("Batch 1")).toBeLessThan(html.indexOf("Batch 2"));
+    expect(html).toContain('data-action="pt-accept" data-keys="sub:1|sub:2">Accept all');
+    expect(html).toContain("Refuse all");
+  });
+  it("opens a batch to its gifts, with an answer for each waiting gift, and marks only the one just opened to fade in", () => {
+    const html = partnerHomeHtml(two(), "Sara", "dev", { ...QUIET, open: ["1"], lastOpened: "1" });
+    expect(html).toContain('aria-expanded="true"');
+    expect(html).toContain('id="pb-body-1" role="region" aria-label="Gifts in Batch 1"');
+    expect(html).toContain("pb-in");
+    expect(html).toContain('data-action="pt-accept" data-keys="sub:2">Accept</button>');
+    expect(partnerHomeHtml(two(), "Sara", "dev", { ...QUIET, open: ["1"] })).not.toContain("pb-in");
+  });
+  it("opens the batch a refusal belongs to, so its reason box is never out of sight", () => {
+    const html = partnerHomeHtml(two(), "Sara", "dev", { ...QUIET, refusing: ["sub:1", "sub:2"] });
+    expect(html).toContain('aria-expanded="true"');
+    expect(html).toContain("Why can you not take these 2 gifts?");
+    expect(html.indexOf('id="pt-reason"')).toBeGreaterThan(html.indexOf('id="pb-body-1"'));
   });
 });
