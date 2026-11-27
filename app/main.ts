@@ -55,7 +55,7 @@ import { acceptSuggestions, addCategory, addFramework, resolveFrameworkId, assig
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
 import { buildAttention, type AttentionItem } from "../modules/04-triage/triage";
-import { changeOutcomes, loadOutcomes, decideAttention, signOut, importFeed, loadAttention, loadAudits, loadConfig, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
+import { changeOutcomes, loadOutcomes, decideAttention, signOut, importFeed, loadAttention, loadAudits, loadConfig, loadPartner, loadWorkOrders, fetchMe, runPickupNow, saveConfig, type Me } from "./api";
 import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
@@ -68,6 +68,8 @@ import { createMapping } from "./mapping-controller";
 import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { ensureRefs } from "../modules/05-outcomes/refs";
 import { checkingHtml, signinHtml } from "./signin-page";
+import { partnerHomeHtml } from "./partner-home";
+import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
 import { setItemKind, setItemUnits } from "../modules/02-project-rules/benefits";
 import { applyKindAction, type SavedFeatures } from "../modules/02-project-rules/kind-features";
@@ -170,9 +172,10 @@ const state = {
   audits: [] as AuditRecord[], // batch audit history (live only)
   attention: [] as AttentionItem[], // Needs attention, from the server when live (Module 4)
   topMenu: "" as "" | "settings" | "user", // which icon menu in the top bar is open
-  gate: "app" as "app" | "checking" | "signin", // before anything starts (DECISIONS 91): checking the session, the sign-in screen, or the app
+  gate: "app" as "app" | "checking" | "signin" | "partner", // before anything starts (DECISIONS 91): checking the session, the sign-in screen, or the app
   ownerNote: "", // what the last owner sign-in attempt said
   loading: "", // what the load is doing right now, "" when idle (shows a spinner)
+  partnerSlice: null as PartnerSlice | null, // a partner's own data, set only for a partner's sign-in (DECISIONS 249)
   me: null as Me | null, // set when signed in from the CRM (live mode)
   run: null as import("../modules/00-platform/store").RunInfo | null,
 };
@@ -237,6 +240,13 @@ function afterConfig(rerun = true): void {
   if (rerun) refresh();
 }
 
+// A partner's sign-in never loads staff data: it gets its own slice and its own home screen (DECISIONS 249).
+async function enterPartner(me: Me): Promise<void> {
+  state.me = me;
+  try { state.partnerSlice = await loadPartner(); state.gate = "partner"; } catch { state.gate = "signin"; state.ownerNote = "Your partner account could not be loaded. Try signing in again."; }
+  draw();
+}
+
 async function enterLive(me: Me): Promise<void> {
   state.me = me;
   state.workOrders = [];
@@ -278,7 +288,7 @@ function view(): View {
   return {
     workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, confirmations: state.confirmations, progress: state.progress, prgFilter: state.prgFilter, assignFilter: state.assignFilter, placements: state.placements, allocFilter: state.allocFilter, cnfFilter: state.cnfFilter, pjFilter: state.pjFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, allocations: state.allocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, itemUnits: state.itemUnits, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
-    pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
+    pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, ...(state.me?.logins ? { logins: state.me.logins } : {}), attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
 }
 
@@ -483,7 +493,8 @@ function settleConfirmations(): void {
 function draw(): void {
   // Rule (DECISIONS 91): until a session is found, or the demo is chosen, only the sign-in screen is shown.
   if (state.gate !== "app") {
-    (document.getElementById("shell") as HTMLElement).innerHTML = state.gate === "checking" ? checkingHtml() : signinHtml(state.ownerNote);
+    const html = state.gate === "checking" ? checkingHtml() : state.gate === "partner" && state.partnerSlice && state.me ? partnerHomeHtml(state.partnerSlice, state.me.name) : signinHtml(state.ownerNote);
+    (document.getElementById("shell") as HTMLElement).innerHTML = html;
     return;
   }
   const menu = visibleMenu(permissions());
@@ -1094,6 +1105,7 @@ if (loc && !wantsDemo) state.gate = "checking";
 draw();
 // If the person arrived from the CRM there is a session: switch from demo to live data.
 void fetchMe().then((me) => {
+  if (me?.partner) return enterPartner(me);
   if (me) { state.gate = "app"; return enterLive(me); }
   if (state.gate === "checking") { state.gate = "signin"; draw(); }
   return undefined;

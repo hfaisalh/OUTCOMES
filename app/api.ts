@@ -25,6 +25,8 @@ import type { Confirmations } from "../modules/11-confirmation/confirmation";
 import type { Progress } from "../modules/12-progress/progress";
 import type { Placements } from "../modules/09-placement/placement";
 
+import type { PartnerSlice } from "../modules/13-partner-portal/scope";
+
 export interface Me {
   name: string;
   org: string;
@@ -33,6 +35,8 @@ export interface Me {
   storage: "database" | "memory";
   demo?: boolean; // true when the organisation is connected to the pretend CRM
   upload?: boolean; // true when the organisation takes uploaded CRM export files
+  partner?: string; // set when this is a partner's sign-in (DECISIONS 249)
+  logins?: { email: string; name: string; role: string; partnerId?: string }[]; // the test accounts, for a person who may change settings (DECISIONS 250)
 }
 export interface ServerConfig {
   categories: Category[];
@@ -70,6 +74,8 @@ export async function fetchMe(): Promise<Me | null> {
     return null;
   }
 }
+// A partner's sign-in gets only its own slice from this same address (DECISIONS 249).
+export const loadPartner = () => call<PartnerSlice>("/api/outcomes");
 export const signOut = () => call<{ ok: boolean }>("/api/logout", { method: "POST", body: {} });
 export const loadConfig = () => call<ServerConfig>("/api/config");
 export const saveConfig = (c: { categories: Category[]; itemMap: ItemMap; frameworks: FrameworkTemplate[]; itemFramework: Record<string, string>; reapply?: boolean }) => call<{ ok: boolean; routed: number; reapplied?: number }>("/api/config", { method: "PUT", body: c });

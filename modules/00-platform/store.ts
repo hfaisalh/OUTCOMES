@@ -26,6 +26,7 @@ import { migrateSetup, type Category, type FrameworkTemplate, type ItemMap, type
 import type { AuditRecord } from "../01f-batch-audit/audit.js";
 import type { TriageMark } from "../04-triage/triage.js";
 import type { ChangeEntry } from "./change-log.js";
+import type { Login } from "./logins.js";
 
 // How this organisation reads its CRM (DECISIONS 30). The token itself is never stored here, only the name of the setting that holds it.
 // "demo" is the pretend CRM of Module 1d, for testing with live input before a real CRM is connected.
@@ -62,6 +63,7 @@ export interface OrgConfig {
   graceDays?: number; // days a payment may be unpaid after it was due before the place may be released, default 15 (DECISIONS 74)
   projects?: Project[]; // the projects, each with the structure it defines (DECISIONS 65)
   nodes?: Node[]; // the places in those structures
+  logins?: Login[]; // the test sign-in accounts (DECISIONS 250), with passwords kept only as hashes. Never returned to a page and not part of the change log
   usesFrameworks: boolean;
   feed: FeedConfig;
   crm: CrmSetting;

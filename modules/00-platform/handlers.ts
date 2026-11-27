@@ -26,6 +26,7 @@ import { backfillFrameworks, deriveParts, reapplyFrameworks, rerouteUnrouted, ru
 import { defaultConfig, setupOf, type OrgConfig } from "./store.js";
 import { autoCreateProjects } from "../06-projects/projects.js";
 import { PARTNER_PERMISSIONS } from "../13-partner-portal/scope.js";
+import { publicOf } from "./logins.js";
 import { json, need, nowSeconds, sessionOf, text, type Deps, type HttpRequest, type HttpResponse } from "./http.js";
 export type { Deps, HttpRequest, HttpResponse } from "./http.js";
 export { handleOutcomes, MAX_OUTCOMES } from "./outcomes-handler.js";
@@ -77,8 +78,11 @@ export async function handleMe(req: HttpRequest, d: Deps): Promise<HttpResponse>
   const c = sessionOf(req, d);
   if (!c) return json(401, { error: "Not signed in." });
   // `demo` tells the page it is talking to the pretend CRM, so it can refresh by itself.
-  const kind = (await d.store.getConfig(c.org))?.crm.kind;
-  return json(200, { name: c.name, org: c.org, perms: c.perms, ...(c.partner ? { partner: c.partner } : {}), expiresAt: c.exp, storage: d.storage, demo: kind === "demo", upload: kind === "upload" });
+  const cfg = await d.store.getConfig(c.org);
+  const kind = cfg?.crm.kind;
+  // Rule (DECISIONS 250): the accounts (never their passwords) are listed only for a person who may change settings.
+  const logins = c.perms.includes(P.settings) && c.partner === undefined ? (cfg?.logins ?? []).map(publicOf) : undefined;
+  return json(200, { ...(logins ? { logins } : {}), name: c.name, org: c.org, perms: c.perms, ...(c.partner ? { partner: c.partner } : {}), expiresAt: c.exp, storage: d.storage, demo: kind === "demo", upload: kind === "upload" });
 }
 
 // GET and PUT /api/config  Categories, framework templates, and the item maps. PUT needs permission to map items.

@@ -19,6 +19,13 @@ describe("the sign-in screen", () => {
     expect(html).toContain('href="?demo=1"');
     expect(html).not.toContain("warnnote");
   });
+  it("leads with the usual email and password form, and keeps the owner passphrase tucked away", () => {
+    const html = signinHtml("");
+    expect(html).toContain('type="email" name="email"');
+    expect(html).toContain('type="password" name="password"');
+    expect(html.indexOf('name="email"')).toBeLessThan(html.indexOf('name="passphrase"'));
+    expect(html).toContain("<details");
+  });
   it("shows what went wrong, safely", () => {
     expect(signinHtml("That passphrase is not right.")).toContain("That passphrase is not right.");
     expect(signinHtml("<img src=x>")).not.toContain("<img");

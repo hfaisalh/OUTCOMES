@@ -8,6 +8,7 @@
  * Depends on: the connector types, menu.ts and demo-data.ts (categories list).
  */
 
+import { accountsCard } from "./accounts-card";
 import type { AttentionItem } from "../modules/04-triage/triage";
 import { hasSample } from "../modules/07-beneficiaries/sample-setup";
 import type { BeneficiaryFilter, Register } from "../modules/07-beneficiaries/beneficiaries";
@@ -99,7 +100,8 @@ export interface View {
   attention?: AttentionItem[]; // everything that needs a person, open first (Module 4)
   audits?: AuditRecord[]; // batch audit history, newest first (live only)
   upload?: boolean; // the organisation takes uploaded export files, so the load card is shown even when signed in
-  ownerNote?: string; // what the last owner sign-in attempt said (demo only)
+  ownerNote?: string; // what the last owner sign-in attempt or account form said
+  logins?: { email: string; name: string; role: string; partnerId?: string }[]; // the test sign-in accounts, only for a person who may change settings (DECISIONS 250)
   loading?: string; // what the load is doing right now ("" when idle), shown with a spinner (demo only)
 }
 
@@ -140,8 +142,13 @@ export const ownerCard = (v: View): string => `<div class="card"><h2>Not signed 
   </form>
   ${v.ownerNote ? `<div class="note warnnote">${esc(v.ownerNote)}</div>` : ""}</div>`;
 
-// What the address says after the sign-in form was sent: "?signin=wrong" means the passphrase was not right.
-export const signinNote = (search: string): string => (new URLSearchParams(search).get("signin") === "wrong" ? "That passphrase is not right. Try again." : "");
+// What the address says after a sign-in or account form was sent: ?signin=wrong (owner passphrase), ?signin=wrong-login (email or password), ?account=<what to fix> (adding an account).
+export function signinNote(search: string): string {
+  const q = new URLSearchParams(search);
+  if (q.get("signin") === "wrong-login") return "That email or password is not right. Try again.";
+  if (q.get("signin") === "wrong") return "That passphrase is not right. Try again.";
+  return q.get("account") ?? "";
+}
 
 // Demo only: load your own CRM export files. They are read in this browser and go nowhere else.
 // Two steps so it is clear what happens: choose the files, then press the button.
@@ -309,6 +316,7 @@ export const settingsPage = (v: View): string => `
       <tr><td>Values that mean paid</td><td>${v.config.paidValues.map((x) => `<code>${esc(x)}</code>`).join(" ")}</td></tr>
       <tr><td>How the feed is read</td><td>Database view or API (chosen per organisation)</td></tr></tbody></table>
     <p class="muted">${v.live ? "These settings are read-only here. Gifts come from the CRM exports or the feed you loaded." : "In this demo the settings are read-only and the feed is the invented sample."}</p></div>
+    ${accountsCard(v)}
     ${sampleCard(v)}`;
 
 // The sample setup card (DECISIONS 168): one button loads invented partners, projects, clusters, beneficiaries and enrolments so the whole chain can be tried, and one removes exactly those.
