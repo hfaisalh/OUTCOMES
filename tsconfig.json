@@ -8,6 +8,7 @@
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "types": ["node", "vite/client"]
   },
   "include": ["modules/**/*.ts", "app/**/*.ts", "api/**/*.ts"]

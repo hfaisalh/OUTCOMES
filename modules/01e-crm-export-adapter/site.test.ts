@@ -5,7 +5,7 @@
  * These tests double as examples. Who calls it: vitest. Depends on: site.ts.
  */
 import { describe, expect, it } from "vitest";
-import { siteCode } from "./site";
+import { dateOrderOf, siteCode } from "./site";
 
 describe("the country code of a gift", () => {
   it("understands the CRM's sites and their usual spellings", () => {
@@ -30,5 +30,15 @@ describe("the country code of a gift", () => {
     expect(siteCode("", "NOK")).toBe("NO");
     expect(siteCode("", "EUR")).toBe("");
     expect(siteCode("", "")).toBe("");
+  });
+});
+
+describe("which way round the CRM writes a date (DECISIONS 262)", () => {
+  it("is month/day/year for the USA site and day/month/year for every other, including a site it does not know", () => {
+    expect(dateOrderOf("US")).toBe("mdy");
+    expect(dateOrderOf("GB")).toBe("dmy");
+    expect(dateOrderOf("NO")).toBe("dmy");
+    expect(dateOrderOf("CANADA")).toBe("dmy");
+    expect(dateOrderOf("")).toBe("dmy");
   });
 });

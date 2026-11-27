@@ -19,6 +19,10 @@ const SITE_NAMES: Record<string, string> = {
 };
 const CURRENCY_SITES: Record<string, string> = { GBP: "GB", USD: "US", NOK: "NO" };
 
+// Rule (DECISIONS 262): the CRM writes a date the way its site does. The UK and Norway sites write day/month/year (23/01/2026); the USA site writes month/day/year (11/27/2026). Both can sit in one column, so a row's date is read by its site. A site this list does not know is read day/month/year, as before.
+export type DateOrder = "dmy" | "mdy";
+export const dateOrderOf = (code: string): DateOrder => (code === "US" ? "mdy" : "dmy");
+
 export function siteCode(site: string, currency: string): string {
   const s = site.trim();
   if (s !== "") {

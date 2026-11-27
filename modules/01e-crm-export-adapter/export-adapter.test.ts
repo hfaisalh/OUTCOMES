@@ -22,6 +22,13 @@ describe("toFeedDate", () => {
     expect(toFeedDate("02/11/2026 10:15")).toBe("2026-11-02 10:15:00");
     expect(toFeedDate("31/10/2026 21:29")).toBe("2026-10-31 21:29:00");
   });
+  it("reads the USA site's mm/dd/yyyy when told so, and never guesses: a date the wrong way round is rejected (DECISIONS 262)", () => {
+    expect(toFeedDate("11/27/2026 17:08", "mdy")).toBe("2026-11-27 17:08:00");
+    expect(toFeedDate("12/05/2026 09:00", "mdy")).toBe("2026-12-05 09:00:00"); // 5 December
+    expect(toFeedDate("12/05/2026 09:00", "dmy")).toBe("2026-05-12 09:00:00"); // the same text on the UK site is 12 May
+    expect(toFeedDate("27/11/2026 17:08", "mdy")).toBe(""); // a 27th month: reported as a bad date, never swapped
+    expect(toFeedDate("11/27/2026 17:08")).toBe(""); // and with no site, day/month/year as before
+  });
   it("passes an ISO date through and rejects non-dates", () => {
     expect(toFeedDate("2026-11-02 10:15:00")).toBe("2026-11-02 10:15:00");
     expect(toFeedDate("31/02/2026 10:00")).toBe("");
@@ -57,6 +64,27 @@ describe("adaptExports", () => {
     expect(readFeed(rows.slice(0, 1), MWF_CRM_CONFIG).lines[0]?.site).toBe("US");
     const none = adaptExports(load("export-donation-lines-sample.csv").map(({ Currency: _c, ...rest }) => rest), load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), load("export-catalogue-prices-sample.csv")).rows;
     expect(none.every((r) => r["site"] === "")).toBe(true); // no site and no currency: no guess
+  });
+
+  it("reads each line's dates by its site, so UK day/month/year and USA month/day/year can share one file (DECISIONS 262)", () => {
+    const lines = load("export-donation-lines-sample.csv").map((r, i) => (i === 0 ? { ...r, Site: "USA", Currency: "USD", "Payment Date": "11/27/2026 17:08" } : i === 1 ? { ...r, Site: "UK", Currency: "GBP", "Payment Date": "23/01/2026 18:25" } : i === 2 ? { ...r, Site: "USA", Currency: "USD", "Payment Date": "27/11/2026 17:08" } : r));
+    const result = adaptExports(lines, load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), load("export-catalogue-prices-sample.csv"));
+    expect(result.rows[0]!["paid_at"]).toBe("2026-11-27 17:08:00");
+    expect(result.rows[1]!["paid_at"]).toBe("2026-01-23 18:25:00");
+    expect(result.rows[2]!["paid_at"]).toBe(""); // a USA line written day/month is not guessed
+    expect(result.issues.some((i) => i.code === "bad_date" && i.message.startsWith("1 line"))).toBe(true);
+  });
+
+  it("reads a plan's next due date by the plan's site too", () => {
+    const plans = load("export-recurring-plans-sample.csv");
+    const planId = plans[0]!["Plan ID"]!;
+    const withNext = (site: string) => plans.map((p, i) => (i === 0 ? { ...p, Site: site, "Next due": "12/05/2026" } : p));
+    const lines = load("export-donation-lines-sample.csv");
+    const sub = lines.find((l) => l["Subscription ID"] === planId);
+    const nextOf = (site: string) => adaptExports(lines, load("export-catalogue-sample.csv"), withNext(site), load("export-catalogue-prices-sample.csv")).rows.find((r) => r["subscription_id"] === planId)?.["plan_next_due"];
+    expect(sub).toBeDefined();
+    expect(nextOf("UK")).toBe("2026-05-12");
+    expect(nextOf("USA")).toBe("2026-12-05");
   });
 
   it("keeps the CRM's line total beside the unit price, never working it out (DECISIONS 83)", () => {

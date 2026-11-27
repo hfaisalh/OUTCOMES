@@ -15,7 +15,7 @@
  * a display name (billing first and last name) go on.
  */
 
-import { siteCode } from "./site.js";
+import { dateOrderOf, siteCode, type DateOrder } from "./site.ts"; // with .ts so the Node script (scripts/export-to-feed.ts) can load it as it is
 import type { FeedRow } from "../01c-crm-connector/feed.js";
 
 export type ExportRow = Record<string, string>;
@@ -50,15 +50,15 @@ function pick(row: ExportRow, label: string): string {
 
 const hasColumn = (rows: ExportRow[], label: string): boolean => rows.length === 0 || Object.keys(rows[0] as ExportRow).some((k) => norm(k) === norm(label));
 
-// Rule: the CRM exports dates as "dd/mm/yyyy hh:mm". The feed wants "YYYY-MM-DD hh:mm:ss".
-// An already-ISO date passes through. Anything that is not a real date gives "".
-export function toFeedDate(text: string): string {
+// Rule: the CRM exports dates as "dd/mm/yyyy hh:mm" on the UK site, and "mm/dd/yyyy hh:mm" on the USA site (DECISIONS 262). The feed wants "YYYY-MM-DD hh:mm:ss".
+// `order` says which way round the day and month are written; it comes from the row's site. An already-ISO date passes through. Anything that is not a real date gives "", so a date read the wrong way round (a 27th month) is reported, never guessed.
+export function toFeedDate(text: string, order: DateOrder = "dmy"): string {
   const t = text.trim();
   const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(t);
   const uk = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(t);
   let y: number, mo: number, d: number, h: number, mi: number, s: number;
   if (iso) [y, mo, d, h, mi, s] = [Number(iso[1]), Number(iso[2]), Number(iso[3]), Number(iso[4] ?? 0), Number(iso[5] ?? 0), Number(iso[6] ?? 0)];
-  else if (uk) [y, mo, d, h, mi, s] = [Number(uk[3]), Number(uk[2]), Number(uk[1]), Number(uk[4] ?? 0), Number(uk[5] ?? 0), Number(uk[6] ?? 0)];
+  else if (uk) [y, mo, d, h, mi, s] = [Number(uk[3]), Number(uk[order === "mdy" ? 1 : 2]), Number(uk[order === "mdy" ? 2 : 1]), Number(uk[4] ?? 0), Number(uk[5] ?? 0), Number(uk[6] ?? 0)];
   else return "";
   const date = new Date(Date.UTC(y, mo - 1, d));
   if (date.getUTCFullYear() !== y || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d) return "";
@@ -168,7 +168,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
   const planById = new Map<string, { untilCancelled: boolean; planned: string; status: string; nextDue: string; paid: string }>();
   for (const r of plans) {
     const id = pick(r, "Plan ID");
-    if (id !== "") planById.set(id, { untilCancelled: isYes(pick(r, "Until cancelled")), planned: pick(r, "Instalments planned"), status: norm(pick(r, "Plan status")), nextDue: toFeedDate(pick(r, "Next due")).slice(0, 10), paid: pick(r, "Instalments paid") });
+    if (id !== "") planById.set(id, { untilCancelled: isYes(pick(r, "Until cancelled")), planned: pick(r, "Instalments planned"), status: norm(pick(r, "Plan status")), nextDue: toFeedDate(pick(r, "Next due"), dateOrderOf(siteCode(pick(r, "Site"), ""))).slice(0, 10), paid: pick(r, "Instalments paid") });
   }
 
   // Section: opening orders (DECISIONS 56). A plan's Opening order ID is the donation that started it, which the lines file
@@ -250,7 +250,8 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
       donationRefs++;
     }
     if (reference === "") blankReferences++;
-    const paidAt = toFeedDate(pick(r, "Payment Date"));
+    const site = siteCode(pick(r, "Site"), pick(r, "Currency"));
+    const paidAt = toFeedDate(pick(r, "Payment Date"), dateOrderOf(site)); // read by the row's site (DECISIONS 262)
     if (paidAt === "") badDates++;
 
     // Rule: the line's bundle name gives its parts. Not read from the amount, because prices change but parts do not (DECISIONS 51).
@@ -289,7 +290,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
       // Rule: the currency the line was paid in, as the CRM gives it. Never converted. Blank when the export has no Currency column (DECISIONS 81).
       currency: pick(r, "Currency"),
       // Rule (DECISIONS 261): where the gift came from, as a country code. The CRM's Site column wins, else the currency says. Every site is treated the same afterwards.
-      site: siteCode(pick(r, "Site"), pick(r, "Currency")),
+      site,
       // Rule: the CRM's own total for the whole line, kept beside the unit price in `amount`. Never worked out here; blank when the export has no Total Amount column (DECISIONS 83).
       line_total: pick(r, "Total Amount"),
       quantity: pick(r, "Order Quantity"),
