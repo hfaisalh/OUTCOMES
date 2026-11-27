@@ -146,7 +146,7 @@ function paymentsTable(g: GiftRow, v: View): string {
 
 // Everything the list needs, worked out once: the gifts after the filters, and where each is allocated.
 // The columns a person may hide (DECISIONS 215). The tick box, the type icon, Donor, Item and Status always show.
-export const GIFT_COLUMNS: [string, string][] = [["recid", "Rec. ID"], ["site", "Site"], ["project", "Project"], ["plan", "Plan"], ["value", "Value"], ["paid", "Paid"], ["next", "Next"], ["stage", "Stage"], ["assigned", "Assigned to"], ["alloc", "Allocated to"]];
+export const GIFT_COLUMNS: [string, string][] = [["recid", "Rec. ID"], ["site", "Site"], ["project", "Project"], ["origin", "Origin"], ["plan", "Plan"], ["value", "Value"], ["paid", "Paid"], ["next", "Next"], ["stage", "Stage"], ["assigned", "Assigned to"], ["alloc", "Allocated to"]];
 export const GIFT_HIDDEN_DEFAULT = ["recid", "value"];
 
 // Rule (DECISIONS 214): a click on a heading sorts the list by it, a second click reverses it. Empty values go last in either direction. Without a choice the list keeps its own order.
@@ -166,13 +166,18 @@ export function sortGifts(rows: GiftRow[], sort: { key: string; dir: "asc" | "de
 
 // Rule (DECISIONS 217): a column can be filtered by the values in it. A person ticks the values to keep (Project, Plan status, Stage, Assigned to, Allocation), and a gift stays when its value in each filtered column is one of the ticked.
 // Within a column the ticked values are alternatives (this or that), and across columns they all apply (and). The list of values in a column is counted from the gifts the other filters leave, so no value is offered that would give nothing.
-export const FILTER_COLUMNS: [string, string][] = [["site", "Site"], ["project", "Project"], ["plan", "Plan status"], ["stage", "Stage"], ["assigned", "Assigned to"], ["alloc", "Allocation"]];
+export const FILTER_COLUMNS: [string, string][] = [["site", "Site"], ["origin", "Origin"], ["project", "Project"], ["plan", "Plan status"], ["stage", "Stage"], ["assigned", "Assigned to"], ["alloc", "Allocation"]];
 const ALLOC_LABEL: Record<string, string> = { allocated: "Allocated", waiting: "Waiting for allocation", manual: "Allocate manually", none: "Not allocated", "n/a": "Not needed" };
+// Where a gift's plan came from (DECISIONS 264): carried over from the old website, a plan made in the new CRM, or a single payment.
+const carried = (g: GiftRow): boolean => g.payments.some((w) => w.carriedOver === true);
+const originOf = (g: GiftRow): string => (carried(g) ? "Carried over" : g.kind === "recurring" || g.kind === "unlinked" ? "New plan" : "One payment");
+
 // The country code of a gift (DECISIONS 261), from its first payment. "" when the feed gave none.
 const siteOf = (g: GiftRow): string => g.payments[0]?.site ?? "";
 
 function columnValue(col: string, g: GiftRow, v: View, where: ReturnType<typeof allocationContext>): string {
   if (col === "site") return siteOf(g) || "No site";
+  if (col === "origin") return originOf(g);
   if (col === "project") return g.projectName || "No project";
   if (col === "plan") return g.kind === "one_off" ? "One payment" : g.kind === "excluded" ? "Excluded" : g.planStatus || "No status";
   const a = where(g);
@@ -387,6 +392,7 @@ export function giftListHtml(v: View): string {
       ["donor", `<td class="clip" title="${esc(g.supporterName)} ${esc(g.supporterId)}">${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span></td>`],
       ["item", `<td class="clip" title="${esc(g.itemName)}">${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${workflowPicker(v, first.itemId)}` : ""}</td>`],
       ["project", `<td class="clip" title="${esc([g.projectName, first?.cause ? `Cause: ${first.cause}` : ""].filter((x) => x !== "").join(". "))}">${projectCell(g.projectName, first?.cause ?? "")}</td>`],
+      ["origin", `<td class="c">${carried(g) ? `<span class="site old" title="Carried over from the old website. Check the item the migration chose is right.">Old site</span>` : ""}</td>`],
       ["plan", `<td class="num">${planCell(g)}</td>`],
       ["value", `<td class="num muted" title="Total of its payments, for reference">${money(g.payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0), currencyOf(g))}</td>`],
       ["paid", `<td class="num" title="${esc(paid)}">${esc(shortDate(paid))}</td>`],
@@ -407,7 +413,7 @@ export function giftListHtml(v: View): string {
   const th = (id: string, label: string, cls = ""): string => `<th${cls ? ` class="${cls}"` : ""} aria-sort="${sort?.key === id ? (sort.dir === "desc" ? "descending" : "ascending") : "none"}"><button type="button" class="sortbtn" data-gsort="${id}">${label}${sort?.key === id ? (sort.dir === "desc" ? SYM.sortDown : SYM.sortUp) : ""}</button>${funnel(id)}</th>`;
   const heads: [string, string][] = [
     ["select", `<th><input type="checkbox" data-selall="main" title="Tick all shown" aria-label="Select all shown"${allTicked ? " checked" : ""}></th>`], ["kind", "<th></th>"], ["recid", "<th>Rec. ID</th>"],
-    ["site", `<th class="c">Site${funnel("site")}</th>`], ["donor", th("donor", "Donor")], ["item", th("item", "Item")], ["project", th("project", "Project")], ["plan", th("plan", "Plan", "num")], ["value", th("value", "Value", "num")], ["paid", th("paid", "Paid", "num")], ["next", th("next", "Next", "num")],
+    ["site", `<th class="c">Site${funnel("site")}</th>`], ["donor", th("donor", "Donor")], ["item", th("item", "Item")], ["project", th("project", "Project")], ["origin", `<th class="c">Origin${funnel("origin")}</th>`], ["plan", th("plan", "Plan", "num")], ["value", th("value", "Value", "num")], ["paid", th("paid", "Paid", "num")], ["next", th("next", "Next", "num")],
     ["stage", `<th>Stage${funnel("stage")}</th>`], ["assigned", `<th>Assigned to${funnel("assigned")}</th>`], ["alloc", `<th>Allocated to${funnel("alloc")}</th>`], ["status", "<th>Status</th>"],
   ];
   const tools = `<div class="listtools"><div class="chips">${chips}</div><div class="toolbtns"><button type="button" class="chipbtn" data-gcols="toggle" aria-expanded="${v.giftColsOpen ? "true" : "false"}">${SYM.columns} Columns</button>${key}</div></div>${colPick}${valuePanel}`;
@@ -484,6 +490,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Recurring ID", g.kind === "recurring" ? `<b>${esc(g.key)}</b>` : "")}
         ${row("Project chosen", esc(g.projectName))}
         ${row("Site", first?.site ? `${siteChip(first.site, first.currency)} <span class="muted">${esc(first.currency ?? "")}</span>` : "")}
+        ${row("Origin", carried(g) ? `<span class="site old">Old site</span> <span class="muted">Carried over from the old website</span>` : "")}
         ${row("Cause", esc(first?.cause ?? ""))}
         ${row("Tribute", esc(first?.tribute ?? ""))}
         ${row("Parts per instalment", partsControl ? `<span class="partsrow">${partsControl}</span>${fixed ? `<div class="muted">Set manually. The CRM says ${esc(String(g.payments.find((w) => w.legacyUpload !== true) ? sentPartsOf(g.payments.find((w) => w.legacyUpload !== true) as WorkOrder) : g.parts))}.</div>` : ""}` : "")}

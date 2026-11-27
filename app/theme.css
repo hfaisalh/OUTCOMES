@@ -604,3 +604,4 @@ tr.rowlink[data-cnfwin]{cursor:pointer}tr.rowlink[data-cnfwin]:hover td{backgrou
 .pf-box footer button{height:36px;white-space:nowrap;flex:none}.pf-box footer .pf-error{flex:1 1 auto;min-width:0}@media (pointer:coarse){.pf-box footer button,.pf-box header button{height:44px}}
 /* The country code chip on gifts (DECISIONS 261). */
 .site{display:inline-block;min-width:28px;padding:1px 6px;border-radius:6px;border:1px solid var(--line);background:#f1f5fb;color:var(--text);font-size:11px;font-weight:600;letter-spacing:.04em;text-align:center}
+.site.old{background:rgba(224,138,30,.14);border-color:rgba(224,138,30,.5);color:#7a4a00;white-space:nowrap}

@@ -69,6 +69,9 @@ export function toFeedDate(text: string, order: DateOrder = "dmy"): string {
 // Rule: "Feedback report" (or the CRM's own code 2) means the item needs feedback. Anything else is "1".
 const feedbackCode = (text: string): "1" | "2" => (["feedback report", "2"].includes(norm(text)) ? "2" : "1");
 
+// Rule (DECISIONS 264): a plan is carried over from the old website when the Recurring plans export says so (its Legacy plan column), or, when the export has no such column, when its gateway reference starts "archive:" (the CRM's own stamp for a carried-over subscription).
+const carriedOver = (r: ExportRow): boolean => (Object.keys(r).some((k) => norm(k) === "legacy plan") ? isYes(pick(r, "Legacy plan")) : pick(r, "Gateway reference").toLowerCase().startsWith("archive:"));
+
 const isYes = (text: string) => ["yes", "y", "1", "true"].includes(norm(text));
 
 /**
@@ -165,10 +168,10 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
   let bundleLines = 0;
 
   // Section: the plans by id.
-  const planById = new Map<string, { untilCancelled: boolean; planned: string; status: string; nextDue: string; paid: string }>();
+  const planById = new Map<string, { untilCancelled: boolean; planned: string; status: string; nextDue: string; paid: string; carried: boolean }>();
   for (const r of plans) {
     const id = pick(r, "Plan ID");
-    if (id !== "") planById.set(id, { untilCancelled: isYes(pick(r, "Until cancelled")), planned: pick(r, "Instalments planned"), status: norm(pick(r, "Plan status")), nextDue: toFeedDate(pick(r, "Next due"), dateOrderOf(siteCode(pick(r, "Site"), ""))).slice(0, 10), paid: pick(r, "Instalments paid") });
+    if (id !== "") planById.set(id, { untilCancelled: isYes(pick(r, "Until cancelled")), planned: pick(r, "Instalments planned"), status: norm(pick(r, "Plan status")), nextDue: toFeedDate(pick(r, "Next due"), dateOrderOf(siteCode(pick(r, "Site"), ""))).slice(0, 10), paid: pick(r, "Instalments paid"), carried: carriedOver(r) });
   }
 
   // Section: opening orders (DECISIONS 56). A plan's Opening order ID is the donation that started it, which the lines file
@@ -281,6 +284,7 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
       item_feedback: feedback,
       is_recurring: recurring ? "1" : "0",
       instalment_count: instalmentCount,
+      plan_carried_over: plan?.carried ? "1" : "", // the plan was brought over from the old website (DECISIONS 264)
       plan_status: plan?.status ?? "", // the plan's own status, next due date and instalments paid, for the forecast (DECISIONS 62)
       plan_next_due: plan?.nextDue ?? "",
       plan_paid: plan?.paid ?? "",

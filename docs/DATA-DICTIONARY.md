@@ -122,6 +122,7 @@ A work order is one instruction token: deliver this line and report back to this
 | `categoryId` | Set in OUTCOMES. Empty while unrouted. `default` when the organisation has no categories |
 | `status` | `unrouted`, `ready`, `in_progress`, `delivered`, `reported` |
 | `site` | Where the gift came from, as a country code (GB, US, NO, or a new site as written). Absent when not known. A label only: it changes nothing about how the gift is handled (DECISIONS 261) |
+| `carriedOver` | `true` when the plan was carried over from a previous website (DECISIONS 264). Refreshed with the plan facts at each import. Gifts of such a plan carry a note to check the item the migration chose |
 | `subscriptionId`, `instalmentNumber`, `instalmentCount` | The recurring plan the line belongs to, which instalment, and how many (a number or Indefinitely) |
 | `supporterId`, `supporterName` | The CRM id and a display name only |
 

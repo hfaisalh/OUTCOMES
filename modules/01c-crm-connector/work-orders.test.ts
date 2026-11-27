@@ -51,6 +51,16 @@ describe("planWorkOrders", () => {
     expect(nl.map(({ site: _s, ...rest }) => rest)).toEqual(gb.map(({ site: _s, ...rest }) => rest));
   });
 
+  it("carries the old-site marker onto the work order and refreshes it with the plan facts at each import (DECISIONS 264)", () => {
+    const carried = feed.map((l) => (l.lineId === "L001" ? { ...l, carriedOver: true } : l));
+    expect(planWorkOrders(carried, [], options).created.find((w) => w.lineId === "L001")?.carriedOver).toBe(true);
+    expect(plan.created.find((w) => w.lineId === "L001")?.carriedOver).toBeUndefined(); // not carried over: nothing kept
+    const later = planWorkOrders(carried, plan.created, options);
+    expect([...later.updated, ...later.unchanged].find((w) => w.lineId === "L001")?.carriedOver).toBe(true); // marked after the first import
+    const again = planWorkOrders(feed, planWorkOrders(carried, [], options).created, options);
+    expect([...again.updated, ...again.unchanged].find((w) => w.lineId === "L001")?.carriedOver).toBeUndefined(); // and cleared if the CRM no longer says so
+  });
+
   it("is idempotent: the same feed again creates nothing", () => {
     const again = planWorkOrders(feed, plan.created, options);
     expect(again.created).toEqual([]);

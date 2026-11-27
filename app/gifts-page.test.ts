@@ -484,4 +484,18 @@ describe("giftsPage", () => {
     expect(shownGiftKeys(view({ workOrders: orders, giftColFilters: { site: ["No site"] } }))).toEqual(["x1"]);
     expect(giftDetailHtml(view({ workOrders: orders }), "SU")).toContain(">US</span> <span class=\"muted\">USD</span>"); // the gift window
   });
+
+  it("marks a plan carried over from the old site: a chip and a filter in the list, a row in the gift window, and a note to check it (DECISIONS 264)", () => {
+    const orders = [sub(1, { key: "old1", subscriptionId: "SO", carriedOver: true }), sub(1, { key: "new1", subscriptionId: "SN" })];
+    const html = giftListHtml(view({ workOrders: orders }));
+    expect(html).toContain('<th class="c">Origin');
+    expect((html.match(/<span class="site old"/g) ?? []).length).toBe(1); // only the carried over plan
+    expect(html).toContain('data-gfilt="origin"');
+    const only = giftListHtml(view({ workOrders: orders, giftColFilters: { origin: ["Carried over"] } }));
+    expect((only.match(/data-sel-gift=/g) ?? []).length).toBe(1);
+    const window = giftDetailHtml(view({ workOrders: orders }), "SO");
+    expect(window).toContain("Carried over from the old website");
+    expect(window).toContain("Carried over from the old site"); // the note under Needs a look
+    expect(giftDetailHtml(view({ workOrders: orders }), "SN")).not.toContain("Carried over from the old");
+  });
 });

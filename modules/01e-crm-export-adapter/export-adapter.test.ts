@@ -87,6 +87,19 @@ describe("adaptExports", () => {
     expect(nextOf("USA")).toBe("2026-12-05");
   });
 
+  it("marks a plan carried over from the old website: by its Legacy plan column, else by an archive gateway reference (DECISIONS 264)", () => {
+    const plans = load("export-recurring-plans-sample.csv");
+    const planId = plans[0]!["Plan ID"]!;
+    const lines = load("export-donation-lines-sample.csv");
+    const carriedOf = (rows: Record<string, string>[]) => adaptExports(lines, load("export-catalogue-sample.csv"), rows, load("export-catalogue-prices-sample.csv")).rows.find((r) => r["subscription_id"] === planId)?.["plan_carried_over"];
+    expect(carriedOf(plans)).toBe(""); // the sample has neither column: a plan with no archive reference is a new plan
+    expect(carriedOf(plans.map((p, i) => (i === 0 ? { ...p, "Legacy plan": "Yes" } : { ...p, "Legacy plan": "No" })))).toBe("1");
+    expect(carriedOf(plans.map((p) => ({ ...p, "Legacy plan": "No", "Gateway reference": "archive:s2:1" })))).toBe(""); // the column, when there, decides
+    expect(carriedOf(plans.map((p, i) => (i === 0 ? { ...p, "Gateway reference": "archive:136936" } : p)))).toBe("1"); // no column: the CRM's archive stamp
+    const feedRow = adaptExports(lines, load("export-catalogue-sample.csv"), plans.map((p, i) => (i === 0 ? { ...p, "Legacy plan": "Yes" } : p)), load("export-catalogue-prices-sample.csv")).rows.find((r) => r["subscription_id"] === planId)!;
+    expect(readFeed([feedRow], MWF_CRM_CONFIG).lines[0]?.carriedOver).toBe(true);
+  });
+
   it("keeps the CRM's line total beside the unit price, never working it out (DECISIONS 83)", () => {
     expect(byLine("9004")["amount"]).toBe("20"); // the price of one unit
     expect(byLine("9004")["quantity"]).toBe("2");
