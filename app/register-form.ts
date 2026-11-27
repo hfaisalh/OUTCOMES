@@ -15,7 +15,7 @@ import { pickerHtml } from "./household-picker";
 export const SIMILAR_NOTICE = "Possible match"; // the start of the message the duplicate check gives for a possible match
 
 // What the window needs besides the record: the persons to tick for a household, and the partners a record can come from.
-export function registerFormHtml(rec: Partial<Beneficiary>, id: string, kind: BeneficiaryKind, persons: Beneficiary[], error = "", partners: { id: string; name: string }[] = []): string {
+export function registerFormHtml(rec: Partial<Beneficiary>, id: string, kind: BeneficiaryKind, persons: Beneficiary[], error = "", partners: { id: string; name: string }[] = [], households: Beneficiary[] = []): string {
   const person = kind === "person";
   const members = new Set(rec.memberIds ?? []);
   // --- Small pieces ---
@@ -34,7 +34,7 @@ export function registerFormHtml(rec: Partial<Beneficiary>, id: string, kind: Be
     ${input("rg-eligibilitynote", "Reason for the decision", rec.eligibilityNote ?? "")}`);
   // --- Cards of a household ---
   const householdIdentity = card("Household", `${input("rg-name", "Family or household name", rec.name ?? "", "", true)}${input("rg-size", "Number of people (if the persons are not listed)", rec.size === undefined ? "" : String(rec.size), ' type="number" min="1" max="60"', true)}`);
-  const membersCard = `<section class="gw-card rg-card"><h3>Persons in this household</h3>${pickerHtml(persons, [...members])}</section>`;
+  const membersCard = `<section class="gw-card rg-card"><h3>Persons in this household</h3>${pickerHtml(persons, [...members], households, id)}</section>`;
   // --- Cards of both ---
   const where = card("Where and source", `${input("rg-area", "Area (village or district, not a full address)", rec.area ?? "", "", true)}
     <label>Given by partner<select id="rg-partner"><option value="">None</option>${partners.map((p) => `<option value="${esc(p.id)}"${rec.partnerId === p.id ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</select></label>

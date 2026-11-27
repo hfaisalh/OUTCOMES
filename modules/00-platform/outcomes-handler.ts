@@ -196,7 +196,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if ("error" in r) return fail(r.error);
       beneficiaries = r.value;
       await save({ ...config, beneficiaries });
-      return reply();
+      return reply(r.message ? { warning: r.message } : {});
     }
     if (typeof b["action"] === "string" && b["action"].startsWith("enr-")) {
       const names = new Map((await d.store.listWorkOrders(org)).map((w) => [w.itemId, w.itemName]));

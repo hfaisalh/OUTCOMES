@@ -45,6 +45,15 @@ describe("the household picker", () => {
   it("lists people who share a guardian, then an area, with the members first", () => {
     expect(rankPersons([people[1]!, people[2]!, people[3]!], [people[0]!]).map((p) => p.id)).toEqual(["PRS-3", "PRS-4", "PRS-2"]); // Bilal shares the guardian, Carla the area
   });
+  it("shows a person who is in another household with it, offers Move here, and lists them after the free ones (DECISIONS 244)", () => {
+    const home = { id: "HH-1", kind: "household", name: "Ali family", memberIds: ["PRS-1"], guardian: "", area: "" } as unknown as Beneficiary;
+    const html = pickerHtml(people, [], [home], "HH-2");
+    expect(html).toContain('<span class="hh-home" title="Saving this household takes them out of Ali family">in Ali family (HH-1)</span>');
+    expect(html).toMatch(/data-hh-add="PRS-1">Move here</);
+    expect(html).toMatch(/data-hh-add="PRS-2">Add</);
+    expect(html.indexOf('data-id="PRS-1"')).toBeGreaterThan(html.indexOf('data-id="PRS-4"')); // free people first
+    expect(pickerHtml(people, [], [home], "HH-1")).not.toContain("Move here"); // a person is not "in another household" when it is this one
+  });
   it("lists only the first few matches, and the rest by typing", () => {
     const many = Array.from({ length: 30 }, (_, i) => mk(`PRS-${i + 10}`, `Child ${i}`, "", ""));
     expect((pickerHtml(many, []).match(/class="hh-item"/g) ?? []).length).toBe(30);

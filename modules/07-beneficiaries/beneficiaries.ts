@@ -53,7 +53,7 @@ export interface Beneficiary {
 }
 
 export interface Register { records: Beneficiary[]; counters: Record<string, number> }
-type Result = { value: Register; id: string } | { error: string };
+type Result = { value: Register; id: string; message?: string } | { error: string };
 
 export const PREFIX: Record<BeneficiaryKind, string> = { person: "PRS", household: "HH" };
 export const KIND_LABEL: Record<BeneficiaryKind, string> = { person: "Person", household: "Household" };
@@ -148,6 +148,19 @@ function duplicateError(reg: Register, kind: BeneficiaryKind, d: { name: string;
   return "";
 }
 
+// Rule (DECISIONS 244): a person is in one household at a time. Saving a household with a person who is in another household moves them: they are taken out of the other one, and the message says so.
+function moveMembers(records: Beneficiary[], householdId: string, memberIds: string[]): { records: Beneficiary[]; message?: string } {
+  const moved: string[] = [];
+  const next = records.map((h) => {
+    if (h.kind !== "household" || h.id === householdId) return h;
+    const leaving = h.memberIds.filter((m) => memberIds.includes(m));
+    if (leaving.length === 0) return h;
+    for (const m of leaving) moved.push(`${records.find((x) => x.id === m)?.name ?? m} from ${h.name}`);
+    return { ...h, memberIds: h.memberIds.filter((m) => !memberIds.includes(m)) };
+  });
+  return moved.length ? { records: next, message: `Moved ${moved.join(", ")}.` } : { records: next };
+}
+
 export function addBeneficiary(reg: Register, kind: BeneficiaryKind, f: Fields, allowSimilar = false): Result {
   if (kind !== "person" && kind !== "household") return { error: "Choose person or household." };
   const d = readFields(reg, kind, f, "");
@@ -157,7 +170,8 @@ export function addBeneficiary(reg: Register, kind: BeneficiaryKind, f: Fields, 
   const prefix = PREFIX[kind];
   const next = Math.max(reg.counters[prefix] ?? 0, ...reg.records.filter((r) => r.id.startsWith(`${prefix}-`)).map((r) => Number(r.id.slice(prefix.length + 1)) || 0)) + 1;
   const id = `${prefix}-${String(next).padStart(4, "0")}`;
-  return { value: { records: [...reg.records, { id, kind, status: "active", ...d }], counters: { ...reg.counters, [prefix]: next } }, id };
+  const moved = moveMembers(reg.records, id, d.memberIds);
+  return { value: { records: [...moved.records, { id, kind, status: "active", ...d }], counters: { ...reg.counters, [prefix]: next } }, id, ...(moved.message ? { message: moved.message } : {}) };
 }
 
 // Rule: a record's kind and ID never change. Everything else can, and the duplicate check runs again.
@@ -170,7 +184,8 @@ export function setBeneficiary(reg: Register, id: string, f: Fields & { status?:
   if ("error" in d) return d;
   const dup = duplicateError(reg, r.kind, d, id, allowSimilar);
   if (dup !== "") return { error: dup };
-  return { value: { ...reg, records: reg.records.map((x) => (x.id === id ? { ...x, ...d, status } : x)) }, id };
+  const moved = moveMembers(reg.records, id, d.memberIds);
+  return { value: { ...reg, records: moved.records.map((x) => (x.id === id ? { ...x, ...d, status } : x)) }, id, ...(moved.message ? { message: moved.message } : {}) };
 }
 
 // Rule: a person in a household cannot be removed until taken out of it, and one that is enrolled (held) cannot be removed at all. The ID stays used.

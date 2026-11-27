@@ -161,3 +161,29 @@ describe("finding and the page's requests", () => {
     expect(applyBeneficiaryAction(r, { action: "cluster-add" })).toBeNull();
   });
 });
+
+describe("a person is in one household at a time (DECISIONS 244)", () => {
+  const people = () => {
+    let r = emptyRegister();
+    for (const n of ["Ayesha", "Bilal", "Carla"]) { const x = addBeneficiary(r, "person", { name: n, area: n }); if ("error" in x) throw new Error(x.error); r = x.value; }
+    return r;
+  };
+  it("moves a person from the household they were in when another household takes them, and says so", () => {
+    const one = addBeneficiary(people(), "household", { name: "Khan family", memberIds: ["PRS-0001", "PRS-0002"] });
+    if ("error" in one) throw new Error(one.error);
+    const two = addBeneficiary(one.value, "household", { name: "Raza family", memberIds: ["PRS-0002", "PRS-0003"] });
+    if ("error" in two) throw new Error(two.error);
+    expect(two.value.records.find((x) => x.id === "HH-0001")?.memberIds).toEqual(["PRS-0001"]);
+    expect(two.value.records.find((x) => x.id === "HH-0002")?.memberIds).toEqual(["PRS-0002", "PRS-0003"]);
+    expect(two.message).toBe("Moved Bilal from Khan family.");
+    const back = setBeneficiary(two.value, "HH-0001", { name: "Khan family", memberIds: ["PRS-0001", "PRS-0002"] });
+    if ("error" in back) throw new Error(back.error);
+    expect(back.value.records.find((x) => x.id === "HH-0002")?.memberIds).toEqual(["PRS-0003"]);
+    expect(back.message).toBe("Moved Bilal from Raza family.");
+  });
+  it("says nothing when nobody moves", () => {
+    const one = addBeneficiary(people(), "household", { name: "Khan family", memberIds: ["PRS-0001"] });
+    if ("error" in one) throw new Error(one.error);
+    expect(one.message).toBeUndefined();
+  });
+});

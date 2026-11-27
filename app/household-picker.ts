@@ -20,22 +20,28 @@ export function matchText(p: Beneficiary, text: string): boolean {
   return norm(text).split(" ").filter((w) => w !== "").every((w) => hay.includes(w));
 }
 
-// Rule: persons who share a guardian (or, failing that, an area) with someone already in the household come first, then the rest by name.
-export function rankPersons(persons: Beneficiary[], members: Beneficiary[]): Beneficiary[] {
+// Rule: persons who share a guardian (or, failing that, an area) with someone already in the household come first, then the rest by name. Those already in another household come last.
+export function rankPersons(persons: Beneficiary[], members: Beneficiary[], inOther: Set<string> = new Set()): Beneficiary[] {
   const guardians = new Set(members.map((m) => norm(m.guardian)).filter((g) => g !== ""));
   const areas = new Set(members.map((m) => norm(m.area)).filter((a) => a !== ""));
   const score = (p: Beneficiary): number => (guardians.has(norm(p.guardian)) ? 2 : areas.has(norm(p.area)) ? 1 : 0);
-  return [...persons].sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name, undefined, { numeric: true }));
+  // A person already in another household comes after those who are free (DECISIONS 244).
+  return [...persons].sort((a, b) => Number(inOther.has(a.id)) - Number(inOther.has(b.id)) || score(b) - score(a) || a.name.localeCompare(b.name, undefined, { numeric: true }));
 }
 
 // --- Drawing ---
-const chip = (p: { id: string; name: string }): string => `<span class="hh-chip" data-id="${esc(p.id)}"><input type="checkbox" class="rg-member" value="${esc(p.id)}" checked hidden><b>${esc(p.name)}</b><span class="muted">${esc(p.id)}</span><button type="button" data-hh-remove="${esc(p.id)}" aria-label="Take ${esc(p.name)} out">×</button></span>`;
+const chip = (p: { id: string; name: string; from?: string }): string => `<span class="hh-chip${p.from ? " moves" : ""}" data-id="${esc(p.id)}"${p.from ? ` title="Moves from ${esc(p.from)} when saved"` : ""}><input type="checkbox" class="rg-member" value="${esc(p.id)}" checked hidden><b>${esc(p.name)}</b><span class="muted">${p.from ? `from ${esc(p.from)}` : esc(p.id)}</span><button type="button" data-hh-remove="${esc(p.id)}" aria-label="Take ${esc(p.name)} out">×</button></span>`;
 
-export function pickerHtml(persons: Beneficiary[], memberIds: string[]): string {
+export function pickerHtml(persons: Beneficiary[], memberIds: string[], households: Beneficiary[] = [], selfId = ""): string {
   const ids = new Set(memberIds);
   const members = persons.filter((p) => ids.has(p.id));
-  const rest = rankPersons(persons.filter((p) => !ids.has(p.id)), members);
-  const item = (p: Beneficiary, n: number): string => `<li class="hh-item" draggable="true" data-id="${esc(p.id)}" data-name="${esc(p.name)}" data-guardian="${esc(p.guardian)}" data-text="${esc(norm(`${p.name} ${p.id} ${p.guardian} ${p.area}`))}"${n >= SHOWN ? " hidden" : ""}><span><b>${esc(p.name)}</b> <span class="muted">${esc(p.id)}${p.guardian ? ` · ${esc(p.guardian)}` : ""}${p.area ? ` · ${esc(p.area)}` : ""}</span></span><button type="button" data-hh-add="${esc(p.id)}">Add</button></li>`;
+  // Rule (DECISIONS 244): a person in another household is shown with it, and the button says Move here. Saving takes them out of the other one.
+  const homeOf = (p: Beneficiary): Beneficiary | undefined => households.find((h) => h.id !== selfId && h.memberIds.includes(p.id));
+  const rest = rankPersons(persons.filter((p) => !ids.has(p.id)), members, new Set(persons.filter((p) => homeOf(p)).map((p) => p.id)));
+  const item = (p: Beneficiary, n: number): string => {
+    const home = homeOf(p);
+    return `<li class="hh-item${home ? " moves" : ""}" draggable="true" data-id="${esc(p.id)}" data-name="${esc(p.name)}" data-guardian="${esc(p.guardian)}" data-home="${esc(home?.name ?? "")}" data-text="${esc(norm(`${p.name} ${p.id} ${p.guardian} ${p.area} ${home?.name ?? ""}`))}"${n >= SHOWN ? " hidden" : ""}><span><b>${esc(p.name)}</b> <span class="muted">${esc(p.id)}${p.guardian ? ` · ${esc(p.guardian)}` : ""}${p.area ? ` · ${esc(p.area)}` : ""}</span>${home ? ` <span class="hh-home" title="Saving this household takes them out of ${esc(home.name)}">in ${esc(home.name)} (${esc(home.id)})</span>` : ""}</span><button type="button" data-hh-add="${esc(p.id)}">${home ? "Move here" : "Add"}</button></li>`;
+  };
   if (persons.length === 0) return `<span class="muted">No persons in the register yet.</span>`;
   return `<div class="hh-picker">
     <div class="hh-members" id="hh-members" aria-label="Persons in this household"><span class="hh-empty muted"${members.length ? " hidden" : ""}>Drag people here, or press Add.</span>${members.map(chip).join("")}</div>
@@ -79,7 +85,7 @@ function add(id: string): void {
   const zone = $("hh-members");
   if (!li || !zone || li.dataset["taken"]) return;
   li.dataset["taken"] = "1";
-  zone.insertAdjacentHTML("beforeend", chip({ id, name: li.dataset["name"] ?? id }));
+  zone.insertAdjacentHTML("beforeend", chip({ id, name: li.dataset["name"] ?? id, from: li.dataset["home"] ?? "" }));
   refresh();
   offerSameGuardian(li.dataset["guardian"] ?? "");
 }

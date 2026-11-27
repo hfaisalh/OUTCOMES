@@ -335,7 +335,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       const ot = typeof body["action"] === "string" && (body["action"] as string).startsWith("ot-") ? applyOutcomeTypeAction(state.outcomeTypes, state.frameworks.map((f) => f.id), [...new Set(state.outcomes.map((o) => o.outcomeTypeId ?? "").filter((x) => x !== ""))], body) : null;
       // The Beneficiary register (DECISIONS 163): the same pure rule the server uses.
       const bn = typeof body["action"] === "string" && (body["action"] as string).startsWith("ben-") ? applyBeneficiaryAction(state.beneficiaries, body, (id) => heldByBeneficiary(state.enrolments, id)) : null;
-      if (bn) { if ("error" in bn) error = bn.error; else state.beneficiaries = bn.value; }
+      if (bn) { if ("error" in bn) error = bn.error; else { state.beneficiaries = bn.value; if (bn.message) state.message = bn.message; } }
       // Enrolments (DECISIONS 167): the same pure rule the server uses. The type of each item says who it takes and who comes first.
       const names = new Map(view().flaggedItems.map((i) => [i.id, i.name]));
       const en = typeof body["action"] === "string" && (body["action"] as string).startsWith("enr-") ? applyEnrolmentAction({ beneficiaries: state.beneficiaries, giftProjects: state.giftProjects, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, names.get(itemId) ?? ""), today: new Date().toISOString().slice(0, 10) }, state.enrolments, body) : null;
@@ -1743,7 +1743,7 @@ function renderBenWindow(error = "", draft?: Partial<Beneficiary>): void {
   if (!root) { root = document.createElement("div"); root.id = "ben-root"; document.body.appendChild(root); }
   const existing = state.beneficiaries.records.find((r) => r.id === w.id);
   const persons = state.beneficiaries.records.filter((r) => r.kind === "person");
-  putWindow(root, registerFormHtml(draft ?? existing ?? {}, w.id, existing?.kind ?? w.kind, persons, error, state.projects.map((p) => ({ id: p.id, name: p.name }))));
+  putWindow(root, registerFormHtml(draft ?? existing ?? {}, w.id, existing?.kind ?? w.kind, persons, error, state.projects.map((p) => ({ id: p.id, name: p.name })), state.beneficiaries.records.filter((r) => r.kind === "household")));
 }
 // What the window holds, as the fields of a request.
 function readBenWindow(): Record<string, unknown> {
