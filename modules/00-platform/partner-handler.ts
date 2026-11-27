@@ -14,9 +14,10 @@ import { emptyAllocations } from "../09-allocation/allocation.js";
 import { emptyConfirmations } from "../11-confirmation/confirmation.js";
 import { emptyProgress } from "../12-progress/progress.js";
 import { partnerAnswer } from "../13-partner-portal/answer.js";
+import { giftDetails } from "../13-partner-portal/gift-details.js";
 import { partnerSlice, PARTNER_PERMISSION } from "../13-partner-portal/scope.js";
 import { changesBetween } from "./change-log.js";
-import { defaultConfig } from "./store.js";
+import { defaultConfig, setupOf } from "./store.js";
 import { json, need, text, type Deps, type HttpRequest, type HttpResponse } from "./http.js";
 
 export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResponse> {
@@ -39,9 +40,14 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
   const migrated = migrateGiftProjects(config.projects ?? [], config.giftProjects ?? []);
   // Names of the benefits, from the work orders. Only item id and name are taken, never a donor or an amount.
   const itemNames: Record<string, string> = {};
-  for (const w of await d.store.listWorkOrders(a.claims.org)) if (w.itemName) itemNames[w.itemId] = w.itemName;
+  const workOrders = await d.store.listWorkOrders(a.claims.org);
+  for (const w of workOrders) if (w.itemName) itemNames[w.itemId] = w.itemName;
+  // What the partner may know about each gift assigned to it (DECISIONS 259): no donor and no money. Only this partner's own gifts are looked at.
+  const mineAssigned = (config.assignments ?? emptyAssignments()).records.filter((x) => x.partnerId === a.claims.partner);
+  const details = giftDetails({ assignments: mineAssigned, workOrders, frameworks: setupOf(config).frameworks });
   const slice = partnerSlice({
     itemNames,
+    giftDetails: details,
     partners: migrated.partners,
     giftProjects: migrated.giftProjects,
     register: config.beneficiaries ?? emptyRegister(),

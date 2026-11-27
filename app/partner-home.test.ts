@@ -13,7 +13,7 @@ import type { Beneficiary } from "../modules/07-beneficiaries/beneficiaries";
 import type { View } from "./pages";
 import type { PartnerUi } from "./partner-outcomes";
 
-const QUIET: PartnerUi = { open: [], lastOpened: "", refusing: null, message: "", error: "" };
+const QUIET: PartnerUi = { open: [], details: [], lastOpened: "", refusing: null, message: "", error: "" };
 
 const kid = (id: string, name: string, eligibility: string, over: Partial<Beneficiary> = {}): Beneficiary => ({ id, kind: "person", name, status: "active", area: "", notes: "", dob: "", gender: "", guardian: "", guardianRelation: "", placeOfBirth: "", idNumber: "", fatherStatus: "", motherStatus: "", eligibility, eligibilityNote: "", partnerId: "p1", partnerRef: "", memberIds: [], ...over } as Beneficiary);
 const slice = (): PartnerSlice => ({
@@ -23,6 +23,7 @@ const slice = (): PartnerSlice => ({
   enrolments: [{ id: "EN-1", beneficiaryId: "PRS-3", giftProjectId: "g1", clusterId: "c", itemId: "S", role: "", status: "active", since: "2026-11-01" }],
   assignments: [{ key: "sub:1", partnerId: "p1", giftProjectId: "g1", itemId: "S", parts: 1, how: "auto", at: "2026-11-02T00:00:00Z" }],
   confirmations: [], progress: [], allocations: [], itemNames: { S: "Orphan Sponsorship Monthly" },
+  gifts: { "sub:1": { reference: "sub:1", recurring: true, units: 2, planned: 12, paid: 3, cause: "Orphans", intention: "", tribute: "For my mother <Aisha>", phases: [{ label: "Visit the home", days: 7 }], review: true, feedback: false, answerBy: "2026-11-05" } },
 });
 
 describe("the partner's home screen", () => {
@@ -184,5 +185,31 @@ describe("the batch list opens to show what is in a batch (DECISIONS 256)", () =
     expect(html).toContain('aria-expanded="true"');
     expect(html).toContain("Why can you not take these 2 gifts?");
     expect(html.indexOf('id="pt-reason"')).toBeGreaterThan(html.indexOf('id="pb-body-1"'));
+  });
+});
+
+describe("seeing what a gift is before accepting it (DECISIONS 259)", () => {
+  it("makes the benefit a button that opens the gift's details, closed at first", () => {
+    const html = partnerHomeHtml(slice(), "Sara", "dev", { ...QUIET, open: ["none"] });
+    expect(html).toContain('data-action="pt-details" data-key="sub:1" aria-expanded="false" aria-controls="gd-sub:1"');
+    expect(html).not.toContain('class="gd"');
+  });
+  it("shows the details when opened: reference, units, recurring progress, cause, tribute, phases and the answer-by day", () => {
+    const html = partnerHomeHtml(slice(), "Sara", "dev", { ...QUIET, open: ["none"], details: ["sub:1"] });
+    expect(html).toContain('aria-expanded="true" aria-controls="gd-sub:1"');
+    expect(html).toContain("<dt>Gift reference</dt><dd>sub:1</dd>");
+    expect(html).toContain("<dt>Units to deliver</dt><dd>2</dd>");
+    expect(html).toContain("Recurring: 3 of 12 payments made");
+    expect(html).toContain("<dt>Cause</dt><dd>Orphans</dd>");
+    expect(html).toContain("For my mother &lt;Aisha&gt;"); // the tribute is shown from the start, escaped
+    expect(html).toContain("Visit the home");
+    expect(html).toContain("MWF reviews the work");
+    expect(html).not.toContain("the donor is asked for feedback");
+    expect(html).toContain("<dt>Answer by</dt><dd>05/11/26</dd>");
+  });
+  it("says Not given for an empty fact, so a gap is never hidden, and shows the first answer-by day on the batch row", () => {
+    const html = partnerHomeHtml(slice(), "Sara", "dev", { ...QUIET, open: ["none"], details: ["sub:1"] });
+    expect(html).toContain("<dt>Intention</dt><dd><span class=\"muted\">Not given</span></dd>");
+    expect(html).toContain("answer by 05/11/26");
   });
 });

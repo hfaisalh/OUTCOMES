@@ -11,6 +11,7 @@
  */
 
 import { STAGE_LABELS, type StageId } from "../12-progress/progress.js";
+import type { GiftDetail } from "./gift-details.js";
 import type { PartnerSlice } from "./scope.js";
 
 export type Standing = "refused" | "to-answer" | "confirmed" | "allocated" | "complete";
@@ -26,6 +27,7 @@ export interface PartnerOutcome {
   step: string; // the last step taken, "" when none
   reason: string; // why it was refused
   since: string; // YYYY-MM-DD
+  detail: GiftDetail | undefined; // what the partner may know about the gift (gift-details.ts)
 }
 
 const words = (id: string): string => { const t = id.replace(/[-_]+/g, " ").trim(); return t.charAt(0).toUpperCase() + t.slice(1); };
@@ -41,7 +43,7 @@ export function partnerOutcomes(s: PartnerSlice): PartnerOutcome[] {
     return {
       key: a.key, batch: a.batch, benefit: s.itemNames[a.itemId] ?? a.itemId, project: s.giftProjects.find((g) => g.id === a.giftProjectId)?.name ?? "",
       funds: held.map((p) => (p.kind === "beneficiary" ? nameOfEnrolment(p.enrolmentId) : p.outcomeRef)).filter((x) => x !== "").join(", "),
-      standing, step: last ? (last.kind === "stage" ? STAGE_LABELS[last.id as StageId] ?? words(last.id) : words(last.id)) : "", reason: answer?.reason ?? "", since: a.at.slice(0, 10),
+      standing, step: last ? (last.kind === "stage" ? STAGE_LABELS[last.id as StageId] ?? words(last.id) : words(last.id)) : "", reason: answer?.reason ?? "", since: a.at.slice(0, 10), detail: s.gifts[a.key],
     };
   }).sort((x, y) => y.since.localeCompare(x.since) || x.key.localeCompare(y.key));
 }

@@ -30,7 +30,7 @@ const slice = (): PartnerSlice => ({
     { key: "sub:3", kind: "beneficiary", enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "g1", itemId: "S", parts: 1, how: "auto", at: "x" },
     { key: "sub:4", kind: "outcome", enrolmentId: "", outcomeRef: "OUT-0007", giftProjectId: "g1", itemId: "S", parts: 1, how: "auto", at: "x" },
   ],
-  itemNames: { S: "Orphan Sponsorship Monthly" },
+  itemNames: { S: "Orphan Sponsorship Monthly" }, gifts: { "sub:3": { reference: "sub:3", recurring: true, units: 1, planned: 12, paid: 3, cause: "Orphans", intention: "", tribute: "For Aisha", phases: [], review: true, feedback: true, answerBy: "2026-11-04" } },
 });
 
 describe("following a gift", () => {
@@ -50,7 +50,11 @@ describe("following a gift", () => {
     expect(rows.map((r) => r.key)).toEqual(["sub:5", "sub:4", "sub:3", "sub:2", "sub:1"]);
     expect(pipeline(rows)).toEqual({ refused: 1, "to-answer": 1, confirmed: 1, allocated: 1, complete: 1 });
   });
+  it("carries what the partner may know about each gift, and nothing for a gift that has none", () => {
+    expect(by("sub:3").detail).toMatchObject({ tribute: "For Aisha", planned: 12 });
+    expect(by("sub:1").detail).toBeUndefined();
+  });
   it("carries no donor detail", () => {
-    expect(Object.keys(rows[0]!).sort()).toEqual(["batch", "benefit", "funds", "key", "project", "reason", "since", "standing", "step"]);
+    expect(Object.keys(rows[0]!).sort()).toEqual(["batch", "benefit", "detail", "funds", "key", "project", "reason", "since", "standing", "step"]);
   });
 });

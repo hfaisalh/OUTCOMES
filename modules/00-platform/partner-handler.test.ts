@@ -95,6 +95,21 @@ describe("what a partner can reach", () => {
     expect(saved.map((r) => r.key)).toEqual(["sub:1", "sub:2"]);
   });
 
+  it("gives a partner the details of its own gifts, with the tribute, and never a donor or any money (DECISIONS 259)", async () => {
+    const cfg = (await d.store.getConfig("demo"))!;
+    const gift = (key: string, partnerId: string) => ({ key, partnerId, giftProjectId: "g1", itemId: "S", parts: 2, how: "auto" as const, at: "2026-11-01T00:00:00Z", batch: 1 });
+    await d.store.putConfig("demo", { ...cfg, assignments: { records: [gift("L1", "p1"), gift("L2", "p2")] } });
+    const order = (key: string, tribute: string) => ({ key, lineId: key, transactionRef: "T-SECRET", paidDate: "2026-10-05", supporterId: "DONOR-1", supporterName: "Private Donor", group: "Secret Group", itemId: "S", itemName: "Small Pump", amount: 30, quantity: 1, intention: "Memory", cause: "Water", tribute, subscriptionId: "", instalmentNumber: "", instalmentCount: "", categoryId: "water", status: "ready" });
+    await d.store.saveWorkOrders("demo", [order("L1", "For Aisha") as never, order("L2", "Someone else's tribute") as never]);
+    const c = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
+    const r = await handleOutcomes(as(c), d);
+    const body = r.body as { gifts: Record<string, { tribute: string; units: number }> };
+    expect(Object.keys(body.gifts)).toEqual(["L1"]);
+    expect(body.gifts["L1"]).toMatchObject({ tribute: "For Aisha", units: 2 });
+    const all = JSON.stringify(r.body);
+    for (const secret of ["Private Donor", "DONOR-1", "Secret Group", "T-SECRET", "Someone else"]) expect(all).not.toContain(secret);
+  });
+
   it("gives 404 for a partner that no longer exists", async () => {
     const c = cookieOf(await handleDemoLogin(req({ query: { partner: "gone" } }), d));
     expect((await handleOutcomes(as(c), d)).status).toBe(404);

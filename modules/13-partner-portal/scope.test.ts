@@ -25,6 +25,7 @@ function state(): PartnerState {
   const e = (id: string, b: string, project: string) => ({ id, beneficiaryId: b, giftProjectId: project, clusterId: "c", itemId: "SPONSOR", role: "", status: "active" as const, since: "2026-11-01" });
   return {
     itemNames: { SPONSOR: "Orphan Sponsorship", OTHER: "Another benefit" },
+    giftDetails: { "sub:1": { reference: "sub:1", recurring: false, units: 1, cause: "", intention: "", tribute: "T1", phases: [], review: true, feedback: true, answerBy: "2026-11-05" }, "sub:2": { reference: "sub:2", recurring: false, units: 1, cause: "", intention: "", tribute: "T2", phases: [], review: true, feedback: true, answerBy: "2026-11-05" } },
     partners: [partner("p1", "Alpha Trust"), partner("p2", "Beta Trust")],
     giftProjects: [project("g1", ["p1"]), project("g2", ["p2"]), project("g3", ["p1", "p2"])],
     register,
@@ -50,6 +51,12 @@ describe("what a partner sees", () => {
 
   it("names only the benefits of the partner's own projects and gifts", () => {
     expect(partnerSlice(state(), "p1")!.itemNames).toEqual({ SPONSOR: "Orphan Sponsorship" });
+  });
+
+  it("sends details only for the gifts assigned to the partner itself", () => {
+    expect(Object.keys(partnerSlice(state(), "p1")!.gifts)).toEqual(["sub:1"]);
+    expect(Object.keys(partnerSlice(state(), "p2")!.gifts)).toEqual(["sub:2"]);
+    expect(JSON.stringify(partnerSlice(state(), "p1"))).not.toContain("T2");
   });
 
   it("shows the other partner exactly the mirror, so nothing leaks either way", () => {
