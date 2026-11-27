@@ -283,8 +283,8 @@ export function loadSampleSetup(input: SampleInput): Loaded {
     person("principal", "Sample Principal Hamid", { dob: "1975-04-04", gender: "male", idNumber: "SMP-2001", guardian: "", eligibility: "" });
     person("warden", "Sample Warden Saira", { dob: "1982-08-08", gender: "female", idNumber: "SMP-2002", guardian: "", eligibility: "" });
     person("dean", "Sample Dean Karim", { dob: "1970-02-02", gender: "male", idNumber: "SMP-2003", guardian: "", eligibility: "" });
-    person("lapsed1", "Sample Lapsed Child One", { dob: "2013-08-08", gender: "male", idNumber: "SMP-4001", fatherStatus: "deceased", motherStatus: "living", guardian: "Sample Guardian L1", eligibility: "ready", partnerId: lapsed || trust }); // owned by the lapsed partner, so its room is never used
-    person("lapsed2", "Sample Lapsed Child Two", { dob: "2014-09-09", gender: "female", idNumber: "SMP-4002", fatherStatus: "deceased", motherStatus: "living", guardian: "Sample Guardian L2", eligibility: "ready", partnerId: lapsed || trust });
+    person("lapsed1", "Sample Lapsed Beneficiary One", { dob: "2013-08-08", gender: "male", idNumber: "SMP-4001", fatherStatus: "deceased", motherStatus: "living", guardian: "Sample Guardian L1", eligibility: "ready", partnerId: lapsed || trust }); // owned by the lapsed partner, so its room is never used
+    person("lapsed2", "Sample Lapsed Beneficiary Two", { dob: "2014-09-09", gender: "female", idNumber: "SMP-4002", fatherStatus: "deceased", motherStatus: "living", guardian: "Sample Guardian L2", eligibility: "ready", partnerId: lapsed || trust });
     household("h1", "Sample Family Noor", { area: "Sample Village A", size: 5, partnerId: builders });
     household("h2", "Sample Family Rashid", { area: "Sample Village B", size: 7, partnerId: builders });
     household("h3", "Sample Family Qasim", { area: "Sample Camp 1", size: 4, partnerId: relieft });
@@ -298,7 +298,7 @@ export function loadSampleSetup(input: SampleInput): Loaded {
       for (let k = 0; k < x.count; k++) {
         seq++;
         const label = String(seq).padStart(3, "0");
-        const r = mustBen(addBeneficiary(reg, "person", { name: `Sample Child ${label}`, dob: `${2008 + (seq % 9)}-0${1 + (seq % 9)}-1${seq % 9}`, gender: seq % 2 ? "female" : "male", placeOfBirth: "Sampletown", area: "North District", partnerId: owner(seq), idNumber: `SMP-S${label}`, fatherStatus: "deceased", motherStatus: "living", guardian: `Sample Guardian S${label}`, guardianRelation: "mother", eligibility: "ready", eligibilityNote: "Checked (invented)", partnerRef: `SAMPLE-S${label}` }));
+        const r = mustBen(addBeneficiary(reg, "person", { name: `Sample Beneficiary ${label}`, dob: `${2008 + (seq % 9)}-0${1 + (seq % 9)}-1${seq % 9}`, gender: seq % 2 ? "female" : "male", placeOfBirth: "Sampletown", area: "North District", partnerId: owner(seq), idNumber: `SMP-S${label}`, fatherStatus: "deceased", motherStatus: "living", guardian: `Sample Guardian S${label}`, guardianRelation: "mother", eligibility: "ready", eligibilityNote: "Checked (invented)", partnerRef: `SAMPLE-S${label}` }));
         reg = r.value; made[`bulk${seq}`] = r.id;
         bulkChildren.push({ id: r.id, itemId: x.item.id, cls: (seq % 5) + 1, projectId: homes });
       }
@@ -308,7 +308,7 @@ export function loadSampleSetup(input: SampleInput): Loaded {
         for (let k = 0; k < x.count; k++) {
           seq++;
           const label = String(seq).padStart(3, "0");
-          const r = mustBen(addBeneficiary(reg, "person", { name: `Sample Child ${label}`, dob: `${2008 + (seq % 9)}-0${1 + (seq % 9)}-1${seq % 9}`, gender: seq % 2 ? "female" : "male", placeOfBirth: "Sampletown", area: "North District", partnerId: owner(seq), idNumber: `SMP-S${label}`, fatherStatus: "deceased", motherStatus: "living", guardian: `Sample Guardian S${label}`, guardianRelation: "mother", eligibility: "ready", eligibilityNote: "Checked (invented)", partnerRef: `SAMPLE-S${label}` }));
+          const r = mustBen(addBeneficiary(reg, "person", { name: `Sample Beneficiary ${label}`, dob: `${2008 + (seq % 9)}-0${1 + (seq % 9)}-1${seq % 9}`, gender: seq % 2 ? "female" : "male", placeOfBirth: "Sampletown", area: "North District", partnerId: owner(seq), idNumber: `SMP-S${label}`, fatherStatus: "deceased", motherStatus: "living", guardian: `Sample Guardian S${label}`, guardianRelation: "mother", eligibility: "ready", eligibilityNote: "Checked (invented)", partnerRef: `SAMPLE-S${label}` }));
           reg = r.value; made[`bulk${seq}`] = r.id;
           bulkChildren.push({ id: r.id, itemId: x.item.id, cls: (seq % 5) + 1, projectId });
         }

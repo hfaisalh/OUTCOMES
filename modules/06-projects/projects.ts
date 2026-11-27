@@ -206,7 +206,7 @@ export function addType(projects: Project[], projectId: string, t: { name: strin
   const p = projects.find((x) => x.id === projectId);
   if (!p) return { value: projects, error: "That project was not found." };
   const name = clean(t.name);
-  if (name === "") return { value: projects, error: "Give the type a name, such as child or teacher." };
+  if (name === "") return { value: projects, error: "Give the type a name, such as orphan or teacher." };
   if (p.types.some((x) => same(x.name, name))) return { value: projects, error: `There is already a type called "${name}".` };
   // Rule (DECISIONS 72): a type does not have to belong to a level. With none, its beneficiaries belong to the partner as a whole and can be placed later.
   if (t.levelId !== "" && !p.levels.some((l) => l.id === t.levelId)) return { value: projects, error: "That level was not found." };

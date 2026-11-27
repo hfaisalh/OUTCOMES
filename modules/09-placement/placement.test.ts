@@ -123,7 +123,7 @@ describe("history: nothing is deleted (DECISIONS 186)", () => {
     const resumed = ctx({ assignments: [asg("G1", { parts: 3 })], now: "2026-12-10T09:00:00Z" });
     const s = suggestPlacements(resumed, synced)[0]!;
     expect(s).toMatchObject({ kind: "place", enrolmentId: "EN-1" });
-    expect(s.why).toBe("Takes back its previous child, Amina (0 of 3 units taken)");
+    expect(s.why).toBe("Takes back its previous beneficiary, Amina (0 of 3 units taken)");
     const r = runPlacement(resumed, synced);
     expect(r.value.records.map((p) => [p.key, p.enrolmentId, p.to ?? "now"])).toEqual([["G1", "EN-1", "2026-12-01"], ["G1", "EN-1", "now"]]); // the first period and the second, both kept
   });

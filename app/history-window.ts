@@ -51,11 +51,11 @@ const childOf = (d: HistoryData, enrolmentId: string): { name: string; id: strin
 export function giftHistoryHtml(d: HistoryData, key: string): string {
   const g = d.gifts.get(key);
   const rows = historyOfGift(d.placements, key);
-  const body = rows.length === 0 ? '<div class="empty">This gift has not been allocated yet.</div>' : `<div class="tablewrap"><table class="subtable"><thead><tr><th>Child or outcome</th><th>Where</th><th class="num">Units</th><th>From</th><th>To</th><th>Why it ended</th></tr></thead><tbody>${rows.map((r) => {
+  const body = rows.length === 0 ? '<div class="empty">This gift has not been allocated yet.</div>' : `<div class="tablewrap"><table class="subtable"><thead><tr><th>Beneficiary or outcome</th><th>Where</th><th class="num">Units</th><th>From</th><th>To</th><th>Why it ended</th></tr></thead><tbody>${rows.map((r) => {
     const who = r.outcomeRef ? `<b>${esc(r.outcomeRef)}</b> <span class="muted">outcome</span>` : `<b>${esc(childOf(d, r.enrolmentId).name)}</b> <span class="muted">${esc(childOf(d, r.enrolmentId).id)}</span>`;
     return `<tr><td>${who}</td><td class="muted">${r.outcomeRef ? "" : where(d, r.enrolmentId)}</td><td class="num">${r.units}</td>${when(r)}${why(r)}</tr>`;
   }).join("")}</tbody></table></div>`;
-  return frame(`Allocation history${g ? ` <span class="muted">${esc(g.donor)} · ${esc(g.item)}</span>` : ""}`, g && g.payments > 1 ? `A recurring gift of ${g.payments} payments. Each row is a child it held, from the day it was allocated until the day it ended.` : "Each row is a child or outcome this gift held, from the day it was allocated until the day it ended.", body);
+  return frame(`Allocation history${g ? ` <span class="muted">${esc(g.donor)} · ${esc(g.item)}</span>` : ""}`, g && g.payments > 1 ? `A recurring gift of ${g.payments} payments. Each row is a beneficiary it held, from the day it was allocated until the day it ended.` : "Each row is a beneficiary or outcome this gift held, from the day it was allocated until the day it ended.", body);
 }
 
 // The history of one place: every gift that has sponsored this child for this benefit.
@@ -63,9 +63,9 @@ export function enrolmentHistoryHtml(d: HistoryData, enrolmentId: string): strin
   const e = d.enrolments.find((x) => x.id === enrolmentId);
   const c = childOf(d, enrolmentId);
   const rows = historyOfEnrolment(d.placements, enrolmentId);
-  const body = rows.length === 0 ? '<div class="empty">No gift has been allocated to this child yet.</div>' : `<div class="tablewrap"><table class="subtable"><thead><tr><th>Gift</th><th class="num">Units</th><th>From</th><th>To</th><th>Why it ended</th></tr></thead><tbody>${rows.map((r) => {
+  const body = rows.length === 0 ? '<div class="empty">No gift has been allocated to this beneficiary yet.</div>' : `<div class="tablewrap"><table class="subtable"><thead><tr><th>Gift</th><th class="num">Units</th><th>From</th><th>To</th><th>Why it ended</th></tr></thead><tbody>${rows.map((r) => {
     const g = d.gifts.get(r.key);
     return `<tr><td>${g ? `<b>${esc(g.donor)}</b> <span class="muted">${esc(g.item)}${g.payments > 1 ? ` · recurring, ${g.payments} payments` : ""}</span>` : `<span class="muted">${esc(r.key)}</span>`}</td><td class="num">${r.units}</td>${when(r)}${why(r)}</tr>`;
   }).join("")}</tbody></table></div>`;
-  return frame(`Sponsorship history <span class="muted">${esc(c.name)}${e ? ` · ${esc(d.itemName(e.itemId))}` : ""}</span>`, `${e ? where(d, enrolmentId) : ""}. Each row is a gift that sponsored this child, from the day it was allocated until the day it ended.`, body);
+  return frame(`Sponsorship history <span class="muted">${esc(c.name)}${e ? ` · ${esc(d.itemName(e.itemId))}` : ""}</span>`, `${e ? where(d, enrolmentId) : ""}. Each row is a gift that sponsored this beneficiary, from the day it was allocated until the day it ended.`, body);
 }

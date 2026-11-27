@@ -24,7 +24,7 @@ export interface KindInfo {
 }
 
 export const KINDS: KindInfo[] = [
-  { id: "person", label: "Person(s)", what: "One person or a list of people: a child, a family, a cohort", counted: "People", proof: "Profile updates, photos, reports", examples: "Orphan sponsorship, scholarship, a family startup" },
+  { id: "person", label: "Person(s)", what: "One person or a list of people: a person, a family, a cohort", counted: "People", proof: "Profile updates, photos, reports", examples: "Orphan sponsorship, scholarship, a family startup" },
   { id: "activity", label: "Activity", what: "An event on a date, for people or an institution", counted: "The event", proof: "Date, location, attendance, photos", examples: "Medical camp, iftar, training" },
   { id: "build", label: "Build", what: "Something made or installed at a location, with its own ID and stages", counted: "The item", proof: "Location, progress stages, photos, handover", examples: "Water pump, house, school, solar well" },
   { id: "distribution", label: "Distribution", what: "Goods handed over in quantity", counted: "Quantity", proof: "Quantity delivered, recipients, receipts", examples: "Qurbani, food packs, tents, planting" },

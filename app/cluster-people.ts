@@ -57,7 +57,7 @@ export function clusterPeopleHtml(state: ClusterState, c: Cluster, ctx: PeopleCo
     const b = name(e.beneficiaryId);
     const n = countOfEnrolment(ctx.placements ?? [], e.id);
     return `<tr><td class="nm"><b>${esc(b?.name ?? e.beneficiaryId)}</b> <span class="muted">${esc(e.beneficiaryId)}</span></td><td>${esc(itemName(e.itemId))}</td><td>${esc(e.role)}</td><td class="muted">${esc(e.clusterId === c.id ? "Here" : where(e.clusterId))}</td><td class="muted">${esc(e.since)}</td>
-      <td class="actcol">${n > 0 ? `<button type="button" class="linkish" data-hist="enrolment" data-id="${esc(e.id)}" title="Every gift that has sponsored this child">History (${n})</button> ` : '<span class="linkish"></span>'}${rowMenu(`${moveTargets(e)}<button type="button" class="danger" data-cl="enr-end" data-id="${esc(e.id)}">End this enrolment</button>`)}</td></tr>`;
+      <td class="actcol">${n > 0 ? `<button type="button" class="linkish" data-hist="enrolment" data-id="${esc(e.id)}" title="Every gift that has sponsored this beneficiary">History (${n})</button> ` : '<span class="linkish"></span>'}${rowMenu(`${moveTargets(e)}<button type="button" class="danger" data-cl="enr-end" data-id="${esc(e.id)}">End this enrolment</button>`)}</td></tr>`;
   }).join("");
   // Capacity: the total belongs to the master cluster, and counts everyone inside it except role holders.
   const top = masterOf(state, c.id);

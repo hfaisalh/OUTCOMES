@@ -324,7 +324,7 @@ function sampleCard(v: View): string {
   const loaded = hasSample({ giftProjects: v.giftProjects ?? [], register: v.beneficiaries ?? { records: [], counters: {} } });
   return `<div class="card"><h2>Sample setup</h2>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
-    <p class="muted">Loads invented partners, projects with clusters, children and households, and enrolments, built from the items that exist, so the whole journey can be tried without real data. Everything it makes is marked as sample, and Remove takes away exactly that and nothing else. Real children's data is never loaded this way.</p>
+    <p class="muted">Loads invented partners, projects with clusters, beneficiaries and households, and enrolments, built from the items that exist, so the whole journey can be tried without real data. Everything it makes is marked as sample, and Remove takes away exactly that and nothing else. Real beneficiary data is never loaded this way.</p>
     <div class="actions"><button class="primary" data-sample="load"${loaded ? " disabled" : ""}>Load sample setup</button><button data-sample="remove"${loaded ? "" : " disabled"}>Remove sample data</button></div>
     <p class="muted">${loaded ? "The sample setup is loaded." : "The sample setup is not loaded."}</p></div>`;
 }

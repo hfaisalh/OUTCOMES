@@ -39,7 +39,7 @@ export function beneficiariesPage(v: View): string {
   const legacy = all.filter((o) => o.projectId === undefined).length;
 
   const head = `<h1>Outcomes</h1>
-    <p class="sub">What gifts are allocated to, with capacity: children, students, teachers, pumps. (The people and households themselves are on the Beneficiaries page.) Each belongs to a partner. Add them with only a name, a number and how they are sponsored, then add them to the partner's branch and groups, and give them an ID, when you are ready.</p>
+    <p class="sub">What gifts are allocated to, with capacity: orphans, students, teachers, pumps. (The people and households themselves are on the Beneficiaries page.) Each belongs to a partner. Add them with only a name, a number and how they are sponsored, then add them to the partner's branch and groups, and give them an ID, when you are ready.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}`;
 
   const add = `<div class="card"><h2>Add beneficiaries <span class="muted">(numbered test records)</span></h2>

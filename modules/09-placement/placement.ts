@@ -33,7 +33,7 @@ import type { Enrolment, ItemRules } from "../07-beneficiaries/enrolments.js";
 
 // Why a placement ended (DECISIONS 186). The first three are the plan's own status in the CRM.
 export type EndReason = "paused" | "cancelled" | "completed" | "child-left" | "unassigned" | "released" | "moved" | "taken-back";
-export const END_LABEL: Record<EndReason, string> = { paused: "The plan was paused", cancelled: "The plan was cancelled", completed: "The plan was completed", "child-left": "The child left", unassigned: "The gift's assignment to a partner was withdrawn", released: "The gift is no longer in scope", moved: "A person moved it to another child", "taken-back": "A person took it back" };
+export const END_LABEL: Record<EndReason, string> = { paused: "The plan was paused", cancelled: "The plan was cancelled", completed: "The plan was completed", "child-left": "The beneficiary left", unassigned: "The gift's assignment to a partner was withdrawn", released: "The gift is no longer in scope", moved: "A person moved it to another beneficiary", "taken-back": "A person took it back" };
 const RESUMABLE: EndReason[] = ["paused", "cancelled", "completed"]; // a plan that ended for one of these and runs again is offered its previous child
 export const isActive = (p: { to?: string }): boolean => p.to === undefined;
 
@@ -163,7 +163,7 @@ export function suggestPlacements(ctx: PlaceContext, existing: Placements): Plac
     if (shares.length > 0) {
       for (const sh of shares) running.push({ key: a.key, kind: "place", enrolmentId: sh.enrolmentId, outcomeRef: "", giftProjectId: options.find((o) => o.enrolmentId === sh.enrolmentId)?.giftProjectId ?? a.giftProjectId, itemId: a.itemId, parts: sh.parts, how: "auto", at: ctx.now });
       const first = options.find((o) => o.enrolmentId === shares[0]?.enrolmentId) as PlaceOption;
-      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "place", enrolmentId: first.enrolmentId, shares, blocked: "", options, why: shares.length === 1 ? `${previous.has(first.enrolmentId) ? "Takes back its previous child, " : "Supports "}${first.name} (${first.used} of ${first.capacity} units taken)` : `Spread over ${shares.length} beneficiaries, ${shares.map((x) => `${options.find((o) => o.enrolmentId === x.enrolmentId)?.name ?? x.enrolmentId} (${x.parts})`).join(", ")}, since no single beneficiary can take ${a.parts} units` });
+      out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "place", enrolmentId: first.enrolmentId, shares, blocked: "", options, why: shares.length === 1 ? `${previous.has(first.enrolmentId) ? "Takes back its previous beneficiary, " : "Supports "}${first.name} (${first.used} of ${first.capacity} units taken)` : `Spread over ${shares.length} beneficiaries, ${shares.map((x) => `${options.find((o) => o.enrolmentId === x.enrolmentId)?.name ?? x.enrolmentId} (${x.parts})`).join(", ")}, since no single beneficiary can take ${a.parts} units` });
     } else {
       const blocked: Blocked = options.length > 0 ? "full" : a.giftProjectId !== "" ? "no-places" : "no-project-places";
       out.push({ key: a.key, itemId: a.itemId, parts: a.parts, kind: "", enrolmentId: "", shares: [], blocked, options, why: options.length > 0 ? "Every beneficiary for this benefit is already fully funded." : a.giftProjectId !== "" ? "No approved beneficiary is enrolled for this benefit in the gift's project." : "No approved beneficiary is enrolled for this benefit with the assigned partner." });

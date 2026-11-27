@@ -57,7 +57,7 @@ describe("the history of a place", () => {
     expect(html).toContain("Aghosh › Class 1");
   });
   it("says so when no gift has been allocated to the child", () => {
-    expect(enrolmentHistoryHtml(data({ placements: [] }), "EN-1")).toContain("No gift has been allocated to this child yet.");
+    expect(enrolmentHistoryHtml(data({ placements: [] }), "EN-1")).toContain("No gift has been allocated to this beneficiary yet.");
   });
 });
 

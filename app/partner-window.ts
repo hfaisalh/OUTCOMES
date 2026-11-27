@@ -41,7 +41,7 @@ function structureHtml(v: View, project: Project): string {
   }).join("");
   const levelsCard = `<section><h3>Levels</h3>
     <div class="note">Clusters (regions, classrooms, tent villages, camps) are now set up on the <b>project</b>: open <b>Projects</b>, click a project, then its <b>Clusters</b> tab. This older structure stays until beneficiaries move to the new register.</div>
-    <p class="muted">The first level is the location: a branch or a site. A partner can have many locations. The other levels are ways of grouping people inside a location, such as Class, House or School. A child can be in a class and a house at the same time.</p>
+    <p class="muted">The first level is the location: a branch or a site. A partner can have many locations. The other levels are ways of grouping people inside a location, such as Class, House or School. A beneficiary can be in a class and a house at the same time.</p>
     ${tree.length ? `<div class="twrap"><table><thead><tr><th>Level</th><th>Sits</th><th>Locations</th><th></th></tr></thead><tbody>${levelRows}</tbody></table></div>` : `<div class="empty">No levels yet. Add the location first, for example Branch.</div>`}
     <div class="actions"><input id="pj-level" placeholder="${tree.length ? "Another level, for example Class" : "First level, for example Branch"}" /><select id="pj-level-parent" aria-label="Where it sits">${tree.length ? "" : `<option value="">Top, a location</option>`}${tree.map((x) => `<option value="${esc(x.level.id)}">Under ${esc(x.level.name)}</option>`).join("")}${tree.length ? `<option value="">Top, another kind of location</option>` : ""}</select><button data-action="add-level">Add level</button></div></section>`;
 
@@ -49,7 +49,7 @@ function structureHtml(v: View, project: Project): string {
   const typeRows = project.types.map((t) => `<tr><td><b>${esc(t.name)}</b></td><td>${t.levelId === "" ? '<span class="muted">Anywhere</span>' : esc(levelName(t.levelId))}</td><td>${(t.groupingIds ?? []).map((g) => esc(levelName(g))).join(", ") || '<span class="muted">none</span>'}</td><td>${esc(fwName(t.frameworkId))}</td><td>${outcomes.filter((o) => o.typeId === t.id).length}</td><td><button data-action="remove-type" data-id="${esc(t.id)}">Remove</button></td></tr>`).join("");
   const typesCard = `<section><h3>Who is here <span class="muted">(types of beneficiary)</span></h3>
     ${project.types.length ? `<div class="twrap"><table><thead><tr><th>Type</th><th>Belongs to</th><th>Grouped by</th><th>Sponsored as</th><th>Beneficiaries</th><th></th></tr></thead><tbody>${typeRows}</tbody></table></div>` : `<div class="empty">No types yet. A type needs only a name and how it is sponsored. For example: Child, sponsored as shared parts. If you also choose what it belongs to (a Branch) and what groups it (Class, House), beneficiaries can be placed there.</div>`}
-    <div class="actions"><input id="pj-type-name" placeholder="Type, for example Child or Teacher" />
+    <div class="actions"><input id="pj-type-name" placeholder="Type, for example Orphan or Teacher" />
       <select id="pj-type-level" aria-label="Belongs to"><option value="">Anywhere in the partner</option>${tree.map((x) => `<option value="${esc(x.level.id)}">${esc(x.level.name)}</option>`).join("")}</select>
       <select id="pj-type-fw" aria-label="Sponsored as"><option value="">Sponsored as...</option>${fws.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>
       <button data-action="add-type">Add type</button></div>

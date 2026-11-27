@@ -128,7 +128,7 @@ describe("attaching to a real project", () => {
     const quiet = real({ id: "quiet", name: "Quiet" });
     const busy = real({ id: "busy", name: "Busy" });
     const { value } = load({ giftProjects: [quiet, busy], realProjects: [{ id: "quiet", itemIds: ["I10", "I13"], itemCounts: { I10: 1, I13: 1 } }, { id: "busy", itemIds: ["I10"], itemCounts: { I10: 22 } }], demand: { I10: 23, I13: 1 }, whole: { I10: 3, I13: 3 } });
-    const kids = (id: string): number => value.enrolments.records.filter((e) => e.giftProjectId === id && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Child ")).length;
+    const kids = (id: string): number => value.enrolments.records.filter((e) => e.giftProjectId === id && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Beneficiary ")).length;
     expect(kids("busy")).toBe(10); // 22 over 3 is 8, plus 2
     expect(kids("quiet")).toBe(6); // 1 over 3 is 1, plus 2, for each of two items
     expect(value.giftProjects.find((g) => g.id === "busy")?.clusters?.[0]?.capacity).toBe(10);
@@ -204,10 +204,10 @@ describe("scaled to the real gifts (DECISIONS 176)", () => {
     const main = value.giftProjects[0]!.clusters!.find((c) => c.name === "Sample Home - Main")!;
     expect(main.capacity).toBe(16); // large enough to hold them, so capacity never blocks
     expect(value.giftProjects[0]!.clusters!.filter((c) => c.parentId === main.id).map((c) => c.name)).toEqual(["Class 1", "Class 2", "Class 3", "Class 4", "Class 5"]);
-    const kids = value.register.records.filter((b) => b.name.startsWith("Sample Child "));
+    const kids = value.register.records.filter((b) => b.name.startsWith("Sample Beneficiary "));
     expect(kids).toHaveLength(16);
     expect(kids.every((b) => b.eligibility === "ready" && b.sample === true)).toBe(true);
-    expect(value.enrolments.records.filter((e) => e.itemId === "I13" && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Child "))).toHaveLength(4); // one child per place, for each item
+    expect(value.enrolments.records.filter((e) => e.itemId === "I13" && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Beneficiary "))).toHaveLength(4); // one child per place, for each item
   });
   it("makes none when the real gifts need no sponsorship, and caps the number", () => {
     expect(load().summary.beneficiaries).toBe(26);
@@ -216,7 +216,7 @@ describe("scaled to the real gifts (DECISIONS 176)", () => {
   });
   it("lets the real gifts fill them: every unit a real gift needs has a child to go to", () => {
     const { value } = load({ demand, whole });
-    const per = (item: string): number => value.enrolments.records.filter((e) => e.itemId === item && e.role === "" && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Child ")).length;
+    const per = (item: string): number => value.enrolments.records.filter((e) => e.itemId === item && e.role === "" && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Beneficiary ")).length;
     expect(per("I10") * 3).toBeGreaterThanOrEqual(30);
     expect(per("I13") * 3).toBeGreaterThanOrEqual(6);
   });
@@ -240,7 +240,7 @@ describe("every real project that carries sponsorship gifts gets its own home (D
     expect(aghosh.clusters?.map((c) => c.name)).toEqual(["Sample Home - Main", "Class 1", "Class 2", "Class 3", "Class 4", "Class 5"]);
     expect(aghosh.clusters?.[0]?.capacity).toBe(13); // I10: 22 over 3 is 8, plus 2. I13: 3 over 3 is 1, plus 2
     expect(aghosh.sampleAttached?.clusters).toBe(true);
-    const inProject = (id: string, item: string) => value.enrolments.records.filter((e) => e.giftProjectId === id && e.itemId === item && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Child ")).length;
+    const inProject = (id: string, item: string) => value.enrolments.records.filter((e) => e.giftProjectId === id && e.itemId === item && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Beneficiary ")).length;
     expect(inProject("aghosh", "I10")).toBe(10);
     expect(inProject("aghosh", "I13")).toBe(3);
     expect(inProject("dadyal", "I10")).toBeGreaterThan(0); // the best match also keeps its home
@@ -268,7 +268,7 @@ describe("a real project with clusters of its own keeps them and is filled (DECI
     const aghosh = value.giftProjects.find((g) => g.id === "aghosh")!;
     expect(aghosh.clusters).toEqual(own(250).clusters); // the project's own clusters, unchanged
     expect(aghosh.sampleAttached?.clusters).toBe(false); // only the general partner was given, as it had none: no clusters
-    const kids = value.enrolments.records.filter((e) => e.giftProjectId === "aghosh" && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Child "));
+    const kids = value.enrolments.records.filter((e) => e.giftProjectId === "aghosh" && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Beneficiary "));
     expect(kids).toHaveLength(8); // 17 over 3 is 6, plus 2
     expect(kids.every((e) => e.clusterId === "class-1")).toBe(true); // in its first class
     expect(summary.ownClusters).toBe(1);
@@ -281,7 +281,7 @@ describe("a real project with clusters of its own keeps them and is filled (DECI
   });
   it("never passes the cluster's own total, and says nothing is lost when it is small", () => {
     const { value } = load({ giftProjects: [own(5), { id: "dadyal", name: "Dadyal Orphan Complex", crmNames: [], partnerIds: [] }], realProjects: real, demand: { I10: 20 }, whole: { I10: 3 } });
-    expect(value.enrolments.records.filter((e) => e.giftProjectId === "aghosh" && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Child ")).length).toBe(5);
+    expect(value.enrolments.records.filter((e) => e.giftProjectId === "aghosh" && value.register.records.find((b) => b.id === e.beneficiaryId)?.name.startsWith("Sample Beneficiary ")).length).toBe(5);
   });
   it("leaves the project exactly as it was when the sample is removed", () => {
     const projects = others();

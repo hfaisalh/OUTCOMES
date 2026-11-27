@@ -13,8 +13,8 @@ const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;"
 // What happens at each point, in the partner's own words. Refused is shown apart, since it leaves the journey.
 const STEPS: { id: Standing; says: string }[] = [
   { id: "to-answer", says: "A gift is assigned to you. Accept or refuse it within the days set." },
-  { id: "confirmed", says: "You accepted. It is allocated to a child who needs funding, or made into an outcome." },
-  { id: "allocated", says: "It funds a child or an outcome. You deliver in phases and send what is asked." },
+  { id: "confirmed", says: "You accepted. It is allocated to a beneficiary who needs funding, or made into an outcome." },
+  { id: "allocated", says: "It funds a beneficiary or an outcome. You deliver in phases and send what is asked." },
   { id: "complete", says: "Delivered, reviewed and reported. The donor is told." },
 ];
 

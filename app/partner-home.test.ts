@@ -26,7 +26,7 @@ describe("the partner's home screen", () => {
   it("shows the figures, the children and the projects, and escapes names", () => {
     const html = partnerHomeHtml(slice(), "Sara", "v0.1.0 · abc123");
     expect(html).toContain("Welcome, Alpha &lt;Trust&gt;");
-    expect(html).toContain("<b>3</b><span>Children</span>");
+    expect(html).toContain("<b>3</b><span>Beneficiaries</span>");
     expect(html).toContain("<b>1</b><span>Enrolled</span>");
     expect(html).toContain("<b>1</b><span>Waiting for a vacancy</span>");
     expect(html).toContain("<b>1</b><span>Need details</span>");
@@ -46,7 +46,7 @@ describe("the partner's home screen", () => {
   it("says so when there is nothing yet", () => {
     const empty = { ...slice(), beneficiaries: [], giftProjects: [], enrolments: [], assignments: [] };
     expect(partnerHomeHtml(empty, "Sara", "dev")).toContain("No gift has been assigned to you yet");
-    expect(partnerHomeHtml(empty, "Sara", "dev")).toContain("No children yet");
+    expect(partnerHomeHtml(empty, "Sara", "dev")).toContain("No beneficiaries yet");
     expect(partnerHomeHtml(empty, "Sara", "dev")).toContain("No project has been given to you yet");
   });
 });

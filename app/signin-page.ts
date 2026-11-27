@@ -22,7 +22,7 @@ export function signinHtml(note: string): string {
       <label class="signin-field"><span>Email</span><input type="email" name="email" autocomplete="username" autocapitalize="off" spellcheck="false" required autofocus></label>
       <label class="signin-field"><span>Password</span><input type="password" name="password" autocomplete="current-password" required></label>
       <button class="primary signin-submit" type="submit">Sign in</button>
-      <p class="muted">You see only what your account allows. A partner sees only its own children and gifts.</p>
+      <p class="muted">You see only what your account allows. A partner sees only its own beneficiaries and gifts.</p>
     </form>
     <section>
       <h2>From the CRM</h2>

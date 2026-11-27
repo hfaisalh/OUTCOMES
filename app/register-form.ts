@@ -29,7 +29,7 @@ export function registerFormHtml(rec: Partial<Beneficiary>, id: string, kind: Be
     <label>Gender<select id="rg-gender"><option value="">Not said</option><option value="female"${rec.gender === "female" ? " selected" : ""}>Female</option><option value="male"${rec.gender === "male" ? " selected" : ""}>Male</option></select></label>
     ${input("rg-pob", "Place of birth", rec.placeOfBirth ?? "")}${input("rg-idnumber", "National ID or B-form number", rec.idNumber ?? "")}`);
   const family = card("Family", `${parent("rg-father", "Father", rec.fatherStatus)}${parent("rg-mother", "Mother", rec.motherStatus)}
-    ${input("rg-guardian", "Parent or guardian", rec.guardian ?? "")}${input("rg-guardianrel", "Guardian's relation to the child", rec.guardianRelation ?? "", ' placeholder="For example mother, uncle"')}`);
+    ${input("rg-guardian", "Parent or guardian", rec.guardian ?? "")}${input("rg-guardianrel", "Guardian's relation to the beneficiary", rec.guardianRelation ?? "", ' placeholder="For example mother, uncle"')}`);
   const admission = card("Admission", `<label>Decision<select id="rg-eligibility">${(["", "ready", "review", "declined"] as Eligibility[]).map((e) => `<option value="${e}"${(rec.eligibility ?? "") === e ? " selected" : ""}>${esc(ELIGIBILITY_LABEL[e])}</option>`).join("")}</select></label>
     ${input("rg-eligibilitynote", "Reason for the decision", rec.eligibilityNote ?? "")}
     <label class="w tick"><input type="checkbox" id="rg-priority"${rec.priority ? " checked" : ""}> Priority: go to the front of the waiting list</label>
