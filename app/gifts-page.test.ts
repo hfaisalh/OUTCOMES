@@ -488,8 +488,9 @@ describe("giftsPage", () => {
   it("marks a plan carried over from the old site with an icon beside the gift, a filter you can show, a row in the gift window and a note to check it (DECISIONS 264, 266)", () => {
     const orders = [sub(1, { key: "old1", subscriptionId: "SO", carriedOver: true }), sub(1, { key: "new1", subscriptionId: "SN" })];
     const html = giftListHtml(view({ workOrders: orders }));
-    expect((html.match(/class="legacyic"/g) ?? []).length).toBe(1); // only the carried over plan gets the icon
-    expect(html).toContain('role="img" aria-label="Carried over from the old site"');
+    expect((html.match(/aria-label="Carried over from the old site\. Check/g) ?? []).length).toBe(1); // only the carried over plan gets the icon
+    expect(html).toContain('<span class="gi warn" role="img" title="Carried over from the old site.'); // the same icon helper as the recurring icon beside it, so they line up; the cell has two fixed slots, so the recurring icon stays in the same place on every row
+    expect(html).toContain('<span class="kindcell">');
     expect(html).not.toContain('<th class="c">Old site'); // the column is off by default
     const shown = giftListHtml(view({ workOrders: orders, giftHidden: ["recid", "value"] }));
     expect(shown).toContain('<th class="c">Old site');

@@ -171,7 +171,6 @@ const ALLOC_LABEL: Record<string, string> = { allocated: "Allocated", waiting: "
 // One question only (DECISIONS 264, 265): was the gift's plan carried over from the old website? How it is paid is the Plan column's business, so a single payment is simply "Not carried over".
 const carried = (g: GiftRow): boolean => g.payments.some((w) => w.carriedOver === true);
 const LEGACY_TEXT = "Carried over from the old site. Check the item the migration chose is right.";
-const legacyIcon = `<span class="legacyic" title="${LEGACY_TEXT}" role="img" aria-label="Carried over from the old site">${SYM.legacy}</span>`;
 const originOf = (g: GiftRow): string => (carried(g) ? "Carried over" : "Not carried over");
 
 // The country code of a gift (DECISIONS 261), from its first payment. "" when the feed gave none.
@@ -301,6 +300,7 @@ export const SYMBOL = { manual: SYM.manual, recurring: SYM.recurring, one: SYM.o
 export const icon = (cls: string, glyph: string, tip: string) => `<span class="gi ${cls}" role="img" title="${esc(tip)}" aria-label="${esc(tip)}">${glyph}</span>`;
 export const PLAN_ICON: Record<string, [string, string]> = { paused: [SYM.paused, "Plan paused"], cancelled: [SYM.cancelled, "Plan cancelled"], past_due: [SYM.pastDue, "Plan past due"], pending: [SYM.pending, "Plan pending"], completed: [SYM.completed, "Plan completed"] };
 
+const legacyIcon = icon("warn", SYM.legacy, LEGACY_TEXT); // the same helper and size as every other icon in the cell, so they line up
 const kindIcon = (g: GiftRow): string =>
   g.kind === "recurring" ? icon("rec", SYMBOL.recurring, "Recurring gift")
   : g.kind === "unlinked" ? icon("rec warn", SYMBOL.unlinked, "Recurring, but the CRM did not link it to a subscription")
@@ -388,7 +388,7 @@ export function giftListHtml(v: View): string {
     const reason = g.kind === "excluded" ? g.payments[0]?.exclusion?.reason ?? "" : "";
     const cells: [string, string][] = [
       ["select", `<td><input type="checkbox" data-sel-gift="${esc(g.key)}" data-keys="${esc(g.payments.map((w) => w.key).join(" "))}" title="Tick every payment of this gift" aria-label="Select this gift"${ticked ? " checked" : ""}></td>`],
-      ["kind", `<td class="c">${kindIcon(g)}${carried(g) ? legacyIcon : ""}</td>`],
+      ["kind", `<td class="c"><span class="kindcell">${kindIcon(g)}${carried(g) ? legacyIcon : ""}</span></td>`],
       ["recid", `<td class="num muted">${g.kind === "recurring" ? esc(g.key) : ""}</td>`],
       ["site", `<td class="c">${siteChip(siteOf(g), g.payments[0]?.currency)}</td>`],
       ["donor", `<td class="clip" title="${esc(g.supporterName)} ${esc(g.supporterId)}">${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span></td>`],
@@ -492,7 +492,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Recurring ID", g.kind === "recurring" ? `<b>${esc(g.key)}</b>` : "")}
         ${row("Project chosen", esc(g.projectName))}
         ${row("Site", first?.site ? `${siteChip(first.site, first.currency)} <span class="muted">${esc(first.currency ?? "")}</span>` : "")}
-        ${row("Old site", carried(g) ? `<span class="legacyic" aria-hidden="true">${SYM.legacy}</span> <span class="muted">Carried over from the old website</span>` : "")}
+        ${row("Old site", carried(g) ? `<span class="gi warn" aria-hidden="true">${SYM.legacy}</span> <span class="muted">Carried over from the old website</span>` : "")}
         ${row("Cause", esc(first?.cause ?? ""))}
         ${row("Tribute", esc(first?.tribute ?? ""))}
         ${row("Parts per instalment", partsControl ? `<span class="partsrow">${partsControl}</span>${fixed ? `<div class="muted">Set manually. The CRM says ${esc(String(g.payments.find((w) => w.legacyUpload !== true) ? sentPartsOf(g.payments.find((w) => w.legacyUpload !== true) as WorkOrder) : g.parts))}.</div>` : ""}` : "")}

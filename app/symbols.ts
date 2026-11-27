@@ -11,7 +11,7 @@
 const svg = (paths: string): string => `<svg class="sym" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths}</svg>`;
 
 export const SYM = {
-  legacy: svg('<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4.5v4h4"/><path d="M12 7.5V12l3 1.8"/>'), // carried over from the old site (DECISIONS 266): a clock with a back arrow
+  legacy: svg('<path d="M12 3.5v11M8 10.5l4 4 4-4"/><path d="M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/>'), // carried over from the old site (DECISIONS 267): an arrow into a tray, the same idea as the skills' tray-arrow-down icon, drawn in this set's own stroke
   recurring: svg('<path d="M20 11a8 8 0 0 0-14.6-3.2M4.5 4.5v3.8h3.8"/><path d="M4 13a8 8 0 0 0 14.6 3.2M19.5 19.5v-3.8h-3.8"/>'),
   one: svg('<circle cx="12" cy="12" r="8.5"/><path d="M10.2 9.8 12.6 8v8"/>'),
   manual: svg('<path d="M6 3.5 18.5 10l-5.2 1.6L11.6 17z"/><path d="m13.6 12.8 4 4"/>'),
