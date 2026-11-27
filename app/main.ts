@@ -22,6 +22,7 @@ import { registerPage } from "./register-page";
 import { NO_OUTCOME_FILTER, outcomeRecordsPage } from "./outcome-records-page";
 import { applyErasure, exportBeneficiary } from "../modules/07-beneficiaries/erasure";
 import { installHouseholdPicker } from "./household-picker";
+import { confirmationWindowHtml } from "./confirmation-window";
 import { installGiftActions } from "./gift-actions";
 import { installListEvents, placePopover } from "./list-events";
 import { progressPage } from "./progress-page";
@@ -144,6 +145,7 @@ const state = {
   registerSort: { key: "", dir: "asc" } as { key: string; dir: "asc" | "desc" }, // the column the Beneficiaries list is sorted by
   registerFilter: { ...NO_REGISTER_FILTER } as BeneficiaryFilter, // the filters on the Beneficiaries page
   benWin: { open: false, id: "", kind: "person" as BeneficiaryKind }, // the beneficiary window
+  cnfWin: { id: "" }, // the batch open in the Confirmation window (DECISIONS 243)
   projectWin: { open: false, id: "" } as { open: boolean; id: string; tab?: "details" | "clusters" }, // the project form and the tab it shows
   giftWin: { key: "", log: false }, // the gift details window (DECISIONS 78): the key of the gift it shows, "" when closed
   partnerWin: { open: false, id: "", tab: "profile" as PartnerTab, draft: null as Record<string, unknown> | null }, // the partner window (DECISIONS 70)
@@ -380,7 +382,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
           if (r.message) state.message = r.message;
           break;
         }
-        case "cnf-confirm": case "cnf-reject": case "cnf-reset": { // Confirmation (DECISIONS 231): the same pure rule the server uses.
+        case "cnf-confirm": case "cnf-reject": case "cnf-confirm-batch": case "cnf-reject-batch": case "cnf-reset": { // Confirmation (DECISIONS 231): the same pure rule the server uses.
           const r = applyConfirmationAction(state.confirmations, state.assignments.records, body, "Demo administrator", at);
           if (!r) { error = "That request is not understood."; break; }
           if ("error" in r) { error = r.error; break; }
@@ -538,6 +540,20 @@ function draw(): void {
   enhanceTables(document.querySelector?.("main.content") as ParentNode, state.tt, state.page);
   placePopover();
   renderGiftWindow();
+  renderCnfWindow();
+}
+
+// The Confirmation window of one batch, drawn outside the page. It is drawn again after every answer, keeping the scroll place, and closes itself if the batch is gone.
+function renderCnfWindow(): void {
+  let root = document.getElementById("cnf-root");
+  if (state.cnfWin.id === "") return dropWindow(root);
+  if (!root) { root = document.createElement("div"); root.id = "cnf-root"; document.body.appendChild(root); }
+  const html = confirmationWindowHtml(view(), state.cnfWin.id);
+  if (html === "") { state.cnfWin.id = ""; return dropWindow(root); }
+  const scroll = root.querySelector?.(".pf-body")?.scrollTop ?? 0;
+  putWindow(root, html);
+  const body = root.querySelector?.(".pf-body");
+  if (body) body.scrollTop = scroll;
 }
 
 // ---- The gift details window (DECISIONS 78) ----

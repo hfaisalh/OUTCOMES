@@ -86,3 +86,30 @@ describe("the requests the page makes", () => {
     expect(applyConfirmationAction(emptyConfirmations(), [asg], { action: "asg-run" }, "Sam", "x")).toBeNull();
   });
 });
+
+describe("answering a whole batch (DECISIONS 243)", () => {
+  const a = (key: string) => ({ key, partnerId: "trust", at: "2026-11-20T09:00:00Z" });
+  const three = [a("L1"), a("L2"), a("L3")];
+  it("confirms every gift still waiting, and leaves answered ones as they were", () => {
+    const one = applyConfirmationAction(emptyConfirmations(), three, { action: "cnf-reject", key: "L2", reason: "No room" }, "Sam", "2026-11-21T00:00:00Z");
+    const start = one && "value" in one ? one.value : emptyConfirmations();
+    const r = applyConfirmationAction(start, three, { action: "cnf-confirm-batch", keys: ["L1", "L2", "L3", "L3", "nope"] }, "Sam", "2026-11-22T00:00:00Z");
+    if (!r || "error" in r) throw new Error("expected a result");
+    expect(r.value.records.filter((x) => x.answer === "confirmed").map((x) => x.key)).toEqual(["L1", "L3"]);
+    expect(r.value.records.find((x) => x.key === "L2")?.answer).toBe("rejected"); // not overwritten
+    expect(r.message).toContain("Confirmed 2 gifts");
+    expect(r.message).toContain("2 skipped"); // the one already rejected, and "nope", which is not an assignment
+  });
+  it("needs a reason to reject a batch, and refuses an empty or fully answered one", () => {
+    expect(applyConfirmationAction(emptyConfirmations(), three, { action: "cnf-reject-batch", keys: ["L1"], reason: " " }, "Sam", "x")).toMatchObject({ error: expect.stringContaining("Say why") });
+    expect(applyConfirmationAction(emptyConfirmations(), three, { action: "cnf-confirm-batch", keys: [] }, "Sam", "x")).toMatchObject({ error: "No gifts were chosen." });
+    const done = applyConfirmationAction(emptyConfirmations(), three, { action: "cnf-confirm-batch", keys: ["L1"] }, "Sam", "t");
+    const again = applyConfirmationAction(done && "value" in done ? done.value : emptyConfirmations(), three, { action: "cnf-confirm-batch", keys: ["L1"] }, "Sam", "t2");
+    expect(again).toMatchObject({ error: expect.stringContaining("already been answered") });
+  });
+  it("rejects a batch with the reason on each", () => {
+    const r = applyConfirmationAction(emptyConfirmations(), three, { action: "cnf-reject-batch", keys: ["L1", "L2"], reason: " No room " }, "Sam", "t");
+    if (!r || "error" in r) throw new Error("expected a result");
+    expect(r.value.records.map((x) => [x.key, x.answer, x.reason])).toEqual([["L1", "rejected", "No room"], ["L2", "rejected", "No room"]]);
+  });
+});

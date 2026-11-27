@@ -102,9 +102,31 @@ export function confirmOnBehalf(existing: Confirmations, assignments: StockAssig
   return { value: { records }, added };
 }
 
+// ---- A whole batch at once (DECISIONS 243) ----
+export const MAX_BATCH_KEYS = 500;
+
+/**
+ * Rule: a partner answers for a batch in one go. Every gift in `keys` that is assigned and still waiting gets the answer; a gift already answered, or not assigned, is skipped and counted, never overwritten. A rejection still needs its reason.
+ */
+export function answerMany(existing: Confirmations, assignments: ConfirmAssignment[], keys: string[], answer: "confirmed" | "rejected", by: string, reason: string, at: string): { value: Confirmations; done: number; skipped: number } | { error: string } {
+  if (keys.length === 0) return { error: "No gifts were chosen." };
+  if (keys.length > MAX_BATCH_KEYS) return { error: `A batch answer covers at most ${MAX_BATCH_KEYS} gifts.` };
+  if (answer === "rejected" && reason.trim() === "") return { error: "Say why the partner cannot take them, so another partner can be chosen." };
+  let records = existing.records;
+  let done = 0;
+  for (const key of new Set(keys)) {
+    const a = assignments.find((x) => x.key === key);
+    if (!a || answerFor(a, records)) continue;
+    records = [...records, { key: a.key, partnerId: a.partnerId, answer, at, by, reason: answer === "rejected" ? reason.trim() : "" }];
+    done++;
+  }
+  if (done === 0) return { error: "Every one of those gifts has already been answered." };
+  return { value: { records }, done, skipped: new Set(keys).size - done };
+}
+
 /**
  * The requests the Confirmation page makes, applied by one pure function so the server and the demo behave the same. Returns null for a request that is not about Confirmation.
- * cnf-confirm and cnf-reject carry the gift `key`; a rejection carries its `reason`. `by` is the display name of the person answering for the partner.
+ * cnf-confirm and cnf-reject carry the gift `key`; cnf-confirm-batch and cnf-reject-batch carry the list `keys`; a rejection carries its `reason`. `by` is the display name of the person answering for the partner.
  */
 export function applyConfirmationAction(existing: Confirmations, assignments: ConfirmAssignment[], body: Record<string, unknown>, by: string, at: string): ({ value: Confirmations; message?: string } | { error: string }) | null {
   const str = (k: string): string => (typeof body[k] === "string" ? (body[k] as string) : "");
@@ -112,6 +134,14 @@ export function applyConfirmationAction(existing: Confirmations, assignments: Co
   switch (body["action"]) {
     case "cnf-confirm": { const r = confirm(existing, a, by, at); return "error" in r ? r : { value: r.value, message: "Confirmed." }; }
     case "cnf-reject": { const r = reject(existing, a, by, str("reason"), at); return "error" in r ? r : { value: r.value, message: "Rejected. Choose another partner for the gift in Assignment." }; }
+    case "cnf-confirm-batch": case "cnf-reject-batch": {
+      const keys = Array.isArray(body["keys"]) ? (body["keys"] as unknown[]).filter((k): k is string => typeof k === "string") : [];
+      const yes = body["action"] === "cnf-confirm-batch";
+      const r = answerMany(existing, assignments, keys, yes ? "confirmed" : "rejected", by, str("reason"), at);
+      if ("error" in r) return r;
+      const n = `${r.done} gift${r.done === 1 ? "" : "s"}`;
+      return { value: r.value, message: `${yes ? "Confirmed" : "Rejected"} ${n}.${r.skipped ? ` ${r.skipped} skipped (already answered or not assigned), left as they were.` : ""}${yes ? "" : " Choose other partners in Assignment."}` };
+    }
     case "cnf-reset": return { value: emptyConfirmations(), message: "All answers were cleared." };
     default: return null;
   }

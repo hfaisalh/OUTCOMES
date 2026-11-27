@@ -539,3 +539,15 @@ button.metric.tile:active,.chipbtn:active,.pf-box button:active{transform:scale(
 .hh-list{list-style:none;margin:0;padding:0;display:grid;gap:4px}.hh-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;cursor:grab;min-width:0}.hh-item>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hh-item[hidden]{display:none}.hh-item:hover{background:var(--accent-bg,#eef2ff)}.hh-item button{font-size:12px;padding:2px 10px;flex:none}
 .hh-none{font-size:13px;margin:0}
 @media (prefers-reduced-motion:reduce){.hh-chip{animation:none}}
+
+/* Confirmation by batch (DECISIONS 243): the list has a line for each batch, and a window shows what is in it. */
+.cw-bar{display:flex;height:8px;border-radius:999px;background:var(--unfilled,#e6eaf1);overflow:hidden;min-width:90px;flex:1}.cw-bar i{display:block;height:100%}.cw-bar .ok{background:#1f8a4c}.cw-bar .no{background:#d23b3b}.cw-bar .late{background:#e08a1e}
+.cw-answers{display:flex;align-items:center;gap:8px;white-space:nowrap}.cw-answers .cw-bar{max-width:160px}
+tr.rowlink[data-cnfwin]{cursor:pointer}tr.rowlink[data-cnfwin]:hover td{background:var(--accent-bg,#eef2ff)}
+.pf-box:has(.cw-body){max-width:860px}.cw-body{gap:8px}
+.cw-hero{display:grid;gap:6px;padding:4px 2px}.cw-hero .cw-bar{height:10px;max-width:none}.cw-stats{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px}.cw-stat b{font-size:16px}.cw-stat.warn b{color:#9a6200}
+.cw-bulk{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.cw-bulk input{flex:1 1 200px;min-width:0;font:inherit;font-size:13px;padding:5px 9px}.cw-note{font-size:12px;margin:6px 0 0}
+.cw-list{max-height:46vh;overflow:auto}.cw-list table{width:100%}.cw-list thead th{position:sticky;top:0;background:#f7f9fd;z-index:2}.cw-list td.acts{white-space:nowrap}.cw-list td.acts input{width:130px;font:inherit;font-size:12px;padding:3px 7px}
+.gw-in .cw-hero,.gw-in .cw-body>.gw-card{animation:gw-rise .26s var(--ease-out) both}.gw-in .cw-body>.gw-card:nth-of-type(2){animation-delay:.12s}.gw-in .cw-body>.gw-card:nth-of-type(3){animation-delay:.16s}
+@media (prefers-reduced-motion:reduce){.gw-in .cw-hero,.gw-in .cw-body>.gw-card{animation:none}}
+.cw-answers{min-height:24px}

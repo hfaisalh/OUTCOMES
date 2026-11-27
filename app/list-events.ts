@@ -20,6 +20,7 @@ export interface ListEventState {
   allocFilter: string;
   prgFilter: string;
   cnfFilter: ConfirmFilter;
+  cnfWin: { id: string }; // the batch open in the Confirmation window, "" when none
 }
 export interface ListEventDeps { state: ListEventState; draw: () => void; outcomeChange: (body: Record<string, unknown>) => Promise<void> }
 
@@ -115,9 +116,31 @@ export function installListEvents({ state, draw, outcomeChange }: ListEventDeps)
     const b = (e.target as HTMLElement).closest?.("[data-cnf]") as HTMLElement | null;
     if (!b) return;
     const key = b.dataset.key ?? "";
+    // A whole batch: the keys of the gifts still waiting (DECISIONS 243).
+    if (b.dataset.cnf === "confirm-batch" || b.dataset.cnf === "reject-batch") {
+      const keys = (b.dataset.keys ?? "").split(" ").filter((k) => k !== "");
+      if (b.dataset.cnf === "confirm-batch") return void outcomeChange({ action: "cnf-confirm-batch", keys });
+      const why = (document.querySelector?.("[data-cnf-batchreason]") as HTMLInputElement | null)?.value ?? "";
+      return void outcomeChange({ action: "cnf-reject-batch", keys, reason: why });
+    }
     if (b.dataset.cnf === "confirm") return void outcomeChange({ action: "cnf-confirm", key });
     const reason = (document.querySelector?.(`[data-cnf-reason="${key.replace(/"/g, "")}"]`) as HTMLInputElement | null)?.value ?? "";
     void outcomeChange({ action: "cnf-reject", key, reason });
+  });
+
+  // The Confirmation window of one batch (DECISIONS 243): a line of the list or its Open button opens it, Close or a click outside closes it.
+  document.addEventListener("click", (e) => {
+    const t = e.target as HTMLElement;
+    const close = t.closest?.("[data-cnfclose]") as HTMLElement | null;
+    if (close && (close.dataset.cnfclose !== "overlay" || t === close)) { state.cnfWin.id = ""; return draw(); }
+    const open = t.closest?.("[data-cnfwin]") as HTMLElement | null;
+    if (open && (open.tagName === "BUTTON" || !t.closest("input,select,button,a"))) { state.cnfWin.id = open.dataset.cnfwin ?? ""; draw(); }
+  });
+  document.addEventListener("keydown", (e) => {
+    const t = e.target as HTMLElement;
+    if (e.key === "Escape" && state.cnfWin.id !== "") { state.cnfWin.id = ""; return draw(); }
+    const row = t.closest?.("tr[data-cnfwin]") as HTMLElement | null;
+    if (row && e.key === "Enter" && t === row) { state.cnfWin.id = row.dataset.cnfwin ?? ""; draw(); }
   });
 
   document.addEventListener("click", (e) => {
