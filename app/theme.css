@@ -607,3 +607,8 @@ tr.rowlink[data-cnfwin]{cursor:pointer}tr.rowlink[data-cnfwin]:hover td{backgrou
 .site.old{background:rgba(224,138,30,.14);border-color:rgba(224,138,30,.5);color:#7a4a00;white-space:nowrap}
 .kindcell{display:inline-grid;grid-template-columns:repeat(2,1.2em);gap:6px;align-items:center;justify-items:center}
 .instnote{font-size:12px;font-weight:400;margin-top:2px;max-width:34ch}
+/* CSV upload window on the partner screen (DECISIONS 271). */
+.pe-btns{display:inline-flex;gap:8px;flex-wrap:wrap}.pe-btns button{height:36px}@media (pointer:coarse){.pe-btns button{height:44px}}
+.pc-steps{margin:0 0 4px;padding-left:20px;display:grid;gap:4px;font-size:13px}.pc-pick{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1fr);gap:12px 16px;align-items:end}.pc-file input{height:auto;padding:6px 8px}
+.pc-sum{padding:8px 12px;border-radius:8px;background:rgba(20,40,100,.05);font-size:13px}.pc-sum:focus,#pc-summary:focus{outline:2px solid var(--accent,#2f4b9a);outline-offset:2px}.pc-table{max-height:320px;overflow:auto}.pc-table th{position:sticky;top:0;background:var(--card)}.pc-bad td{background:rgba(224,138,30,.07)}.pc-h{margin:12px 0 4px;font-size:14px}
+@media (max-width:760px){.pc-pick{grid-template-columns:minmax(0,1fr)}}

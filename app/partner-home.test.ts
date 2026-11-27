@@ -13,7 +13,7 @@ import type { Beneficiary } from "../modules/07-beneficiaries/beneficiaries";
 import type { View } from "./pages";
 import type { PartnerUi } from "./partner-outcomes";
 
-const QUIET: PartnerUi = { open: [], details: [], lastOpened: "", refusing: null, form: null, message: "", error: "" };
+const QUIET: PartnerUi = { open: [], details: [], lastOpened: "", refusing: null, form: null, csv: null, message: "", error: "" };
 
 const kid = (id: string, name: string, eligibility: string, over: Partial<Beneficiary> = {}): Beneficiary => ({ id, kind: "person", name, status: "active", area: "", notes: "", dob: "", gender: "", guardian: "", guardianRelation: "", placeOfBirth: "", idNumber: "", fatherStatus: "", motherStatus: "", eligibility, eligibilityNote: "", partnerId: "p1", partnerRef: "", memberIds: [], ...over } as Beneficiary);
 const slice = (): PartnerSlice => ({

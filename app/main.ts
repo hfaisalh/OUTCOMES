@@ -70,6 +70,7 @@ import { ensureRefs } from "../modules/05-outcomes/refs";
 import { checkingHtml, signinHtml } from "./signin-page";
 import { partnerHomeHtml } from "./partner-home";
 import { handlePartnerAction, partnerKeys, partnerUi, switchView } from "./partner-session";
+import { csvChange } from "./partner-csv-session";
 import { viewAsMenu } from "./view-as-menu";
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestItemFrameworks } from "./demo-data";
@@ -1478,6 +1479,8 @@ document.addEventListener("click", (e) => {
 });
 document.addEventListener("change", (e) => {
   const t = e.target as HTMLInputElement | HTMLSelectElement;
+  // The partner's CSV window (DECISIONS 271): a file, the project or the tick was changed. The file is read in the browser.
+  if (state.gate === "partner" && t.id.startsWith("pc-")) { void csvChange({ id: t.id, value: t.value, checked: (t as HTMLInputElement).checked, files: (t as HTMLInputElement).files }, state.partnerSlice?.giftProjects ?? []).then((changed) => { if (changed) { draw(); if (t.id === "pc-file") document.getElementById("pc-summary")?.focus(); } }); return; }
   const what = t.dataset?.ot;
   if (what === undefined) return;
   const typeId = t.dataset["typeId"] ?? "";

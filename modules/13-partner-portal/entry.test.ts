@@ -36,11 +36,22 @@ describe("a partner adds a beneficiary", () => {
 
   it("refuses an exact duplicate, and shows a possible match so the partner can say it is a different person", () => {
     const first = ok(add(emptyRegister(), full)).register;
-    expect(add(first, { ...full, name: "Someone Else" })).toMatchObject({ error: expect.stringContaining("already in the register"), similar: false });
+    expect(add(first, { ...full, name: "Someone Else" })).toMatchObject({ error: expect.stringContaining("is already in your register."), similar: false });
     const similar = add(first, { name: "Amina  Khan", dob: "2017-01-01", targetProjectId: "g1" });
     expect(similar).toMatchObject({ similar: true });
     const forced = add(first, { name: "Amina  Khan", dob: "2017-01-01", targetProjectId: "g1", allowSimilar: true });
     expect("register" in forced && forced.register.records).toHaveLength(2);
+  });
+
+  it("never describes another partner's record: an exact match is refused in general words, a similar one is allowed without a word (DECISIONS 271)", () => {
+    const theirs = ok(add(emptyRegister(), { ...full, idNumber: "B-SECRET", name: "Private Person", dob: "2012-12-12" }, "p2", ["g1"])).register;
+    const sameId = add(theirs, { name: "Other Name", idNumber: "B-SECRET", targetProjectId: "g1" });
+    expect(sameId).toEqual({ error: "This person is already registered. Please contact MWF to sort it out.", similar: false });
+    const sameNameAndBirth = add(theirs, { name: "Private  Person", dob: "2012-12-12", targetProjectId: "g1" });
+    expect("error" in sameNameAndBirth && sameNameAndBirth.error).toBe("This person is already registered. Please contact MWF to sort it out.");
+    for (const r of [sameId, sameNameAndBirth]) expect(JSON.stringify(r)).not.toMatch(/Private|B-SECRET|2012|PRS-/);
+    const similar = add(theirs, { name: "Private Person", dob: "2013-01-01", targetProjectId: "g1" }); // same name, another birth date: a different person, and not described
+    expect("register" in similar && similar.register.records).toHaveLength(2);
   });
 
   it("does not answer for other actions", () => {

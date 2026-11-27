@@ -7,7 +7,7 @@
  */
 
 import { migrateGiftProjects } from "../06-projects/projects.js";
-import { emptyRegister } from "../07-beneficiaries/beneficiaries.js";
+import { emptyRegister, type Register } from "../07-beneficiaries/beneficiaries.js";
 import { emptyEnrolments, itemRulesOf } from "../07-beneficiaries/enrolments.js";
 import { settlePool } from "../07-beneficiaries/waiting.js";
 import type { SavedFeatures } from "../02-project-rules/kind-features.js";
@@ -17,6 +17,7 @@ import { emptyConfirmations } from "../11-confirmation/confirmation.js";
 import { emptyProgress } from "../12-progress/progress.js";
 import { partnerAnswer } from "../13-partner-portal/answer.js";
 import { entryMessage, partnerEntry } from "../13-partner-portal/entry.js";
+import { addMany, MAX_ROWS } from "../13-partner-portal/import.js";
 import { giftDetails } from "../13-partner-portal/gift-details.js";
 import { partnerSlice, PARTNER_PERMISSION } from "../13-partner-portal/scope.js";
 import { changesBetween } from "./change-log.js";
@@ -30,6 +31,7 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
   const config = (await d.store.getConfig(a.claims.org)) ?? defaultConfig();
   // Rule (DECISIONS 254): a partner may accept or refuse its own gifts, and nothing else. The answer is saved, then the partner's fresh slice is returned with a message.
   let message = "";
+  let upload: { added: number; skipped: { line: number; name: string; error: string }[] } | undefined; // the result of a CSV upload, listing the rows not added
   const workOrders = await d.store.listWorkOrders(a.claims.org);
   const migrated = migrateGiftProjects(config.projects ?? [], config.giftProjects ?? []);
   const body = (req.body ?? {}) as Record<string, unknown>;
@@ -37,16 +39,41 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
   if (req.method === "POST" && typeof body["action"] === "string" && body["action"].startsWith("ben-")) {
     // Rule (DECISIONS 260): a partner adds and completes its own beneficiaries. Then admission is decided by completeness and the waiting list enrols by itself, as for any record.
     const mineProjects = migrated.giftProjects.filter((g) => g.partnerIds.includes(a.claims.partner as string));
-    const r = partnerEntry(config.beneficiaries ?? emptyRegister(), a.claims.partner as string, mineProjects.map((g) => g.id), body, at.slice(0, 10));
-    if (!r) return json(400, { error: "That request is not open to a partner." });
-    if ("error" in r) return json(400, { error: r.error, similar: r.similar });
     const names = new Map(workOrders.map((w) => [w.itemId, w.itemName]));
-    const settled = settlePool({ giftProjects: migrated.giftProjects, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), today: at.slice(0, 10) }, r.register, config.enrolments ?? emptyEnrolments());
-    const next = { ...config, beneficiaries: settled.register, enrolments: settled.enrolments };
-    await d.store.putConfig(a.claims.org, next);
-    try { await d.store.addChanges(a.claims.org, changesBetween(config, next, a.claims.name, String(body["action"]), at)); } catch (e) { console.error("change log not written", e); }
-    message = entryMessage(settled.register, settled.enrolments, migrated.giftProjects, r.id, r.added);
-    Object.assign(config, next);
+    const pool = (register: Register) => settlePool({ giftProjects: migrated.giftProjects, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), today: at.slice(0, 10) }, register, config.enrolments ?? emptyEnrolments());
+    let r: Exclude<ReturnType<typeof partnerEntry>, null | { error: string; similar: boolean }> | undefined;
+    if (body["action"] === "ben-add-many") {
+      // Rule (DECISIONS 271): many at once, each row added with the one-by-one rule; the rows that fail are listed, the others are kept, and the waiting list runs once.
+      const rows = Array.isArray(body["rows"]) ? (body["rows"] as unknown[]).filter((x): x is { line: number; values: Record<string, string> } => typeof x === "object" && x !== null && typeof (x as { line?: unknown }).line === "number" && typeof (x as { values?: unknown }).values === "object" && (x as { values: Record<string, unknown> }).values !== null && Object.values((x as { values: Record<string, unknown> }).values).every((v) => typeof v === "string")) : [];
+      if (rows.length === 0 || rows.length > MAX_ROWS) return json(400, { error: `Send between 1 and ${MAX_ROWS} rows.` });
+      const many = addMany(config.beneficiaries ?? emptyRegister(), a.claims.partner as string, mineProjects.map((g) => g.id), rows, typeof body["targetProjectId"] === "string" ? body["targetProjectId"] : "", body["allowSimilar"] === true, at.slice(0, 10));
+      const settledMany = pool(many.register);
+      const next = { ...config, beneficiaries: settledMany.register, enrolments: settledMany.enrolments };
+      if (many.added.length > 0) {
+        await d.store.putConfig(a.claims.org, next);
+        try { await d.store.addChanges(a.claims.org, changesBetween(config, next, a.claims.name, "ben-add-many", at)); } catch (e) { console.error("change log not written", e); }
+        Object.assign(config, next);
+      }
+      const ids = new Set(many.added.map((x) => x.id));
+      const mine = settledMany.register.records.filter((b) => ids.has(b.id));
+      const enrolled = mine.filter((b) => settledMany.enrolments.records.some((e) => e.beneficiaryId === b.id && e.status === "active")).length;
+      const waiting = mine.filter((b) => b.eligibility === "ready").length - enrolled, review = mine.filter((b) => b.eligibility === "review").length;
+      message = many.added.length === 0 ? "Nothing was added." : `Added ${many.added.length} beneficiar${many.added.length === 1 ? "y" : "ies"}: ${enrolled} enrolled, ${Math.max(0, waiting)} on the waiting list, ${review} needing details.${many.skipped.length > 0 ? ` ${many.skipped.length} not added.` : ""}`;
+      upload = { added: many.added.length, skipped: many.skipped };
+    } else {
+      const one = partnerEntry(config.beneficiaries ?? emptyRegister(), a.claims.partner as string, mineProjects.map((g) => g.id), body, at.slice(0, 10));
+      if (!one) return json(400, { error: "That request is not open to a partner." });
+      if ("error" in one) return json(400, { error: one.error, similar: one.similar });
+      r = one;
+    }
+    const settled = r ? pool(r.register) : undefined;
+    if (r && settled) {
+      const next = { ...config, beneficiaries: settled.register, enrolments: settled.enrolments };
+      await d.store.putConfig(a.claims.org, next);
+      try { await d.store.addChanges(a.claims.org, changesBetween(config, next, a.claims.name, String(body["action"]), at)); } catch (e) { console.error("change log not written", e); }
+      message = entryMessage(settled.register, settled.enrolments, migrated.giftProjects, r.id, r.added);
+      Object.assign(config, next);
+    }
   } else if (req.method === "POST") {
     const r = partnerAnswer(config.confirmations ?? emptyConfirmations(), (config.assignments ?? emptyAssignments()).records, a.claims.partner as string, body, a.claims.name, at);
     if ("error" in r) return json(400, { error: r.error });
@@ -74,5 +101,5 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
     progress: config.progress ?? emptyProgress(),
     allocations: config.allocations ?? emptyAllocations(),
   }, a.claims.partner as string);
-  return slice ? json(200, message ? { ...slice, message } : slice, { "cache-control": "no-store" }) : json(404, { error: "This partner was not found." });
+  return slice ? json(200, message ? { ...slice, message, ...(upload ? { upload } : {}) } : slice, { "cache-control": "no-store" }) : json(404, { error: "This partner was not found." });
 }

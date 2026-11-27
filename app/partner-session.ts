@@ -8,11 +8,12 @@
 
 import { partnerAnswer, viewAs } from "./api";
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
-import type { PartnerUi } from "./partner-outcomes";
+import { csvAction } from "./partner-csv-session";
+import { partnerUi } from "./partner-state";
 import { SIMILAR } from "../modules/13-partner-portal/entry";
 
 // --- State of the screen: the open refusal form and the last message or error ---
-export const partnerUi: PartnerUi = { open: [], details: [], lastOpened: "", refusing: null, form: null, message: "", error: "" };
+export { partnerUi };
 
 const keysOf = (el: HTMLElement): string[] => (el.dataset["keys"] ?? "").split("|").filter((k) => k !== "");
 const body = (yes: boolean, keys: string[], reason: string): Record<string, unknown> =>
@@ -35,12 +36,15 @@ export async function handlePartnerAction(action: string, el: HTMLElement, curre
   partnerUi.message = "";
   partnerUi.lastOpened = "";
   if (partnerUi.form) partnerUi.form = { ...partnerUi.form, fresh: false }; // the window eases in only when it opens
+  if (partnerUi.csv) partnerUi.csv = { ...partnerUi.csv, fresh: false };
   const viaKeyboard = el.matches?.(":focus-visible") ?? false; // only a keyboard user gets the focus ring put back, so a mouse click leaves no outline behind
   if (action === "pt-toggle") {
     const id = el.dataset["batch"] ?? "";
     const wasOpen = partnerUi.open.includes(id);
     partnerUi.open = wasOpen ? partnerUi.open.filter((b) => b !== id) : [...partnerUi.open, id];
     if (!wasOpen) partnerUi.lastOpened = id; // only the batch just opened fades in, not every one on each redraw
+  } else if (action.startsWith("pt-csv-")) {
+    await csvAction(action, apply);
   } else if (action === "pt-add") {
     partnerUi.form = { id: "", values: {}, error: "", similar: false, fresh: true };
   } else if (action === "pt-edit") {
@@ -90,6 +94,9 @@ async function saveForm(apply: (s: PartnerSlice) => void): Promise<void> {
 function restoreFocus(action: string, el: HTMLElement, viaKeyboard: boolean): void {
   if (action === "pt-toggle" && viaKeyboard) (document.querySelector(`[data-action="pt-toggle"][data-batch="${el.dataset["batch"] ?? ""}"]`) as HTMLElement | null)?.focus();
   else if (action === "pt-details" && viaKeyboard) (document.querySelector(`[data-action="pt-details"][data-key="${el.dataset["key"] ?? ""}"]`) as HTMLElement | null)?.focus();
+  else if (action === "pt-csv-open") (document.getElementById("pc-file") as HTMLElement | null)?.focus(); // the window opens ready for the file
+  else if (action === "pt-csv-send") (document.getElementById("pc-summary") as HTMLElement | null)?.focus(); // the result is read out
+  else if (action === "pt-csv-close" && viaKeyboard) (document.querySelector('[data-action="pt-csv-open"]') as HTMLElement | null)?.focus();
   else if (action === "pt-add" || action === "pt-edit") (document.getElementById("pe-name") as HTMLElement | null)?.focus(); // the form opens ready to type
   else if (action === "pt-form-save" && partnerUi.form?.error) (document.getElementById("pe-error") as HTMLElement | null)?.focus(); // the error is read out and in view
   else if ((action === "pt-form-save" || action === "pt-form-cancel") && viaKeyboard) (document.querySelector('[data-action="pt-add"]') as HTMLElement | null)?.focus();
@@ -110,9 +117,11 @@ export async function switchView(partnerId: string): Promise<void> {
 
 // --- The window's keys: Escape closes it, and Tab stays inside it (a dialog must not let focus wander to the page behind) ---
 export function partnerKeys(e: KeyboardEvent, redraw: () => void): void {
-  if (!partnerUi.form) return;
+  if (!partnerUi.form && !partnerUi.csv) return;
   if (e.key === "Escape") {
+    if (partnerUi.csv?.busy) return; // not while rows are being added
     partnerUi.form = null;
+    partnerUi.csv = null;
     redraw();
     (document.querySelector('[data-action="pt-add"]') as HTMLElement | null)?.focus();
   } else if (e.key === "Tab") {

@@ -134,6 +134,27 @@ describe("what a partner can reach", () => {
     expect(saved.map((b) => [b.id, b.partnerId])).toEqual([["PRS-0001", "p1"], ["PRS-0002", "p1"]]);
   });
 
+  it("adds many beneficiaries from a CSV in one request, lists the rows it could not add, and runs the waiting list once (DECISIONS 271)", async () => {
+    const cfg = (await d.store.getConfig("demo"))!;
+    const other = cfg.beneficiaries!.records.find((b) => b.partnerId === "p2")!;
+    await d.store.putConfig("demo", { ...cfg, giftProjects: [{ id: "g1", name: "Orphan homes", crmNames: [], partnerIds: ["p1"], itemIds: ["S"], enrolAuto: true, clusters: [{ id: "c1", name: "Home", label: "Home", parentId: "", place: "", capacity: 1, status: "active" }] }] as never });
+    const c = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
+    const post = (body: unknown) => handleOutcomes(as(c, { method: "POST", body }), d);
+    const good = (name: string, id: string, extra: Record<string, string> = {}) => ({ name, dob: "2016-04-02", guardian: "A mother", idNumber: id, ...extra });
+    const r = await post({ action: "ben-add-many", targetProjectId: "g1", allowSimilar: false, rows: [{ line: 2, values: good("Zara Malik", "B-1") }, { line: 3, values: { name: "X", dob: "bad" } }, { line: 4, values: good("Yusuf Raza", "B-2", { guardian: "" }) }, { line: 5, values: good("Chand Ali", other.idNumber || "B-SAME") }, { line: 6, values: good("Dana Shah", "B-4", { targetProjectId: "not-mine" }) }] });
+    expect(r.status).toBe(200);
+    const body = r.body as { message: string; upload: { added: number; skipped: { line: number; error: string }[] }; beneficiaries: { id: string }[] };
+    expect(body.upload.added).toBe(2);
+    expect(body.upload.skipped.map((x) => x.line)).toEqual([3, 6, ...(other.idNumber ? [5] : [])].sort((a, b) => a - b).filter((l, i, all) => all.indexOf(l) === i));
+    expect(body.message).toBe(`Added 2 beneficiaries: 1 enrolled, 0 on the waiting list, 1 needing details. ${body.upload.skipped.length} not added.`);
+    const saved = (await d.store.getConfig("demo"))!.beneficiaries!.records.filter((b) => b.partnerId === "p1").map((b) => b.name);
+    expect(saved).toEqual(expect.arrayContaining(["Zara Malik", "Yusuf Raza"]));
+    expect(saved).not.toContain("Chand Ali"); // refused: another partner's person
+    if (other.idNumber) expect(JSON.stringify(body.upload.skipped)).not.toContain(other.name); // never describes another partner's record
+    expect((await post({ action: "ben-add-many", rows: [] })).status).toBe(400);
+    expect((await post({ action: "ben-add-many", rows: [{ line: 2, values: { name: 5 } }] })).status).toBe(400); // a malformed row is not understood
+  });
+
   it("does not let a partner touch another partner's beneficiary, or remove anyone", async () => {
     const cfg = (await d.store.getConfig("demo"))!;
     const other = cfg.beneficiaries!.records.find((b) => b.partnerId === "p2")!;
