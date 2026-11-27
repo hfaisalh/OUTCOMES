@@ -46,6 +46,16 @@ describe("the partner's home screen", () => {
     expect(html).toContain("<td>PRS-3</td><td>Chand Ali</td><td>Orphan homes</td><td>Enrolled</td>");
     expect(html).toContain("<td>PRS-1</td><td>Amina Khan</td><td>Orphan homes</td><td>Ready</td>");
   });
+  it("counts and lists households as beneficiaries too, so Enrolled is never more than Beneficiaries", () => {
+    const s = slice();
+    s.beneficiaries = [{ id: "HH-1", kind: "household", name: "Khan house", status: "active", memberIds: [] } as never];
+    s.enrolments = [{ id: "EN-9", beneficiaryId: "HH-1", giftProjectId: "g1", clusterId: "c", itemId: "S", role: "", status: "active", since: "2026-11-01" }];
+    const html = partnerHomeHtml(s, "Sara", "dev", QUIET);
+    expect(html).toContain("<b>1</b><span>Beneficiaries</span>");
+    expect(html).toContain("<b>1</b><span>Enrolled</span>");
+    expect(html).toContain("Khan house <span class=\"muted\">Household</span>");
+    expect(html).toContain("<b>0</b><span>Waiting for a vacancy</span>");
+  });
   it("says so when there is nothing yet", () => {
     const empty = { ...slice(), beneficiaries: [], giftProjects: [], enrolments: [], assignments: [] };
     expect(partnerHomeHtml(empty, "Sara", "dev", QUIET)).toContain("No gift has been assigned to you yet");
