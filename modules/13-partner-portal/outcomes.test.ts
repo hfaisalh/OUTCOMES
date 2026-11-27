@@ -38,7 +38,7 @@ describe("following a gift", () => {
   const by = (k: string) => rows.find((r) => r.key === k)!;
 
   it("puts each gift at the furthest point it has reached", () => {
-    expect(["sub:1", "sub:2", "sub:3", "sub:4", "sub:5"].map((k) => by(k).standing)).toEqual(["to-answer", "confirmed", "placed", "complete", "refused"]);
+    expect(["sub:1", "sub:2", "sub:3", "sub:4", "sub:5"].map((k) => by(k).standing)).toEqual(["to-answer", "confirmed", "allocated", "complete", "refused"]);
   });
   it("says what it funds, the last step, and why a refusal was made", () => {
     expect(by("sub:3")).toMatchObject({ funds: "Amina Khan", step: "Site visit", benefit: "Orphan Sponsorship Monthly", project: "Orphan homes", batch: 1 });
@@ -48,7 +48,7 @@ describe("following a gift", () => {
   });
   it("lists the newest gift first and counts the journey", () => {
     expect(rows.map((r) => r.key)).toEqual(["sub:5", "sub:4", "sub:3", "sub:2", "sub:1"]);
-    expect(pipeline(rows)).toEqual({ refused: 1, "to-answer": 1, confirmed: 1, placed: 1, complete: 1 });
+    expect(pipeline(rows)).toEqual({ refused: 1, "to-answer": 1, confirmed: 1, allocated: 1, complete: 1 });
   });
   it("carries no donor detail", () => {
     expect(Object.keys(rows[0]!).sort()).toEqual(["batch", "benefit", "funds", "key", "project", "reason", "since", "standing", "step"]);
