@@ -504,4 +504,15 @@ describe("giftsPage", () => {
     expect(window).toContain("Carried over from the old site"); // the note under Needs a look
     expect(giftDetailHtml(view({ workOrders: orders }), "SN")).not.toContain("Carried over from the old");
   });
+
+  it("explains why the top says 5 of ∞ while the payments say instalment 19: the plan began before our data (DECISIONS 268)", () => {
+    const orders = [15, 16, 17, 18, 19].map((n) => sub(n % 9 + 1, { key: `c${n}`, subscriptionId: "SC", instalmentNumber: String(n), instalmentCount: "", carriedOver: true }));
+    const carried = giftDetailHtml(view({ workOrders: orders }), "SC");
+    expect(carried).toContain("5 of");
+    expect(carried).toContain('<div class="muted instnote">Latest is instalment 19: 14 earlier instalments paid on the old site, not counted here.</div>');
+    const notCarried = giftDetailHtml(view({ workOrders: orders.map(({ carriedOver: _c, ...w }) => w as WorkOrder) }), "SC");
+    expect(notCarried).toContain("Latest is instalment 19: the earlier instalments are not in our data.");
+    const whole = [1, 2, 3].map((n) => sub(n, { key: `w${n}`, subscriptionId: "SW", instalmentNumber: String(n) }));
+    expect(giftDetailHtml(view({ workOrders: whole }), "SW")).not.toContain("instnote"); // from instalment 1: nothing to explain
+  });
 });

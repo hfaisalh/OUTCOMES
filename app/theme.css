@@ -606,3 +606,4 @@ tr.rowlink[data-cnfwin]{cursor:pointer}tr.rowlink[data-cnfwin]:hover td{backgrou
 .site{display:inline-block;min-width:28px;padding:1px 6px;border-radius:6px;border:1px solid var(--line);background:#f1f5fb;color:var(--text);font-size:11px;font-weight:600;letter-spacing:.04em;text-align:center}
 .site.old{background:rgba(224,138,30,.14);border-color:rgba(224,138,30,.5);color:#7a4a00;white-space:nowrap}
 .kindcell{display:inline-grid;grid-template-columns:repeat(2,1.2em);gap:6px;align-items:center;justify-items:center}
+.instnote{font-size:12px;font-weight:400;margin-top:2px;max-width:26ch}

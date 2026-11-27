@@ -170,6 +170,16 @@ export const FILTER_COLUMNS: [string, string][] = [["site", "Site"], ["origin", 
 const ALLOC_LABEL: Record<string, string> = { allocated: "Allocated", waiting: "Waiting for allocation", manual: "Allocate manually", none: "Not allocated", "n/a": "Not needed" };
 // One question only (DECISIONS 264, 265): was the gift's plan carried over from the old website? How it is paid is the Plan column's business, so a single payment is simply "Not carried over".
 const carried = (g: GiftRow): boolean => g.payments.some((w) => w.carriedOver === true);
+// Rule (DECISIONS 268): the top says how many payments we HOLD ("5 of ∞"); the Instalment column says the CRM's own number for each ("19 of ∞"). They differ when the plan began before our data: its first payment we hold is not instalment 1. Then one line says why, so the two numbers agree at a glance.
+function instalmentNote(g: GiftRow): string {
+  const nums = g.payments.filter((w) => w.legacyUpload !== true).map((w) => Number(w.instalmentNumber)).filter((n) => Number.isInteger(n) && n > 0);
+  if (nums.length === 0) return "";
+  const first = Math.min(...nums), latest = Math.max(...nums);
+  if (first <= 1) return "";
+  const why = carried(g) ? `${first - 1} earlier instalment${first === 2 ? "" : "s"} paid on the old site, not counted here` : "the earlier instalments are not in our data";
+  return `<div class="muted instnote">Latest is instalment ${latest}: ${why}.</div>`;
+}
+
 const LEGACY_TEXT = "Carried over from the old site. Check the item the migration chose is right.";
 const originOf = (g: GiftRow): string => (carried(g) ? "Carried over" : "Not carried over");
 
@@ -430,7 +440,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   const a = allocationContext(v)(g);
   const kindName = g.kind === "recurring" ? "Recurring gift" : g.kind === "unlinked" ? "Recurring payment the CRM did not link to a subscription" : g.kind === "excluded" ? "Excluded payment" : "One payment";
   const row = (label: string, value: string, wide = false) => value === "" ? "" : `<div class="f${wide ? " w" : ""}"><span>${label}</span><div>${value}</div></div>`;
-  const progress = g.kind === "recurring" || g.kind === "unlinked" ? `${g.paid} of ${g.planned ?? INFINITY}${g.planned ? `<div class="bar"><span style="width:${Math.min(100, Math.round((g.paid / g.planned) * 100))}%"></span></div>` : ""}` : g.periodCount > 0 ? `covers ${g.periodCount} month${g.periodCount === 1 ? "" : "s"}` : "";
+  const progress = g.kind === "recurring" || g.kind === "unlinked" ? `${g.paid} of ${g.planned ?? INFINITY}${instalmentNote(g)}${g.planned ? `<div class="bar"><span style="width:${Math.min(100, Math.round((g.paid / g.planned) * 100))}%"></span></div>` : ""}` : g.periodCount > 0 ? `covers ${g.periodCount} month${g.periodCount === 1 ? "" : "s"}` : "";
   // Rule (DECISIONS 184): Allocated to is the beneficiary or outcome. The partner it was assigned to has its own line, Assigned to.
   const allocation = a.state === "allocated" ? `${esc(a.who)}${a.ref ? ` <b>${esc(a.ref)}</b>` : ""}${a.allocRef || a.parts !== null ? `<div class="muted">${a.allocRef ? `Allocation ${esc(a.allocRef)}` : ""}${a.allocRef && a.parts !== null ? " \u00B7 " : ""}${a.parts !== null ? `${a.parts} part${a.parts === 1 ? "" : "s"}` : ""}</div>` : ""}` : a.state === "manual" ? `<span class="pill review">Allocate manually</span><div class="muted">${esc(a.why)}</div>` : a.state === "waiting" ? `<span class="pill review">Waiting for allocation</span>${a.why ? `<div class="muted">${esc(a.why)}</div>` : ""}` : a.why ? `<span class="muted">${esc(a.why)}</span>` : "";
   const status = [
