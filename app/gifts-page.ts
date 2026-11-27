@@ -528,13 +528,24 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
 }
 
 // The tiles above the list (DECISIONS 97): they count what the list below shows, so they change with the tab and the filters.
+// Rule (DECISIONS 270): the value of the gifts shown, a figure for each currency, never one total of different currencies (nothing is converted). The currency with the most payments comes first; more than two shows the first two and "+n more", and the tooltip lists them all.
+export function valueByCurrency(payments: WorkOrder[]): { text: string; title: string } {
+  const by = new Map<string, { total: number; n: number }>();
+  for (const w of payments) {
+    const c = w.currency ?? "";
+    const cur = by.get(c) ?? { total: 0, n: 0 };
+    by.set(c, { total: cur.total + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), n: cur.n + 1 });
+  }
+  const parts = [...by.entries()].sort((a, b) => b[1].n - a[1].n).map(([c, x]) => money(x.total, c));
+  if (parts.length === 0) return { text: money(0), title: "No payments" };
+  return { text: parts.length <= 2 ? parts.join(" · ") : `${parts.slice(0, 2).join(" · ")} +${parts.length - 2} more`, title: `Value for reference, by currency: ${parts.join(", ")}` };
+}
+
 export function giftMetricsHtml(v: View): string {
   const { rows } = listData(v, false);
   const where = allocationContext(v);
   const payments = rows.flatMap((g) => g.payments);
-  const currencies = [...new Set(payments.map((w) => w.currency ?? ""))];
-  const total = payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0);
-  const value = currencies.length <= 1 ? money(total, currencies[0] ?? "") : "mixed currencies";
+  const value = valueByCurrency(payments);
   const count = (f: (g: GiftRow) => boolean) => rows.filter(f).length;
   const waiting = count((g) => where(g).state === "waiting");
   const review = count((g) => g.needsLook || g.inReview || g.unrouted);
@@ -547,7 +558,7 @@ export function giftMetricsHtml(v: View): string {
   // Rule (DECISIONS 216): a tile that counts a group of gifts is a button that shows just that group (and says it is pressed), so the page's summary is also its quickest way to the gifts that need a person.
   const tile = (filter: string, cls: string, inner: string): string => `<button type="button" class="metric tile${cls}" data-filter="${filter}" aria-pressed="${v.filter === filter ? "true" : "false"}">${inner}</button>`;
   return `${tile("all", "", `<b>${rows.length}</b><span>Gifts</span><div class="smrow">${small(recurring, "recurring")}${small(count((g) => g.kind === "one_off"), "one payments")}</div>`)}
-    <div class="metric"><b>${value}</b><span>Value</span><div class="smrow">${small(payments.length, "payments")}</div></div>
+    <div class="metric" title="${esc(value.title)}"><b>${esc(value.text)}</b><span>Value</span><div class="smrow">${small(payments.length, "payments")}</div></div>
     ${tile("waiting", waiting ? " warn" : "", `<b>${waiting}</b><span>Unallocated</span><div class="smrow">${small(count((g) => where(g).state === "allocated"), "allocated")}${small(count((g) => where(g).state === "manual"), "manual")}${small(count((g) => where(g).state === "none"), "need none")}</div>`)}
     ${tile("stopped", "", `<b>${stopped}</b><span>Plans stopped</span><div class="smrow">${small(status("cancelled"), "cancelled")}${small(status("paused"), "paused")}${small(status("completed"), "completed")}</div>`)}
     ${tile("attention", review ? " warn" : "", `<b>${review}</b><span>Review</span><div class="smrow">${small(count((g) => g.unrouted), "unrouted")}${small(count((g) => g.inReview), "held")}${small(count((g) => g.needsLook), "a look")}</div>`)}`;

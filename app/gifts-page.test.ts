@@ -12,7 +12,7 @@ import { planWorkOrders, type WorkOrder } from "../modules/01c-crm-connector/wor
 import { suggestAll } from "../modules/02-project-rules/categories";
 import { demoCategories, demoFeedRows, starterFrameworks } from "./demo-data";
 import { SYM } from "./symbols";
-import { giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shortDate, shownGiftKeys } from "./gifts-page";
+import { giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shortDate, shownGiftKeys, valueByCurrency } from "./gifts-page";
 import type { View } from "./pages";
 
 const lines = readFeed(demoFeedRows(), MWF_CRM_CONFIG).lines;
@@ -535,5 +535,16 @@ describe("giftsPage", () => {
     const plain = [15, 16].map((n) => sub(n % 9 + 1, { key: `q${n}`, subscriptionId: "SQ", instalmentNumber: String(n), instalmentCount: "" }));
     expect(giftDetailHtml(view({ workOrders: plain }), "SQ")).toContain("Starts at 15");
     expect(giftDetailHtml(view({ workOrders: plain.map((w) => ({ ...w, prior })) }), "SQ")).not.toContain("Starts at 15");
+  });
+
+  it("shows the value of the gifts for each currency, the busiest first, and never one total of different currencies (DECISIONS 270)", () => {
+    const orders = [sub(1, { key: "a", subscriptionId: "SA", currency: "GBP", lineTotal: 35 }), sub(2, { key: "b", subscriptionId: "SB", currency: "GBP", lineTotal: 25 }), sub(3, { key: "c", subscriptionId: "SC", currency: "USD", lineTotal: 84 })];
+    const html = giftMetricsHtml(view({ workOrders: orders }));
+    expect(html).toContain("<b>£60 · $84</b><span>Value</span>");
+    expect(html).toContain('title="Value for reference, by currency: £60, $84"');
+    expect(html).not.toContain("mixed currencies");
+    expect(giftMetricsHtml(view({ workOrders: orders.filter((o) => o.currency === "GBP") }))).toContain("<b>£60</b><span>Value</span>"); // one currency: just the figure
+    const three = [...orders, sub(4, { key: "d", subscriptionId: "SD", currency: "NOK", lineTotal: 100 })];
+    expect(valueByCurrency(three.map((w) => w)).text).toMatch(/^£60 · \$84 \+1 more$/);
   });
 });
