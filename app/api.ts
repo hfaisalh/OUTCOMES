@@ -116,6 +116,7 @@ export interface OutcomesReply {
   outcomeTypes?: OutcomeType[];
   idCounters?: Record<string, number>;
   beneficiaries?: Register;
+  locations?: Place[]; // the checked places in use (DECISIONS 274)
   enrolments?: Enrolments;
   assignments?: Assignments;
   confirmations?: Confirmations;

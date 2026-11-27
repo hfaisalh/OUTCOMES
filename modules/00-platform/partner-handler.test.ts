@@ -203,3 +203,18 @@ describe("saving a beneficiary with a checked place (DECISIONS 274)", () => {
     expect(cfg.beneficiaries!.records.filter((b) => b.locationId === "osm:N1")).toHaveLength(2);
   });
 });
+
+describe("staff: places in the register and the Areas page (DECISIONS 275)", () => {
+  const place = { id: "osm:N1", name: "Kasur", district: "", region: "Punjab", country: "Pakistan", countryCode: "PK", lat: 31.1, lon: 74.4 };
+  it("one choice gives every beneficiary who typed the area the place, and the places come back with the reply", async () => {
+    const cfg = (await d.store.getConfig("demo"))!;
+    const reg = { ...cfg.beneficiaries!, records: cfg.beneficiaries!.records.map((b) => ({ ...b, area: "kasur" })) };
+    await d.store.putConfig("demo", { ...cfg, beneficiaries: reg });
+    const staff = cookieOf(await handleDemoLogin(req(), d));
+    const r = await handleOutcomes(as(staff, { method: "POST", body: { action: "ben-area", area: "Kasur", location: place } }), d);
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ warning: "2 records now have the place Kasur.", locations: [place] });
+    expect((await d.store.getConfig("demo"))!.beneficiaries!.records.every((b) => b.locationId === "osm:N1")).toBe(true);
+    expect((await handleOutcomes(as(staff, { method: "POST", body: { action: "ben-area", area: "Kasur", location: { id: "bad" } } }), d)).status).toBe(400);
+  });
+});

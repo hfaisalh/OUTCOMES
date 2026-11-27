@@ -31,6 +31,8 @@ import { poolMessage, settlePool } from "../07-beneficiaries/waiting.js";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf } from "../07-beneficiaries/enrolments.js";
 import { handlePartner } from "./partner-handler.js";
 import { handlePlaces } from "./places-handler.js";
+import { acceptPlace, upsertPlace } from "../14-locations/locations.js";
+import { resolveArea } from "../14-locations/areas.js";
 import { json, need, sessionOf, text, type Deps, type HttpRequest, type HttpResponse } from "./http.js";
 
 // GET /api/outcomes   The outcomes and what is allocated to them.
@@ -69,7 +71,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   let confirmations = config.confirmations ?? emptyConfirmations(); // the partners' answers to those assignments (DECISIONS 231)
   let progress = config.progress ?? emptyProgress(); // the steps taken after allocation, and the batches closed (DECISIONS 232)
   // Rule: every answer carries the whole picture (all the records the page draws from), so a page never has to ask twice. The few things an answer changes are passed in `over`.
-  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, outcomeAllocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, allocations, itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...over });
+  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, outcomeAllocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, allocations, locations: config.locations ?? [], itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...over });
   // Rule (DECISIONS 105): every outcome and allocation has an ID. Any without one are given one here, so older ones get theirs too.
   const settle = (): boolean => {
     const r = ensureRefs({ outcomes, outcomeAllocations, counters: idCounters }, outcomeTypes, config.allocationPrefix);
@@ -207,13 +209,27 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       return reply({ warning: r.message });
     }
     // The Beneficiary register (DECISIONS 163) and enrolments (DECISIONS 167): the same pure rules the demo uses. A beneficiary that is enrolled cannot be removed.
+    // Rule (DECISIONS 275): one typed area is given a checked place for everyone who typed it.
+    if (b["action"] === "ben-area") {
+      const place = acceptPlace(b["location"]);
+      if (!place || typeof b["area"] !== "string") return fail("Choose a place from the list.");
+      const r = resolveArea(beneficiaries, b["area"], place);
+      beneficiaries = r.register;
+      await save({ ...config, beneficiaries, locations: upsertPlace(config.locations ?? [], place) });
+      config.locations = upsertPlace(config.locations ?? [], place);
+      return reply({ warning: `${r.changed} ${r.changed === 1 ? "record now has" : "records now have"} the place ${place.name}.` });
+    }
     if (typeof b["action"] === "string" && b["action"].startsWith("ben-")) {
       const r = applyBeneficiaryAction(beneficiaries, b, (id) => heldByBeneficiary(enrolments, id), at.slice(0, 10));
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
       beneficiaries = r.value;
       const pooled = await settlePoolNow();
-      await save({ ...config, beneficiaries, enrolments });
+      // Rule (DECISIONS 274): a place chosen from the search is kept in the organisation's list, once.
+      const place = acceptPlace(b["location"]);
+      const keep = place && place.id === b["locationId"] ? { locations: upsertPlace(config.locations ?? [], place) } : {};
+      await save({ ...config, beneficiaries, enrolments, ...keep });
+      Object.assign(config, keep);
       const say = [r.message, pooled].filter((x) => x).join(" ");
       return reply(say ? { warning: say } : {});
     }

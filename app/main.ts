@@ -72,6 +72,10 @@ import { partnerHomeHtml } from "./partner-home";
 import { handlePartnerAction, partnerKeys, partnerUi, switchView } from "./partner-session";
 import { csvChange } from "./partner-csv-session";
 import { initPlacePicker } from "./place-picker";
+import { areasPage } from "./areas-page";
+import { areasAction, areasUi } from "./areas-session";
+import { acceptPlace, upsertPlace, type Place } from "../modules/14-locations/locations";
+import { resolveArea } from "../modules/14-locations/areas";
 
 initPlacePicker(searchPlaces);
 import { viewAsMenu } from "./view-as-menu";
@@ -134,6 +138,7 @@ const state = {
   giftProjects: [] as GiftProject[], // the projects donors choose, and the partners that deliver them (DECISIONS 76)
   benFilter: { ...NO_BEN_FILTER } as BenFilter, // the filters on the Outcomes list page
   beneficiaries: emptyRegister() as Register, // the Beneficiary register (DECISIONS 163)
+  locations: [] as Place[], // the checked places in use, for the Areas page (DECISIONS 275)
   histWin: { open: false, kind: "gift" as "gift" | "enrolment", id: "" }, // the allocation history window (DECISIONS 186)
   allocations: emptyAllocations() as Allocations, // which place each assigned gift fills (DECISIONS 175)
   allocFilter: "all", // the filter on the Allocate page
@@ -216,7 +221,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
-    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.outcomeAllocations = o.outcomeAllocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.itemUnits = o.itemUnits ?? state.itemUnits; state.enrolments = o.enrolments ?? state.enrolments; state.assignments = o.assignments ?? state.assignments; state.allocations = o.allocations ?? state.allocations; state.itemIcons = o.itemIcons ?? state.itemIcons; state.itemKinds = o.itemKinds ?? state.itemKinds; state.kindFeatures = o.kindFeatures ?? state.kindFeatures;
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.outcomeAllocations = o.outcomeAllocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.locations = o.locations ?? state.locations; state.itemUnits = o.itemUnits ?? state.itemUnits; state.enrolments = o.enrolments ?? state.enrolments; state.assignments = o.assignments ?? state.assignments; state.allocations = o.allocations ?? state.allocations; state.itemIcons = o.itemIcons ?? state.itemIcons; state.itemKinds = o.itemKinds ?? state.itemKinds; state.kindFeatures = o.kindFeatures ?? state.kindFeatures;
       // Rule (DECISIONS 258): the answers and the steps taken are read when the page loads too, so a partner's answer is on the Confirmation list without anyone pressing anything first.
       state.confirmations = o.confirmations ?? state.confirmations; state.progress = o.progress ?? state.progress; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
@@ -294,7 +299,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, confirmations: state.confirmations, progress: state.progress, prgFilter: state.prgFilter, assignFilter: state.assignFilter, allocations: state.allocations, allocFilter: state.allocFilter, cnfFilter: state.cnfFilter, pjFilter: state.pjFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, outcomeAllocations: state.outcomeAllocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), message: state.message, config: MWF_CRM_CONFIG,
+    locations: state.locations, workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, confirmations: state.confirmations, progress: state.progress, prgFilter: state.prgFilter, assignFilter: state.assignFilter, allocations: state.allocations, allocFilter: state.allocFilter, cnfFilter: state.cnfFilter, pjFilter: state.pjFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, outcomeAllocations: state.outcomeAllocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, itemUnits: state.itemUnits, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, ...(state.me?.logins ? { logins: state.me.logins } : {}), attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -330,6 +335,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.outcomeTypes = r.outcomeTypes ?? state.outcomeTypes;
       state.idCounters = r.idCounters ?? state.idCounters;
       state.beneficiaries = r.beneficiaries ?? state.beneficiaries;
+      state.locations = r.locations ?? state.locations;
       state.itemUnits = r.itemUnits ?? state.itemUnits;
       state.enrolments = r.enrolments ?? state.enrolments;
       state.assignments = r.assignments ?? state.assignments;
@@ -354,6 +360,11 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       if (kf) { if ("error" in kf) error = kf.error; else state.kindFeatures = kf.value; }
       const ot = typeof body["action"] === "string" && (body["action"] as string).startsWith("ot-") ? applyOutcomeTypeAction(state.outcomeTypes, state.frameworks.map((f) => f.id), [...new Set(state.outcomes.map((o) => o.outcomeTypeId ?? "").filter((x) => x !== ""))], body) : null;
       // The Beneficiary register (DECISIONS 163): the same pure rule the server uses.
+      if (body["action"] === "ben-area") { // the demo does the same as the server (DECISIONS 275)
+        const place = acceptPlace(body["location"]);
+        if (!place || typeof body["area"] !== "string") error = "Choose a place from the list.";
+        else { const r = resolveArea(state.beneficiaries, body["area"], place); state.beneficiaries = r.register; state.locations = upsertPlace(state.locations, place); state.message = `${r.changed} records now have the place ${place.name}.`; }
+      }
       const bn = typeof body["action"] === "string" && (body["action"] as string).startsWith("ben-") ? applyBeneficiaryAction(state.beneficiaries, body, (id) => heldByBeneficiary(state.enrolments, id), new Date().toISOString().slice(0, 10)) : null;
       if (bn) { if ("error" in bn) error = bn.error; else { state.beneficiaries = bn.value; if (bn.message) state.message = bn.message; } }
       // Enrolments (DECISIONS 167): the same pure rule the server uses. The type of each item says who it takes and who comes first.
@@ -522,6 +533,7 @@ function draw(): void {
     : state.page === "projects" ? projectsPage(v)
     : state.page === "partners" ? partnersPage(v)
     : state.page === "beneficiaries" ? registerPage(v)
+    : state.page === "areas" ? areasPage(v, areasUi)
     : state.page === "outcome-records" ? outcomeRecordsPage(v)
     : state.page === "assignment" ? assignmentPage(v)
     : state.page === "allocate" ? allocatePage(v)
@@ -727,6 +739,7 @@ document.addEventListener("click", (e) => {
     if (k && k in NO_CRITERIA && scope === "main") state.criteria = { ...state.criteria, [k]: NO_CRITERIA[k] };
   }
   if (action === "view-as") return void switchView(el.dataset["partner"] ?? "");
+  if (action?.startsWith("ar-")) return void areasAction(action, el, outcomeChange, draw);
   if (action?.startsWith("pt-")) return void handlePartnerAction(action, el, state.partnerSlice, (slice) => { state.partnerSlice = slice; }, draw);
   if (action === "show-signin") { state.topMenu = ""; state.gate = "signin"; return draw(); }
   if (action === "sign-out") {
@@ -1783,7 +1796,10 @@ function renderBenWindow(error = "", draft?: Partial<Beneficiary>): void {
 // What the window holds, as the fields of a request.
 function readBenWindow(): Record<string, unknown> {
   const val = (i: string) => (document.getElementById(i) as HTMLInputElement | null)?.value ?? "";
+  let location: unknown; // the place chosen from the list, if any (DECISIONS 274)
+  try { const raw = val("pe-location"); location = raw === "" ? undefined : JSON.parse(raw); } catch { location = undefined; }
   return {
+    locationId: val("pe-locationId"), ...(location ? { location } : {}),
     name: val("rg-name"), dob: val("rg-dob"), gender: val("rg-gender"), guardian: val("rg-guardian"), guardianRelation: val("rg-guardianrel"), placeOfBirth: val("rg-pob"), idNumber: val("rg-idnumber"), fatherStatus: val("rg-father"), motherStatus: val("rg-mother"), eligibility: val("rg-eligibility"), eligibilityNote: val("rg-eligibilitynote"), partnerId: val("rg-partner"), partnerRef: val("rg-partnerref"), targetProjectId: val("rg-target"), priority: (document.getElementById("rg-priority") as HTMLInputElement | null)?.checked === true, priorityNote: val("rg-prioritynote"), area: val("rg-area"), notes: val("rg-notes"), size: val("rg-size"),
     memberIds: [...document.querySelectorAll<HTMLInputElement>(".rg-member:checked")].map((c) => c.value),
     allowSimilar: (document.getElementById("rg-different") as HTMLInputElement | null)?.checked === true,
@@ -1801,7 +1817,7 @@ document.addEventListener("click", (e) => {
     const f = readBenWindow();
     const isNew = state.benWin.id === "";
     const status = (document.getElementById("rg-status") as HTMLSelectElement | null)?.value ?? "";
-    const draft: Partial<Beneficiary> = { name: String(f["name"]), dob: String(f["dob"]), gender: f["gender"] as Beneficiary["gender"], guardian: String(f["guardian"]), guardianRelation: String(f["guardianRelation"]), placeOfBirth: String(f["placeOfBirth"]), idNumber: String(f["idNumber"]), fatherStatus: f["fatherStatus"] as Beneficiary["fatherStatus"], motherStatus: f["motherStatus"] as Beneficiary["motherStatus"], eligibility: f["eligibility"] as Beneficiary["eligibility"], eligibilityNote: String(f["eligibilityNote"]), partnerId: String(f["partnerId"]), partnerRef: String(f["partnerRef"]), area: String(f["area"]), notes: String(f["notes"]), memberIds: f["memberIds"] as string[], ...(String(f["size"]) !== "" ? { size: Number(f["size"]) } : {}), ...(status !== "" ? { status: status as Beneficiary["status"] } : {}) };
+    const draft: Partial<Beneficiary> = { name: String(f["name"]), dob: String(f["dob"]), gender: f["gender"] as Beneficiary["gender"], guardian: String(f["guardian"]), guardianRelation: String(f["guardianRelation"]), placeOfBirth: String(f["placeOfBirth"]), idNumber: String(f["idNumber"]), fatherStatus: f["fatherStatus"] as Beneficiary["fatherStatus"], motherStatus: f["motherStatus"] as Beneficiary["motherStatus"], eligibility: f["eligibility"] as Beneficiary["eligibility"], eligibilityNote: String(f["eligibilityNote"]), partnerId: String(f["partnerId"]), partnerRef: String(f["partnerRef"]), area: String(f["area"]), locationId: String(f["locationId"]), notes: String(f["notes"]), memberIds: f["memberIds"] as string[], ...(String(f["size"]) !== "" ? { size: Number(f["size"]) } : {}), ...(status !== "" ? { status: status as Beneficiary["status"] } : {}) };
     const body = isNew ? { action: "ben-add", kind: state.benWin.kind, ...f } : { action: "ben-set", id: state.benWin.id, status, ...f };
     void outcomeChange(body).then(() => {
       if (lastError !== "") return renderBenWindow(lastError, draft);

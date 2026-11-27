@@ -12,8 +12,8 @@ import { label, type Place } from "../modules/14-locations/locations";
 export const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);
 
 // --- The field ---
-export function placeFieldHtml(id: string, text: string, placeId: string, hint: string): string {
-  return `<label class="pe-f pl" id="${id}-wrap"><span class="pe-l">Area</span>
+export function placeFieldHtml(id: string, text: string, placeId: string, hint: string, title = "Area"): string {
+  return `<label class="pe-f pl" id="${id}-wrap"><span class="pe-l">${esc(title)}</span>
     <input id="${id}" class="pl-input" value="${esc(text)}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${id}-list" aria-describedby="${id}-status">
     <ul class="pl-list" id="${id}-list" role="listbox" aria-label="Places that match" hidden></ul>
     <input type="hidden" id="pe-locationId" value="${esc(placeId)}"><input type="hidden" id="pe-location" value="">

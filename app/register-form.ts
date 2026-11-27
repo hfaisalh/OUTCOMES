@@ -8,6 +8,7 @@
  * Who calls it: app/main.ts. Depends on: modules/07-beneficiaries/beneficiaries.ts and esc from pages.ts.
  */
 
+import { placeFieldHtml } from "./place-picker";
 import { ELIGIBILITY_LABEL, KIND_LABEL, type Beneficiary, type BeneficiaryKind, type Eligibility } from "../modules/07-beneficiaries/beneficiaries";
 import { esc } from "./pages";
 import { pickerHtml } from "./household-picker";
@@ -40,7 +41,7 @@ export function registerFormHtml(rec: Partial<Beneficiary>, id: string, kind: Be
   // --- Cards of both ---
   // Rule (DECISIONS 246): the project a person is meant for. With it, admission is decided by completeness and they join the project's waiting list. `standing` says where they are in the line.
   const target = person ? `<label class="w">Meant for project<select id="rg-target"><option value="">None (not waiting for a project)</option>${projects.map((p) => `<option value="${esc(p.id)}"${rec.targetProjectId === p.id ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</select></label>${standing ? `<p class="muted w">${esc(standing)}</p>` : ""}` : "";
-  const where = card("Where and source", `${target}${input("rg-area", "Area (village or district, not a full address)", rec.area ?? "", "", true)}
+  const where = card("Where and source", `${target}${placeFieldHtml("rg-area", rec.area ?? "", rec.locationId ?? "", "A village or district, not a full address.", "Area")}
     <label>Given by partner<select id="rg-partner"><option value="">None</option>${partners.map((p) => `<option value="${esc(p.id)}"${rec.partnerId === p.id ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</select></label>
     ${input("rg-partnerref", "The partner's own ID for it", rec.partnerRef ?? "")}${input("rg-notes", "Notes", rec.notes ?? "", "", true)}
     ${id ? `<label>Status<select id="rg-status"><option value="active"${rec.status !== "inactive" ? " selected" : ""}>Active</option><option value="inactive"${rec.status === "inactive" ? " selected" : ""}>Inactive</option></select></label>` : ""}`);

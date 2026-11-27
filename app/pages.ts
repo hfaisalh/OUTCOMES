@@ -8,6 +8,7 @@
  * Depends on: the connector types, menu.ts and demo-data.ts (categories list).
  */
 
+import type { Place } from "../modules/14-locations/locations";
 import { accountsCard } from "./accounts-card";
 import type { AttentionItem } from "../modules/04-triage/triage";
 import { hasSample } from "../modules/07-beneficiaries/sample-setup";
@@ -54,6 +55,7 @@ export interface View {
   giftProjects?: GiftProject[]; // the projects donors choose and the partners that deliver them (DECISIONS 76)
   benFilter?: BenFilter; // the filters on the Outcomes list page
   beneficiaries?: Register; // the Beneficiary register (DECISIONS 163)
+  locations?: Place[]; // the checked places in use (DECISIONS 274)
   allocations?: Allocations; // which place each assigned gift fills (DECISIONS 175)
   assignments?: Assignments; // which partner each gift was assigned to (DECISIONS 170)
   confirmations?: Confirmations; // the partners' answers to those assignments (DECISIONS 231)
