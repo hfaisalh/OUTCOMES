@@ -273,7 +273,7 @@ export function autoAllocate(commitments: Commitment[], outcomes: Outcome[], fw:
     const ofKind = activeKind.filter((o) => !opts.requireRef || (o.ref ?? "") !== "");
     const sameFramework = ofKind.filter((o) => opts.partnerOk?.(o.projectId, c.itemId) ?? true);
     if (sameFramework.length === 0) {
-      unplaced.push({ commitmentKey: c.subscriptionId, why: activeKind.length === 0 ? "No active outcome uses its framework." : ofKind.length === 0 ? "None of the beneficiaries of this kind has an ID yet. Give them IDs, or turn the setting off." : "No active partner that delivers this item has a place of this kind." });
+      unplaced.push({ commitmentKey: c.subscriptionId, why: activeKind.length === 0 ? "No active outcome uses its framework." : ofKind.length === 0 ? "None of the beneficiaries of this kind has an ID yet. Give them IDs, or turn the setting off." : "No active partner that delivers this item has capacity of this kind." });
       continue;
     }
     const directedTo = opts.projectIdsFor?.(c.projectName) ?? [];

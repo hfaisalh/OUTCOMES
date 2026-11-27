@@ -39,7 +39,7 @@ describe("the sample setup, used like a person would", () => {
     click({ page: "beneficiaries" }, "data-page");
     expect(shell.innerHTML).toContain("Sample Amina");
     expect(shell.innerHTML).toContain("Sample Family Noor");
-    expect(shell.innerHTML).toContain("Cannot offer a place"); // every admission decision is there
+    expect(shell.innerHTML).toContain("Cannot be enrolled"); // every admission decision is there
     click({ page: "partners" }, "data-page");
     expect(shell.innerHTML).toContain("Sample Builders Foundation");
     click({ page: "projects" }, "data-page");

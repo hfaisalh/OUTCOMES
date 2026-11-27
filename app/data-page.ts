@@ -31,9 +31,9 @@ export function dataFeedPage(v: View): string {
     ${v.live ? "" : ownerCard(v)}
     <div class="card"><h2>How data gets into Gifts</h2>
       ${step(1, "Read", "The pick-up reads the CRM (or the files you upload) and keeps only what is needed. No donor contact details.", v.live && !!v.run)}
-      ${step(2, "Check", "Each line is matched to its item and workflow. Lines it cannot place are held as Unrouted.", v.workOrders.length > 0)}
+      ${step(2, "Check", "Each line is matched to its item and workflow. Lines it cannot sort are held as Unrouted.", v.workOrders.length > 0)}
       ${step(3, "Audit", "A batch audit compares what was read with the CRM and holds anything that changed for a person to review.", (v.audits ?? []).length > 0)}
-      ${step(4, "Gifts", "Checked gifts appear in the Gifts list, ready to be placed with a beneficiary.", live > 0)}
+      ${step(4, "Gifts", "Checked gifts appear in the Gifts list, ready to be allocated to a beneficiary.", live > 0)}
     </div>`;
 }
 

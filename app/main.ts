@@ -334,7 +334,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       if (body["action"] === "remove-many") state.message = `Removed ${r.removed ?? 0}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`;
       else if (body["action"] === "adopt-legacy") state.message = `Moved ${(r as unknown as { moved?: number }).moved ?? 0} into the partner.`;
       else if (body["action"] === "clear-legacy") state.message = `Removed ${(r as unknown as { removed?: number }).removed ?? 0} and released ${(r as unknown as { released?: number }).released ?? 0} gifts.`;
-      else if (body["action"] === "auto") state.message = `Placed ${r.placed ?? 0}, released ${r.released ?? 0}, ${r.unplaced?.length ?? 0} waiting.`;
+      else if (body["action"] === "auto") state.message = `Allocated ${r.placed ?? 0}, released ${r.released ?? 0}, ${r.unplaced?.length ?? 0} waiting.`;
       else state.message = r.warning ?? "";
     } else {
       const commitments = allocatable(state.workOrders, perPeriodRule(state.frameworks), new Date().toISOString().slice(0, 10));
@@ -361,7 +361,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "add": { const r = addOutcomes(state.outcomes, { name: str("name"), count: Number(body["count"] ?? 1), type: str("type"), cohort: str("cohort"), frameworkId: str("frameworkId") }); if (!state.frameworks.some((f) => f.id === str("frameworkId"))) error = "Choose a framework for the outcome."; else if (r.error) error = r.error; else state.outcomes = r.value; break; }
         case "active": state.outcomes = setActive(state.outcomes, str("id"), body["active"] === true); break;
         case "remove": { const r = removeOutcome(state.outcomes, state.allocations, str("id")); if (r.error) error = r.error; else state.outcomes = r.value; break; }
-        case "auto": { const r = autoAllocate(commitments, state.outcomes, state.frameworks, state.allocations, at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects)); state.allocations = r.allocations; state.message = `Placed ${r.placed}, released ${r.released}, ${r.unplaced.length} waiting.`; break; }
+        case "auto": { const r = autoAllocate(commitments, state.outcomes, state.frameworks, state.allocations, at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects)); state.allocations = r.allocations; state.message = `Allocated ${r.placed}, released ${r.released}, ${r.unplaced.length} waiting.`; break; }
         case "move": { const r = moveAllocation(state.allocations, commitments, state.outcomes, state.frameworks, str("commitmentKey"), str("outcomeId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
         case "remove-many": { const r = removeUnused(state.outcomes, state.allocations, Array.isArray(body["ids"]) ? (body["ids"] as string[]) : []); state.outcomes = r.value; state.message = `Removed ${r.removed}${r.kept ? `, kept ${r.kept} that hold commitments` : ""}.`; break; }
         case "place-in-node": { const r = placeInNode(state.allocations, commitments, state.outcomes, state.nodes, state.frameworks, str("commitmentKey"), str("nodeId"), at, allocOptions(state.projects, state.graceDays, at.slice(0, 10), state.requireRef, state.giftProjects).policy); if (r.error) error = r.error; else state.allocations = r.value; break; }
@@ -779,7 +779,7 @@ document.addEventListener("click", (e) => {
   // Beneficiaries made before partners existed (DECISIONS 73).
   if (action === "adopt-legacy") return void outcomeChange({ action: "adopt-legacy", projectId: (document.getElementById("al-adopt") as HTMLSelectElement | null)?.value ?? "" });
   if (action === "clear-legacy") {
-    if (window.confirm("Remove the beneficiaries that are not in a partner and release their gifts? The gifts can then be placed again. This cannot be undone.")) void outcomeChange({ action: "clear-legacy" });
+    if (window.confirm("Remove the beneficiaries that are not in a partner and release their gifts? The gifts can then be allocated again. This cannot be undone.")) void outcomeChange({ action: "clear-legacy" });
     return;
   }
   // Add beneficiaries from the Beneficiaries page: a partner, a name, a number and how they are sponsored (DECISIONS 72, 76).

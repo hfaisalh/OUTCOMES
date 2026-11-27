@@ -44,7 +44,7 @@ describe("erasing a beneficiary", () => {
     expect(r.enrolments.records.map((e) => e.id)).toEqual(["EN-3"]);
     expect(r.placements.records.map((p) => p.key)).toEqual(["L2"]);
     expect(r.register.counters).toEqual(reg().counters); // the ID is never used again
-    expect(r.message).toContain("2 enrolments and 2 places");
+    expect(r.message).toContain("2 enrolments and 2 allocations");
   });
   it("erasing a household leaves its persons", () => {
     const r = eraseBeneficiary(reg(), enr(), plc(), "HH-0001", "HH-0001");

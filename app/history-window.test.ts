@@ -66,7 +66,7 @@ describe("safety", () => {
     const evil = giftHistoryHtml(data({ beneficiaries: [{ id: "B1", name: "<img src=x onerror=alert(1)>" }, { id: "B2", name: "Bilal" }] as never, gifts: new Map([["sub:1", { donor: "<script>1</script>", item: "x", payments: 1 }]]) }), "sub:1");
     expect(evil).not.toContain("<img src=x");
     expect(evil).not.toContain("<script>1");
-    expect(giftHistoryHtml(data({ enrolments: [] }), "sub:1")).toContain("A place that no longer exists"); // rather than a blank
-    expect(enrolmentHistoryHtml(data({ enrolments: [] }), "EN-1")).toContain("A place that no longer exists");
+    expect(giftHistoryHtml(data({ enrolments: [] }), "sub:1")).toContain("A beneficiary that no longer exists"); // rather than a blank
+    expect(enrolmentHistoryHtml(data({ enrolments: [] }), "EN-1")).toContain("A beneficiary that no longer exists");
   });
 });

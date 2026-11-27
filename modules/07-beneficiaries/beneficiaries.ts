@@ -26,7 +26,7 @@ export type BeneficiaryStatus = "active" | "inactive";
 export type Gender = "" | "female" | "male";
 export type ParentStatus = "" | "living" | "deceased";
 export type Eligibility = "" | "ready" | "review" | "declined"; // the admission decision: prepare for enrolment, needs management consent or further review, cannot offer a place
-export const ELIGIBILITY_LABEL: Record<Eligibility, string> = { "": "Not checked", ready: "Ready", review: "Needs review", declined: "Cannot offer a place" };
+export const ELIGIBILITY_LABEL: Record<Eligibility, string> = { "": "Not checked", ready: "Ready", review: "Needs review", declined: "Cannot be enrolled" };
 
 export interface Beneficiary {
   id: string; // the permanent ID, for example PRS-0001
@@ -135,7 +135,7 @@ function readFields(reg: Register, kind: BeneficiaryKind, f: Fields, selfId: str
   const mother = status(f.motherStatus);
   if (father === "bad" || mother === "bad") return { error: "A parent is living, deceased, or not known." };
   const eligibility = clean(f.eligibility);
-  if (eligibility !== "" && eligibility !== "ready" && eligibility !== "review" && eligibility !== "declined") return { error: "The decision is ready, needs review, or cannot offer a place." };
+  if (eligibility !== "" && eligibility !== "ready" && eligibility !== "review" && eligibility !== "declined") return { error: "The decision is ready, needs review, or cannot be enrolled." };
   const priority = kind === "person" && (f.priority === true || f.priority === "true");
   const mine = (v: unknown, n: number): string => (kind === "person" ? clean(v).slice(0, n) : "");
   return {

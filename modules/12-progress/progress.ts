@@ -99,7 +99,7 @@ export function applyProgressAction(ctx: ProgressContext, existing: Progress, bo
       const g = ctx.gift(str("key"));
       if (!g) return { error: "That gift was not found, or it is not assigned to a partner." };
       const p = progressOf(str("key"), g.placedAt, existing.records, g.steps, ctx.today);
-      if (!p.placed) return { error: "That gift is not placed yet. Allocate it first." };
+      if (!p.placed) return { error: "That gift is not allocated yet. Allocate it first." };
       if (!p.next) return { error: "Every step of that gift is already taken." };
       return { value: { records: [...existing.records, { key: str("key"), kind: p.next.kind, id: p.next.id, at, by }] }, message: `${p.next.label} taken.` };
     }

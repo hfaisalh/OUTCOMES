@@ -39,7 +39,7 @@ export function beneficiariesPage(v: View): string {
   const legacy = all.filter((o) => o.projectId === undefined).length;
 
   const head = `<h1>Outcomes</h1>
-    <p class="sub">What gifts are placed on, with capacity: children, students, teachers, pumps. (The people and households themselves are on the Beneficiaries page.) Each belongs to a partner. Add them with only a name, a number and how they are sponsored, then place them in the partner's branch and groups, and give them an ID, when you are ready.</p>
+    <p class="sub">What gifts are allocated to, with capacity: children, students, teachers, pumps. (The people and households themselves are on the Beneficiaries page.) Each belongs to a partner. Add them with only a name, a number and how they are sponsored, then add them to the partner's branch and groups, and give them an ID, when you are ready.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}`;
 
   const add = `<div class="card"><h2>Add beneficiaries <span class="muted">(numbered test records)</span></h2>
@@ -53,7 +53,7 @@ export function beneficiariesPage(v: View): string {
 
   const filters = `<div class="filters"><select data-benf="partner" aria-label="Partner"><option value="">All partners</option>${partners.map((p) => `<option value="${esc(p.id)}"${p.id === f.partner ? " selected" : ""}>${esc(p.name)}</option>`).join("")}${legacy ? `<option value="none"${f.partner === "none" ? " selected" : ""}>Not in a partner (${legacy})</option>` : ""}</select>
     <select data-benf="type" aria-label="Kind"><option value="">All kinds</option>${types.map((t) => `<option value="${esc(t)}"${t === f.type ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>
-    <select data-benf="placed" aria-label="Placed"><option value="">Placed or not</option><option value="yes"${f.placed === "yes" ? " selected" : ""}>In a location</option><option value="no"${f.placed === "no" ? " selected" : ""}>Not in a location</option></select>
+    <select data-benf="placed" aria-label="Located"><option value="">Located or not</option><option value="yes"${f.placed === "yes" ? " selected" : ""}>In a location</option><option value="no"${f.placed === "no" ? " selected" : ""}>Not in a location</option></select>
     <input data-benf="text" value="${esc(f.text)}" placeholder="Search name or ID" aria-label="Search" /></div>`;
 
   const rows = shown.slice(0, MAX_ROWS).map((o) => {
@@ -63,7 +63,7 @@ export function beneficiariesPage(v: View): string {
     const used = fillOf(o, fws, allocations, commitments, policy).used;
     const cap = capacityOf(o, fws);
     // The place: a list of the partner's places that suit this kind. Groups: one list for each kind of group that applies, with the groups inside its place.
-    const placeSel = p ? `<select data-set-place="${esc(o.id)}" aria-label="Place of ${esc(o.name)}"><option value="">Not placed</option>${mine.filter((n) => !type || type.levelId === "" || n.levelId === type.levelId).map((n) => `<option value="${esc(n.id)}"${n.id === o.nodeId ? " selected" : ""}>${esc(n.name)}</option>`).join("")}</select>` : "";
+    const placeSel = p ? `<select data-set-place="${esc(o.id)}" aria-label="Location of ${esc(o.name)}"><option value="">No location</option>${mine.filter((n) => !type || type.levelId === "" || n.levelId === type.levelId).map((n) => `<option value="${esc(n.id)}"${n.id === o.nodeId ? " selected" : ""}>${esc(n.name)}</option>`).join("")}</select>` : "";
     const groupSels = p && type && o.nodeId ? (type.groupingIds ?? []).map((lid) => `<select data-set-group="${esc(o.id)}" data-level="${esc(lid)}" aria-label="${esc(p.levels.find((l) => l.id === lid)?.name ?? "Group")} of ${esc(o.name)}"><option value="">${esc(p.levels.find((l) => l.id === lid)?.name ?? "Group")}...</option>${mine.filter((n) => n.levelId === lid && insidePlace(nodes, o.nodeId as string, n.id)).map((n) => `<option value="${esc(n.id)}"${(o.groupIds ?? []).includes(n.id) ? " selected" : ""}>${esc(n.name)}</option>`).join("")}</select>`).join(" ") : "";
     return `<tr><td><input class="refbox" data-ref="${esc(o.id)}" value="${esc(o.ref ?? "")}" placeholder="ID" aria-label="ID of ${esc(o.name)}" /></td><td><b>${esc(o.name)}</b></td><td>${esc(partnerName(o.projectId)) || '<span class="muted">No partner</span>'}</td><td>${esc(o.type)}</td><td>${placeSel}</td><td>${groupSels}</td><td>${used} of ${cap} ${meter(used, cap)}</td><td>${o.active ? "Active" : "Offboarded"}</td><td><button data-oc-active="${esc(o.id)}" data-active="${o.active ? "0" : "1"}">${o.active ? "Offboard" : "Activate"}</button>${held.has(o.id) ? "" : ` <button data-oc-remove="${esc(o.id)}">Remove</button>`}</td></tr>`;
   }).join("");

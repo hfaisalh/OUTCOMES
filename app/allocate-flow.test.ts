@@ -46,15 +46,15 @@ describe("Allocate, used like a person would", () => {
     expect(shell.innerHTML).toContain('data-plc="reset" disabled');
 
     click({ plc: "run" }, "data-plc"); await flush();
-    expect(shell.innerHTML).toMatch(/Placed 2 with beneficiaries to fund and created 0 outcomes\. 0 wait/);
-    expect(shell.innerHTML).toContain('<span class="pill">Placed</span>');
+    expect(shell.innerHTML).toMatch(/Allocated 2 with beneficiaries to fund and created 0 outcomes\. 0 wait/);
+    expect(shell.innerHTML).toContain('<span class="pill">Allocated</span>');
     expect(shell.innerHTML).not.toContain('data-plc="reset" disabled');
 
     const key = shell.innerHTML.match(/data-plc="unplace" data-key="([^"]+)"/)?.[1] ?? "";
     expect(key).not.toBe("");
     click({ plc: "unplace", key }, "data-plc"); await flush();
     expect(shell.innerHTML).not.toContain(`data-plc="unplace" data-key="${key}"`);
-    expect(shell.innerHTML).toContain("Place automatically");
+    expect(shell.innerHTML).toContain("Allocate automatically");
 
     // Taking it back did not delete it: it is in the gift's history, ended and kept (DECISIONS 186).
     click({ hist: "gift", id: key }, "data-hist");

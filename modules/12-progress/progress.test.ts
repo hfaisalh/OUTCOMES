@@ -49,7 +49,7 @@ describe("the requests the page makes", () => {
   it("takes the next step, refuses an unplaced or unknown gift, and takes the latest step back", () => {
     const one = take(emptyProgress(), "sub:S1", 1);
     expect(one.records[0]).toMatchObject({ kind: "phase", id: "check" });
-    expect(applyProgressAction(ctx, one, { action: "prg-next", key: "sub:S3" }, "Sam", "x")).toEqual({ error: "That gift is not placed yet. Allocate it first." });
+    expect(applyProgressAction(ctx, one, { action: "prg-next", key: "sub:S3" }, "Sam", "x")).toEqual({ error: "That gift is not allocated yet. Allocate it first." });
     expect(applyProgressAction(ctx, one, { action: "prg-next", key: "nope" }, "Sam", "x")).toMatchObject({ error: expect.any(String) });
     const undone = applyProgressAction(ctx, one, { action: "prg-undo", key: "sub:S1" }, "Sam", "x");
     expect(undone && "value" in undone && undone.value.records).toHaveLength(0);

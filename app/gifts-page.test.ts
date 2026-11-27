@@ -115,10 +115,10 @@ describe("giftsPage", () => {
     const partners = [{ id: "trust", name: "Sample Trust", aliases: [], levels: [], types: [] }] as unknown as View["projects"];
     const assignments = { records: [{ key: "sub:S9", partnerId: "trust", giftProjectId: "", itemId: base.itemId, parts: 1, how: "auto" as const, at: "x" }] };
     const assigned = giftListHtml(view({ workOrders: orders, frameworks: fws, projects: partners, assignments }));
-    expect(assigned).toContain('title="Assigned to Sample Trust, waiting for a place">Assigned</span>'); // no longer "waiting for a partner"
+    expect(assigned).toContain('title="Assigned to Sample Trust, waiting to be allocated">Assigned</span>'); // no longer "waiting for a partner"
     expect(assigned).not.toContain("Released, waiting for a partner");
     const detail = giftDetailHtml(view({ workOrders: orders, frameworks: fws, projects: partners, assignments }), "S9");
-    expect(detail).toContain("Assigned to Sample Trust, waiting for a place");
+    expect(detail).toContain("Assigned to Sample Trust, waiting to be allocated");
     const child = { id: "B1", kind: "person", name: "Sample Amina" } as unknown as NonNullable<View["beneficiaries"]>["records"][number];
     const enrolments = { counter: 1, records: [{ id: "EN-1", beneficiaryId: "B1", giftProjectId: "p", clusterId: "c", itemId: base.itemId, role: "", status: "active" as const, since: "x" }] };
     const placements = { counter: 0, records: [{ key: "sub:S9", kind: "place" as const, enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "p", itemId: base.itemId, parts: 1, how: "auto" as const, at: "x" }] };
@@ -143,16 +143,16 @@ describe("giftsPage", () => {
       expect(list).not.toContain("Sample Amina");
       expect(list).not.toMatch(/class="pill stage st-allocation"/);
     }
-    // A placement whose place is gone is not a placement: the gift is assigned and waiting for a place again.
+    // An allocation whose beneficiary is gone is not an allocation: the gift is assigned and waiting to be allocated again.
     const stale = giftListHtml(view({ workOrders: orders, frameworks: fws, projects: partners, assignments, placements, enrolments: { counter: 0, records: [] }, beneficiaries: { records: [], counters: {} } }));
-    expect(stale).toContain('title="Assigned to Sample Trust, waiting for a place">Assigned</span>');
+    expect(stale).toContain('title="Assigned to Sample Trust, waiting to be allocated">Assigned</span>');
     expect(stale).not.toMatch(/class="pill stage st-allocation"/);
   });
   it("calls a completed plan neither Assigned nor waiting: it holds no place (DECISIONS 189)", () => {
     const fws = starterFrameworks();
     const orders = [1, 2].map((n) => sub(n, { instalmentCount: "2", frameworkId: "sponsorship-shared-parts", planStatus: "completed" }));
     const list = giftListHtml(view({ workOrders: orders, frameworks: fws }));
-    expect(list).toContain('title="Plan completed, it holds no place">WO created</span>');
+    expect(list).toContain('title="Plan completed, it holds no allocation">WO created</span>');
     expect(list).not.toContain("Assigned</span>");
     expect(list).not.toContain("Waiting for allocation"); // a dash, since it needs none
   });

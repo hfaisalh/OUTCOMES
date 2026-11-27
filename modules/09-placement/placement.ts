@@ -233,7 +233,7 @@ export function placeManual(ctx: PlaceContext, existing: Placements, key: string
   const a = ctx.assignments.find((x) => x.key === key);
   if (!a) return { error: "That gift has not been assigned to a partner yet." };
   const rules = ctx.rulesOf(a.itemId);
-  if (rules && (rules.first === "gift" || rules.receiver === "none")) return { error: "This gift creates an outcome. It does not fill a place." };
+  if (rules && (rules.first === "gift" || rules.receiver === "none")) return { error: "This gift creates an outcome. It does not fund a beneficiary." };
   // Rule: a gift that fills a place is no longer an outcome, so any outcome it made earlier (before its item was a beneficiary type) is removed.
   existing = { ...existing, records: existing.records.filter((p) => !(p.key === key && p.kind === "outcome" && isActive(p))) };
   const others = existing.records.filter((p) => p.key !== key || !isActive(p)); // the gift's own active placements leave the count while it is moved
@@ -247,7 +247,7 @@ export function placeManual(ctx: PlaceContext, existing: Placements, key: string
 
 // Rule (DECISIONS 186): taking a placement back ends it as taken back and keeps it as history. An outcome that was created is removed, since it never held a child.
 export function unplace(existing: Placements, key: string, today = ""): Result {
-  if (!existing.records.some((p) => p.key === key && isActive(p))) return { error: "That gift is not placed." };
+  if (!existing.records.some((p) => p.key === key && isActive(p))) return { error: "That gift is not allocated." };
   const day = today || new Date().toISOString().slice(0, 10);
   return { value: { ...existing, records: existing.records.filter((p) => !(p.key === key && isActive(p) && p.kind === "outcome")).map((p) => (p.key === key && isActive(p) ? { ...p, to: day, endReason: "taken-back" as const } : p)) } };
 }
@@ -269,11 +269,11 @@ export function applyPlacementAction(ctx: PlaceContext, existing: Placements, bo
   switch (body["action"]) {
     case "plc-run": {
       const r = runPlacement(ctx, existing);
-      return { value: r.value, message: `Placed ${r.placed} with beneficiaries to fund and created ${r.outcomes} outcome${r.outcomes === 1 ? "" : "s"}. ${r.waiting} wait with no beneficiary to fund.${r.ended ? ` ${r.ended} placement${r.ended === 1 ? "" : "s"} ended (a plan was parked or a child left) and ${r.ended === 1 ? "is" : "are"} kept as history.` : ""}` };
+      return { value: r.value, message: `Allocated ${r.placed} with beneficiaries to fund and created ${r.outcomes} outcome${r.outcomes === 1 ? "" : "s"}. ${r.waiting} wait with no beneficiary to fund.${r.ended ? ` ${r.ended} placement${r.ended === 1 ? "" : "s"} ended (a plan was parked or a child left) and ${r.ended === 1 ? "is" : "are"} kept as history.` : ""}` };
     }
     case "plc-set": return placeManual(ctx, existing, str("key"), str("enrolmentId"));
     case "plc-unplace": return unplace(existing, str("key"), ctx.now.slice(0, 10));
-    case "plc-reset": return { value: { ...emptyPlacements(), ...(existing.stock ? { stock: existing.stock, stockCounter: existing.stockCounter ?? 0 } : {}) }, message: `All placements were cleared, history included.${existing.stock?.length ? " Parked outcomes were kept." : ""}` };
+    case "plc-reset": return { value: { ...emptyPlacements(), ...(existing.stock ? { stock: existing.stock, stockCounter: existing.stockCounter ?? 0 } : {}) }, message: `All allocations were cleared, history included.${existing.stock?.length ? " Parked outcomes were kept." : ""}` };
     case "plc-stock-add": { const r = addStock(existing, { partnerId: str("partnerId"), giftProjectId: str("giftProjectId"), clusterId: str("clusterId"), itemId: str("itemId"), name: str("name") }, ctx.now); return "error" in r ? r : { value: r.value, message: "Parked outcome added." }; }
     case "plc-stock-remove": { const r = removeStock(existing, str("id"), usedStock(existing.records.filter((p) => p.to === undefined))); return "error" in r ? r : { value: r.value, message: "Parked outcome removed." }; }
     default: return null;

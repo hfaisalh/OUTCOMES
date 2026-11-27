@@ -53,7 +53,7 @@ describe("beneficiariesPage", () => {
     expect(html).toMatch(/<option value="aghosh-orphan-homes-class-5a" selected>/); // and in Class 5A
     expect(html).toContain("Class 5B"); // another group in the same place is offered
     expect(html).not.toContain('data-set-group="waiting"'); // one with no place has no group lists yet
-    expect(html).toContain("Not placed");
+    expect(html).toContain("No location");
   });
   it("filters by partner, by placed or not, and by search, and offers an ID tool for one partner", () => {
     const { partners, nodes, outcomes, id } = built();

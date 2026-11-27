@@ -34,7 +34,7 @@ describe("the Allocate page", () => {
     const html = allocatePage(view());
     expect(html).toContain("<h1>Allocate</h1>");
     expect(html).toContain("<b>3</b><span>Assigned gifts</span>");
-    expect(html).toContain("<b>0</b><span>Placed with a beneficiary</span>");
+    expect(html).toContain("<b>0</b><span>Allocated to a beneficiary</span>");
     expect(html).toContain("<b>0</b><span>Outcomes created</span>");
     expect(html).toContain("<b>0</b><span>Waiting, no beneficiary to fund</span>");
     expect(html).toContain('data-plc="run"');
@@ -58,7 +58,7 @@ describe("the Allocate page", () => {
   });
   it("shows a placed gift with the child and a button to take it back, and a gift that waits with the reason", () => {
     const placed = allocatePage(view({ placements: { counter: 0, records: [{ key: "G01", kind: "place", enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto", at: "x" }] } }));
-    expect(placed).toContain('<span class="pill">Placed</span>');
+    expect(placed).toContain('<span class="pill">Allocated</span>');
     expect(placed).toContain('data-plc="unplace" data-key="G01"');
     expect(placed).not.toContain('data-plc="reset" disabled');
     const none = allocatePage(view({ enrolments: { records: [], counter: 0 } }));
@@ -76,7 +76,7 @@ describe("the Allocate page", () => {
   it("shows a gift spread over several children as one row, counted once, with the units each took", () => {
     const records = [{ key: "G01", kind: "place" as const, enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 2, how: "auto" as const, at: "x" }, { key: "G01", kind: "place" as const, enrolmentId: "EN-2", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto" as const, at: "x" }];
     const html = allocatePage(view({ placements: { counter: 0, records } }));
-    expect(html).toContain("<b>1</b><span>Placed with a beneficiary</span>"); // one gift, however many children
+    expect(html).toContain("<b>1</b><span>Allocated to a beneficiary</span>"); // one gift, however many children
     expect(html).toContain("Spread over 2 beneficiaries");
     expect(html).toContain('<span class="muted">(2 units)</span>');
     expect(html).toContain('<span class="muted">(1 unit)</span>');
@@ -85,8 +85,8 @@ describe("the Allocate page", () => {
   it("shows the true state now: a placement whose assignment was withdrawn is not counted, and a note says it will be recorded and kept (DECISIONS 187)", () => {
     const stale = { counter: 0, records: [{ key: "G01", kind: "place" as const, enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "aghosh", itemId: "I10", parts: 1, how: "auto" as const, at: "2026-11-02T00:00:00Z" }] };
     const html = allocatePage(view({ placements: stale, assignments: { records: [] } })); // the gift is no longer assigned
-    expect(html).toContain("<b>0</b><span>Placed with a beneficiary</span>"); // not "Now"
-    expect(html).toContain("1 placement has ended (a plan was parked, a child left, or an assignment was withdrawn). Place automatically records it, and keeps it in the history.");
+    expect(html).toContain("<b>0</b><span>Allocated to a beneficiary</span>"); // not "Now"
+    expect(html).toContain("1 allocation has ended (a plan was parked, a child left, or an assignment was withdrawn). Allocate automatically records it, and keeps it in the history.");
     expect(html).not.toContain('data-plc="run" disabled'); // so a person can record it
     expect(allocatePage(view())).not.toContain("has ended");
   });

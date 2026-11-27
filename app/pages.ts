@@ -374,7 +374,7 @@ export function attentionPage(v: View): string {
     }</td></tr>`;
   return `
     <h1>Needs attention</h1>
-    <p class="sub">Everything that needs a person, in one place. Nothing here is changed automatically. An item waiting for a category clears itself when you choose one.</p>
+    <p class="sub">Everything that needs a person, in one list. Nothing here is changed automatically. An item waiting for a category clears itself when you choose one.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics">${metric(open.length, "Open", open.length ? "warn" : "ok")}${metric(open.filter((i) => i.kind === "unrouted").length, "Items to sort")}${metric(done.length, "Reviewed")}</div>
     <div class="card"><h2>Open</h2>${open.length === 0 ? `<div class="empty">Nothing needs attention.</div>` : `<table><tbody>${open.map(card).join("")}</tbody></table>`}</div>

@@ -21,7 +21,7 @@ export interface RoleInfo {
 
 export const ROLES: RoleInfo[] = [
   { id: "admin", name: "Outcomes administrator", blurb: "Everything, including settings and approving releases.", permissions: Object.values(P) },
-  { id: "manager", name: "Fulfilment manager", blurb: "Gifts, partners, allocation and dashboards, and may approve releasing a place.", permissions: [P.access, P.viewWorkOrders, P.mapFrameworks, P.dashboards, P.approveRelease] },
+  { id: "manager", name: "Fulfilment manager", blurb: "Gifts, partners, allocation and dashboards, and may approve releasing a gift's allocation.", permissions: [P.access, P.viewWorkOrders, P.mapFrameworks, P.dashboards, P.approveRelease] },
   { id: "gifts", name: "Gifts officer", blurb: "Looks after gifts and sorts items into categories. No settings.", permissions: [P.access, P.viewWorkOrders, P.mapFrameworks] },
   { id: "agent", name: "Fulfilment agent", blurb: "Sees gifts and dashboards. Cannot change setup.", permissions: [P.access, P.viewWorkOrders, P.dashboards] },
   { id: "viewer", name: "Dashboard viewer", blurb: "Dashboards only.", permissions: [P.access, P.dashboards] },

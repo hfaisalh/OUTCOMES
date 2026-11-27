@@ -36,7 +36,7 @@ describe("Progress, used like a person would", () => {
     click({ page: "assignment" }, "data-page");
     click({ asg: "confirm" }, "data-asg"); await flush();
     click({ page: "progress" }, "data-page");
-    expect(shell.innerHTML).toContain("No gift is placed yet"); // placing comes first
+    expect(shell.innerHTML).toContain("No gift is allocated yet"); // placing comes first
     click({ page: "placement" }, "data-page");
     click({ plc: "run" }, "data-plc"); await flush();
 

@@ -43,6 +43,6 @@ describe("the Progress page", () => {
     expect(only).not.toContain("Donor G02");
   });
   it("asks for a placed gift when there is none", () => {
-    expect(progressPage(view({ placements: { records: [], counter: 0 } }))).toContain("No gift is placed yet");
+    expect(progressPage(view({ placements: { records: [], counter: 0 } }))).toContain("No gift is allocated yet");
   });
 });

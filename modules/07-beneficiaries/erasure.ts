@@ -6,7 +6,7 @@
  *
  * Rules:
  * - Erasing needs the beneficiary's ID typed back as confirmation, so a stray click cannot do it.
- * - Erasing a person removes their record, takes them out of any household, and removes their enrolments and the places those enrolments held. The gifts that filled those places are not touched: they are unplaced and wait to be placed again.
+ * - Erasing a person removes their record, takes them out of any household, and removes their enrolments and the places those enrolments held. The gifts that filled those places are not touched: they are unplaced and wait to be allocated again.
  * - Erasing a household removes only the household and its own enrolments. The persons in it stay.
  * - The ID is never used again (the register's counters are left as they are).
  * - Nothing is kept of the record: the server also blanks the change log entries about it.
@@ -49,7 +49,7 @@ export function eraseBeneficiary(reg: Register, enr: Enrolments, plc: Placements
     placements: { ...plc, records: plc.records.filter((p) => !goneIds.has(p.enrolmentId)) },
     name: b.name,
     enrolmentIds: [...goneIds],
-    message: `${b.name} (${id}) was erased, with ${gone.length} enrolment${gone.length === 1 ? "" : "s"} and ${places.length} place${places.length === 1 ? "" : "s"} filled.`,
+    message: `${b.name} (${id}) was erased, with ${gone.length} enrolment${gone.length === 1 ? "" : "s"} and ${places.length} allocation${places.length === 1 ? "" : "s"} removed.`,
   };
 }
 

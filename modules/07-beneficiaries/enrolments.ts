@@ -101,7 +101,7 @@ export function enrol(ctx: EnrolContext, enr: Enrolments, raw: { beneficiaryId: 
     if (rules.receiver === "person" && b.kind !== "person") return { error: `This benefit goes to a person, and ${b.name} is a household.` };
     if (rules.receiver === "household" && b.kind !== "household") return { error: `This benefit goes to a household, and ${b.name} is a person.` };
     // Rule: where the beneficiary comes first, a person must be approved. A role holder needs no admission decision.
-    if (rules.first === "beneficiary" && b.kind === "person" && role === "" && b.eligibility !== "ready") return { error: b.eligibility === "declined" ? `${b.name} cannot be offered a place (admission decision).` : `${b.name} needs an admission decision of Ready before being enrolled.` };
+    if (rules.first === "beneficiary" && b.kind === "person" && role === "" && b.eligibility !== "ready") return { error: b.eligibility === "declined" ? `${b.name} cannot be enrolled (admission decision).` : `${b.name} needs an admission decision of Ready before being enrolled.` };
   }
   if (role !== "" && !(cluster.roles ?? []).some((r) => r.toLowerCase() === role.toLowerCase())) return { error: `${cluster.name} does not list the role ${role}.` };
   const dup = enr.records.find((e) => e.status === "active" && e.beneficiaryId === beneficiaryId && e.giftProjectId === projectId && e.itemId === itemId && e.role.toLowerCase() === role.toLowerCase());

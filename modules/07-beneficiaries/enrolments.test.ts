@@ -70,7 +70,7 @@ describe("enrolling", () => {
     const review = add(e, "PRS-0005");
     expect("error" in review && review.error).toContain("needs an admission decision of Ready");
     const declined = add(e, "PRS-0006");
-    expect("error" in declined && declined.error).toContain("cannot be offered a place");
+    expect("error" in declined && declined.error).toContain("cannot be enrolled");
     // Where the gift comes first, no approval is needed.
     expect(enrol(ctx({ rulesOf: () => ({ first: "gift", receiver: "person", kindLabel: "Build" }) }), e, { beneficiaryId: "PRS-0005", giftProjectId: "aghosh", clusterId: "class-1", itemId: "WATER" })).toHaveProperty("value");
   });

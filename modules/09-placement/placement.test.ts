@@ -147,7 +147,7 @@ describe("history: nothing is deleted (DECISIONS 186)", () => {
     expect(run.message).toContain("1 placement ended (a plan was parked or a child left) and is kept as history.");
     const reset = applyPlacementAction(parkedCtx("cancelled"), run.value, { action: "plc-reset" });
     expect(reset && "value" in reset && reset.value.records).toEqual([]);
-    expect(reset && "message" in reset && reset.message).toBe("All placements were cleared, history included.");
+    expect(reset && "message" in reset && reset.message).toBe("All allocations were cleared, history included.");
   });
   it("removes an outcome that is taken back, since it never held a child, and keeps the number from being used again", () => {
     const c = ctx({ enrolments: [], assignments: [asg("G1", { itemId: "I11" })] });
@@ -287,7 +287,7 @@ describe("a person placing", () => {
     const full = placeManual(c(), placed(), "G2", "EN-1"); // EN-1 holds G1's two parts, G2 needs two of the one left
     expect("error" in full && full.error).toBe("Amina is already funded: 2 of 3 units taken, and this gift needs 2.");
     const pump = ctx({ assignments: [asg("G1", { itemId: "I11" })] });
-    expect(placeManual(pump, emptyPlacements(), "G1", "EN-1")).toEqual({ error: "This gift creates an outcome. It does not fill a place." });
+    expect(placeManual(pump, emptyPlacements(), "G1", "EN-1")).toEqual({ error: "This gift creates an outcome. It does not fund a beneficiary." });
   });
   it("takes a placement back, and refuses one that is not there", () => {
     expect(unplace(placed(), "G1")).toHaveProperty("value");
@@ -306,7 +306,7 @@ describe("fill and the page's requests", () => {
     const run = applyPlacementAction(c, emptyPlacements(), { action: "plc-run" });
     if (!run || "error" in run) throw new Error("run");
     expect(run.value.records).toHaveLength(2);
-    expect(run.message).toBe("Placed 2 with beneficiaries to fund and created 0 outcomes. 0 wait with no beneficiary to fund.");
+    expect(run.message).toBe("Allocated 2 with beneficiaries to fund and created 0 outcomes. 0 wait with no beneficiary to fund.");
     expect(applyPlacementAction(c, run.value, { action: "plc-set", key: "G1", enrolmentId: "EN-2" })).toHaveProperty("value");
     expect(applyPlacementAction(c, run.value, { action: "plc-unplace", key: "G1" })).toHaveProperty("value");
     const reset = applyPlacementAction(c, run.value, { action: "plc-reset" });

@@ -280,7 +280,7 @@ export function addBeneficiaries(outcomes: Outcome[], projects: Project[], nodes
   if (!p || !type) return { value: outcomes, error: "Choose a type of beneficiary." };
   const node = o.nodeId === "" ? undefined : nodes.find((x) => x.id === o.nodeId && x.projectId === o.projectId);
   if (o.nodeId !== "" && !node) return { value: outcomes, error: "That location was not found." };
-  if (node && type.levelId !== "" && node.levelId !== type.levelId) return { value: outcomes, error: `${type.name} beneficiaries belong to a ${p.levels.find((l) => l.id === type.levelId)?.name ?? "location"}, not a ${p.levels.find((l) => l.id === node.levelId)?.name ?? "this one"}. Choose a ${p.levels.find((l) => l.id === type.levelId)?.name ?? "place"}, or leave the place empty and place them later.` };
+  if (node && type.levelId !== "" && node.levelId !== type.levelId) return { value: outcomes, error: `${type.name} beneficiaries belong to a ${p.levels.find((l) => l.id === type.levelId)?.name ?? "location"}, not a ${p.levels.find((l) => l.id === node.levelId)?.name ?? "this one"}. Choose a ${p.levels.find((l) => l.id === type.levelId)?.name ?? "location"}, or leave the location empty and set it later.` };
   const groupIds = [...new Set((o.groupIds ?? []).filter((g) => g !== ""))];
   if (groupIds.length > 0 && !node) return { value: outcomes, error: "Choose the location first, since a group is inside a location." };
   const seen = new Set<string>();
@@ -638,7 +638,7 @@ export function applyProjectAction(s: ProjectState, fw: FrameworkTemplate[], bod
       const field = str("field", 60);
       const r = addNode(s.nodes, s.projects, project.id, str("levelId"), str("parentId"), str("name"), field !== "" ? { [field]: str("fieldValue", 200) } : {});
       if (r.error) return fail(r.error);
-      return r.value.length > MAX_RECORDS ? fail(`There can be at most ${MAX_RECORDS} places.`) : done({ ...s, nodes: r.value });
+      return r.value.length > MAX_RECORDS ? fail(`There can be at most ${MAX_RECORDS} locations.`) : done({ ...s, nodes: r.value });
     }
     case "remove-node": {
       const r = removeNode(s.nodes, s.outcomes, str("nodeId"));
@@ -768,7 +768,7 @@ export function placeInPartner(allocations: Allocation[], commitments: Commitmen
 function placeAmong(allocations: Allocation[], commitments: Commitment[], outcomes: Outcome[], fw: FrameworkTemplate[], commitmentKey: string, fits: (o: Outcome) => boolean, where: string, at: string, policy?: Policy): Changed<Allocation[]> {
   const c = commitments.find((x) => x.subscriptionId === commitmentKey);
   if (!c) return { value: allocations, error: "That gift was not found." };
-  if (!asksForPlace(c, fw, policy)) return { value: allocations, error: "That gift no longer asks for a place: it is cancelled, fully paid, or unpaid beyond the grace days." };
+  if (!asksForPlace(c, fw, policy)) return { value: allocations, error: "That gift no longer asks to be allocated: it is cancelled, fully paid, or unpaid beyond the grace days." };
   const candidates = outcomes.filter((o) => o.active && o.frameworkId === c.frameworkId && fits(o));
   const others = allocations.filter((a) => a.commitmentKey !== commitmentKey);
   const live = new Set(commitments.filter((x) => takesCapacity(x, fw)).map((x) => x.subscriptionId));

@@ -74,7 +74,7 @@ function detailsHtml(state: ClusterState, c: Cluster): string {
   return `<section class="cl-form">
     <label>Name<input id="cn-name" value="${esc(c.name)}"></label>
     <label>Called<input id="cn-label" list="cl-labels" value="${esc(c.label)}" placeholder="For example Home, Faculty, Classroom"></label>
-    <label>Place<input id="cn-place" value="${esc(c.place)}"></label>
+    <label>Location<input id="cn-place" value="${esc(c.place)}"></label>
     <label>Roles it needs<input id="cn-roles" value="${esc((c.roles ?? []).join(", "))}" placeholder="For example Principal, Warden (separate with commas)"></label>
     <label>Status<select id="cn-status"><option value="active"${c.status === "active" ? " selected" : ""}>Active</option><option value="closed"${c.status === "closed" ? " selected" : ""}>Closed</option></select></label>
     ${top ? `<label>Total capacity<input id="cn-capacity" type="number" min="0" value="${c.capacity ?? ""}" placeholder="Shared evenly down through what is inside"></label>` : `<p class="muted">Capacity is set on the master cluster. Its even share here is ${share !== undefined ? `about <b>${share}</b>` : "not set yet"}, as a guide.</p>`}

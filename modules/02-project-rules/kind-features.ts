@@ -35,7 +35,7 @@ export const ON_END: { id: OnEnd; label: string }[] = [{ id: "reallocate", label
 export interface KindFeatures { what: string; prefix: string; duplicateOn: string[]; onEnd: OnEnd; props: KindProps; fields: KindField[] }
 
 export const PROP_LABELS: { id: Exclude<keyof KindProps, "receiver" | "first">; label: string; hint: string }[] = [
-  { id: "location", label: "Needs a location", hint: "A place and GPS are part of the proof" },
+  { id: "location", label: "Needs a location", hint: "A location and GPS are part of the proof" },
   { id: "sensitive", label: "Holds sensitive data", hint: "Role-based access, and donor contacts are never shown to a partner" },
   { id: "eligibility", label: "Eligibility check", hint: "For example Zakat: the recipient must be eligible" },
   { id: "onBehalf", label: "On behalf of", hint: "Done in the name of someone, with a tribute or a certificate" },

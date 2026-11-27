@@ -122,7 +122,7 @@ export function standingOf(reg: Register, enr: Enrolments, giftProjects: GiftPro
   const mine = enr.records.filter((e) => e.giftProjectId === pid && e.beneficiaryId === b.id);
   if (mine.some((e) => e.status === "active")) return `Enrolled in ${name}.`;
   if (mine.length > 0) return `Was enrolled in ${name}.`;
-  if (b.eligibility === "declined") return `Cannot be offered a place in ${name}.`;
+  if (b.eligibility === "declined") return `Cannot be enrolled in ${name}.`;
   const pos = positionOf(reg, enr, b);
   if (pos) return `Waiting for ${name}: ${pos.position} of ${pos.of} in line (${b.priority ? "priority, then first come first served" : "first in, first out"}).`;
   return `Waiting for ${name}, but a person has to look at the record first${b.eligibilityNote ? ` (${b.eligibilityNote.replace(AUTO_NOTE, "").trim()})` : ""}.`;
