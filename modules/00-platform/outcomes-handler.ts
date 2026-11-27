@@ -29,7 +29,8 @@ import { batchSizeOf } from "../08-assignment/batches.js";
 import { loadSampleSetup, realProjectsFor, wholeByItem, type SampleState, removeSampleSetup, sampleSummaryText, removedSummaryText } from "../07-beneficiaries/sample-setup.js";
 import { poolMessage, settlePool } from "../07-beneficiaries/waiting.js";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf } from "../07-beneficiaries/enrolments.js";
-import { json, need, text, type Deps, type HttpRequest, type HttpResponse } from "./http.js";
+import { handlePartner } from "./partner-handler.js";
+import { json, need, sessionOf, text, type Deps, type HttpRequest, type HttpResponse } from "./http.js";
 
 // GET /api/outcomes   The outcomes and what is allocated to them.
 // POST /api/outcomes  { action, ... }  add (name, count, type, cohort, frameworkId), active (id, active), remove (id), auto, move (commitmentKey, outcomeId), release (commitmentKey).
@@ -38,6 +39,8 @@ export const MAX_OUTCOMES = 5000;
 export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpResponse> {
   const write = req.method === "POST";
   if (req.method !== "GET" && !write) return text(404, "Not found.");
+  // Rule (DECISIONS 249): a partner's sign-in gets its own slice from this same address (the host allows only 12 functions), and can do nothing else here.
+  if (sessionOf(req, d)?.partner !== undefined) return handlePartner(req, d);
   const a = need(req, d, write ? P.mapFrameworks : P.viewWorkOrders);
   if ("response" in a) return a.response;
   const org = a.claims.org;

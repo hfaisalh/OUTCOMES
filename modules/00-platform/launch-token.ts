@@ -24,6 +24,7 @@ export interface Claims {
   name: string; // display name only
   org: string; // the organisation. Every record belongs to one (DECISIONS 23)
   perms: string[]; // OUTCOMES permissions from the person's CRM role (menu.ts PERMISSIONS)
+  partner?: string; // set only for a partner's sign-in: the one partner whose data this person may see (DECISIONS 249). Staff have none
   iat: number; // issued at, seconds
   exp: number; // expires at, seconds
 }
@@ -76,7 +77,7 @@ export function verifyToken(secret: string, token: string, expected: TokenType, 
     return { ok: false, reason: "malformed" };
   }
   if (c.typ !== expected) return { ok: false, reason: "wrong_type" };
-  if (typeof c.jti !== "string" || c.jti === "" || typeof c.sub !== "string" || c.sub === "" || typeof c.name !== "string" || typeof c.org !== "string" || c.org === "" || !isStringArray(c.perms) || typeof c.iat !== "number" || typeof c.exp !== "number") {
+  if (typeof c.jti !== "string" || c.jti === "" || typeof c.sub !== "string" || c.sub === "" || typeof c.name !== "string" || typeof c.org !== "string" || c.org === "" || !isStringArray(c.perms) || (c.partner !== undefined && (typeof c.partner !== "string" || c.partner === "")) || typeof c.iat !== "number" || typeof c.exp !== "number") {
     return { ok: false, reason: "missing_claims" };
   }
   if (c.exp <= nowSeconds) return { ok: false, reason: "expired" };
@@ -87,7 +88,7 @@ export function verifyToken(secret: string, token: string, expected: TokenType, 
 
 // Rule: a session carries the same person, organisation and permissions, with its own id and a longer life.
 export function sessionFrom(launch: Claims, sessionId: string, nowSeconds: number): Claims {
-  return { typ: "session", jti: sessionId, sub: launch.sub, name: launch.name, org: launch.org, perms: launch.perms, iat: nowSeconds, exp: nowSeconds + SESSION_SECONDS };
+  return { typ: "session", jti: sessionId, sub: launch.sub, name: launch.name, org: launch.org, perms: launch.perms, ...(launch.partner ? { partner: launch.partner } : {}), iat: nowSeconds, exp: nowSeconds + SESSION_SECONDS };
 }
 
 export const SESSION_COOKIE = "outcomes_session";

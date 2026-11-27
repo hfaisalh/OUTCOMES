@@ -8,6 +8,7 @@
 
 import { PERMISSIONS as P } from "../../app/menu.js";
 import type { CrmReader, CrmReporter } from "../01c-crm-connector/reader.js";
+import { PARTNER_PERMISSION } from "../13-partner-portal/scope.js";
 import { readCookie, SESSION_COOKIE, verifyToken, type Claims } from "./launch-token.js";
 import { ConflictError, type OrgConfig, type Store } from "./store.js";
 
@@ -50,6 +51,9 @@ export function need(req: HttpRequest, d: Deps, perm: string): { claims: Claims 
   const claims = sessionOf(req, d);
   if (!claims) return { response: json(401, { error: "Please open OUTCOMES from the CRM to sign in." }) };
   if (!claims.perms.includes(P.access) || !claims.perms.includes(perm)) return { response: json(403, { error: "Your CRM role does not allow this." }) };
+  // Rule (DECISIONS 249): a partner's sign-in reaches the partner's own endpoint only, whatever permissions its token lists. Staff never hold the partner permission.
+  if (claims.partner !== undefined && perm !== PARTNER_PERMISSION) return { response: json(403, { error: "This is not open to a partner sign-in." }) };
+  if (perm === PARTNER_PERMISSION && claims.partner === undefined) return { response: json(403, { error: "This is for a partner's sign-in." }) };
   return { claims };
 }
 

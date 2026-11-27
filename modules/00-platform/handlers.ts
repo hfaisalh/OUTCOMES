@@ -25,9 +25,11 @@ import { unpackFeed } from "../01e-crm-export-adapter/compact.js";
 import { backfillFrameworks, deriveParts, reapplyFrameworks, rerouteUnrouted, runPickup } from "./pickup.js";
 import { defaultConfig, setupOf, type OrgConfig } from "./store.js";
 import { autoCreateProjects } from "../06-projects/projects.js";
+import { PARTNER_PERMISSIONS } from "../13-partner-portal/scope.js";
 import { json, need, nowSeconds, sessionOf, text, type Deps, type HttpRequest, type HttpResponse } from "./http.js";
 export type { Deps, HttpRequest, HttpResponse } from "./http.js";
 export { handleOutcomes, MAX_OUTCOMES } from "./outcomes-handler.js";
+export { handlePartner } from "./partner-handler.js";
 
 // GET /api/launch?token=...  The CRM sends the person here. Starts a session and sends them to the app.
 export async function handleLaunch(req: HttpRequest, d: Deps): Promise<HttpResponse> {
@@ -37,6 +39,8 @@ export async function handleLaunch(req: HttpRequest, d: Deps): Promise<HttpRespo
   const v = verifyToken(d.secrets.launch, token, "launch", now);
   if (!v.ok) return text(401, EXPLAIN[v.reason]);
   if (!v.claims.perms.includes(P.access)) return text(403, "Your CRM role does not allow OUTCOMES.");
+  // Rule (DECISIONS 249): a partner's sign-in never carries staff permissions, whatever the token lists.
+  if (v.claims.partner !== undefined) v.claims.perms = v.claims.perms.filter((p) => PARTNER_PERMISSIONS.includes(p));
   // Rule: each launch token works once, so a copied link is useless.
   if (!(await d.store.useLaunchId(v.claims.jti, v.claims.exp, now))) return text(401, "The sign-in link was already used. Open OUTCOMES from the CRM again.");
   const session = signToken(d.secrets.session, sessionFrom(v.claims, d.newId(), now));
@@ -48,9 +52,16 @@ export async function handleLaunch(req: HttpRequest, d: Deps): Promise<HttpRespo
 // pretend one (Module 1d). Rule: it answers 404 unless the server was set up for testing (DEMO_LOGIN=1),
 // and it can only ever open the "demo" organisation, never a real one.
 export const DEMO_ORG = "demo";
-export async function handleDemoLogin(_req: HttpRequest, d: Deps): Promise<HttpResponse> {
+export async function handleDemoLogin(req: HttpRequest, d: Deps): Promise<HttpResponse> {
   if (!d.demoLogin) return text(404, "Not found.");
   const now = nowSeconds(d);
+  // Test sign-in as a partner (DECISIONS 249): /api/demo-login?partner=<partner id>. Sees only that partner's own data.
+  const partner = req.query["partner"] ?? "";
+  if (partner !== "") {
+    const pc: Claims = { typ: "launch", jti: d.newId(), sub: `partner-${partner}`, name: "Demo partner", org: DEMO_ORG, perms: PARTNER_PERMISSIONS, partner, iat: now, exp: now + 60 };
+    const ps = signToken(d.secrets.session, sessionFrom(pc, d.newId(), now));
+    return { status: 302, headers: { location: "/app/", "set-cookie": sessionCookie(ps, SESSION_SECONDS), "cache-control": "no-store" } };
+  }
   const config = (await d.store.getConfig(DEMO_ORG)) ?? defaultConfig();
   if (config.crm.kind === "none") await d.store.putConfig(DEMO_ORG, { ...config, crm: { kind: "demo" } });
   const claims: Claims = { typ: "launch", jti: d.newId(), sub: "demo-user", name: "Demo administrator", org: DEMO_ORG, perms: Object.values(P), iat: now, exp: now + 60 };
@@ -67,7 +78,7 @@ export async function handleMe(req: HttpRequest, d: Deps): Promise<HttpResponse>
   if (!c) return json(401, { error: "Not signed in." });
   // `demo` tells the page it is talking to the pretend CRM, so it can refresh by itself.
   const kind = (await d.store.getConfig(c.org))?.crm.kind;
-  return json(200, { name: c.name, org: c.org, perms: c.perms, expiresAt: c.exp, storage: d.storage, demo: kind === "demo", upload: kind === "upload" });
+  return json(200, { name: c.name, org: c.org, perms: c.perms, ...(c.partner ? { partner: c.partner } : {}), expiresAt: c.exp, storage: d.storage, demo: kind === "demo", upload: kind === "upload" });
 }
 
 // GET and PUT /api/config  Categories, framework templates, and the item maps. PUT needs permission to map items.
