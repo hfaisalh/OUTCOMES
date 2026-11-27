@@ -70,4 +70,11 @@ describe("giftRows", () => {
     expect(row.notes.map((n) => n.text)).toContain("Legacy opening");
     expect(row.payments).toHaveLength(2); // but it is still listed under its gift
   });
+  it("drops the Legacy opening note once the old site's payments were found, since that is its explanation, and keeps it when they were not (DECISIONS 269)", () => {
+    const prior = { match: "found" as const, count: 64, first: "2020-10-20", last: "2026-01-20", total: 2240, opening: true };
+    const found = [inst("0", 1, "2026-10-31", { legacyUpload: true }), inst("1", 2, "2026-07-01", { prior })];
+    expect(giftRows(found, found)[0]!.notes.map((n) => n.text)).not.toContain("Legacy opening");
+    const ambiguous = [inst("0", 1, "2026-10-31", { legacyUpload: true }), inst("1", 2, "2026-07-01", { prior: { ...prior, match: "ambiguous" as const, count: 0 } })];
+    expect(giftRows(ambiguous, ambiguous)[0]!.notes.map((n) => n.text)).toContain("Legacy opening");
+  });
 });

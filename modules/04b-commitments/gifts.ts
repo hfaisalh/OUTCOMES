@@ -60,7 +60,7 @@ const notesOf = (c: Commitment, catchUpFixedParts: boolean): GiftRow["notes"] =>
   ([
     c.carriedOver ? { text: "Carried over from the old site", title: "This plan was brought over from the previous website. Check that the item and project the migration chose are right (for example Orphan Sponsorship, when the old site sold Custom Amount), and exclude the gift if they are not." } : null,
     c.gaps.length ? { text: `Missing instalment ${c.gaps.join(", ")}` } : null,
-    c.legacyOpening ? { text: "Legacy opening", title: "The first record was loaded from the old website. Instalments paid there are not in our data and are not counted." } : null,
+    c.legacyOpening && c.prior?.match !== "found" ? { text: "Legacy opening", title: "The first record was loaded from the old website. Instalments paid there are not in our data and are not counted." } : null,
     c.startsLate && !c.legacyOpening && c.prior?.match !== "found" ? { text: `Starts at ${c.numbers[0]}`, title: "Earlier instalments are not in our data." } : null,
     c.partsVary ? { text: "Parts differ between instalments" } : catchUpFixedParts ? { text: "Parts differ between instalments", title: "Resolved: a payment was marked as covering more than one instalment.", resolved: true } : null,
     c.conflict ? { text: "Lines disagree on supporter or item" } : null,
