@@ -147,7 +147,7 @@ function paymentsTable(g: GiftRow, v: View): string {
 // Everything the list needs, worked out once: the gifts after the filters, and where each is allocated.
 // The columns a person may hide (DECISIONS 215). The tick box, the type icon, Donor, Item and Status always show.
 export const GIFT_COLUMNS: [string, string][] = [["recid", "Rec. ID"], ["site", "Site"], ["project", "Project"], ["origin", "Old site"], ["plan", "Plan"], ["value", "Value"], ["paid", "Paid"], ["next", "Next"], ["stage", "Stage"], ["assigned", "Assigned to"], ["alloc", "Allocated to"]];
-export const GIFT_HIDDEN_DEFAULT = ["recid", "value"];
+export const GIFT_HIDDEN_DEFAULT = ["recid", "value", "origin"]; // the Old site column is off by default: the icon beside the gift says it, and the column is there to filter by (DECISIONS 266)
 
 // Rule (DECISIONS 214): a click on a heading sorts the list by it, a second click reverses it. Empty values go last in either direction. Without a choice the list keeps its own order.
 const giftValue = (g: GiftRow): number => g.payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0);
@@ -170,6 +170,8 @@ export const FILTER_COLUMNS: [string, string][] = [["site", "Site"], ["origin", 
 const ALLOC_LABEL: Record<string, string> = { allocated: "Allocated", waiting: "Waiting for allocation", manual: "Allocate manually", none: "Not allocated", "n/a": "Not needed" };
 // One question only (DECISIONS 264, 265): was the gift's plan carried over from the old website? How it is paid is the Plan column's business, so a single payment is simply "Not carried over".
 const carried = (g: GiftRow): boolean => g.payments.some((w) => w.carriedOver === true);
+const LEGACY_TEXT = "Carried over from the old site. Check the item the migration chose is right.";
+const legacyIcon = `<span class="legacyic" title="${LEGACY_TEXT}" role="img" aria-label="Carried over from the old site">${SYM.legacy}</span>`;
 const originOf = (g: GiftRow): string => (carried(g) ? "Carried over" : "Not carried over");
 
 // The country code of a gift (DECISIONS 261), from its first payment. "" when the feed gave none.
@@ -386,13 +388,13 @@ export function giftListHtml(v: View): string {
     const reason = g.kind === "excluded" ? g.payments[0]?.exclusion?.reason ?? "" : "";
     const cells: [string, string][] = [
       ["select", `<td><input type="checkbox" data-sel-gift="${esc(g.key)}" data-keys="${esc(g.payments.map((w) => w.key).join(" "))}" title="Tick every payment of this gift" aria-label="Select this gift"${ticked ? " checked" : ""}></td>`],
-      ["kind", `<td class="c">${kindIcon(g)}</td>`],
+      ["kind", `<td class="c">${kindIcon(g)}${carried(g) ? legacyIcon : ""}</td>`],
       ["recid", `<td class="num muted">${g.kind === "recurring" ? esc(g.key) : ""}</td>`],
       ["site", `<td class="c">${siteChip(siteOf(g), g.payments[0]?.currency)}</td>`],
       ["donor", `<td class="clip" title="${esc(g.supporterName)} ${esc(g.supporterId)}">${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span></td>`],
       ["item", `<td class="clip" title="${esc(g.itemName)}">${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""}${g.unrouted && first ? ` ${workflowPicker(v, first.itemId)}` : ""}</td>`],
       ["project", `<td class="clip" title="${esc([g.projectName, first?.cause ? `Cause: ${first.cause}` : ""].filter((x) => x !== "").join(". "))}">${projectCell(g.projectName, first?.cause ?? "")}</td>`],
-      ["origin", `<td class="c">${carried(g) ? `<span class="site old" title="Carried over from the old website. Check the item the migration chose is right.">Old site</span>` : ""}</td>`],
+      ["origin", `<td class="c">${carried(g) ? legacyIcon : ""}</td>`],
       ["plan", `<td class="num">${planCell(g)}</td>`],
       ["value", `<td class="num muted" title="Total of its payments, for reference">${money(g.payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0), currencyOf(g))}</td>`],
       ["paid", `<td class="num" title="${esc(paid)}">${esc(shortDate(paid))}</td>`],
@@ -490,7 +492,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Recurring ID", g.kind === "recurring" ? `<b>${esc(g.key)}</b>` : "")}
         ${row("Project chosen", esc(g.projectName))}
         ${row("Site", first?.site ? `${siteChip(first.site, first.currency)} <span class="muted">${esc(first.currency ?? "")}</span>` : "")}
-        ${row("Old site", carried(g) ? `<span class="site old">Old site</span> <span class="muted">Carried over from the old website</span>` : "")}
+        ${row("Old site", carried(g) ? `<span class="legacyic" aria-hidden="true">${SYM.legacy}</span> <span class="muted">Carried over from the old website</span>` : "")}
         ${row("Cause", esc(first?.cause ?? ""))}
         ${row("Tribute", esc(first?.tribute ?? ""))}
         ${row("Parts per instalment", partsControl ? `<span class="partsrow">${partsControl}</span>${fixed ? `<div class="muted">Set manually. The CRM says ${esc(String(g.payments.find((w) => w.legacyUpload !== true) ? sentPartsOf(g.payments.find((w) => w.legacyUpload !== true) as WorkOrder) : g.parts))}.</div>` : ""}` : "")}
