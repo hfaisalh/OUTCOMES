@@ -24,6 +24,7 @@ function state(): PartnerState {
   const ids = register.records.map((b) => b.id);
   const e = (id: string, b: string, project: string) => ({ id, beneficiaryId: b, giftProjectId: project, clusterId: "c", itemId: "SPONSOR", role: "", status: "active" as const, since: "2026-11-01" });
   return {
+    itemNames: { SPONSOR: "Orphan Sponsorship", OTHER: "Another benefit" },
     partners: [partner("p1", "Alpha Trust"), partner("p2", "Beta Trust")],
     giftProjects: [project("g1", ["p1"]), project("g2", ["p2"]), project("g3", ["p1", "p2"])],
     register,
@@ -45,6 +46,10 @@ describe("what a partner sees", () => {
     expect(s.confirmations.map((c) => c.key)).toEqual(["sub:1"]);
     expect(s.progress.map((r) => r.key)).toEqual(["sub:1", "p1|1"]);
     expect(s.placements.map((r) => r.outcomeRef)).toEqual(["OUT-1"]);
+  });
+
+  it("names only the benefits of the partner's own projects and gifts", () => {
+    expect(partnerSlice(state(), "p1")!.itemNames).toEqual({ SPONSOR: "Orphan Sponsorship" });
   });
 
   it("shows the other partner exactly the mirror, so nothing leaks either way", () => {

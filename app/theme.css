@@ -555,7 +555,18 @@ tr.rowlink[data-cnfwin]{cursor:pointer}tr.rowlink[data-cnfwin]:hover td{backgrou
 
 /* The Projects list is figures (DECISIONS 245): numbers line up on the right, and a full project's vacant figure is amber. */
 .ptable th.num,.ptable td.num{text-align:right;font-variant-numeric:tabular-nums}.ptable td.num.full{color:#9a6200;font-weight:600}
-/* Partner sign-in home (DECISIONS 250): a top bar, then the figures, then the children beside the projects and profile. One column on a phone. */
-.phome{min-height:100vh;background:var(--bg)}.phome-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 24px;background:var(--card);border-bottom:1px solid var(--line)}.phome-who{display:flex;align-items:center;gap:12px}
-.phome-main{max-width:1180px;margin:0 auto;padding:20px 24px 40px}.phome-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:16px;align-items:start}.phome-side{display:grid;gap:16px}.phome-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-@media (max-width:820px){.phome-bar,.phome-main{padding-left:16px;padding-right:16px}.phome-grid{grid-template-columns:minmax(0,1fr)}}
+/* Partner screen (DECISIONS 250, 251): the same blue top bar as the staff screens, the journey strip, then the gifts and children beside the projects and profile. One column on a phone. */
+.phome{min-height:100vh;background:var(--bg)}
+.phome-bar{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;min-height:56px;padding:6px 20px;background:var(--header-gradient);color:#fff}
+.phome-brand{font-size:17px;font-weight:600;letter-spacing:.5px}.phome-brand small{font-weight:400;font-size:12px;opacity:.75;margin-left:8px}
+.phome-who{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.phome-who .ver{font-size:11px;background:rgba(255,255,255,.15);border-radius:8px;padding:2px 8px}.phome-who button{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.35)}
+.phome-main{max-width:1240px;margin:0 auto;padding:20px 24px 40px}.phome-main h1{margin:0 0 2px}.phome-main .sub{margin:0 0 16px}
+.phome-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:16px;align-items:start}.phome-col,.phome-side{display:grid;gap:16px;min-width:0}.phome-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.tablewrap{overflow-x:auto}
+.pj{margin-bottom:16px}.pj h2{margin-top:0}.pj-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;counter-reset:none}
+.pj-step{position:relative;display:grid;gap:2px;align-content:start;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);transition:transform .18s ease,box-shadow .18s ease}
+.pj-step:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.07)}.pj-step.has{border-color:var(--accent,#2f4b9a)}.pj-step:not(:last-child)::after{content:"";position:absolute;right:-13px;top:50%;width:12px;height:2px;background:var(--line)}
+.pj-n{font-size:26px;font-weight:600;line-height:1.1}.pj-t{font-weight:600}.pj-s{font-size:12px;line-height:1.4}.pj-refused{margin:10px 0 0;font-size:12px}
+@media (prefers-reduced-motion:reduce){.pj-step{transition:none}.pj-step:hover{transform:none}}
+@media (max-width:980px){.phome-grid{grid-template-columns:minmax(0,1fr)}.pj-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.pj-step:not(:last-child)::after{display:none}}
+@media (max-width:560px){.phome-bar,.phome-main{padding-left:16px;padding-right:16px}.pj-steps{grid-template-columns:minmax(0,1fr)}}

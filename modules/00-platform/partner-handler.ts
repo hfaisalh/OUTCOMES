@@ -23,7 +23,11 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
   if ("response" in a) return a.response;
   const config = (await d.store.getConfig(a.claims.org)) ?? defaultConfig();
   const migrated = migrateGiftProjects(config.projects ?? [], config.giftProjects ?? []);
+  // Names of the benefits, from the work orders. Only item id and name are taken, never a donor or an amount.
+  const itemNames: Record<string, string> = {};
+  for (const w of await d.store.listWorkOrders(a.claims.org)) if (w.itemName) itemNames[w.itemId] = w.itemName;
   const slice = partnerSlice({
+    itemNames,
     partners: migrated.partners,
     giftProjects: migrated.giftProjects,
     register: config.beneficiaries ?? emptyRegister(),

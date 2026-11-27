@@ -33,6 +33,7 @@ export interface PartnerState {
   confirmations: Confirmations;
   progress: Progress;
   placements: Placements;
+  itemNames?: Record<string, string>; // the name of each benefit (a gift item), from the work orders. Names only, never anything about a donor
 }
 
 // The profile fields a partner may see. Everything else on the record stays with MWF.
@@ -47,6 +48,7 @@ export interface PartnerSlice {
   confirmations: Confirmations["records"];
   progress: Progress["records"];
   placements: Placements["records"];
+  itemNames: Record<string, string>; // only the benefits of the partner's own gifts and projects
 }
 
 // --- The rule ---
@@ -65,6 +67,10 @@ export function partnerSlice(s: PartnerState, partnerId: string): PartnerSlice |
   const assignments = s.assignments.records.filter((a) => a.partnerId === partnerId);
   const keys = new Set(assignments.map((a) => a.key));
 
+  // Rule: a benefit's name is sent only for the benefits the partner's own projects offer or its own gifts are for.
+  const itemNames: Record<string, string> = {};
+  for (const id of [...projects.flatMap((g) => g.itemIds ?? []), ...assignments.map((a) => a.itemId)]) if (s.itemNames?.[id] !== undefined) itemNames[id] = s.itemNames[id] as string;
+
   return {
     partner: profile as PartnerSlice["partner"],
     giftProjects: projects.map((g) => ({ id: g.id, name: g.name, itemIds: g.itemIds ?? [], clusters: g.clusters ?? [], ...(g.enrolAuto ? { enrolAuto: true as const } : {}) })),
@@ -76,5 +82,6 @@ export function partnerSlice(s: PartnerState, partnerId: string): PartnerSlice |
     progress: s.progress.records.filter((r) => keys.has(r.key) || r.key.startsWith(`${partnerId}|`)),
     // Rule: a placement is kept only when it fills no place, or a place of the partner's own beneficiary.
     placements: s.placements.records.filter((r) => keys.has(r.key) && (r.enrolmentId === "" || enrolmentIds.has(r.enrolmentId))),
+    itemNames,
   };
 }

@@ -10,7 +10,7 @@
 
 **Rules in one place.** `scope.ts` (`partnerSlice`, the permission names). The sign-in side is in `modules/00-platform` (`launch-token.ts` carries the `partner` claim, `http.ts` refuses a partner sign-in at staff endpoints, `partner-handler.ts` answers `GET /api/outcomes` for a partner session).
 
-**Built.** The sign-in screen with email and password, test accounts managed on Settings (DECISIONS 250), and a read-only Partner home (`app/partner-home.ts`). The rule and tests; the partner claim and permission; the server guard; a test sign-in at `/api/demo-login?partner=<partner id>` on test servers.
+**Built.** The partner screen with the journey strip and the gifts table (DECISIONS 251), the sign-in screen with email and password, test accounts managed on Settings (DECISIONS 250), and a read-only Partner home (`app/partner-home.ts`). The rule and tests; the partner claim and permission; the server guard; a test sign-in at `/api/demo-login?partner=<partner id>` on test servers.
 
 **Not built.** A limit on wrong passwords, adding children (one by one, CSV), accept or refuse a batch, work order details for its own gifts, the partner profile with two views, validated locations, partner costs.
 

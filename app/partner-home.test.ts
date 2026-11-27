@@ -19,31 +19,35 @@ const slice = (): PartnerSlice => ({
   beneficiaries: [kid("PRS-1", "Amina Khan", "ready", { targetProjectId: "g1" }), kid("PRS-2", "Bilal Ahmed", "review"), kid("PRS-3", "Chand Ali", "ready", { targetProjectId: "g1" })],
   enrolments: [{ id: "EN-1", beneficiaryId: "PRS-3", giftProjectId: "g1", clusterId: "c", itemId: "S", role: "", status: "active", since: "2026-11-01" }],
   assignments: [{ key: "sub:1", partnerId: "p1", giftProjectId: "g1", itemId: "S", parts: 1, how: "auto", at: "2026-11-02T00:00:00Z" }],
-  confirmations: [], progress: [], placements: [],
+  confirmations: [], progress: [], placements: [], itemNames: { S: "Orphan Sponsorship Monthly" },
 });
 
 describe("the partner's home screen", () => {
   it("shows the figures, the children and the projects, and escapes names", () => {
-    const html = partnerHomeHtml(slice(), "Sara");
+    const html = partnerHomeHtml(slice(), "Sara", "v0.1.0 · abc123");
     expect(html).toContain("Welcome, Alpha &lt;Trust&gt;");
     expect(html).toContain("<b>3</b><span>Children</span>");
     expect(html).toContain("<b>1</b><span>Enrolled</span>");
     expect(html).toContain("<b>1</b><span>Waiting for a vacancy</span>");
     expect(html).toContain("<b>1</b><span>Need details</span>");
-    expect(html).toContain("<b>1</b><span>Gifts to answer</span>");
+    expect(html).toContain('class="ver"');
+    expect(html).toContain("v0.1.0 · abc123");
+    expect(html).toContain("How outcomes work");
+    expect(html).toContain("Orphan Sponsorship Monthly");
     expect(html).toContain("Orphan homes");
     expect(html).toContain('data-action="sign-out"');
     expect(html).not.toContain("<Trust>");
   });
   it("shows the project a child is enrolled in, or else the one it waits for", () => {
-    const html = partnerHomeHtml(slice(), "Sara");
+    const html = partnerHomeHtml(slice(), "Sara", "v0.1.0 · abc123");
     expect(html).toContain("<td>PRS-3</td><td>Chand Ali</td><td>Orphan homes</td><td>Enrolled</td>");
     expect(html).toContain("<td>PRS-1</td><td>Amina Khan</td><td>Orphan homes</td><td>Ready</td>");
   });
   it("says so when there is nothing yet", () => {
     const empty = { ...slice(), beneficiaries: [], giftProjects: [], enrolments: [], assignments: [] };
-    expect(partnerHomeHtml(empty, "Sara")).toContain("No children yet");
-    expect(partnerHomeHtml(empty, "Sara")).toContain("No project has been given to you yet");
+    expect(partnerHomeHtml(empty, "Sara", "dev")).toContain("No gift has been assigned to you yet");
+    expect(partnerHomeHtml(empty, "Sara", "dev")).toContain("No children yet");
+    expect(partnerHomeHtml(empty, "Sara", "dev")).toContain("No project has been given to you yet");
   });
 });
 
