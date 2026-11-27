@@ -110,6 +110,40 @@ describe("what a partner can reach", () => {
     for (const secret of ["Private Donor", "DONOR-1", "Secret Group", "T-SECRET", "Someone else"]) expect(all).not.toContain(secret);
   });
 
+  it("lets a partner add and complete its own beneficiaries, and the waiting list enrols them by itself (DECISIONS 260)", async () => {
+    const cfg = (await d.store.getConfig("demo"))!;
+    await d.store.putConfig("demo", { ...cfg, beneficiaries: emptyRegister(), giftProjects: [{ id: "g1", name: "Orphan homes", crmNames: [], partnerIds: ["p1"], itemIds: ["S"], enrolAuto: true, clusters: [{ id: "c1", name: "Home", label: "Home", parentId: "", place: "", capacity: 1, status: "active" }] }, { id: "g2", name: "Other project", crmNames: [], partnerIds: ["p2"] }] as never });
+    const c = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
+    const post = (body: unknown) => handleOutcomes(as(c, { method: "POST", body }), d);
+    const full = { action: "ben-add", name: "Amina Khan", dob: "2016-04-02", guardian: "A mother", idNumber: "B-1", targetProjectId: "g1" };
+
+    const first = await post(full);
+    expect(first.status).toBe(200);
+    const body = first.body as { message: string; beneficiaries: { id: string; name: string; partnerId: string; eligibility: string }[]; enrolments: { beneficiaryId: string; auto?: boolean }[] };
+    expect(body.message).toBe("Added Amina Khan (PRS-0001). Enrolled in Orphan homes."); // complete, and there was room
+    expect(body.beneficiaries[0]).toMatchObject({ partnerId: "p1", eligibility: "ready" });
+    expect(body.enrolments).toMatchObject([{ beneficiaryId: "PRS-0001", auto: true }]);
+
+    const waiting = await post({ ...full, name: "Bilal Ahmed", idNumber: "B-2", guardian: "" }); // incomplete, and the home is full anyway
+    expect((waiting.body as { message: string }).message).toBe("Added Bilal Ahmed (PRS-0002). Add guardian before they can join the waiting list for Orphan homes.");
+    const done = await post({ action: "ben-set", id: "PRS-0002", name: "Bilal Ahmed", targetProjectId: "g1", guardian: "An uncle" });
+    expect((done.body as { message: string }).message).toBe("Saved Bilal Ahmed (PRS-0002). The record is complete, so they are on the waiting list for Orphan homes.");
+
+    expect((await post({ ...full, name: "Chand", idNumber: "B-3", targetProjectId: "g2" })).status).toBe(400); // a project the partner does not deliver
+    const saved = (await d.store.getConfig("demo"))!.beneficiaries!.records;
+    expect(saved.map((b) => [b.id, b.partnerId])).toEqual([["PRS-0001", "p1"], ["PRS-0002", "p1"]]);
+  });
+
+  it("does not let a partner touch another partner's beneficiary, or remove anyone", async () => {
+    const cfg = (await d.store.getConfig("demo"))!;
+    const other = cfg.beneficiaries!.records.find((b) => b.partnerId === "p2")!;
+    const c = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
+    const post = (body: unknown) => handleOutcomes(as(c, { method: "POST", body }), d);
+    expect((await post({ action: "ben-set", id: other.id, name: "Hacked", targetProjectId: "g1" })).status).toBe(400);
+    expect((await post({ action: "ben-remove", id: other.id })).status).toBe(400);
+    expect((await d.store.getConfig("demo"))!.beneficiaries!.records.find((b) => b.id === other.id)!.name).toBe(other.name);
+  });
+
   it("gives 404 for a partner that no longer exists", async () => {
     const c = cookieOf(await handleDemoLogin(req({ query: { partner: "gone" } }), d));
     expect((await handleOutcomes(as(c), d)).status).toBe(404);

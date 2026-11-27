@@ -9,12 +9,12 @@
 import { partnerOutcomes } from "../modules/13-partner-portal/outcomes";
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 import { batchesHtml } from "./partner-batches";
+import { beneficiariesCardHtml } from "./partner-beneficiaries";
 import { journeyHtml, type PartnerUi } from "./partner-outcomes";
 
 // --- Helpers ---
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const tile = (n: number, label: string): string => `<div class="metric"><b>${n}</b><span>${esc(label)}</span></div>`;
-const ELIGIBILITY: Record<string, string> = { ready: "Ready", review: "Needs review", declined: "Cannot be offered", "": "Not decided" };
 
 const clusterCount = (cs: { status: string }[]): string => { const n = cs.filter((c) => c.status === "active").length; return `${n} ${n === 1 ? "cluster" : "clusters"}`; };
 
@@ -28,11 +28,7 @@ export function partnerHomeHtml(slice: PartnerSlice, who: string, version: strin
   const enrolled = new Set(slice.enrolments.filter((e) => e.status === "active").map((e) => e.beneficiaryId));
   const waiting = people.filter((b) => b.eligibility === "ready" && !enrolled.has(b.id)).length;
   const review = people.filter((b) => b.eligibility === "review").length;
-  const projectName = (id: string): string => slice.giftProjects.find((g) => g.id === id)?.name ?? "";
-  // Rule: the project shown is the one the child is enrolled in, or else the one it is waiting for.
-  const projectOf = (id: string, target: string): string => projectName(slice.enrolments.find((e) => e.beneficiaryId === id && e.status === "active")?.giftProjectId ?? target);
 
-  const rows = all.map((b) => `<tr><td>${esc(b.id)}</td><td>${esc(b.name)}${b.kind === "household" ? ` <span class="muted">Household</span>` : ""}</td><td>${esc(projectOf(b.id, b.targetProjectId ?? ""))}</td><td>${enrolled.has(b.id) ? "Enrolled" : b.kind === "household" ? "Not enrolled" : esc(ELIGIBILITY[b.eligibility] ?? b.eligibility)}</td></tr>`).join("");
   const projects = slice.giftProjects.map((g) => `<li><b>${esc(g.name)}</b><span class="muted"> ${clusterCount(g.clusters ?? [])}</span></li>`).join("");
   const facts = [["Reference", p.reference], ["Type", p.type], ["Countries", p.countries], ["Reports by", p.reportVia], ["Batch size", p.batchSize !== undefined ? String(p.batchSize) : ""]].filter(([, v]) => v);
 
@@ -45,7 +41,7 @@ export function partnerHomeHtml(slice: PartnerSlice, who: string, version: strin
       <div class="metrics">${tile(all.length, "Beneficiaries")}${tile(enrolled.size, "Enrolled")}${tile(waiting, "Waiting for a vacancy")}${tile(review, "Need details")}</div>
       <div class="phome-grid">
         <div class="phome-col">${batchesHtml(gifts, ui)}
-          <section class="card"><h2>Your beneficiaries</h2>${rows ? `<div class="tablewrap"><table><thead><tr><th>ID</th><th>Name</th><th>Project</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">No beneficiaries yet. Adding them comes next.</div>`}</section></div>
+          ${beneficiariesCardHtml(slice, ui)}</div>
         <aside class="phome-side">
           <section class="card"><h2>Your projects</h2>${projects ? `<ul class="phome-list">${projects}</ul>` : `<div class="empty">No project has been given to you yet.</div>`}</section>
           <section class="card"><h2>Your profile</h2>${facts.length ? `<table><tbody>${facts.map(([k, v]) => `<tr><td class="muted">${esc(k as string)}</td><td>${esc(v as string)}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">Your profile has no details yet.</div>`}</section>

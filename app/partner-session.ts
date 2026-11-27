@@ -9,9 +9,10 @@
 import { partnerAnswer, viewAs } from "./api";
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 import type { PartnerUi } from "./partner-outcomes";
+import { SIMILAR } from "../modules/13-partner-portal/entry";
 
 // --- State of the screen: the open refusal form and the last message or error ---
-export const partnerUi: PartnerUi = { open: [], details: [], lastOpened: "", refusing: null, message: "", error: "" };
+export const partnerUi: PartnerUi = { open: [], details: [], lastOpened: "", refusing: null, form: null, message: "", error: "" };
 
 const keysOf = (el: HTMLElement): string[] => (el.dataset["keys"] ?? "").split("|").filter((k) => k !== "");
 const body = (yes: boolean, keys: string[], reason: string): Record<string, unknown> =>
@@ -30,7 +31,7 @@ async function send(request: Record<string, unknown>, apply: (s: PartnerSlice) =
   }
 }
 
-export async function handlePartnerAction(action: string, el: HTMLElement, apply: (s: PartnerSlice) => void, redraw: () => void): Promise<void> {
+export async function handlePartnerAction(action: string, el: HTMLElement, current: PartnerSlice | null, apply: (s: PartnerSlice) => void, redraw: () => void): Promise<void> {
   partnerUi.message = "";
   partnerUi.lastOpened = "";
   const viaKeyboard = el.matches?.(":focus-visible") ?? false; // only a keyboard user gets the focus ring put back, so a mouse click leaves no outline behind
@@ -39,6 +40,15 @@ export async function handlePartnerAction(action: string, el: HTMLElement, apply
     const wasOpen = partnerUi.open.includes(id);
     partnerUi.open = wasOpen ? partnerUi.open.filter((b) => b !== id) : [...partnerUi.open, id];
     if (!wasOpen) partnerUi.lastOpened = id; // only the batch just opened fades in, not every one on each redraw
+  } else if (action === "pt-add") {
+    partnerUi.form = { id: "", values: {}, error: "", similar: false };
+  } else if (action === "pt-edit") {
+    const b = current?.beneficiaries.find((x) => x.id === el.dataset["id"]);
+    if (b) partnerUi.form = { id: b.id, values: valuesOf(b), error: "", similar: false };
+  } else if (action === "pt-form-cancel") {
+    partnerUi.form = null;
+  } else if (action === "pt-form-save") {
+    await saveForm(apply);
   } else if (action === "pt-details") {
     const key = el.dataset["key"] ?? "";
     partnerUi.details = partnerUi.details.includes(key) ? partnerUi.details.filter((k) => k !== key) : [...partnerUi.details, key];
@@ -54,10 +64,34 @@ export async function handlePartnerAction(action: string, el: HTMLElement, apply
   restoreFocus(action, el, viaKeyboard);
 }
 
+// --- The beneficiary form: what is shown when editing, and what is sent on Save ---
+const FORM_FIELDS = ["name", "dob", "gender", "placeOfBirth", "idNumber", "fatherStatus", "motherStatus", "guardian", "guardianRelation", "area", "partnerRef", "targetProjectId"] as const;
+const valuesOf = (b: object): Record<string, string> => Object.fromEntries(FORM_FIELDS.map((f) => { const v = (b as Record<string, unknown>)[f]; return [f, typeof v === "string" ? v : ""]; }));
+const readForm = (): Record<string, string> => Object.fromEntries(FORM_FIELDS.map((f) => [f, (document.getElementById(`pe-${f}`) as HTMLInputElement | null)?.value ?? ""]));
+
+async function saveForm(apply: (s: PartnerSlice) => void): Promise<void> {
+  const form = partnerUi.form;
+  if (!form) return;
+  const values = readForm();
+  const allowSimilar = (document.getElementById("pe-different") as HTMLInputElement | null)?.checked === true;
+  try {
+    const { message, ...slice } = await partnerAnswer({ action: form.id ? "ben-set" : "ben-add", ...(form.id ? { id: form.id } : {}), ...values, allowSimilar });
+    apply(slice as PartnerSlice);
+    partnerUi.message = message ?? "";
+    partnerUi.form = null;
+  } catch (e) {
+    const error = e instanceof Error ? e.message : "Could not save.";
+    partnerUi.form = { ...form, values, error, similar: error.startsWith(SIMILAR) }; // what was typed is kept, and the error is shown under the form
+  }
+}
+
 // A redraw replaces the page, so keyboard focus is put back where the person was: the batch button they pressed, or the reason box they just opened.
 function restoreFocus(action: string, el: HTMLElement, viaKeyboard: boolean): void {
   if (action === "pt-toggle" && viaKeyboard) (document.querySelector(`[data-action="pt-toggle"][data-batch="${el.dataset["batch"] ?? ""}"]`) as HTMLElement | null)?.focus();
   else if (action === "pt-details" && viaKeyboard) (document.querySelector(`[data-action="pt-details"][data-key="${el.dataset["key"] ?? ""}"]`) as HTMLElement | null)?.focus();
+  else if (action === "pt-add" || action === "pt-edit") (document.getElementById("pe-name") as HTMLElement | null)?.focus(); // the form opens ready to type
+  else if (action === "pt-form-save" && partnerUi.form?.error) (document.getElementById("pe-error") as HTMLElement | null)?.focus(); // the error is read out and in view
+  else if ((action === "pt-form-save" || action === "pt-form-cancel") && viaKeyboard) (document.querySelector('[data-action="pt-add"]') as HTMLElement | null)?.focus();
   else if (action === "pt-refuse") (document.getElementById("pt-reason") as HTMLElement | null)?.focus();
 }
 

@@ -591,3 +591,11 @@ tr.rowlink[data-cnfwin]{cursor:pointer}tr.rowlink[data-cnfwin]:hover td{backgrou
 .gd{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 24px;margin:0;padding-top:8px}.gd-row{min-width:0}.gd-row:last-child{grid-column:1/-1}.gd dt{font-size:12px;color:var(--muted)}.gd dd{margin:0;font-size:13px;overflow-wrap:anywhere}.gd-phases{margin:0;padding-left:18px}.pb-due{font-size:12px}
 @media (pointer:coarse){.gd-toggle{min-height:44px}}
 @media (max-width:640px){.pb-body tr.detail-row td{padding-left:10px}.gd{grid-template-columns:minmax(0,1fr)}}
+/* Beneficiary form on the partner screen (DECISIONS 260): visible labels, two columns, one on a phone, 44px fields for touch. */
+.pe-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px}.pe-head h2{margin:0}.pe-head button{height:36px}
+.pe{display:grid;gap:12px;margin:4px 0 16px;padding:12px 0 4px;border-top:1px solid rgba(20,40,100,.09);border-bottom:1px solid rgba(20,40,100,.09)}
+.pe-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}.pe-f{display:grid;gap:4px;font-size:13px;min-width:0;align-content:start}.pe-f input,.pe-f select{font:inherit;height:36px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;width:100%}.pe-f input:focus-visible,.pe-f select:focus-visible{outline:2px solid var(--accent,#2f4b9a);outline-offset:1px}.pe-f abbr{color:#b42318;text-decoration:none}.pe-hint{font-size:12px}
+.pe-same{display:flex;gap:8px;align-items:center;font-size:13px}.pe-error:empty{display:none}.pe-error{padding:8px 12px;border-radius:8px;background:var(--bad-bg,#fdecea);color:#8a1f11;font-size:13px}.pe-error:focus{outline:2px solid #b42318;outline-offset:2px}.pe-note{margin:0;font-size:12px}
+.pe .actions{margin:0}.pe .actions button{height:36px}
+@media (pointer:coarse){.pe-f input,.pe-f select,.pe .actions button,.pe-head button{height:44px}}
+@media (max-width:640px){.pe-grid{grid-template-columns:minmax(0,1fr)}}

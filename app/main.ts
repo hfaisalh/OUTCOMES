@@ -722,7 +722,7 @@ document.addEventListener("click", (e) => {
     if (k && k in NO_CRITERIA && scope === "main") state.criteria = { ...state.criteria, [k]: NO_CRITERIA[k] };
   }
   if (action === "view-as") return void switchView(el.dataset["partner"] ?? "");
-  if (action?.startsWith("pt-")) return void handlePartnerAction(action, el, (slice) => { state.partnerSlice = slice; }, draw);
+  if (action?.startsWith("pt-")) return void handlePartnerAction(action, el, state.partnerSlice, (slice) => { state.partnerSlice = slice; }, draw);
   if (action === "show-signin") { state.topMenu = ""; state.gate = "signin"; return draw(); }
   if (action === "sign-out") {
     void signOut().finally(() => (globalThis as { location?: { assign(u: string): void } }).location?.assign("/app/"));

@@ -13,7 +13,7 @@ import type { Beneficiary } from "../modules/07-beneficiaries/beneficiaries";
 import type { View } from "./pages";
 import type { PartnerUi } from "./partner-outcomes";
 
-const QUIET: PartnerUi = { open: [], details: [], lastOpened: "", refusing: null, message: "", error: "" };
+const QUIET: PartnerUi = { open: [], details: [], lastOpened: "", refusing: null, form: null, message: "", error: "" };
 
 const kid = (id: string, name: string, eligibility: string, over: Partial<Beneficiary> = {}): Beneficiary => ({ id, kind: "person", name, status: "active", area: "", notes: "", dob: "", gender: "", guardian: "", guardianRelation: "", placeOfBirth: "", idNumber: "", fatherStatus: "", motherStatus: "", eligibility, eligibilityNote: "", partnerId: "p1", partnerRef: "", memberIds: [], ...over } as Beneficiary);
 const slice = (): PartnerSlice => ({
@@ -44,8 +44,8 @@ describe("the partner's home screen", () => {
   });
   it("shows the project a child is enrolled in, or else the one it waits for", () => {
     const html = partnerHomeHtml(slice(), "Sara", "v0.1.0 · abc123", QUIET);
-    expect(html).toContain("<td>PRS-3</td><td>Chand Ali</td><td>Orphan homes</td><td>Enrolled</td>");
-    expect(html).toContain("<td>PRS-1</td><td>Amina Khan</td><td>Orphan homes</td><td>Ready</td>");
+    expect(html).toContain('<td>PRS-3</td><td>Chand Ali</td><td>Orphan homes</td><td><span class="pill blue">Enrolled</span></td>');
+    expect(html).toContain('<td>PRS-1</td><td>Amina Khan</td><td>Orphan homes</td><td><span class="pill ready">On the waiting list</span></td>');
   });
   it("counts and lists households as beneficiaries too, so Enrolled is never more than Beneficiaries", () => {
     const s = slice();
@@ -211,5 +211,50 @@ describe("seeing what a gift is before accepting it (DECISIONS 259)", () => {
     const html = partnerHomeHtml(slice(), "Sara", "dev", { ...QUIET, open: ["none"], details: ["sub:1"] });
     expect(html).toContain("<dt>Intention</dt><dd><span class=\"muted\">Not given</span></dd>");
     expect(html).toContain("answer by 05/11/26");
+  });
+});
+
+describe("adding and completing beneficiaries (DECISIONS 260)", () => {
+  it("offers Add beneficiary, and an Edit for each person but not for a household", () => {
+    const s = slice();
+    s.beneficiaries = [...s.beneficiaries, { id: "HH-1", kind: "household", name: "Khan house", status: "active", memberIds: [] } as never];
+    const html = partnerHomeHtml(s, "Sara", "dev", QUIET);
+    expect(html).toContain('data-action="pt-add"');
+    expect(html).toContain('data-action="pt-edit" data-id="PRS-1" aria-label="Edit Amina Khan"');
+    expect(html).not.toContain('data-id="HH-1"');
+    expect(html).not.toContain('id="pe-form"'); // closed at first
+  });
+  it("says what a record still needs, in words, so the partner knows what to add", () => {
+    const s = slice();
+    s.beneficiaries = [kid("PRS-2", "Bilal Ahmed", "review", { guardian: "", idNumber: "", dob: "2015-01-01" })];
+    expect(partnerHomeHtml(s, "Sara", "dev", QUIET)).toContain('<span class="pill unrouted">Needs details</span><div class="muted">Add guardian, ID number</div>');
+  });
+  it("opens the form in place with a visible label for every field, the required ones marked, and the projects to choose from", () => {
+    const html = partnerHomeHtml(slice(), "Sara", "dev", { ...QUIET, form: { id: "", values: {}, error: "", similar: false } });
+    expect(html).toContain('id="pe-form" aria-label="Add a beneficiary"');
+    for (const label of ["Name", "Date of birth", "Gender", "National ID or B-form number", "Father", "Mother", "Parent or guardian", "Meant for project", "Area", "Your own reference"]) expect(html).toContain(label);
+    expect(html).toContain('id="pe-name" value="" autocomplete="off" required');
+    expect(html).toContain('id="pe-dob" value="" autocomplete="off" type="date"');
+    expect(html).toContain('<option value="g1" selected>Orphan homes</option>'); // one project: chosen for them
+    const form = html.slice(html.indexOf('<form class="pe"'), html.indexOf("</form>"));
+    expect(form).not.toMatch(/eligib|priorit|id="pe-status|id="pe-notes/i); // MWF's decisions are never asked
+    expect(html).toContain('data-action="pt-form-cancel"');
+    expect(html).toContain('<button class="primary" data-action="pt-add" disabled>Add beneficiary</button>'); // no second form while one is open
+  });
+  it("fills the form with what was saved when editing, and keeps what was typed after an error, announced and with the same-person box only for a possible match", () => {
+    const edit = partnerHomeHtml(slice(), "Sara", "dev", { ...QUIET, form: { id: "PRS-1", values: { name: "Amina <Khan>", guardian: "A mother" }, error: "", similar: false } });
+    expect(edit).toContain('aria-label="Complete this beneficiary"');
+    expect(edit).toContain('id="pe-name" value="Amina &lt;Khan&gt;"');
+    expect(edit).toContain(">Save</button>");
+    expect(edit).not.toContain('id="pe-different"');
+    const dup = partnerHomeHtml(slice(), "Sara", "dev", { ...QUIET, form: { id: "", values: { name: "Amina Khan" }, error: "Possible match: Amina Khan (PRS-1).", similar: true } });
+    expect(dup).toContain('id="pe-error" class="pe-error" role="alert" tabindex="-1">Possible match: Amina Khan (PRS-1).');
+    expect(dup).toContain('id="pe-different"');
+  });
+  it("tells a partner with no project that it needs one first, and shows the saved message", () => {
+    const s = slice();
+    s.giftProjects = [];
+    expect(partnerHomeHtml(s, "Sara", "dev", QUIET)).toContain("once MWF gives you a project to deliver");
+    expect(partnerHomeHtml(slice(), "Sara", "dev", { ...QUIET, message: "Added Amina Khan (PRS-1). Enrolled in Orphan homes." })).toContain('role="status">Added Amina Khan (PRS-1). Enrolled in Orphan homes.');
   });
 });

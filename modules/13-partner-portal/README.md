@@ -12,6 +12,6 @@
 
 **Built.** The partner screen with the journey strip and the gifts table (DECISIONS 251), the sign-in screen with email and password, test accounts managed on Settings (DECISIONS 250), and a read-only Partner home (`app/partner-home.ts`). The rule and tests; the partner claim and permission; the server guard; a test sign-in at `/api/demo-login?partner=<partner id>` on test servers.
 
-**Not built.** A limit on wrong passwords, adding children (one by one, CSV), accept or refuse a batch, work order details for its own gifts, the partner profile with two views, validated locations, partner costs.
+**Not built.** A limit on wrong passwords, the CSV upload of beneficiaries (one by one, CSV), accept or refuse a batch, work order details for its own gifts, the partner profile with two views, validated locations, partner costs.
 
 **How to test.** `npx vitest run modules/13-partner-portal modules/00-platform/partner-handler.test.ts`. Tests use invented data and double as examples.
