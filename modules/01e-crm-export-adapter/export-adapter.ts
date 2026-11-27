@@ -15,6 +15,7 @@
  * a display name (billing first and last name) go on.
  */
 
+import { siteCode } from "./site.js";
 import type { FeedRow } from "../01c-crm-connector/feed.js";
 
 export type ExportRow = Record<string, string>;
@@ -287,6 +288,8 @@ export function adaptExports(lines: ExportRow[], catalogue: ExportRow[], plans: 
       amount: pick(r, "Item Cost"),
       // Rule: the currency the line was paid in, as the CRM gives it. Never converted. Blank when the export has no Currency column (DECISIONS 81).
       currency: pick(r, "Currency"),
+      // Rule (DECISIONS 261): where the gift came from, as a country code. The CRM's Site column wins, else the currency says. Every site is treated the same afterwards.
+      site: siteCode(pick(r, "Site"), pick(r, "Currency")),
       // Rule: the CRM's own total for the whole line, kept beside the unit price in `amount`. Never worked out here; blank when the export has no Total Amount column (DECISIONS 83).
       line_total: pick(r, "Total Amount"),
       quantity: pick(r, "Order Quantity"),

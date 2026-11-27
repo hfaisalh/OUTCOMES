@@ -470,5 +470,18 @@ describe("giftsPage", () => {
       expect(html).not.toContain('value="Flood Relief"');
     });
   });
-});
 
+  it("shows where each gift came from as a country code, can filter by it, and says so in the gift window (DECISIONS 261)", () => {
+    const orders = [sub(1, { key: "us1", subscriptionId: "SU", site: "US", currency: "USD" }), sub(1, { key: "gb1", subscriptionId: "SG", site: "GB", currency: "GBP" }), sub(1, { key: "x1", subscriptionId: "SX" })];
+    const html = giftListHtml(view({ workOrders: orders }));
+    expect(html).toContain('<th class="c">Site');
+    expect(html).toContain('<span class="site" title="United States, paid in USD">US</span>');
+    expect(html).toContain('<span class="site" title="United Kingdom, paid in GBP">GB</span>');
+    expect(html).toContain('title="No site given">-</span>'); // a gift with no site shows a quiet dash
+    expect(html).toContain('data-gfilt="site"'); // and the Site column can be filtered by its values
+    const onlyUs = giftListHtml(view({ workOrders: orders, giftColFilters: { site: ["US"] } }));
+    expect((onlyUs.match(/data-sel-gift=/g) ?? []).length).toBe(1);
+    expect(shownGiftKeys(view({ workOrders: orders, giftColFilters: { site: ["No site"] } }))).toEqual(["x1"]);
+    expect(giftDetailHtml(view({ workOrders: orders }), "SU")).toContain(">US</span> <span class=\"muted\">USD</span>"); // the gift window
+  });
+});

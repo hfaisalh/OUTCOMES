@@ -89,4 +89,12 @@ describe("the Confirmation window of one batch", () => {
     expect(html).not.toContain("confirm-batch");
     expect(confirmationWindowHtml(view(), "trust|9")).toBe("");
   });
+
+  it("shows the country code of each gift in a batch's window, and nothing for a gift with no site (DECISIONS 261)", () => {
+    const v = view({ workOrders: [wo("G01", { site: "US", currency: "USD" }), wo("G02", { site: "NO", currency: "NOK" }), wo("G03")] });
+    const html = confirmationWindowHtml(v, "trust|0");
+    expect(html).toContain('<span class="site" title="United States, paid in USD">US</span> Donor G01');
+    expect(html).toContain('<span class="site" title="Norway, paid in NOK">NO</span> Donor G02');
+    expect(html).toContain('<td class="clip" title="Donor G03 · Small Pump">Donor G03'); // no site, no chip
+  });
 });

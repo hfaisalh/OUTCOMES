@@ -5,6 +5,7 @@
  * Who calls it: app/main.ts. Also exports standingsOf, the one place the pages read where each gift stands. Depends on: modules/12-progress (the rules), modules/08-assignment, and View and esc from app/pages.ts. Pure: it takes a View and returns HTML.
  */
 
+import { siteBadge } from "./site-chip";
 import { assignables, contextFrom } from "../modules/08-assignment/assignment";
 import { batchSizeOf } from "../modules/08-assignment/batches";
 import { standings, type GiftStanding } from "../modules/12-progress/context";
@@ -46,7 +47,7 @@ export function progressPage(v: View): string {
       : `<span class="pill ready">${SYM.ok} All steps taken</span>`;
     const any = s.steps.some((x) => x.done);
     const acts = `${s.next ? `<button type="button" class="primary" data-prg="next" data-key="${esc(s.key)}">${esc(s.next.kind === "phase" ? `Done: ${s.next.label}` : STAGE_VERBS[s.next.id as StageId])}</button>` : ""}${any ? ` <button type="button" data-prg="undo" data-key="${esc(s.key)}" title="Take the latest step back">Undo</button>` : ""}`;
-    return `<tr><td class="clip" title="${esc(u ? `${u.w.supporterName} · ${u.w.itemName}` : s.key)}">${esc(u ? `${u.w.supporterName} · ${u.w.itemName}` : s.key)}</td><td class="clip">${esc(partners.find((p) => p.id === s.partnerId)?.name ?? s.partnerId)}</td><td class="num">${s.batch ?? ""}</td><td>${s.complete ? `<span class="pill ready">${SYM.completed} ${esc(stageName(s))}</span>` : `<span class="pill">${esc(stageName(s))}</span>`}</td><td>${next}</td><td class="num">${esc(shortDate(s.next?.due ?? ""))}</td><td class="acts">${acts}</td></tr>`;
+    return `<tr><td class="clip" title="${esc(u ? `${u.w.supporterName} · ${u.w.itemName}` : s.key)}">${u ? siteBadge(u.w.site, u.w.currency) : ""}${esc(u ? `${u.w.supporterName} · ${u.w.itemName}` : s.key)}</td><td class="clip">${esc(partners.find((p) => p.id === s.partnerId)?.name ?? s.partnerId)}</td><td class="num">${s.batch ?? ""}</td><td>${s.complete ? `<span class="pill ready">${SYM.completed} ${esc(stageName(s))}</span>` : `<span class="pill">${esc(stageName(s))}</span>`}</td><td>${next}</td><td class="num">${esc(shortDate(s.next?.due ?? ""))}</td><td class="acts">${acts}</td></tr>`;
   }).join("");
   return `<h1>Progress</h1>
     <p class="sub">After a gift is allocated, the partner works through the phases of its workflow. Then it is reviewed, reported, completed and, where the workflow asks, the donor gives feedback. A person takes each step here for now. A phase past its due day is flagged, never moved by itself. A batch closes, on the Assignment page, once every gift in it is complete.</p>

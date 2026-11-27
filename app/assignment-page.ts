@@ -7,6 +7,7 @@
  * A recurring gift is one row, however many payments it has (DECISIONS 172). Who calls it: app/main.ts. Depends on: modules/08-assignment/assignment.ts, projects.ts (the types) and esc and View from pages.ts.
  */
 
+import { siteBadge } from "./site-chip";
 import { assignables, contextFrom, emptyAssignments, loads, projectOfOrder, suggestAssignments, toAssign, type Suggestion } from "../modules/08-assignment/assignment";
 import { batchRollup, batchSizeOf, labelBatches } from "../modules/08-assignment/batches";
 import { isActive } from "../modules/09-allocation/allocation";
@@ -83,7 +84,7 @@ export function assignmentPage(v: View): string {
     // Every partner considered for this gift, in order, with its room or why not: so a surprising suggestion can be understood without asking.
     const considered = r.sug && r.sug.candidates.length ? `<details class="muted"><summary>Partners considered (${r.sug.candidates.length})</summary><ul>${r.sug.candidates.map((c) => `<li>${esc(c.name)}: ${c.ok ? "has room" : "no room"} (${esc(c.why)})</li>`).join("")}</ul></details>` : "";
     const note = r.assigned ? '<span class="pill">Assigned</span>' : r.sug?.partnerId ? `<span class="muted">${esc(r.sug.mode === "auto" ? "Will be assigned automatically" : "Suggested, needs confirming")}. ${esc(r.sug.why)}</span>${considered}` : `<span class="muted">${esc(r.sug?.why ?? "")}</span>${considered}`;
-    return `<tr><td><b>${esc(w.itemName)}</b><br><span class="muted">${esc(w.supporterName)} · ${esc(w.paidDate.slice(0, 10))}${unit.payments > 1 ? ` · recurring, ${unit.payments} payments` : ""}</span>${r.sug?.urgent ? ' <span class="pill warn">Urgent</span>' : ""}</td><td>${gp ? esc(gp.name) : '<span class="muted">No project</span>'}</td><td class="num">${r.sug?.parts ?? existing.records.find((a) => a.key === w.key)?.parts ?? ""}</td><td>${who}</td><td class="num">${existing.records.find((a) => a.key === r.key)?.batch ?? ""}</td><td>${note}</td></tr>`;
+    return `<tr><td><b>${esc(w.itemName)}</b><br>${siteBadge(w.site, w.currency)}<span class="muted">${esc(w.supporterName)} · ${esc(w.paidDate.slice(0, 10))}${unit.payments > 1 ? ` · recurring, ${unit.payments} payments` : ""}</span>${r.sug?.urgent ? ' <span class="pill warn">Urgent</span>' : ""}</td><td>${gp ? esc(gp.name) : '<span class="muted">No project</span>'}</td><td class="num">${r.sug?.parts ?? existing.records.find((a) => a.key === w.key)?.parts ?? ""}</td><td>${who}</td><td class="num">${existing.records.find((a) => a.key === r.key)?.batch ?? ""}</td><td>${note}</td></tr>`;
   }).join("");
   // Tiles (DECISIONS 226): a tile that counts a group is a button that shows just that group, and sets the same Show choice as the drop-down.
   const tile = (id: string, n: number, label: string, cls = ""): string => `<button type="button" class="metric tile${cls ? ` ${cls}` : ""}" data-tile="asg:${id}" aria-pressed="${filter === id ? "true" : "false"}"><b>${n}</b><span>${esc(label)}</span></button>`;

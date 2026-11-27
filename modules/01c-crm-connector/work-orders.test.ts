@@ -39,6 +39,18 @@ describe("planWorkOrders", () => {
     expect([...later.updated, ...later.unchanged].find((w) => w.lineId === "L001")?.tribute).toBe("In memory of Hajra Begum"); // a tribute added in the CRM after the first import is picked up
   });
 
+  it("carries the site onto the work order, picks up one that arrives or changes on a later feed, and treats every site the same (DECISIONS 261)", () => {
+    const us = feed.map((l) => (l.lineId === "L001" ? { ...l, site: "US" } : l));
+    expect(planWorkOrders(us, [], options).created.find((w) => w.lineId === "L001")?.site).toBe("US");
+    expect(plan.created.find((w) => w.lineId === "L001")?.site).toBeUndefined(); // none sent, none kept
+    const later = planWorkOrders(us, plan.created, options);
+    expect([...later.updated, ...later.unchanged].find((w) => w.lineId === "L001")?.site).toBe("US");
+    // The same gift from another site is itemised the same way: only the label differs.
+    const gb = planWorkOrders(feed.map((l) => ({ ...l, site: "GB" })), [], options).created;
+    const nl = planWorkOrders(feed.map((l) => ({ ...l, site: "NO" })), [], options).created;
+    expect(nl.map(({ site: _s, ...rest }) => rest)).toEqual(gb.map(({ site: _s, ...rest }) => rest));
+  });
+
   it("is idempotent: the same feed again creates nothing", () => {
     const again = planWorkOrders(feed, plan.created, options);
     expect(again.created).toEqual([]);

@@ -5,6 +5,7 @@
  * Who calls it: app/confirmation-page.ts (batchesOf) and app/main.ts (confirmationWindowHtml, drawn outside the page). Depends on: app/confirmation-rows.ts, View and esc from app/pages.ts. Pure: it takes rows or a View and returns data or HTML.
  */
 
+import { siteBadge } from "./site-chip";
 import { shortDate } from "./dates";
 import { esc, type View } from "./pages";
 import { actions, answerCell, isLate, rowsOf, type Row } from "./confirmation-rows";
@@ -52,7 +53,7 @@ export function confirmationWindowHtml(v: View, id: string): string {
         <button type="button" data-cnf="reject-batch" data-keys="${esc(waitingKeys.join(" "))}">Reject all ${b.waiting}</button></div>
        <p class="muted cw-note">Only the gifts still waiting are answered. A gift that already has an answer is left as it is.</p>`
     : `<p class="muted cw-note">Every gift in this batch has an answer.${b.rejected ? ` <button type="button" data-nav="assignment" data-cnfclose="x">Choose other partners in Assignment</button>` : ""}</p>`;
-  const rows = b.gifts.map((r) => `<tr><td class="clip" title="${esc(r.gift)}">${esc(r.gift)}</td><td class="num">${esc(shortDate(r.assigned))}</td><td class="num">${esc(shortDate(r.st.due))}</td><td>${answerCell(r)}</td><td class="acts">${actions(r)}</td></tr>`).join("");
+  const rows = b.gifts.map((r) => `<tr><td class="clip" title="${esc(r.gift)}">${siteBadge(r.site, r.currency)}${esc(r.gift)}</td><td class="num">${esc(shortDate(r.assigned))}</td><td class="num">${esc(shortDate(r.st.due))}</td><td>${answerCell(r)}</td><td class="acts">${actions(r)}</td></tr>`).join("");
   return `<div class="pf-overlay" role="dialog" aria-modal="true" aria-label="Batch" data-cnfclose="overlay"><div class="pf-box">
     <header class="gw-head"><div><h2>${esc(b.partner)}</h2><div class="gw-sub"><span class="muted">${[batchLabel(b.batch), `${b.gifts.length} gift${b.gifts.length === 1 ? "" : "s"}`, `assigned ${esc(shortDate(b.assigned))}`, ...(b.due ? [`answer by ${esc(shortDate(b.due))}`] : [])].join(" · ")}</span></div></div><button data-cnfclose="x" aria-label="Close">Close</button></header>
     <div class="pf-body gw cw-body">

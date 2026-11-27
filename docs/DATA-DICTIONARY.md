@@ -121,6 +121,7 @@ A work order is one instruction token: deliver this line and report back to this
 | `itemId`, `itemName` | The CRM item. The CRM says whether it needs feedback |
 | `categoryId` | Set in OUTCOMES. Empty while unrouted. `default` when the organisation has no categories |
 | `status` | `unrouted`, `ready`, `in_progress`, `delivered`, `reported` |
+| `site` | Where the gift came from, as a country code (GB, US, NO, or a new site as written). Absent when not known. A label only: it changes nothing about how the gift is handled (DECISIONS 261) |
 | `subscriptionId`, `instalmentNumber`, `instalmentCount` | The recurring plan the line belongs to, which instalment, and how many (a number or Indefinitely) |
 | `supporterId`, `supporterName` | The CRM id and a display name only |
 

@@ -13,7 +13,7 @@ import { SYM } from "./symbols";
 import { esc, type View } from "./pages";
 
 // --- The rows: one for each live assignment, with its answer worked out by the rules ---
-export interface Row { key: string; gift: string; partnerId: string; partner: string; batch: number | undefined; assigned: string; st: ConfirmStatus; onBehalf: boolean; by: string }
+export interface Row { key: string; gift: string; site: string; currency: string; partnerId: string; partner: string; batch: number | undefined; assigned: string; st: ConfirmStatus; onBehalf: boolean; by: string }
 
 export function rowsOf(v: View): Row[] {
   const today = v.today ?? "2026-01-01";
@@ -26,7 +26,7 @@ export function rowsOf(v: View): Row[] {
     const fw = (v.frameworks ?? []).find((f) => f.id === (u?.w.frameworkId ?? ""));
     const st = confirmationOf(a, answers, fw ? confirmDaysOf(fw) : DEFAULT_CONFIRM_DAYS, today);
     const ans = answers.filter((r) => r.key === a.key && r.partnerId === a.partnerId && r.at >= a.at).sort((x, y) => y.at.localeCompare(x.at))[0];
-    return { key: a.key, partnerId: a.partnerId, gift: u ? `${u.w.supporterName} · ${u.w.itemName}` : a.key, partner: partners.find((p) => p.id === a.partnerId)?.name ?? a.partnerId, batch: a.batch, assigned: a.at.slice(0, 10), st, onBehalf: ans?.onBehalf === true, by: ans?.by ?? "" };
+    return { key: a.key, partnerId: a.partnerId, gift: u ? `${u.w.supporterName} · ${u.w.itemName}` : a.key, site: u?.w.site ?? "", currency: u?.w.currency ?? "", partner: partners.find((p) => p.id === a.partnerId)?.name ?? a.partnerId, batch: a.batch, assigned: a.at.slice(0, 10), st, onBehalf: ans?.onBehalf === true, by: ans?.by ?? "" };
   });
 }
 

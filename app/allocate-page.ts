@@ -8,6 +8,7 @@
  * Who calls it: app/main.ts. Depends on: modules/09-allocation/allocation.ts, 08-assignment, 07-beneficiaries (enrolments) and esc and View from pages.ts.
  */
 
+import { siteBadge } from "./site-chip";
 import { assignables, contextFrom, emptyAssignments } from "../modules/08-assignment/assignment";
 import { clusterStateOf, pathOf } from "../modules/06-projects/clusters";
 import { itemRulesOf, emptyEnrolments } from "../modules/07-beneficiaries/enrolments";
@@ -98,7 +99,7 @@ export function allocatePage(v: View): string {
     }
     else if (r.s?.kind === "outcome") { place = '<span class="muted">Outcome, no beneficiary to fund</span>'; note = `<span class="muted">${esc(r.s.why)}</span>`; }
     else { place = choose(""); note = `<span class="muted">${esc(r.s?.why ?? "")}</span>`; }
-    return `<tr><td><b>${esc(u.w.itemName)}</b><br><span class="muted">${esc(u.w.supporterName)} · ${esc(u.w.paidDate.slice(0, 10))}${u.payments > 1 ? ` · recurring, ${u.payments} payments` : ""}</span></td><td>${esc(pname(a?.partnerId ?? ""))}</td><td class="num">${a?.parts ?? ""}</td><td>${place}</td><td>${note}</td></tr>`;
+    return `<tr><td><b>${esc(u.w.itemName)}</b><br>${siteBadge(u.w.site, u.w.currency)}<span class="muted">${esc(u.w.supporterName)} · ${esc(u.w.paidDate.slice(0, 10))}${u.payments > 1 ? ` · recurring, ${u.payments} payments` : ""}</span></td><td>${esc(pname(a?.partnerId ?? ""))}</td><td class="num">${a?.parts ?? ""}</td><td>${place}</td><td>${note}</td></tr>`;
   }).join("");
   // Tiles (DECISIONS 226): a tile that counts a group is a button that shows just that group, and sets the same Show choice as the drop-down.
   const tile = (id: string, n: number, label: string, cls = ""): string => `<button type="button" class="metric tile${cls ? ` ${cls}` : ""}" data-tile="alloc:${id}" aria-pressed="${filter === id ? "true" : "false"}"><b>${n}</b><span>${esc(label)}</span></button>`;

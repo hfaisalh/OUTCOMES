@@ -65,6 +65,7 @@ export interface FeedLine {
   bundleQty: number; // parts of the item in the bundle the line was bought as, 1 when none (DECISIONS 51)
   customAmount: boolean; // the line is of the CRM's Custom Amount item: the donor chose the amount (DECISIONS 129)
   cause: string; // the cause the gift was given to, such as Water for All, "" when the feed has none (DECISIONS 109)
+  site: string; // where the gift came from, as a country code (GB, US, NO, or a new site as written). "" when not known. A label only: every site is handled the same (DECISIONS 261)
   tribute: string; // the donor's tribute or dedication for the gift, as the CRM holds it. For an outcome with a plaque, what the plaque says. "" when none (DECISIONS 247)
   projectName: string; // the project the donor chose on the line, as the CRM names it. Blank or "Where Needed Most" means a general gift (DECISIONS 66)
   periodCount: number; // months a one-off payment covers (the item's plan length), 0 when not given (DECISIONS 64)
@@ -207,6 +208,7 @@ export function readFeed(rows: FeedRow[], config: FeedConfig = MWF_CRM_CONFIG): 
       periodCount: periodsOf(r["period_count"]),
       projectName: (r["project_name"] ?? "").trim(),
       cause: (r["cause"] ?? "").trim(),
+      site: (r["site"] ?? "").trim().toUpperCase().slice(0, 12),
       tribute: (r["tribute"] ?? "").trim().slice(0, 500),
       customAmount: isYes(r["custom_amount"], ["1", "yes", "true", "y"]),
       intention: (r["intention"] ?? "").trim(),

@@ -50,6 +50,15 @@ describe("adaptExports", () => {
     expect(byLine("9001")["tribute"]).toBe(""); // the sample export has no Tribute column
   });
 
+  it("gives every gift a country code: the CRM's Site column wins, else the currency says, and it reaches the feed (DECISIONS 261)", () => {
+    const lines = load("export-donation-lines-sample.csv").map((r, i) => (i === 0 ? { ...r, Site: "USA", Currency: "GBP" } : i === 1 ? { ...r, Site: "", Currency: "NOK" } : i === 2 ? { ...r, Site: "Norway", Currency: "" } : r));
+    const rows = adaptExports(lines, load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), load("export-catalogue-prices-sample.csv")).rows;
+    expect(rows.slice(0, 3).map((r) => r["site"])).toEqual(["US", "NO", "NO"]); // the site wins over the currency; no site falls back to the currency
+    expect(readFeed(rows.slice(0, 1), MWF_CRM_CONFIG).lines[0]?.site).toBe("US");
+    const none = adaptExports(load("export-donation-lines-sample.csv").map(({ Currency: _c, ...rest }) => rest), load("export-catalogue-sample.csv"), load("export-recurring-plans-sample.csv"), load("export-catalogue-prices-sample.csv")).rows;
+    expect(none.every((r) => r["site"] === "")).toBe(true); // no site and no currency: no guess
+  });
+
   it("keeps the CRM's line total beside the unit price, never working it out (DECISIONS 83)", () => {
     expect(byLine("9004")["amount"]).toBe("20"); // the price of one unit
     expect(byLine("9004")["quantity"]).toBe("2");
