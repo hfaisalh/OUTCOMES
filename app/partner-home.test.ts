@@ -167,6 +167,18 @@ describe("the batch list opens to show what is in a batch (DECISIONS 256)", () =
     expect(html).toContain('data-action="pt-accept" data-keys="sub:2">Accept</button>');
     expect(partnerHomeHtml(two(), "Sara", "dev", { ...QUIET, open: ["1"] })).not.toContain("pb-in");
   });
+  it("puts the reason box for one gift directly under that gift, and for a whole batch at the top of the batch", () => {
+    const one = partnerHomeHtml(two(), "Sara", "dev", { ...QUIET, refusing: ["sub:1"] });
+    expect(one).toContain("Why can you not take this gift?");
+    const rowOne = one.indexOf('<tr class="refusing">');
+    expect(rowOne).toBeGreaterThan(-1);
+    expect(one.indexOf('id="pt-reason"')).toBeGreaterThan(rowOne); // after the refused gift's row
+    expect(one.indexOf('id="pt-reason"')).toBeLessThan(one.indexOf("</tbody>", rowOne)); // and still inside the table, before the next gift ends it
+    expect(one.match(/id="pt-reason"/g)).toHaveLength(1);
+    const all = partnerHomeHtml(two(), "Sara", "dev", { ...QUIET, refusing: ["sub:1", "sub:2"] });
+    expect(all.indexOf('id="pt-reason"')).toBeLessThan(all.indexOf("<table"));
+    expect(all).not.toContain('<tr class="refusing">');
+  });
   it("opens the batch a refusal belongs to, so its reason box is never out of sight", () => {
     const html = partnerHomeHtml(two(), "Sara", "dev", { ...QUIET, refusing: ["sub:1", "sub:2"] });
     expect(html).toContain('aria-expanded="true"');

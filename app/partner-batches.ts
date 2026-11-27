@@ -1,7 +1,7 @@
 /**
  * partner-batches.ts
  *
- * What it does: the partner's list of batches (DECISIONS 254, 256). One row for each batch with a summary of where its gifts stand and, for a batch still waiting, Accept and Refuse. Each row opens (a disclosure button) to show the gifts inside it, so the page stays short and nothing is listed twice. A refusal asks for its reason in the batch it belongs to.
+ * What it does: the partner's list of batches (DECISIONS 254, 256). One row for each batch with a summary of where its gifts stand and, for a batch still waiting, Accept and Refuse. Each row opens (a disclosure button) to show the gifts inside it, so the page stays short and nothing is listed twice. A refusal asks for its reason where it belongs: under the gift being refused, or at the top of the batch for Refuse all.
  * Who calls it: app/partner-home.ts. Depends on: app/partner-outcomes.ts (the shared state type and colours) and modules/13-partner-portal/outcomes.ts (the rule). Pure: it takes the rows and the screen state and returns HTML. The clicks are handled in app/partner-session.ts.
  * Data flow: a button carries gift keys in data-keys (joined by "|") or a batch in data-batch. The open batches are kept in the screen state, so they stay open after an answer.
  * UX: one primary action for each batch (Accept all); a gift's own Accept and Refuse are secondary. The toggle is a real button with aria-expanded and aria-controls, at least 44px tall, with a visible focus ring; the body opens with a short fade that is switched off for reduced motion; Cancel closes the refusal form.
@@ -24,11 +24,13 @@ function summary(rows: PartnerOutcome[]): string {
 }
 
 // The gifts inside one batch. A gift still waiting has its own Accept and Refuse, for answering some and not all.
-function giftsHtml(rows: PartnerOutcome[]): string {
-  const tr = (r: PartnerOutcome): string => `<tr><td>${esc(r.benefit)}<div class="muted">${esc(r.project)}</div></td>
+function giftsHtml(rows: PartnerOutcome[], refusing: string[] | null): string {
+  // Rule: a refusal of one gift opens its reason box right under that gift's row, so it is plain which gift is being refused.
+  const here = refusing !== null && refusing.length === 1 ? refusing[0] : undefined;
+  const tr = (r: PartnerOutcome): string => `<tr${r.key === here ? ` class="refusing"` : ""}><td>${esc(r.benefit)}<div class="muted">${esc(r.project)}</div></td>
     <td><span class="pill ${PILL[r.standing]}">${esc(STANDING_LABEL[r.standing])}</span>${r.reason ? `<div class="muted">${esc(r.reason)}</div>` : ""}</td>
     <td>${esc(r.funds) || `<span class="muted">Not allocated yet</span>`}</td><td>${esc(r.step) || `<span class="muted">None yet</span>`}</td>
-    <td>${r.standing === "to-answer" ? `<div class="pb-ans"><button data-action="pt-accept" data-keys="${esc(r.key)}">Accept</button><button data-action="pt-refuse" data-keys="${esc(r.key)}">Refuse</button></div>` : ""}</td></tr>`;
+    <td>${r.standing === "to-answer" ? `<div class="pb-ans"><button data-action="pt-accept" data-keys="${esc(r.key)}">Accept</button><button data-action="pt-refuse" data-keys="${esc(r.key)}">Refuse</button></div>` : ""}</td></tr>${r.key === here ? `<tr class="refusing-form"><td colspan="5">${refuseForm(1)}</td></tr>` : ""}`;
   return `<div class="tablewrap"><table><thead><tr><th>Benefit</th><th>Where it is</th><th>Funds</th><th>Last step</th><th><span class="sr-only">Your answer</span></th></tr></thead><tbody>${rows.map(tr).join("")}</tbody></table></div>`;
 }
 
@@ -43,12 +45,13 @@ function refuseForm(count: number): string {
 function batchHtml(id: string, rows: PartnerOutcome[], ui: PartnerUi): string {
   const waiting = rows.filter((r) => r.standing === "to-answer");
   const refusingHere = ui.refusing !== null && rows.some((r) => ui.refusing?.includes(r.key));
+  const wholeBatchRefusal = refusingHere && (ui.refusing?.length ?? 0) > 1; // Refuse all: the reason box sits at the top of the batch, under its row
   const open = ui.open.includes(id) || refusingHere; // a refusal opens its own batch, so the form is never out of sight
   const name = id === NO_BATCH ? "Gifts without a batch" : `Batch ${id}`;
   const actions = waiting.length > 0 ? `<span class="actions"><button class="primary" data-action="pt-accept" data-keys="${keysAttr(waiting)}">Accept${waiting.length > 1 ? " all" : ""}</button><button data-action="pt-refuse" data-keys="${keysAttr(waiting)}">Refuse${waiting.length > 1 ? " all" : ""}</button></span>` : "";
   return `<li class="pb${open ? " open" : ""}">
     <div class="pb-head"><button class="pb-toggle" data-action="pt-toggle" data-batch="${esc(id)}" aria-expanded="${open}" aria-controls="pb-body-${esc(id)}">${CHEVRON}<span class="pb-name"><b>${esc(name)}</b> <span class="muted">${plural(rows.length, "gift", "gifts")}</span></span><span class="pb-sum">${summary(rows)}</span></button>${actions}</div>
-    ${open ? `<div class="pb-body${ui.lastOpened === id ? " pb-in" : ""}" id="pb-body-${esc(id)}" role="region" aria-label="Gifts in ${esc(name)}">${giftsHtml(rows)}${refusingHere ? refuseForm(ui.refusing?.length ?? 0) : ""}</div>` : ""}</li>`;
+    ${open ? `<div class="pb-body${ui.lastOpened === id ? " pb-in" : ""}" id="pb-body-${esc(id)}" role="region" aria-label="Gifts in ${esc(name)}">${wholeBatchRefusal ? refuseForm(ui.refusing?.length ?? 0) : ""}${giftsHtml(rows, ui.refusing)}</div>` : ""}</li>`;
 }
 
 // --- The list: batches still waiting first, then by number ---

@@ -584,3 +584,4 @@ tr.rowlink[data-cnfwin]{cursor:pointer}tr.rowlink[data-cnfwin]:hover td{backgrou
 @media (pointer:coarse){.pb-toggle{min-height:44px}.pb-head .actions button,.pb-ans button{height:44px}}
 @media (prefers-reduced-motion:reduce){.pb-in{animation:none}.pb-chev{transition:none}}
 @media (max-width:640px){.pb-head{grid-template-columns:minmax(0,1fr)}.pb-head .actions{width:100%}.pb-head .actions button{flex:1}.pb-body{margin-left:0}}
+.pb-body tr.refusing td{background:rgba(224,138,30,.07)}.pb-body tr.refusing-form td{padding:0;background:rgba(224,138,30,.07);border-bottom:1px solid rgba(20,40,100,.09)}.pb-body tr.refusing-form .pt-refuse{margin:0;padding:10px 10px 12px;border-top:0}.pb-body > .pt-refuse{margin:0 0 8px;padding:0 0 10px;border-top:0}
