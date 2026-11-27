@@ -20,7 +20,12 @@ const back = (to: string): HttpResponse => ({ status: 302, headers: { location: 
 // --- Manage the accounts (settings permission) ---
 async function manage(req: HttpRequest, d: Deps): Promise<HttpResponse> {
   const a = need(req, d, P.settings);
-  if ("response" in a) return a.response;
+  if ("response" in a) {
+    // Rule: a person who pressed a button on the page is sent back with a plain sentence, never shown the server's raw answer.
+    if (!isForm(req)) return a.response;
+    const why = a.response.status === 401 ? "Your sign-in has run out (it lasts one hour). Sign in again." : "Your account is not allowed to change sign-in accounts.";
+    return back(`/app/?account=${encodeURIComponent(why)}`);
+  }
   const b = (req.body ?? {}) as Record<string, unknown>;
   const config = (await d.store.getConfig(a.claims.org)) ?? defaultConfig();
   const existing = config.logins ?? [];

@@ -42,6 +42,15 @@ describe("accounts", () => {
     expect((await handleSignIn(by(agent, { action: "login-add", email: "a@b.org", name: "A", role: "admin", password: "long enough pw" }), d)).status).toBe(403);
   });
 
+  it("sends a form post from a signed-out or unauthorised person back with a plain sentence, not raw text", async () => {
+    const form = { "content-type": "application/x-www-form-urlencoded" };
+    const out = await handleSignIn(post({ action: "login-add", email: "a@b.org" }, form), d);
+    expect([out.status, out.headers?.["location"]]).toEqual([302, "/app/?account=Your%20sign-in%20has%20run%20out%20(it%20lasts%20one%20hour).%20Sign%20in%20again."]);
+    const agent = cookieOf(await handleSignIn(post({ passphrase: "a-long-owner-passphrase", role: "agent" }), d));
+    const no = await handleSignIn({ ...post({ action: "login-add" }, form), headers: { ...form, cookie: agent } }, d);
+    expect(no.headers?.["location"]).toContain("not%20allowed");
+  });
+
   it("checks the email, name, password length, partner and duplicates, saying what to fix", async () => {
     expect(((await add({ email: "not-an-email" })).body as { error: string }).error).toContain("valid email");
     expect(((await add({ password: "short" })).body as { error: string }).error).toContain("at least 10");
