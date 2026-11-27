@@ -23,7 +23,9 @@ export function partnerHomeHtml(slice: PartnerSlice, who: string): string {
   const toAnswer = slice.assignments.filter((a) => !answered.has(a.key)).length;
   const projectName = (id: string): string => slice.giftProjects.find((g) => g.id === id)?.name ?? "";
 
-  const rows = people.map((b) => `<tr><td>${esc(b.id)}</td><td>${esc(b.name)}</td><td>${esc(projectName(b.targetProjectId ?? ""))}</td><td>${enrolled.has(b.id) ? "Enrolled" : esc(ELIGIBILITY[b.eligibility] ?? b.eligibility)}</td></tr>`).join("");
+  // Rule: the project shown is the one the child is enrolled in, or else the one it is waiting for.
+  const projectOf = (id: string, target: string): string => projectName(slice.enrolments.find((e) => e.beneficiaryId === id && e.status === "active")?.giftProjectId ?? target);
+  const rows = people.map((b) => `<tr><td>${esc(b.id)}</td><td>${esc(b.name)}</td><td>${esc(projectOf(b.id, b.targetProjectId ?? ""))}</td><td>${enrolled.has(b.id) ? "Enrolled" : esc(ELIGIBILITY[b.eligibility] ?? b.eligibility)}</td></tr>`).join("");
   const projects = slice.giftProjects.map((g) => `<li><b>${esc(g.name)}</b><span class="muted"> ${g.clusters?.filter((c) => c.status === "active").length ?? 0} groups</span></li>`).join("");
   const facts = [["Reference", p.reference], ["Type", p.type], ["Countries", p.countries], ["Reports by", p.reportVia], ["Batch size", p.batchSize !== undefined ? String(p.batchSize) : ""]].filter(([, v]) => v);
 

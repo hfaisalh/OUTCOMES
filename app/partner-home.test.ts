@@ -35,6 +35,11 @@ describe("the partner's home screen", () => {
     expect(html).toContain('data-action="sign-out"');
     expect(html).not.toContain("<Trust>");
   });
+  it("shows the project a child is enrolled in, or else the one it waits for", () => {
+    const html = partnerHomeHtml(slice(), "Sara");
+    expect(html).toContain("<td>PRS-3</td><td>Chand Ali</td><td>Orphan homes</td><td>Enrolled</td>");
+    expect(html).toContain("<td>PRS-1</td><td>Amina Khan</td><td>Orphan homes</td><td>Ready</td>");
+  });
   it("says so when there is nothing yet", () => {
     const empty = { ...slice(), beneficiaries: [], giftProjects: [], enrolments: [], assignments: [] };
     expect(partnerHomeHtml(empty, "Sara")).toContain("No children yet");
