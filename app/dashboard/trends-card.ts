@@ -29,14 +29,16 @@ function changeTile(i: Improvement): string {
 }
 
 // --- The charts ---
-function charts(points: MonthPoint[]): string {
+function charts(d: TrendsData, view: TrendsView): string {
+  const points = d.points;
   const months = points.map((p) => p.month.label);
   const col = (f: (p: MonthPoint) => number | null): (number | null)[] => points.map(f);
   return `<div class="dash-grid dash-grid-wide tr-charts">
     ${lineChartHtml({ id: "score", title: "Fulfilment score", hint: "How far gifts had got, as it stood at the end of each month.", months, series: [{ name: "Fulfilment score", color: CATEGORICAL[0] as string, values: col((p) => p.score) }], unit: "%", max: 100 })}
     ${lineChartHtml({ id: "flow", title: "Gifts in and gifts completed", hint: "Each month's payments in, against gifts reaching Complete.", months, series: [{ name: "Gifts in", color: CATEGORICAL[0] as string, values: col((p) => p.paidIn) }, { name: "Completed", color: CATEGORICAL[2] as string, values: col((p) => p.completed) }] })}
     ${lineChartHtml({ id: "speed", title: "How fast: median days at each step", hint: "Fewer days is better. For the gifts that took the step that month.", months, series: [{ name: "Payment to assigned", color: CATEGORICAL[0] as string, values: col((p) => p.daysToAssign) }, { name: "Assigned to partner's answer", color: CATEGORICAL[1] as string, values: col((p) => p.daysToAnswer) }, { name: "Allocated to complete", color: CATEGORICAL[2] as string, values: col((p) => p.daysToComplete) }], unit: " days" })}
-    ${lineChartHtml({ id: "ontime", title: "Partner answers on time", hint: "The share of answers made within the days the workflow allows.", months, series: [{ name: "On time", color: CATEGORICAL[0] as string, values: col((p) => p.onTime) }], unit: "%", max: 100 })}</div>`;
+    ${lineChartHtml({ id: "ontime", title: "Partner answers on time", hint: "The share of answers made within the days the workflow allows.", months, series: [{ name: "On time", color: CATEGORICAL[0] as string, values: col((p) => p.onTime) }], unit: "%", max: 100 })}
+    ${scatterHtml(d.lives ?? [], d.today ?? new Date().toISOString().slice(0, 10), view.target ?? 90)}</div>`;
 }
 
 // --- Partners compared (DECISIONS 305) ---
@@ -62,7 +64,7 @@ export function trendsHtml(d: TrendsData, view: TrendsView): string {
   const controls = `<div class="ar-controls"><label class="ar-proj"><span class="muted">Benefit</span><select id="tr-benefit" aria-label="Benefit"><option value="">All benefits</option>${d.benefits.map((b) => `<option value="${esc(b.id)}"${b.id === view.benefit ? " selected" : ""}>${esc(b.name)}</option>`).join("")}</select></label><label class="ar-proj"><span class="muted">Partner</span><select id="tr-partner" aria-label="Partner"><option value="">All partners</option>${d.partners.map((b) => `<option value="${esc(b.id)}"${b.id === view.partner ? " selected" : ""}>${esc(b.name)}</option>`).join("")}</select></label><div class="ar-segs" role="group" aria-label="Range">${seg(6)}${seg(12)}</div></div>`;
   const body = d.gifts === 0
     ? `<div class="ar-empty"><span class="dash-badge" style="--hue:#2a78d6">${dashIcon("clock", 20)}</span><div><b>No gifts to chart yet</b><p class="muted">The trends are built from the dates on every step of a gift. Once gifts are routed, assigned and moving, each month appears here, with what improved.</p></div></div>`
-    : `<div class="dash-grid tr-tiles">${d.improvements.map(changeTile).join("")}</div>${charts(d.points)}<div class="tr-scatter-row">${scatterHtml(d.lives ?? [], d.today ?? new Date().toISOString().slice(0, 10), view.target ?? 90)}</div>${partnerCompare(d, view)}<p class="muted dash-note">Each month is rebuilt from the dates on the steps, so there is nothing to switch on and the past does not change. A speed is the middle number of days for the gifts that took the step that month; a month with none shows a gap, not zero.</p>`;
+    : `<div class="dash-grid tr-tiles">${d.improvements.map(changeTile).join("")}</div>${charts(d, view)}${partnerCompare(d, view)}<p class="muted dash-note">Each month is rebuilt from the dates on the steps, so there is nothing to switch on and the past does not change. A speed is the middle number of days for the gifts that took the step that month; a month with none shows a gap, not zero.</p>`;
   return `<section class="dash-group tr-section" aria-labelledby="tr-h"><h2 id="tr-h" class="dash-h2">Is delivery improving?</h2>${controls}${body}</section>`;
 }
 

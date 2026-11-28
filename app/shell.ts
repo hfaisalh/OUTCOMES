@@ -11,6 +11,7 @@ import type { View } from "./shared/pages";
 
 export const shell = {
   draw: (): void => undefined,
+  openGifts: (_label: string, _keys: string[]): void => undefined, // open the Gifts list showing only these gifts (a click on a Dashboard chart)
   redrawLists: (): void => undefined,
   outcomeChange: async (_body: Record<string, unknown>): Promise<void> => undefined,
   view: (): View => ({}) as View,

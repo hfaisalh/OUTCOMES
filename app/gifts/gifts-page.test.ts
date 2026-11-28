@@ -453,6 +453,12 @@ describe("giftsPage", () => {
       expect(rows(giftListHtml(view({ workOrders: orders, giftColFilters: { project: ["Aghosh"], plan: ["paused"] } })))).toBe(1); // and
       expect(rows(giftListHtml(view({ workOrders: orders, giftColFilters: { project: [] } })))).toBe(3); // nothing ticked is no filter
     });
+    it("opens with only the gifts a Dashboard chart counted, with a chip that removes the filter (decision 312)", () => {
+      const html = giftListHtml(view({ workOrders: orders, giftKeys: { label: "Assigned, 23 to 44 days", keys: ["sub:C"] } }));
+      expect(rows(html)).toBe(1);
+      expect(html).toContain('data-gkclear="1"');
+      expect(html).toContain("Assigned, 23 to 44 days");
+    });
     it("shows each filter as a chip with its values, and the open column's values with their counts from the other filters", () => {
       const html = giftListHtml(view({ workOrders: orders, giftColFilters: { project: ["Aghosh"] }, giftFiltOpen: "plan" }));
       expect(html).toContain('data-gfclear="project"');

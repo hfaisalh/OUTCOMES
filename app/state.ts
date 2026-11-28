@@ -107,6 +107,7 @@ export const state = {
   outcomeRecFilter: { ...NO_OUTCOME_FILTER } as { text: string; project: string; type: string; show: "" | "underfunded" | "missed" | "ended" }, // the filters on the Outcomes list
   outcomeRecSort: { key: "", dir: "asc" } as { key: string; dir: "asc" | "desc" },
   giftSort: { key: "", dir: "asc" } as { key: string; dir: "asc" | "desc" }, // the column the Gifts list is sorted by
+  giftKeys: null as { label: string; keys: string[] } | null, // the gifts a Dashboard chart opened the Gifts list with
   giftColFilters: {} as Record<string, string[]>, // the values chosen in a Gifts column
   giftFiltOpen: "", // the Gifts column whose value list is open
   giftHidden: loadHiddenCols(), // the Gifts columns a person has hidden

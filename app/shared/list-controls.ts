@@ -14,6 +14,7 @@ import { type BeneficiaryFilter } from "../../modules/07-beneficiaries/beneficia
 // Filtering a Gifts column by its values (DECISIONS 217): the funnel in a heading opens its list of values, a tick keeps a value, "Show all" or a chip's cross clears the column, and "Done" closes the list.
 document.addEventListener("click", (e) => {
   const t = e.target as HTMLElement;
+  if (t.closest?.("[data-gkclear]")) { state.giftKeys = null; shell.draw(); return; }
   const open = t.closest?.("[data-gfilt]") as HTMLElement | null;
   const clear = t.closest?.("[data-gfclear]") as HTMLElement | null;
   if (!open && !clear) return;

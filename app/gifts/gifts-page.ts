@@ -216,6 +216,8 @@ function listData(v: View, tab = true, exceptCol = "") {
   const c = criteriaFor(v, "main");
   const payments = filterWorkOrders(base, c);
   let rows = giftRows(payments, v.workOrders, new Set(v.review.map((r) => r.key)));
+  // Rule: a click on a Dashboard chart opens the list with just the gifts counted there, until the chip is removed.
+  if (v.giftKeys) { const only = new Set(v.giftKeys.keys); rows = rows.filter((r) => only.has(giftAllocationKey(r))); }
   if (w.filter === "look") rows = rows.filter((r) => r.needsLook);
   if (w.filter === "manual") rows = rows.filter((r) => r.manual !== "");
   if (w.filter === "waiting") { const where = allocationContext(v); rows = rows.filter((r) => where(r).state === "waiting"); }
@@ -362,6 +364,8 @@ export function giftListHtml(v: View): string {
     c.legacy !== "" ? chipOf("legacy", c.legacy === "only" ? "Legacy only" : "No legacy") : "", c.from !== "" ? chipOf("from", `Paid from ${shortDate(c.from)}`) : "", c.to !== "" ? chipOf("to", `Paid to ${shortDate(c.to)}`) : "",
   ].filter((x) => x !== "");
   const colChips = colFilterOn(v).map(([col, vals]) => `<button type="button" class="chip" data-gfclear="${col}" aria-label="Remove the filter ${esc(FILTER_COLUMNS.find(([id]) => id === col)?.[1] ?? col)}: ${esc(vals.join(", "))}">${esc(FILTER_COLUMNS.find(([id]) => id === col)?.[1] ?? col)}: ${esc(vals.length > 2 ? `${vals.slice(0, 2).join(", ")} +${vals.length - 2}` : vals.join(", "))}${SYM.close}</button>`);
+  const keyChip = v.giftKeys ? `<button type="button" class="chip" data-gkclear="1" aria-label="Remove the filter ${esc(v.giftKeys.label)}">${esc(v.giftKeys.label)} ${SYM.close}</button>` : "";
+  if (keyChip) colChips.unshift(keyChip);
   const anyFilter = isFiltering(c) || colChips.length > 0;
   const chips = anyFilter ? `<span class="muted">Showing ${rows.length} gift${rows.length === 1 ? "" : "s"} from ${filterWorkOrders(base, c).length} of ${base.length} payments</span>${on.join("")}${colChips.join("")}<button type="button" class="linkish" data-action="clear-filters" data-scope="main">Clear all</button>` : "";
   const note = rows.length > MAX_ROWS ? `<p class="muted">Only the first ${MAX_ROWS} are drawn. Narrow the list with the filter boxes.</p>` : "";

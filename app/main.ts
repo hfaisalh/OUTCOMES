@@ -101,6 +101,7 @@ import { shell } from "./shell";
 import { dropWindow, putWindow, reducedMotion } from "./shared/windows";
 import { placeOfWindow, renderBenWindow } from "./beneficiaries/beneficiary-window";
 import { renderAreasWindow } from "./dashboard/areas-window";
+import "./dashboard/scatter-open";
 import { state, keepPageInAddress } from "./state";
 
 
@@ -212,7 +213,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    locations: state.locations, allocationSteps: state.allocationSteps, priorityGifts: state.priorityGifts, partnerCosts: state.partnerCosts, workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, confirmations: state.confirmations, progress: state.progress, prgFilter: state.prgFilter, assignFilter: state.assignFilter, pageTab: state.pageTab, allocations: state.allocations, allocFilter: state.allocFilter, cnfFilter: state.cnfFilter, pjFilter: state.pjFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, outcomeAllocations: state.outcomeAllocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), message: state.message, config: MWF_CRM_CONFIG,
+    locations: state.locations, allocationSteps: state.allocationSteps, priorityGifts: state.priorityGifts, partnerCosts: state.partnerCosts, workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, confirmations: state.confirmations, progress: state.progress, prgFilter: state.prgFilter, assignFilter: state.assignFilter, pageTab: state.pageTab, allocations: state.allocations, allocFilter: state.allocFilter, cnfFilter: state.cnfFilter, pjFilter: state.pjFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftKeys: state.giftKeys, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, outcomeAllocations: state.outcomeAllocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, itemUnits: state.itemUnits, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, ...(state.me?.logins ? { logins: state.me.logins } : {}), attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -646,7 +647,7 @@ document.addEventListener("click", (e) => {
   const action = el.dataset.action;
   if (action === "clear-filters") {
     const scope = el.dataset.scope ?? "main";
-    if (scope === "main") { state.criteria = { ...NO_CRITERIA }; state.giftColFilters = {}; state.giftFiltOpen = ""; }
+    if (scope === "main") { state.criteria = { ...NO_CRITERIA }; state.giftColFilters = {}; state.giftFiltOpen = ""; state.giftKeys = null; }
     else state.scopeCriteria = { ...state.scopeCriteria, [scope]: { ...NO_CRITERIA } };
   }
   if (action === "clear-filter") {
@@ -1529,4 +1530,4 @@ installListEvents({ state, draw, outcomeChange });
 installHouseholdPicker(); // the household member picker in the beneficiary window (app/beneficiaries/household-picker.ts)
 
 // The calls the feature files use (DECISIONS 298), filled in once everything above exists.
-Object.assign(shell, { draw, redrawLists, outcomeChange, view, lastError: () => lastError, afterConfig, changed, setupNow });
+Object.assign(shell, { openGifts: (label: string, keys: string[]) => { state.criteria = { ...NO_CRITERIA }; state.giftColFilters = {}; state.giftFiltOpen = ""; state.filter = "all"; state.giftKeys = { label, keys }; state.page = "work-orders"; draw(); }, draw, redrawLists, outcomeChange, view, lastError: () => lastError, afterConfig, changed, setupNow });
