@@ -548,3 +548,16 @@ describe("giftsPage", () => {
     expect(valueByCurrency(three.map((w) => w)).text).toMatch(/^£60 · \$84 \+1 more$/);
   });
 });
+
+describe("marking a gift Priority from its window (DECISIONS 284)", () => {
+  it("offers Make priority, and shows the Priority pill and Priority on once marked", () => {
+    const orders = [{ ...base, key: "o1", subscriptionId: "", instalmentNumber: "", instalmentCount: "" }];
+    const off = giftDetailHtml(view({ workOrders: orders }), "once-o1");
+    expect(off).toContain('data-gift-priority="o1" data-on="1" aria-pressed="false"');
+    expect(off).toContain(">Make priority<");
+    const on = giftDetailHtml(view({ workOrders: orders, priorityGifts: ["o1"] }), "once-o1");
+    expect(on).toContain('<span class="pill review">Priority</span>');
+    expect(on).toContain('data-on="" aria-pressed="true"');
+    expect(on).toContain(">Priority on<");
+  });
+});

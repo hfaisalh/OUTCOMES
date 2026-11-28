@@ -54,6 +54,7 @@ export interface OrgConfig {
   progress?: Progress; // the steps taken after allocation (phases, review, report, complete, feedback) and the batches closed (DECISIONS 232)
   confirmations?: Confirmations; // the partners' answers to assignments: confirmed or rejected, with who and why (DECISIONS 231)
   enrolments?: Enrolments; // who is enrolled in which cluster, for which benefit (DECISIONS 167)
+  priorityGifts?: string[]; // the gifts marked Priority, as assignment keys: assigned and allocated before the others (DECISIONS 284)
   partnerCosts?: PartnerCosts; // what partners spent beyond their work orders, recorded for reporting only (DECISIONS 280)
   locations?: Place[]; // the checked places in use, picked from the place search (DECISIONS 274), with their position for reports and a map
   beneficiaries?: Register; // the Beneficiary register: persons and households (DECISIONS 163)

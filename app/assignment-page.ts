@@ -7,6 +7,7 @@
  * A recurring gift is one row, however many payments it has (DECISIONS 172). Who calls it: app/main.ts. Depends on: modules/08-assignment/assignment.ts, projects.ts (the types) and esc and View from pages.ts.
  */
 
+import { prioritySet } from "../modules/08-assignment/priority-gifts";
 import { siteBadge } from "./site-chip";
 import { assignables, contextFrom, emptyAssignments, loads, projectOfOrder, suggestAssignments, toAssign, type Suggestion } from "../modules/08-assignment/assignment";
 import { batchRollup, batchSizeOf, labelBatches } from "../modules/08-assignment/batches";
@@ -27,7 +28,7 @@ export function assignmentPage(v: View): string {
   const existing = { records: labelBatches((v.assignments ?? emptyAssignments()).records, (id) => batchSizeOf((v.projects ?? []).find((p) => p.id === id))) }; // an assignment made before batches existed is labelled here, oldest first
   const today = v.today ?? "2026-01-01";
   const names = new Map(v.workOrders.map((w) => [w.itemId, w.itemName]));
-  const ctx = contextFrom({ workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now: `${today}T00:00:00Z`, enrolments: v.enrolments?.records ?? [], beneficiaries: v.beneficiaries?.records ?? [], rulesOf: (i) => itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, i, names.get(i) ?? ""), itemUnits: v.itemUnits, stock: v.allocations?.stock });
+  const ctx = contextFrom({ urgent: prioritySet(v.priorityGifts), workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now: `${today}T00:00:00Z`, enrolments: v.enrolments?.records ?? [], beneficiaries: v.beneficiaries?.records ?? [], rulesOf: (i) => itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, i, names.get(i) ?? ""), itemUnits: v.itemUnits, stock: v.allocations?.stock });
   const pname = (id: string): string => partners.find((p) => p.id === id)?.name ?? id;
   const units = new Map(assignables(ctx).map((u) => [u.key, u])); // a recurring gift is one row, however many payments it has (DECISIONS 172)
   const suggestions = suggestAssignments(ctx, existing);

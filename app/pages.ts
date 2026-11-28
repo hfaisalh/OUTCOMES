@@ -57,6 +57,7 @@ export interface View {
   benFilter?: BenFilter; // the filters on the Outcomes list page
   beneficiaries?: Register; // the Beneficiary register (DECISIONS 163)
   locations?: Place[]; // the checked places in use (DECISIONS 274)
+  priorityGifts?: string[]; // the gifts marked Priority, as assignment keys (DECISIONS 284)
   partnerCosts?: PartnerCost[]; // what partners recorded as spent, for the Dashboard card (DECISIONS 280)
   allocations?: Allocations; // which place each assigned gift fills (DECISIONS 175)
   assignments?: Assignments; // which partner each gift was assigned to (DECISIONS 170)

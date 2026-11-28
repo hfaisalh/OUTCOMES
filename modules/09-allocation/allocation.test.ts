@@ -357,6 +357,17 @@ describe("parked outcomes, the partner's own stock (DECISIONS 209)", () => {
 });
 
 
+describe("a gift marked Priority is allocated first (DECISIONS 284)", () => {
+  it("takes the one open place before an older gift, and the older gift waits", () => {
+    const one = ctx({ enrolments: [enr("EN-1", "B1")], beneficiaries: [child("B1", "Amina", { partnerId: "trust" })], assignments: [asg("G1", { parts: 3 }), asg("G2", { parts: 3 })], urgent: new Set(["G2"]) });
+    const s = suggestAllocations(one, emptyAllocations());
+    expect(s.find((x) => x.key === "G2")?.kind).toBe("beneficiary");
+    expect(s.find((x) => x.key === "G1")?.kind).toBe("");
+    const plain = suggestAllocations({ ...one, urgent: new Set() }, emptyAllocations());
+    expect(plain.find((x) => x.key === "G1")?.kind).toBe("beneficiary"); // without it, the older gift is first
+  });
+});
+
 describe("priority (DECISIONS 282)", () => {
   it("fills a beneficiary marked Priority first among the partner's own children", () => {
     const c = ctx({ beneficiaries: [child("B1", "Amina", { partnerId: "trust" }), child("B2", "Bilal", { partnerId: "trust", priority: true })], assignments: [asg("G1")] });

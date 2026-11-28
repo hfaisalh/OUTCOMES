@@ -6,6 +6,7 @@
  * Rules: the organisation always comes from the signed session; a read needs to view work orders, a change needs to map frameworks; the rules themselves are the pure functions the demo uses too.
  */
 
+import { prioritySet, setGiftPriority } from "../08-assignment/priority-gifts.js";
 import { PERMISSIONS as P } from "../../app/menu.js";
 import { applyOutcomeTypeAction, starterOutcomeTypes } from "../05-outcomes/outcome-types.js";
 import { ensureRefs, withPrefixes } from "../05-outcomes/refs.js";
@@ -71,7 +72,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   let confirmations = config.confirmations ?? emptyConfirmations(); // the partners' answers to those assignments (DECISIONS 231)
   let progress = config.progress ?? emptyProgress(); // the steps taken after allocation, and the batches closed (DECISIONS 232)
   // Rule: every answer carries the whole picture (all the records the page draws from), so a page never has to ask twice. The few things an answer changes are passed in `over`.
-  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, outcomeAllocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, allocations, locations: config.locations ?? [], partnerCosts: config.partnerCosts?.records ?? [], itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...over });
+  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, outcomeAllocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, allocations, locations: config.locations ?? [], priorityGifts: config.priorityGifts ?? [], partnerCosts: config.partnerCosts?.records ?? [], itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...over });
   // Rule (DECISIONS 105): every outcome and allocation has an ID. Any without one are given one here, so older ones get theirs too.
   const settle = (): boolean => {
     const r = ensureRefs({ outcomes, outcomeAllocations, counters: idCounters }, outcomeTypes, config.allocationPrefix);
@@ -130,7 +131,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     if (typeof b["action"] === "string" && b["action"].startsWith("asg-")) {
       const wosA = await d.store.listWorkOrders(org);
       const namesA = new Map(wosA.map((w) => [w.itemId, w.itemName]));
-      const ctx = contextFrom({ workOrders: wosA, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesA.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: allocations.stock });
+      const ctx = contextFrom({ urgent: prioritySet(config.priorityGifts), workOrders: wosA, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesA.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: allocations.stock });
       const r = applyAssignmentAction(ctx, assignments, b);
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
@@ -144,8 +145,8 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     if (typeof b["action"] === "string" && b["action"].startsWith("alc-")) {
       const wos = await d.store.listWorkOrders(org);
       const names = new Map(wos.map((w) => [w.itemId, w.itemName]));
-      const actx = contextFrom({ workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: allocations.stock });
-      const ctx = allocateContext({ assignments: assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: enrolments.records, beneficiaries: beneficiaries.records, giftProjects, frameworks: fw, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), now: at, ...(config.itemUnits ? { itemUnits: config.itemUnits } : {}) });
+      const actx = contextFrom({ urgent: prioritySet(config.priorityGifts), workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: allocations.stock });
+      const ctx = allocateContext({ urgent: prioritySet(config.priorityGifts), assignments: assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: enrolments.records, beneficiaries: beneficiaries.records, giftProjects, frameworks: fw, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), now: at, ...(config.itemUnits ? { itemUnits: config.itemUnits } : {}) });
       const r = applyAllocationAction(ctx, allocations, b);
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
@@ -158,7 +159,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     if (typeof b["action"] === "string" && b["action"].startsWith("prg-")) {
       const wosP = await d.store.listWorkOrders(org);
       const namesP = new Map(wosP.map((w) => [w.itemId, w.itemName]));
-      const actxP = contextFrom({ workOrders: wosP, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesP.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: allocations.stock });
+      const actxP = contextFrom({ urgent: prioritySet(config.priorityGifts), workOrders: wosP, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesP.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: allocations.stock });
       const fwOf = new Map(assignables(actxP).map((u) => [u.key, u.w.frameworkId ?? ""]));
       const pctx = progressContext({ assignments: assignments.records, allocations: allocations.records, frameworkOf: (k) => fwOf.get(k) ?? "", frameworks: fw, sizeOf: (id) => batchSizeOf(projects.find((x) => x.id === id)), today: at.slice(0, 10) });
       const r = applyProgressAction(pctx, progress, b, a.claims.name, at);
@@ -185,7 +186,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (b["action"] === "sample-load") {
         const wos = await d.store.listWorkOrders(org);
         const seen = new Map(wos.map((w) => [w.itemId, w.itemName]));
-        const r = loadSampleSetup({ items: [...seen.entries()].map(([id, name]) => ({ id, name })), realProjects: realProjectsFor(giftProjects, wos), demand: demandByItem(contextFrom({ workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at })), whole: wholeByItem(wos, fw, config.itemUnits), itemKinds: config.itemKinds ?? {}, kindFeatures: (config.kindFeatures ?? {}) as SavedFeatures, ...state, today: at.slice(0, 10) });
+        const r = loadSampleSetup({ items: [...seen.entries()].map(([id, name]) => ({ id, name })), realProjects: realProjectsFor(giftProjects, wos), demand: demandByItem(contextFrom({ urgent: prioritySet(config.priorityGifts), workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at })), whole: wholeByItem(wos, fw, config.itemUnits), itemKinds: config.itemKinds ?? {}, kindFeatures: (config.kindFeatures ?? {}) as SavedFeatures, ...state, today: at.slice(0, 10) });
         if ("error" in r) return fail(r.error);
         next = r.value; message = sampleSummaryText(r.summary);
       } else {
@@ -209,6 +210,15 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       return reply({ warning: r.message });
     }
     // The Beneficiary register (DECISIONS 163) and enrolments (DECISIONS 167): the same pure rules the demo uses. A beneficiary that is enrolled cannot be removed.
+    // Rule (DECISIONS 284): a gift is marked Priority, or the mark is taken away. It only changes the order of assignment and allocation.
+    if (b["action"] === "gift-priority") {
+      const key = str("key");
+      if (key === "") return fail("Choose a gift.");
+      const next = setGiftPriority(config.priorityGifts, key, b["on"] === true);
+      await save({ ...config, priorityGifts: next });
+      config.priorityGifts = next;
+      return reply({ warning: b["on"] === true ? "Marked as priority: assigned and allocated first." : "Priority taken away." });
+    }
     // Rule (DECISIONS 275): one typed area is given a checked place for everyone who typed it.
     if (b["action"] === "ben-area") {
       const place = acceptPlace(b["location"]);

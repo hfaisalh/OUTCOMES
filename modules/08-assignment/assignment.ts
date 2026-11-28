@@ -19,7 +19,7 @@
  *   registered, never more. A partner with no child of its own for the benefit has no room, so the gift goes to one that has.
  * - Rule: room for any other type is the partner's typed capacity. A partner's capacity for an item is the units it can take (the benefit's capacity, else the partner's total). The units already given to it for that item, and those handed out earlier in the same run, are
  *   counted. A gift needs its units to fit: if it does not, the next partner is tried. A partner with no capacity set has no limit.
- * - Rule: order. Urgent gifts first, then the oldest payment first, so the order is the same every time.
+ * - Rule: order. Gifts marked Priority first (DECISIONS 284, when the workflow lets an urgent gift jump ahead), then the oldest payment first, so the order is the same every time.
  * - Rule: automatic or suggested. A workflow set to automatic is assigned at once (recorded as automatic). One set to suggest only shows its suggestion, and a person confirms it or chooses another partner.
  * - Rule: reassign. A gift that is already assigned can be moved to another eligible partner only when its workflow allows reassigning. A gift with no one to go to waits, with the reason, for a person.
  * - Nothing is changed in place: every function returns a new value.
@@ -57,7 +57,8 @@ export interface AssignContext {
   modeOf: (frameworkId: string) => "auto" | "suggest"; // the workflow's Assignment setting
   reassignOf: (frameworkId: string) => boolean; // the workflow's Reassign switch
   derived?: (p: Project, itemId: string, giftProjectId: string) => number | undefined; // the units a partner's own enrolled children give for a benefit, undefined when the benefit is not one where the beneficiary comes first (DECISIONS 183)
-  urgent: Set<string>; // work order keys marked urgent
+  urgent: Set<string>; // the gifts marked Priority (DECISIONS 284): assignment keys, or work order keys
+  urgentOf: (frameworkId: string) => boolean; // the workflow's "Urgent first" switch: when off, priority changes nothing for its gifts
   today: string; // YYYY-MM-DD
   now: string; // ISO time
 }
@@ -108,6 +109,7 @@ export function contextFrom(a: { workOrders: WorkOrder[]; partners: Project[]; g
     workOrders: a.workOrders, partners: a.partners, giftProjects: a.giftProjects, urgent: a.urgent ?? new Set(), today: a.today, now: a.now, ...(derived ? { derived } : {}),
     modeOf: (id) => { const f = fw(id); return f ? assignOf(f, typeForFramework(a.outcomeTypes, id)) : "suggest"; },
     reassignOf: (id) => { const f = fw(id); return f ? flagOf(f, "reassign") : true; },
+    urgentOf: (id) => { const f = fw(id); return f ? flagOf(f, "urgent") : true; },
   };
 }
 
@@ -148,7 +150,8 @@ export function assignables(ctx: AssignContext): Assignable[] {
     if (PARKED_PLANS.includes(status)) continue;
     out.push({ key: subKey(sub), w: first, payments: lines.length, parts: partsPerInstalment(first) });
   }
-  return out.sort((a, b) => Number(ctx.urgent.has(b.key) || ctx.urgent.has(b.w.key)) - Number(ctx.urgent.has(a.key) || ctx.urgent.has(a.w.key)) || a.w.paidDate.localeCompare(b.w.paidDate) || a.key.localeCompare(b.key));
+  const first = (x: Assignable): number => Number((ctx.urgent.has(x.key) || ctx.urgent.has(x.w.key)) && ctx.urgentOf(x.w.frameworkId ?? "")); // Rule (DECISIONS 284)
+  return out.sort((a, b) => first(b) - first(a) || a.w.paidDate.localeCompare(b.w.paidDate) || a.key.localeCompare(b.key));
 }
 
 // The assignments that still count: those of a gift that is still in scope. An assignment of a parked plan stays on record but does not use up room (DECISIONS 185).
@@ -222,7 +225,7 @@ export function suggestAssignments(ctx: AssignContext, existing: Assignments): S
     const first = candidates.find((c) => c.ok);
     if (first) running.push({ key: unit.key, partnerId: first.partnerId, giftProjectId: gp?.id ?? "", itemId: w.itemId, parts, how: "auto", at: ctx.now });
     out.push({
-      key: unit.key, projectId: gp?.id ?? "", itemId: w.itemId, parts, payments: unit.payments, mode: ctx.modeOf(w.frameworkId ?? ""), partnerId: first?.partnerId ?? "", urgent: ctx.urgent.has(unit.key) || ctx.urgent.has(w.key), candidates,
+      key: unit.key, projectId: gp?.id ?? "", itemId: w.itemId, parts, payments: unit.payments, mode: ctx.modeOf(w.frameworkId ?? ""), partnerId: first?.partnerId ?? "", urgent: (ctx.urgent.has(unit.key) || ctx.urgent.has(w.key)) && ctx.urgentOf(w.frameworkId ?? ""), candidates,
       why: first ? `Goes to ${first.name} (${first.why})` : reason || `Every eligible partner is full (${candidates.map((c) => c.name).join(", ")}).`,
       blocked: first ? "" : blocked || "full",
     });

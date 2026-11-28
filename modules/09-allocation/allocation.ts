@@ -67,10 +67,11 @@ export interface AllocationContext {
   itemFramework: Record<string, string>; // the workflow each item is in, from its gifts, to know the units that make one whole beneficiary
   rulesOf: (itemId: string) => ItemRules | undefined;
   now: string; // ISO time
+  urgent?: Set<string>; // the assignments marked Priority (DECISIONS 284): allocated before the others. Absent: none
 }
 
 // Builds the context from what the callers hold. The workflow of an item is the one its gifts are routed under.
-export function allocateContext(a: { assignments: Assignment[]; assignables: Assignable[]; workOrders: { itemId: string; frameworkId?: string; subscriptionId?: string; paidDate?: string; planStatus?: string }[]; enrolments: Enrolment[]; beneficiaries: Beneficiary[]; giftProjects: GiftProject[]; frameworks: FrameworkTemplate[]; rulesOf: (itemId: string) => ItemRules | undefined; now: string; itemUnits?: Record<string, number> }): AllocationContext {
+export function allocateContext(a: { assignments: Assignment[]; assignables: Assignable[]; workOrders: { itemId: string; frameworkId?: string; subscriptionId?: string; paidDate?: string; planStatus?: string }[]; enrolments: Enrolment[]; beneficiaries: Beneficiary[]; giftProjects: GiftProject[]; frameworks: FrameworkTemplate[]; rulesOf: (itemId: string) => ItemRules | undefined; now: string; itemUnits?: Record<string, number>; urgent?: Set<string> }): AllocationContext {
   const itemFramework: Record<string, string> = {};
   for (const w of a.workOrders) if ((w.frameworkId ?? "") !== "" && itemFramework[w.itemId] === undefined) itemFramework[w.itemId] = w.frameworkId as string;
   // The gifts still in scope. When no list of gifts is given (a caller that only has assignments), every assignment counts.
@@ -83,7 +84,7 @@ export function allocateContext(a: { assignments: Assignment[]; assignables: Ass
     const status = [...lines].sort((x, y) => x.paidDate.localeCompare(y.paidDate)).at(-1)?.planStatus ?? "";
     if (status === "paused" || status === "cancelled" || status === "completed") parkedBy[`sub:${sub}`] = status;
   }
-  return { assignments: a.assignments.filter((x) => live.has(x.key)), live, parkedBy, itemUnits: a.itemUnits ?? {}, assignables: a.assignables, enrolments: a.enrolments, beneficiaries: a.beneficiaries, giftProjects: a.giftProjects, frameworks: a.frameworks, itemFramework, rulesOf: a.rulesOf, now: a.now };
+  return { assignments: a.assignments.filter((x) => live.has(x.key)), live, parkedBy, itemUnits: a.itemUnits ?? {}, assignables: a.assignables, enrolments: a.enrolments, beneficiaries: a.beneficiaries, giftProjects: a.giftProjects, frameworks: a.frameworks, itemFramework, rulesOf: a.rulesOf, now: a.now, ...(a.urgent ? { urgent: a.urgent } : {}) };
 }
 
 export type Blocked = "" | "no-beneficiary" | "full" | "no-project-beneficiary" | "no-type";
@@ -133,7 +134,9 @@ export function suggestAllocations(ctx: AllocationContext, existing: Allocations
   const done = new Set(existing.records.filter(isActive).map((p) => p.key)); // a gift whose allocation has ended is no longer allocated
   const out: AllocationSuggestion[] = [];
   const takenStock = usedStock(existing.records); // parked outcomes used already, and those promised earlier in this run
-  for (const a of [...ctx.assignments].filter((x) => !done.has(x.key)).sort((x, y) => x.at.localeCompare(y.at) || x.key.localeCompare(y.key))) {
+  // Rule (DECISIONS 284): a gift marked Priority is looked after first, so it gets the place or outcome before the others; then the oldest.
+  const first = (k: string): number => Number(ctx.urgent?.has(k) === true);
+  for (const a of [...ctx.assignments].filter((x) => !done.has(x.key)).sort((x, y) => first(y.key) - first(x.key) || x.at.localeCompare(y.at) || x.key.localeCompare(y.key))) {
     const rules = ctx.rulesOf(a.itemId);
     // Rule: a gift for a type where the gift comes first, or with no beneficiary, creates an outcome. It needs no place.
     if (rules && (rules.first === "gift" || rules.receiver === "none")) {

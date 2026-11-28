@@ -5,6 +5,7 @@
  * Who calls it: app/confirmation-page.ts (the list of batches) and app/confirmation-window.ts (the window of one batch). Depends on: modules/11-confirmation/confirmation.ts (the rules), modules/08-assignment/assignment.ts, and View and esc from app/pages.ts. Pure: it takes a View and returns rows or HTML.
  */
 
+import { prioritySet } from "../modules/08-assignment/priority-gifts";
 import { assignables, contextFrom, emptyAssignments, liveRecords } from "../modules/08-assignment/assignment";
 import { confirmationOf, DEFAULT_CONFIRM_DAYS, type ConfirmStatus } from "../modules/11-confirmation/confirmation";
 import { confirmDaysOf } from "../modules/02-project-rules/workflows";
@@ -18,7 +19,7 @@ export interface Row { key: string; gift: string; site: string; currency: string
 export function rowsOf(v: View): Row[] {
   const today = v.today ?? "2026-01-01";
   const partners = v.projects ?? [];
-  const ctx = contextFrom({ workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now: `${today}T00:00:00Z` });
+  const ctx = contextFrom({ urgent: prioritySet(v.priorityGifts), workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now: `${today}T00:00:00Z` });
   const units = new Map(assignables(ctx).map((u) => [u.key, u]));
   const answers = v.confirmations?.records ?? [];
   return liveRecords(ctx, (v.assignments ?? emptyAssignments()).records).map((a) => {

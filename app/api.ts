@@ -119,6 +119,7 @@ export interface OutcomesReply {
   beneficiaries?: Register;
   locations?: Place[]; // the checked places in use (DECISIONS 274)
   partnerCosts?: PartnerCost[]; // what partners recorded as spent (DECISIONS 280)
+  priorityGifts?: string[]; // the gifts marked Priority (DECISIONS 284)
   enrolments?: Enrolments;
   assignments?: Assignments;
   confirmations?: Confirmations;

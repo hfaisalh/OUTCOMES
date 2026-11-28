@@ -22,7 +22,7 @@ const lapsed = partner("lapsed", "Lapsed", { status: "pending" });
 const builders = partner("builders", "Builders", { itemIds: ["I11"], benefitTerms: { I11: { capacity: 5 } } });
 const aghosh: GiftProject = { id: "aghosh", name: "Aghosh Home", crmNames: [], partnerIds: ["lapsed", "builders", "trust", "backup"] };
 const ctx = (over: Partial<AssignContext> = {}): AssignContext => ({
-  workOrders: [], partners: [lapsed, builders, trust, backup], giftProjects: [aghosh], modeOf: () => "auto", reassignOf: () => true, urgent: new Set(), today: "2026-11-24", now: "2026-11-24T10:00:00Z", ...over,
+  workOrders: [], partners: [lapsed, builders, trust, backup], giftProjects: [aghosh], modeOf: () => "auto", reassignOf: () => true, urgentOf: () => true, urgent: new Set(), today: "2026-11-24", now: "2026-11-24T10:00:00Z", ...over,
 });
 const five = ["G01", "G02", "G03", "G04", "G05"].map((k) => wo(k));
 
@@ -68,6 +68,11 @@ describe("which partner a gift goes to", () => {
     expect(s.map((x) => x.key)).toEqual(["G05", "G01", "G02", "G03", "G04"]);
     expect(s[0]?.urgent).toBe(true);
     expect(s[0]?.partnerId).toBe("trust"); // the urgent one gets the trust's room first
+  });
+  it("lets a workflow switch priority off, so its gifts keep the usual order (DECISIONS 284)", () => {
+    const s = suggestAssignments(ctx({ workOrders: five, urgent: new Set(["G05"]), urgentOf: () => false }), emptyAssignments());
+    expect(s.map((x) => x.key)).toEqual(["G01", "G02", "G03", "G04", "G05"]);
+    expect(s.find((x) => x.key === "G05")?.urgent).toBe(false);
   });
 });
 

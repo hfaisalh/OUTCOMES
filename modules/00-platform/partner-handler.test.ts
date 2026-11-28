@@ -253,3 +253,16 @@ describe("the partner changes its own profile (DECISIONS 281)", () => {
     expect((await handleOutcomes(as(c, { method: "POST", body: { action: "profile-set", contacts: [{ name: "A", email: "bad" }] } }), d)).status).toBe(400);
   });
 });
+
+describe("a gift marked Priority (DECISIONS 284)", () => {
+  it("is marked and unmarked by staff, kept in the setup and returned with the reply", async () => {
+    const staff = cookieOf(await handleDemoLogin(req(), d));
+    const post = (body: unknown) => handleOutcomes(as(staff, { method: "POST", body }), d);
+    expect((await post({ action: "gift-priority", key: "sub:SUB-1", on: true })).body).toMatchObject({ priorityGifts: ["sub:SUB-1"], warning: "Marked as priority: assigned and allocated first." });
+    expect((await d.store.getConfig("demo"))!.priorityGifts).toEqual(["sub:SUB-1"]);
+    expect((await post({ action: "gift-priority", key: "sub:SUB-1", on: false })).body).toMatchObject({ priorityGifts: [] });
+    expect((await post({ action: "gift-priority", key: "", on: true })).status).toBe(400);
+    const partner = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
+    expect((await handleOutcomes(as(partner, { method: "POST", body: { action: "gift-priority", key: "x", on: true } }), d)).status).toBe(400); // a partner cannot mark one
+  });
+});

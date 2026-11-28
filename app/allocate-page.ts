@@ -8,6 +8,7 @@
  * Who calls it: app/main.ts. Depends on: modules/09-allocation/allocation.ts, 08-assignment, 07-beneficiaries (enrolments) and esc and View from pages.ts.
  */
 
+import { prioritySet } from "../modules/08-assignment/priority-gifts";
 import { siteBadge } from "./site-chip";
 import { assignables, contextFrom, emptyAssignments } from "../modules/08-assignment/assignment";
 import { clusterStateOf, pathOf } from "../modules/06-projects/clusters";
@@ -31,7 +32,7 @@ export function allocatePage(v: View): string {
   const recorded = v.allocations ?? emptyAllocations(); // all of it, history included
   const enrolments = (v.enrolments ?? emptyEnrolments()).records;
   const people = (v.beneficiaries ?? emptyRegister()).records;
-  const actx = contextFrom({ workOrders: v.workOrders, partners, giftProjects: gps, frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now });
+  const actx = contextFrom({ urgent: prioritySet(v.priorityGifts), workOrders: v.workOrders, partners, giftProjects: gps, frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now });
   const units = assignables(actx);
   const unitOf = new Map(units.map((u) => [u.key, u]));
   const names = new Map(v.workOrders.map((w) => [w.itemId, w.itemName]));

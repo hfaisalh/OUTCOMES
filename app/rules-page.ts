@@ -20,9 +20,9 @@ function assignSettings(v: View): string {
   if (fws.length === 0) return `<p class="muted">No workflow yet. Add one on the Workflows page.</p>`;
   const partners = v.projects ?? [];
   const own = partners.filter((p) => p.batchSize !== undefined);
-  return `<h3>Each workflow</h3><div class="tablewrap"><table class="ru-table"><thead><tr><th>Workflow</th><th>Assign</th><th>Urgent first</th><th>Move to another partner</th><th class="num">Days to confirm</th></tr></thead><tbody>${fws.map((f) => `<tr><th scope="row">${esc(f.name)}</th>
+  return `<h3>Each workflow</h3><div class="tablewrap"><table class="ru-table"><thead><tr><th>Workflow</th><th>Assign</th><th>Priority gifts first</th><th>Move to another partner</th><th class="num">Days to confirm</th></tr></thead><tbody>${fws.map((f) => `<tr><th scope="row">${esc(f.name)}</th>
     <td><select data-wf-assign="${esc(f.id)}" aria-label="How ${esc(f.name)} is assigned"><option value="auto"${assignOf(f, undefined) === "auto" ? " selected" : ""}>Automatically</option><option value="suggest"${assignOf(f, undefined) === "suggest" ? " selected" : ""}>Suggest only</option></select></td>
-    <td><input type="checkbox" data-wf-flag="urgent" data-wf="${esc(f.id)}" aria-label="An urgent gift jumps ahead in ${esc(f.name)}"${flagOf(f, "urgent") ? " checked" : ""}></td>
+    <td><input type="checkbox" data-wf-flag="urgent" data-wf="${esc(f.id)}" aria-label="A gift marked Priority goes first in ${esc(f.name)}"${flagOf(f, "urgent") ? " checked" : ""}></td>
     <td><input type="checkbox" data-wf-flag="reassign" data-wf="${esc(f.id)}" aria-label="A person may move a ${esc(f.name)} gift to another partner"${flagOf(f, "reassign") ? " checked" : ""}></td>
     <td class="num"><input type="number" min="0" max="60" data-wf-confirm="days" data-wf="${esc(f.id)}" value="${confirmDaysOf(f)}" aria-label="Days the partner has to confirm ${esc(f.name)}"></td></tr>`).join("")}</tbody></table></div>
     <p class="muted">A batch is ${batchSizeOf(undefined)} gifts unless a partner has its own size${own.length ? ` (${own.map((p) => `${esc(p.name)} ${p.batchSize}`).join(", ")})` : ""}. Set a partner's on its page.</p>`;

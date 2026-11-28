@@ -5,6 +5,7 @@
  * Who calls it: app/main.ts. Also exports standingsOf, the one place the pages read where each gift stands. Depends on: modules/12-progress (the rules), modules/08-assignment, and View and esc from app/pages.ts. Pure: it takes a View and returns HTML.
  */
 
+import { prioritySet } from "../modules/08-assignment/priority-gifts";
 import { siteBadge } from "./site-chip";
 import { assignables, contextFrom } from "../modules/08-assignment/assignment";
 import { batchSizeOf } from "../modules/08-assignment/batches";
@@ -21,7 +22,7 @@ export type ProgressFilter = "all" | "partner" | "late" | "review" | "complete";
 export function standingsOf(v: View): GiftStanding[] {
   const today = v.today ?? "2026-01-01";
   const partners = v.projects ?? [];
-  const ctx = contextFrom({ workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now: `${today}T00:00:00Z` });
+  const ctx = contextFrom({ urgent: prioritySet(v.priorityGifts), workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now: `${today}T00:00:00Z` });
   const fwOf = new Map(assignables(ctx).map((u) => [u.key, u.w.frameworkId ?? ""]));
   return standings({ assignments: v.assignments?.records ?? [], allocations: v.allocations?.records ?? [], frameworkOf: (k) => fwOf.get(k) ?? "", frameworks: v.frameworks ?? [], sizeOf: (id) => batchSizeOf(partners.find((p) => p.id === id)), today }, v.progress?.records ?? []);
 }
@@ -35,7 +36,7 @@ export function progressPage(v: View): string {
   const allocated = standingsOf(v).filter((s) => s.allocated);
   const filter = (v.prgFilter ?? "all") as ProgressFilter;
   const partners = v.projects ?? [];
-  const ctx = contextFrom({ workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today: v.today ?? "2026-01-01", now: `${v.today ?? "2026-01-01"}T00:00:00Z` });
+  const ctx = contextFrom({ urgent: prioritySet(v.priorityGifts), workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today: v.today ?? "2026-01-01", now: `${v.today ?? "2026-01-01"}T00:00:00Z` });
   const units = new Map(assignables(ctx).map((u) => [u.key, u]));
   const count = (f: ProgressFilter): number => allocated.filter((s) => matches(s, f)).length;
   const tile = (f: ProgressFilter, label: string, cls = ""): string => `<button type="button" class="metric tile${cls}" data-tile="prg:${f}" aria-pressed="${filter === f ? "true" : "false"}"><b>${count(f)}</b><span>${label}</span></button>`;
