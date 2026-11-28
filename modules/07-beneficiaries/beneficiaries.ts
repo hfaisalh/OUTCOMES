@@ -193,7 +193,9 @@ export function setBeneficiary(reg: Register, id: string, f: Fields & { status?:
   if (status !== "active" && status !== "inactive") return { error: "Status is active or inactive." };
   const d = readFields(reg, r.kind, f, id);
   if ("error" in d) return d;
-  const dup = duplicateError(reg, r.kind, d, id, allowSimilar);
+  // Rule (DECISIONS 289): the duplicate check is for a new identity. A record saved with the same name, date of birth, ID number (and area, for a household) as it already has was accepted before, so saving it again for any other reason is not asked about it again.
+  const sameIdentity = normName(d.name) === normName(r.name) && d.dob === r.dob && d.idNumber === r.idNumber && (r.kind === "person" || normName(d.area) === normName(r.area));
+  const dup = sameIdentity ? "" : duplicateError(reg, r.kind, d, id, allowSimilar);
   if (dup !== "") return { error: dup };
   // Rule (DECISIONS 246): a person who changes an automatic decision owns it from then on, so it is not worked out again over theirs.
   const mine = d.eligibility !== (r.eligibility ?? "") && d.eligibilityNote === (r.eligibilityNote ?? "") && (r.eligibilityNote ?? "").startsWith("Automatic: ") ? { ...d, eligibilityNote: "Decided by a person" } : d;

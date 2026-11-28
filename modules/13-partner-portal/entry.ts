@@ -59,7 +59,10 @@ export function partnerEntry(reg: Register, partnerId: string, projectIds: strin
   // Everything a partner does not give stays as it is, so an edit never wipes what MWF decided.
   const kept = { eligibility: mine.eligibility, eligibilityNote: mine.eligibilityNote, priority: mine.priority, priorityNote: mine.priorityNote, notes: mine.notes, partnerId: mine.partnerId };
   const merged = { ...mine, ...given };
-  const dup = dupError(merged.name, merged.dob, merged.idNumber, id);
+  // Rule (DECISIONS 289): only a new identity is checked for a duplicate; saving the same name, date of birth and ID number again is not.
+  const text = (v: unknown): string => (typeof v === "string" ? v.trim().toLowerCase() : "");
+  const sameIdentity = text(merged.name) === text(mine.name) && text(merged.dob) === text(mine.dob) && text(merged.idNumber) === text(mine.idNumber);
+  const dup = sameIdentity ? "" : dupError(merged.name, merged.dob, merged.idNumber, id);
   if (dup !== "") return fail(dup);
   const r = setBeneficiary(reg, id, { ...mine, ...kept, ...given }, true, today); // duplicates were handled above
   return "error" in r ? fail(r.error) : { register: r.value, id, added: false };

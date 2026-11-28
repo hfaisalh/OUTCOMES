@@ -187,3 +187,19 @@ describe("a person is in one household at a time (DECISIONS 244)", () => {
     expect(one.message).toBeUndefined();
   });
 });
+
+describe("saving a record again is not a new identity (DECISIONS 289)", () => {
+  it("does not ask about a possible match again when the name, date of birth and ID are as they were", () => {
+    // Two records with the same name and different dates of birth: the second was accepted by a person saying it is a different person.
+    let reg = withAyesha();
+    reg = ok(addBeneficiary(reg, "person", { name: "Ayesha Khan", dob: "2016-01-01" }, true));
+    const again = setBeneficiary(reg, "PRS-0002", { name: "Ayesha Khan", dob: "2016-01-01", guardian: "Her mother" });
+    expect(again).toHaveProperty("value"); // changing the guardian saves without the warning
+  });
+  it("still checks when the identity changes", () => {
+    let reg = withAyesha();
+    reg = ok(addBeneficiary(reg, "person", { name: "Ayesha Khan", dob: "2016-01-01" }, true));
+    const renamed = setBeneficiary(reg, "PRS-0002", { name: "Ayesha Khan", dob: "2014-03-09" }); // now the same date of birth as PRS-0001
+    expect(renamed).toHaveProperty("error");
+  });
+});
