@@ -61,6 +61,7 @@ export interface Framework {
   cycle: Cycle;
   reportType: string; // the name of the report the donor receives
   instalment?: InstalmentRule; // how an instalment counts toward a unit. Absent means not set yet
+  moveAfterDays?: number; // move a gift still unanswered this many days after its deadline to another partner (DECISIONS 326). Absent: never
   loopMonths?: number; // how many months the repeating report runs for, from the first report. Absent: for as long as the gift runs (DECISIONS 318)
   fulfilled?: Fulfilled; // the stage at which a gift counts as fulfilled (DECISIONS 316). Absent: allocated for a unit that is one period, complete otherwise
 }

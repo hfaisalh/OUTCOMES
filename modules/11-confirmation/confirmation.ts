@@ -63,6 +63,13 @@ export function confirmationOf(a: ConfirmAssignment, records: Confirmation[], da
   return { state: "waiting", due, lateDays: Math.max(0, daysBetween(due, today.slice(0, 10))), answeredAt: "", reason: "" };
 }
 
+// Rule (DECISIONS 326): the partners that refused a gift, or did not answer in time. Automatic assignment does not offer the gift to them again.
+export function refusedBy(records: Confirmation[]): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const r of records) if (r.answer === "rejected") out[r.key] = [...new Set([...(out[r.key] ?? []), r.partnerId])];
+  return out;
+}
+
 export type ConfirmResult = { value: Confirmations } | { error: string };
 
 // The partner says yes. A gift that is not assigned, or is already answered, cannot be confirmed again.

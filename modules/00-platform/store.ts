@@ -46,6 +46,9 @@ export interface OrgConfig {
   outcomeAllocations?: OutcomeAllocation[];
   giftProjects?: GiftProject[]; // the projects donors choose, and the partners that deliver them (DECISIONS 76)
   kindFeatures?: Record<string, unknown>; // the features of each kind a person has changed, by kind id. Absent: the defaults (DECISIONS 146)
+  autoRules?: Partial<import("../18-automation/rules.js").AutoRules>; // what the automatic work does and when it reminds (DECISIONS 326). Absent: the defaults
+  partnerMessages?: import("../18-automation/messages.js").PartnerMessage[]; // the partners' inboxes
+  autoLast?: { at: string; by: string; text: string }; // the last run of the automatic work, for the Rules page
   itemTimelines?: import("../02-project-rules/timeline.js").ItemTimelines; // when an item's journey starts and how long its outcome lives, by item id. Absent: the workflow's default (DECISIONS 314)
   itemUnits?: Record<string, number>; // the units that make one whole beneficiary, by item id. Absent: the workflow's (DECISIONS 188)
   itemKinds?: Record<string, string>; // the kind of benefit chosen for an item, by item id. Absent: the kind is suggested from the name (DECISIONS 143)

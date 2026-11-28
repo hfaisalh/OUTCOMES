@@ -19,6 +19,7 @@ import { esc, type View } from "../shared/pages";
 import { pageTab, tabsHtml, panelAttrs, type PageTab } from "../shared/page-tabs";
 import { standingsOf } from "./progress-page";
 import { isClosed } from "../../modules/12-progress/progress";
+import { refusedBy } from "../../modules/11-confirmation/confirmation";
 
 const MAX_ROWS = 150;
 // The filters say what they mean: ready to be assigned, waiting with no partner, or already assigned (DECISIONS 179).
@@ -29,7 +30,7 @@ export function assignmentPage(v: View): string {
   const existing = { records: labelBatches((v.assignments ?? emptyAssignments()).records, (id) => batchSizeOf((v.projects ?? []).find((p) => p.id === id))) }; // an assignment made before batches existed is labelled here, oldest first
   const today = v.today ?? "2026-01-01";
   const names = new Map(v.workOrders.map((w) => [w.itemId, w.itemName]));
-  const ctx = contextFrom({ urgent: prioritySet(v.priorityGifts), workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now: `${today}T00:00:00Z`, enrolments: v.enrolments?.records ?? [], beneficiaries: v.beneficiaries?.records ?? [], rulesOf: (i) => itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, i, names.get(i) ?? ""), itemUnits: v.itemUnits, stock: v.allocations?.stock });
+  const ctx = contextFrom({ urgent: prioritySet(v.priorityGifts), refused: refusedBy(v.confirmations?.records ?? []), workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today, now: `${today}T00:00:00Z`, enrolments: v.enrolments?.records ?? [], beneficiaries: v.beneficiaries?.records ?? [], rulesOf: (i) => itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, i, names.get(i) ?? ""), itemUnits: v.itemUnits, stock: v.allocations?.stock });
   const pname = (id: string): string => partners.find((p) => p.id === id)?.name ?? id;
   const units = new Map(assignables(ctx).map((u) => [u.key, u])); // a recurring gift is one row, however many payments it has (DECISIONS 172)
   const suggestions = suggestAssignments(ctx, existing);

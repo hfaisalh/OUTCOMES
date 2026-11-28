@@ -123,6 +123,9 @@ export const state = {
   itemIcons: {} as Record<string, string>, // the icon chosen for an item (DECISIONS 107)
   kindSel: "", // the kind the Benefits page shows (DECISIONS 146)
   kindFeatures: {} as Record<string, unknown>, // the features of the kinds a person changed (DECISIONS 146)
+  autoRules: {} as Partial<import("../modules/18-automation/rules").AutoRules>, // the automatic work's settings (DECISIONS 326)
+  autoLast: undefined as { at: string; by: string; text: string } | undefined, // the last run
+  partnerMessages: [] as import("../modules/18-automation/messages").PartnerMessage[], // the partners' inboxes (demo)
   itemTimelines: {} as import("../modules/02-project-rules/timeline").ItemTimelines, // the timeline of an item, by item (DECISIONS 314)
   itemUnits: {} as Record<string, number>, // the units that make one whole beneficiary, by item (DECISIONS 188)
   itemKinds: {} as Record<string, string>, // the kind of benefit chosen for an item (DECISIONS 143)

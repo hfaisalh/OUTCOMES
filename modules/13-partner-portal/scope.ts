@@ -21,6 +21,7 @@ import type { Confirmations } from "../11-confirmation/confirmation.js";
 import type { Progress } from "../12-progress/progress.js";
 import type { GiftDetail } from "./gift-details.js";
 import type { PartnerCost } from "../15-partner-costs/costs.js";
+import { forPartner, type PartnerMessage } from "../18-automation/messages.js";
 
 // --- What the portal needs to read, and what it hands out ---
 export const PARTNER_PERMISSION = "outcomes.partner"; // held only by a partner's sign-in, never by staff roles
@@ -36,6 +37,7 @@ export interface PartnerState {
   progress: Progress;
   allocations: Allocations;
   itemNames?: Record<string, string>; // the name of each benefit (a gift item), from the work orders. Names only, never anything about a donor
+  messages?: PartnerMessage[]; // every partner's inbox. Only this partner's own go out (DECISIONS 326)
   costs?: PartnerCost[]; // every partner's recorded costs. Only this partner's own go out (DECISIONS 280)
   giftDetails?: Record<string, GiftDetail>; // what a partner may know about each assigned gift (gift-details.ts), by assignment key
 }
@@ -55,6 +57,7 @@ export interface PartnerSlice {
   itemNames: Record<string, string>; // only the benefits of the partner's own gifts and projects
   gifts: Record<string, GiftDetail>; // only for the gifts assigned to this partner
   costs?: PartnerCost[]; // only this partner's own recorded costs
+  messages?: PartnerMessage[]; // only this partner's own messages, newest first
 }
 
 // --- The rule ---
@@ -92,6 +95,8 @@ export function partnerSlice(s: PartnerState, partnerId: string): PartnerSlice |
     // Rule (DECISIONS 259): details are sent only for gifts assigned to this partner.
     // Rule (DECISIONS 280): a partner sees only the costs it recorded itself.
     costs: (s.costs ?? []).filter((c) => c.partnerId === partnerId),
+    // Rule (DECISIONS 326): a partner reads only its own inbox.
+    messages: forPartner(s.messages ?? [], partnerId),
     gifts: Object.fromEntries(assignments.flatMap((a) => (s.giftDetails?.[a.key] ? [[a.key, s.giftDetails[a.key]]] : []))) as Record<string, GiftDetail>,
   };
 }

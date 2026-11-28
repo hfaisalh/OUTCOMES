@@ -40,7 +40,11 @@ export async function handlePartnerAction(action: string, el: HTMLElement, curre
   if (partnerUi.form) partnerUi.form = { ...partnerUi.form, fresh: false }; // the window eases in only when it opens
   if (partnerUi.csv) partnerUi.csv = { ...partnerUi.csv, fresh: false };
   const viaKeyboard = el.matches?.(":focus-visible") ?? false; // only a keyboard user gets the focus ring put back, so a mouse click leaves no outline behind
-  if (action === "pt-toggle") {
+  if (action === "pt-inbox") {
+    partnerUi.inbox = !partnerUi.inbox;
+  } else if (action === "pt-msg-read") {
+    await send({ action: "msg-read", ids: "all" }, apply);
+  } else if (action === "pt-toggle") {
     const id = el.dataset["batch"] ?? "";
     const wasOpen = partnerUi.open.includes(id);
     partnerUi.open = wasOpen ? partnerUi.open.filter((b) => b !== id) : [...partnerUi.open, id];

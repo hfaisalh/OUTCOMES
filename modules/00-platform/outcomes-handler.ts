@@ -23,7 +23,7 @@ import { applyKindAction, type SavedFeatures } from "../02-project-rules/kind-fe
 import { applyBeneficiaryAction, emptyRegister } from "../07-beneficiaries/beneficiaries.js";
 import { applyAllocationAction, emptyAllocations, allocateContext } from "../09-allocation/allocation.js";
 import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments } from "../08-assignment/assignment.js";
-import { applyConfirmationAction, confirmOnBehalf, emptyConfirmations } from "../11-confirmation/confirmation.js";
+import { applyConfirmationAction, confirmOnBehalf, emptyConfirmations, refusedBy } from "../11-confirmation/confirmation.js";
 import { applyProgressAction, emptyProgress } from "../12-progress/progress.js";
 import { applyErasure } from "../07-beneficiaries/erasure.js";
 import { changesBetween } from "./change-log.js";
@@ -33,6 +33,11 @@ import { loadSampleSetup, realProjectsFor, wholeByItem, type SampleState, remove
 import { poolMessage, settlePool } from "../07-beneficiaries/waiting.js";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf } from "../07-beneficiaries/enrolments.js";
 import { handlePartner } from "./partner-handler.js";
+import { autoRulesOf, setAutoRule } from "../18-automation/rules.js";
+import { addMessages } from "../18-automation/messages.js";
+import { newBatchMessages, sentBackFor } from "../18-automation/input.js";
+import { sweepRecords } from "../18-automation/run.js";
+import { standings } from "../12-progress/context.js";
 import { handlePlaces } from "./places-handler.js";
 import { acceptPlace, upsertPlace } from "../14-locations/locations.js";
 import { resolveArea } from "../14-locations/areas.js";
@@ -74,7 +79,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   let confirmations = config.confirmations ?? emptyConfirmations(); // the partners' answers to those assignments (DECISIONS 231)
   let progress = config.progress ?? emptyProgress(); // the steps taken after allocation, and the batches closed (DECISIONS 232)
   // Rule: every answer carries the whole picture (all the records the page draws from), so a page never has to ask twice. The few things an answer changes are passed in `over`.
-  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, outcomeAllocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, allocations, locations: config.locations ?? [], priorityGifts: config.priorityGifts ?? [], allocationSteps: normaliseSteps(config.allocationSteps), partnerCosts: config.partnerCosts?.records ?? [], itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, itemTimelines: config.itemTimelines ?? {}, kindFeatures: config.kindFeatures ?? {}, ...over });
+  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, outcomeAllocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, allocations, locations: config.locations ?? [], priorityGifts: config.priorityGifts ?? [], allocationSteps: normaliseSteps(config.allocationSteps), partnerCosts: config.partnerCosts?.records ?? [], itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, itemTimelines: config.itemTimelines ?? {}, autoRules: config.autoRules ?? {}, ...(config.autoLast ? { autoLast: config.autoLast } : {}), kindFeatures: config.kindFeatures ?? {}, ...over });
   // Rule (DECISIONS 105): every outcome and allocation has an ID. Any without one are given one here, so older ones get theirs too.
   const settle = (): boolean => {
     const r = ensureRefs({ outcomes, outcomeAllocations, counters: idCounters }, outcomeTypes, config.allocationPrefix);
@@ -133,14 +138,17 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     if (typeof b["action"] === "string" && b["action"].startsWith("asg-")) {
       const wosA = await d.store.listWorkOrders(org);
       const namesA = new Map(wosA.map((w) => [w.itemId, w.itemName]));
-      const ctx = contextFrom({ urgent: prioritySet(config.priorityGifts), workOrders: wosA, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesA.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: allocations.stock });
+      const ctx = contextFrom({ urgent: prioritySet(config.priorityGifts), refused: refusedBy(confirmations.records), workOrders: wosA, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesA.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: allocations.stock });
       const r = applyAssignmentAction(ctx, assignments, b);
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
+      const beforeAsg = assignments.records;
       assignments = r.value;
       if (b["action"] === "asg-reset") { confirmations = emptyConfirmations(); progress = emptyProgress(); } // no assignments, so no answers and no steps
       settleConfirmations();
-      await save({ ...config, assignments, confirmations, progress });
+      // Rule (DECISIONS 326): a partner is told when gifts are assigned to it.
+      const told = addMessages(config.partnerMessages ?? [], newBatchMessages(beforeAsg, assignments.records, at)).value;
+      await save({ ...config, assignments, confirmations, progress, partnerMessages: told });
       return reply({ ...(r.message ? { warning: r.message } : {}) });
     }
     // Allocation, the rewired Allocation (DECISIONS 175): the same pure rule the demo uses. An assigned gift fills an open place (an enrolment) or creates an outcome. Results are separate records, so they can be reset.
@@ -168,7 +176,14 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
       progress = r.value;
-      await save({ ...config, progress });
+      // Rule (DECISIONS 326): work sent back is told to the partner, with the reason and the last day.
+      let toldP = config.partnerMessages ?? [];
+      if (b["action"] === "prg-reject") {
+        const st = standings({ assignments: assignments.records, allocations: allocations.records, frameworkOf: (k) => fwOf.get(k) ?? "", frameworks: fw, sizeOf: (id) => batchSizeOf(projects.find((x) => x.id === id)), today: at.slice(0, 10) }, progress.records).find((x) => x.key === str("key"));
+        const m = sentBackFor(assignments.records.find((x) => x.key === str("key")), st, assignables(actxP).find((u) => u.key === str("key"))?.w.itemName ?? "your gift", at);
+        if (m) toldP = addMessages(toldP, [m]).value;
+      }
+      await save({ ...config, progress, partnerMessages: toldP });
       return reply({ ...(r.message ? { warning: r.message } : {}) });
     }
     // Confirmation (DECISIONS 231): a person answers for the partner, confirming or rejecting an assigned gift. The same pure rule the demo uses.
@@ -264,6 +279,24 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       await save({ ...config, beneficiaries, enrolments });
       return reply(pooled ? { warning: pooled } : {});
     }
+    // The automatic work (DECISIONS 326). auto-rule sets one setting. auto-sweep reminds partners and moves unanswered gifts. auto-note keeps what the last run did. auto-run does all of it (see runAutomation below).
+    if (b["action"] === "auto-rule") {
+      const r = setAutoRule(config.autoRules, b["key"], b["value"]);
+      if ("error" in r) return fail(r.error);
+      await save({ ...config, autoRules: r.value });
+      return reply({ autoRules: r.value });
+    }
+    if (b["action"] === "auto-note") {
+      await save({ ...config, autoLast: { at, by: a.claims.name, text: str("text").slice(0, 400) } });
+      return reply({ autoLast: { at, by: a.claims.name, text: str("text").slice(0, 400) } });
+    }
+    if (b["action"] === "auto-sweep") {
+      const r = sweepRecords({ workOrders: await d.store.listWorkOrders(org), partners: projects, giftProjects, frameworks: fw, outcomeTypes, assignments, confirmations, allocations, progress, messages: config.partnerMessages ?? [], ...(config.priorityGifts ? { priorityGifts: config.priorityGifts } : {}), ...(config.autoRules ? { rules: config.autoRules } : {}) }, at);
+      confirmations = r.confirmations; assignments = r.assignments;
+      await save({ ...config, confirmations, assignments, partnerMessages: r.messages });
+      return reply({ warning: `${r.reminded} reminder${r.reminded === 1 ? "" : "s"} left, ${r.moved} gift${r.moved === 1 ? "" : "s"} moved` });
+    }
+    if (b["action"] === "auto-run") return runAutomation(req, d, org, a.claims.name);
     // The units that make one whole beneficiary of an item (DECISIONS 188). An empty number takes the item's own back, so its workflow's applies.
     if (b["action"] === "item-units") {
       const r = setItemUnits(config.itemUnits ?? {}, str("itemId"), b["units"]);
@@ -409,4 +442,24 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     await d.store.putConfig(org, { ...config, outcomes, outcomeAllocations, outcomeTypes, idCounters }); // a read that only gives older records their IDs: not one of the logged parts
   }
   return reply({ ...extra });
+}
+
+
+// --- The automatic work, run as a whole (DECISIONS 326) ---
+// Does, in order: the sweep (reminders, and moving unanswered gifts), Assign, Allocate, each only if its setting is on, then notes what was done. Each step is the same request a person's button makes, sent with the same session (or the system's, for the scheduled job), so every change is logged and permission-checked as usual. Returns the full picture, like a read.
+export async function runAutomation(req: HttpRequest, d: Deps, org: string, who: string): Promise<HttpResponse> {
+  const config = (await d.store.getConfig(org)) ?? defaultConfig();
+  const rules = autoRulesOf(config.autoRules);
+  const anyMove = (setupOf(config).frameworks ?? []).some((f) => f.moveAfterDays !== undefined);
+  const post = (body: Record<string, unknown>): Promise<HttpResponse> => handleOutcomes({ method: "POST", query: {}, headers: req.headers, body }, d);
+  const did: string[] = [];
+  const note = (label: string, r: HttpResponse): void => { const w = (r.body as { warning?: unknown; error?: unknown } | undefined); did.push(r.status === 200 ? `${label}${typeof w?.warning === "string" && w.warning ? `: ${w.warning}` : ""}` : `${label} failed${typeof w?.error === "string" ? `: ${w.error}` : ""}`); };
+  if (rules.remind || anyMove) note("Reminders and moves", await post({ action: "auto-sweep" }));
+  if (rules.assign) note("Assign", await post({ action: "asg-run" }));
+  if (rules.allocate) note("Allocate", await post({ action: "alc-run" }));
+  if (did.length === 0) did.push("Nothing to do: reminders, Assign and Allocate are all off.");
+  const text = `${did.join(". ")}.`;
+  await post({ action: "auto-note", text });
+  const picture = await handleOutcomes({ method: "GET", query: {}, headers: req.headers }, d);
+  return { ...picture, body: { ...(picture.body as object), warning: text } };
 }

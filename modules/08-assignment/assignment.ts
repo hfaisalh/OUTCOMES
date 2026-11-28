@@ -61,6 +61,7 @@ export interface AssignContext {
   urgentOf: (frameworkId: string) => boolean; // the workflow's "Urgent first" switch: when off, priority changes nothing for its gifts
   today: string; // YYYY-MM-DD
   now: string; // ISO time
+  refused?: Record<string, string[]>; // the partners that refused each gift or did not answer in time, by assignment key: not suggested for it again (DECISIONS 326)
 }
 
 export interface Candidate { partnerId: string; name: string; ok: boolean; why: string }
@@ -80,7 +81,7 @@ export interface Suggestion {
 type Result = { value: Assignments } | { error: string };
 
 // Builds the context from what the callers hold: each workflow gives its Assignment setting (automatic or suggest) and its Reassign switch.
-export function contextFrom(a: { workOrders: WorkOrder[]; partners: Project[]; giftProjects: GiftProject[]; frameworks: FrameworkTemplate[]; outcomeTypes: OutcomeType[]; urgent?: Set<string>; today: string; now: string; enrolments?: Enrolment[]; beneficiaries?: Beneficiary[]; rulesOf?: (itemId: string) => ItemRules | undefined; itemUnits?: Record<string, number>; stock?: StockItem[] }): AssignContext {
+export function contextFrom(a: { workOrders: WorkOrder[]; partners: Project[]; giftProjects: GiftProject[]; frameworks: FrameworkTemplate[]; outcomeTypes: OutcomeType[]; urgent?: Set<string>; refused?: Record<string, string[]>; today: string; now: string; enrolments?: Enrolment[]; beneficiaries?: Beneficiary[]; rulesOf?: (itemId: string) => ItemRules | undefined; itemUnits?: Record<string, number>; stock?: StockItem[] }): AssignContext {
   const fw = (id: string): FrameworkTemplate | undefined => a.frameworks.find((f) => f.id === id);
   // Rule (DECISIONS 183): the units a partner's own children give for a benefit. One whole child is the units of its workflow (3 for an orphan, 1 for a scholarship).
   const itemFramework: Record<string, string> = {};
@@ -106,7 +107,7 @@ export function contextFrom(a: { workOrders: WorkOrder[]; partners: Project[]; g
     }).length * whole;
   } : undefined;
   return {
-    workOrders: a.workOrders, partners: a.partners, giftProjects: a.giftProjects, urgent: a.urgent ?? new Set(), today: a.today, now: a.now, ...(derived ? { derived } : {}),
+    workOrders: a.workOrders, partners: a.partners, giftProjects: a.giftProjects, urgent: a.urgent ?? new Set(), ...(a.refused ? { refused: a.refused } : {}), today: a.today, now: a.now, ...(derived ? { derived } : {}),
     modeOf: (id) => { const f = fw(id); return f ? assignOf(f, typeForFramework(a.outcomeTypes, id)) : "suggest"; },
     reassignOf: (id) => { const f = fw(id); return f ? flagOf(f, "reassign") : true; },
     urgentOf: (id) => { const f = fw(id); return f ? flagOf(f, "urgent") : true; },
@@ -220,13 +221,15 @@ export function suggestAssignments(ctx: AssignContext, existing: Assignments): S
   const out: Suggestion[] = [];
   for (const unit of toAssign(ctx, existing)) {
     const { w, parts } = unit;
-    const { gp, list, reason, blocked } = considered(ctx, w);
+    const { gp, list: all, reason, blocked } = considered(ctx, w);
+    const skip = new Set(ctx.refused?.[unit.key] ?? []); // Rule (DECISIONS 326): not back to a partner that refused it
+    const list = all.filter((p) => !skip.has(p.id));
     const candidates: Candidate[] = list.map((p) => ({ partnerId: p.id, name: p.name, ...roomFor(ctx, p, w.itemId, parts, running, gp?.id ?? "") }));
     const first = candidates.find((c) => c.ok);
     if (first) running.push({ key: unit.key, partnerId: first.partnerId, giftProjectId: gp?.id ?? "", itemId: w.itemId, parts, how: "auto", at: ctx.now });
     out.push({
       key: unit.key, projectId: gp?.id ?? "", itemId: w.itemId, parts, payments: unit.payments, mode: ctx.modeOf(w.frameworkId ?? ""), partnerId: first?.partnerId ?? "", urgent: (ctx.urgent.has(unit.key) || ctx.urgent.has(w.key)) && ctx.urgentOf(w.frameworkId ?? ""), candidates,
-      why: first ? `Goes to ${first.name} (${first.why})` : reason || `Every eligible partner is full (${candidates.map((c) => c.name).join(", ")}).`,
+      why: first ? `Goes to ${first.name} (${first.why})` : reason || (all.length > 0 && list.length === 0 ? "Every eligible partner has already refused it or did not answer in time." : "") || `Every eligible partner is full (${candidates.map((c) => c.name).join(", ")}).`,
       blocked: first ? "" : blocked || "full",
     });
   }

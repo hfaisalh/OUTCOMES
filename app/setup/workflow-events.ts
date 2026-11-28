@@ -9,7 +9,7 @@
 import { shell } from "../shell";
 import { state } from "../state";
 import { updateTemplate, type FrameworkTemplate } from "../../modules/02-project-rules/categories";
-import { addTask, assignToWorkflow, removeTask, setTask, setUnitRule, setFlag, setConfirm, addStage, setStage, removeStage, moveStage, setAssign, setFulfilled, setLoopMonths, setReportLoop, unassignItem } from "../../modules/02-project-rules/workflows";
+import { addTask, assignToWorkflow, removeTask, setTask, setUnitRule, setFlag, setConfirm, addStage, setStage, removeStage, moveStage, setAssign, setFulfilled, setLoopMonths, setMoveAfter, setReportLoop, unassignItem } from "../../modules/02-project-rules/workflows";
 import { csvChange } from "../portal/partner-csv-session";
 
 // ---- Outcome types on the Categories and frameworks page (DECISIONS 103) ----
@@ -115,6 +115,7 @@ document.addEventListener("click", (e) => {
   }
   const pick = t.closest?.("[data-wf-select]") as HTMLElement | null;
   if (pick) { state.workflowSel = { ...state.workflowSel, id: pick.dataset.wfSelect ?? "", stage: 1 }; return shell.draw(); }
+  if ((t.closest?.("[data-auto]") as HTMLElement | null)?.dataset.auto === "run") return void shell.outcomeChange({ action: "auto-run" });
   const stage = t.closest?.("[data-wf-stage]") as HTMLElement | null;
   if (stage) { state.workflowSel = { ...state.workflowSel, stage: Number(stage.dataset.wfStage) }; return shell.draw(); }
   const act = t.closest?.("[data-wf-act]") as HTMLElement | null;
@@ -140,6 +141,16 @@ document.addEventListener("change", (e) => {
   if (t.dataset?.assignWf !== undefined) { if (t.value !== "") moveItem(t.dataset.assignWf, t.value); return; }
   // How a unit supports an outcome (DECISIONS 131).
   if (t.dataset?.itemUnits !== undefined) { void shell.outcomeChange({ action: "item-units", itemId: t.dataset.itemUnits, units: (t as HTMLInputElement).value }); return; }
+  if (t.dataset?.autoRule !== undefined) {
+    const key = t.dataset.autoRule;
+    void shell.outcomeChange({ action: "auto-rule", key, value: key === "remindBefore" ? (t as HTMLInputElement).value : (t as HTMLInputElement).checked });
+    return;
+  }
+  if (t.dataset?.wfMoveafter !== undefined) {
+    const r = setMoveAfter(state.frameworks, t.dataset.wfMoveafter, (t as HTMLInputElement).value);
+    if ("error" in r) { state.message = r.error; shell.draw(); } else { state.frameworks = r.frameworks; shell.afterConfig(false); shell.draw(); }
+    return;
+  }
   if (t.dataset?.wfLoopmonths !== undefined) {
     const r = setLoopMonths(state.frameworks, t.dataset.wfLoopmonths, (t as HTMLInputElement).value);
     if ("error" in r) { state.message = r.error; shell.draw(); } else { state.frameworks = r.frameworks; shell.afterConfig(false); shell.draw(); }

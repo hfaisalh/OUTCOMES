@@ -13,6 +13,8 @@ import { CYCLE_LABELS, FULFILLED_LABELS, type Cycle, type Fulfilled } from "../.
 import { assignOf, confirmDaysOf, flagOf, fulfilledOf, reportLoopOf, unitModeOf } from "../../modules/02-project-rules/workflows";
 import { batchSizeOf } from "../../modules/08-assignment/batches";
 import { DEFAULT_DAYS } from "../../modules/02-project-rules/timeline";
+import { autoRulesOf, MAX_REMIND_BEFORE } from "../../modules/18-automation/rules";
+import { shortDate } from "../shared/dates";
 import { esc, type View } from "../shared/pages";
 
 export const DEFAULT_GRACE = 15;
@@ -72,4 +74,17 @@ export function reportingSettings(v: View): string {
 export function timingSettings(v: View): string {
   const own = Object.keys(v.itemTimelines ?? {}).length;
   return `<h3>Days to fulfil a gift</h3><p>The default is <b>${DEFAULT_DAYS} days</b>. ${own ? `${own} benefit${own === 1 ? " has" : "s have"} their own number.` : "No benefit has its own number yet."}</p><p class="muted">Set the days for a benefit on the Benefits page, in the Days to fulfil column. Whether the journey starts at the first or the full payment is set for each workflow, in the table under Delivery.</p>`;
+}
+
+// --- Reminders, moving gifts and the daily run (DECISIONS 326) ---
+export function automaticSettings(v: View): string {
+  const r = autoRulesOf(v.autoRules);
+  const fws = v.frameworks ?? [];
+  const sw = (key: string, label: string, on: boolean): string => `<div class="ot-check">${switchHtml({ label, on, attrs: `data-auto-rule="${key}"` })}</div>`;
+  const last = v.autoLast ? `<p class="muted">Last run ${esc(shortDate(v.autoLast.at))} by ${esc(v.autoLast.by)}: ${esc(v.autoLast.text)}</p>` : `<p class="muted">It has not run yet.</p>`;
+  return `<h3>When it runs</h3>${sw("daily", "Run by itself once a day", r.daily)}${sw("remind", "Leave reminders for partners", r.remind)}${sw("assign", "Assign gifts", r.assign)}${sw("allocate", "Allocate gifts", r.allocate)}
+    <h3>Reminders</h3><label class="wf-field"><span>Remind a partner this many days before a deadline (0 is on the day)</span><input type="number" min="0" max="${MAX_REMIND_BEFORE}" data-auto-rule="remindBefore" value="${r.remindBefore}" aria-label="Days before a deadline to remind"></label>${sw("remindLate", "Remind a partner each day it is late", r.remindLate)}
+    <h3>Move an unanswered gift</h3>${fws.length === 0 ? noWorkflow : `<div class="tablewrap"><table class="ru-table"><thead><tr><th>Workflow</th><th class="num">Days after the deadline</th></tr></thead><tbody>${fws.map((f) => `<tr><th scope="row">${esc(f.name)}</th><td class="num"><input type="number" min="1" max="60" data-wf-moveafter="${esc(f.id)}" value="${f.moveAfterDays ?? ""}" placeholder="Never" aria-label="Days after the deadline to move an unanswered ${esc(f.name)} gift"></td></tr>`).join("")}</tbody></table></div>`}
+    <p class="muted">Empty means never. Only gifts the partner has not answered move; accepted ones stay.</p>
+    <h3>Run it now</h3><p><button type="button" class="primary" data-auto="run">Run now</button></p>${last}`;
 }

@@ -7,7 +7,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { PERMISSIONS as P } from "../../app/menu";
 import { addBeneficiary, emptyRegister } from "../07-beneficiaries/beneficiaries";
-import { handleConfig, handleDemoLogin, handleLaunch, handleMe, handleOutcomes, handleWorkOrders, type Deps, type HttpRequest } from "./handlers";
+import { handleConfig, handleDemoLogin, handleLaunch, handleMe, handleOutcomes, handlePickup, handleWorkOrders, type Deps, type HttpRequest } from "./handlers";
 import { signToken, type Claims } from "./launch-token";
 import { defaultConfig, memoryStore } from "./store";
 
@@ -331,5 +331,63 @@ describe("place searches are limited per person (DECISIONS 295)", () => {
     for (let i = 0; i < 41; i++) last = (await handleOutcomes(as(a, { query: { places: `Kas${i}x` } }), dd)).status;
     expect(last).toBe(429);
     expect((await handleOutcomes(as(b, { query: { places: "Kasur" } }), dd)).status).toBe(200);
+  });
+});
+
+
+describe("the partner inbox and the automatic work (decision 326)", () => {
+  const msg = (id: string, partnerId: string) => ({ id, partnerId, at: "2026-12-01T00:00:00Z", kind: "reminder" as const, title: "Answers due soon", text: "1 gift to accept or refuse is due by 02/12/26.", read: false });
+  it("gives a partner only its own messages, and lets it mark only its own as read", async () => {
+    const cfg = (await d.store.getConfig("demo"))!;
+    await d.store.putConfig("demo", { ...cfg, partnerMessages: [msg("m1", "p1"), msg("m2", "p2")] });
+    const c = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
+    const read = await handleOutcomes(as(c), d);
+    expect((read.body as { messages: { id: string }[] }).messages.map((m) => m.id)).toEqual(["m1"]);
+    const marked = await handleOutcomes(as(c, { method: "POST", body: { action: "msg-read", ids: "all" } }), d);
+    expect((marked.body as { messages: { read: boolean }[] }).messages.every((m) => m.read)).toBe(true);
+    const saved = (await d.store.getConfig("demo"))!.partnerMessages!;
+    expect(saved.find((m) => m.id === "m2")?.read).toBe(false); // the other partner's message is untouched
+  });
+  it("lets staff set the automatic settings, and refuses a setting that makes no sense", async () => {
+    const owner = cookieOf(await handleDemoLogin(req({ query: {} }), d));
+    const post = (body: unknown) => handleOutcomes(as(owner, { method: "POST", body }), d);
+    const ok = await post({ action: "auto-rule", key: "allocate", value: true });
+    expect(ok.status).toBe(200);
+    expect((await d.store.getConfig("demo"))!.autoRules).toMatchObject({ allocate: true });
+    expect((await post({ action: "auto-rule", key: "remindBefore", value: 99 })).status).toBe(400);
+  });
+  it("runs the automatic work: leaves reminders, moves a gift unanswered past its days, tells the partner, and notes what it did", async () => {
+    const cfg = (await d.store.getConfig("demo"))!;
+    const wo = (key: string) => ({ key, lineId: key, status: "ready", itemId: "S", itemName: "Orphan Sponsorship Monthly", subscriptionId: "", instalmentCount: "", instalmentNumber: "", paidDate: "2026-11-01", frameworkId: "wf", supporterName: "Private Donor" }) as never;
+    await d.store.saveWorkOrders("demo", [wo("a"), wo("b")]);
+    const fw = { id: "wf", name: "Pump", unit: "pump", cycle: "on_delivery", reportType: "", unitsPerBeneficiary: 1, confirmDays: 3, moveAfterDays: 2 };
+    const gift = (key: string) => ({ key, partnerId: "p1", giftProjectId: "g1", itemId: "S", parts: 1, how: "auto" as const, at: "2026-11-01T00:00:00Z", batch: 1 });
+    await d.store.putConfig("demo", { ...cfg, frameworks: [fw] as never, assignments: { records: [gift("a"), gift("b")] }, confirmations: { records: [{ key: "b", partnerId: "p1", answer: "confirmed", at: "2026-11-02T00:00:00Z", by: "P", reason: "" }] } });
+    const owner = cookieOf(await handleDemoLogin(req({ query: {} }), d));
+    const run = await handleOutcomes(as(owner, { method: "POST", body: { action: "auto-run" } }), d);
+    expect(run.status).toBe(200);
+    const after = (await d.store.getConfig("demo"))!;
+    expect(after.assignments!.records.map((x) => x.key)).toEqual(["b"]); // a was unanswered long past its days, so it moved; b was accepted and stays
+    expect(after.confirmations!.records.find((x) => x.key === "a")).toMatchObject({ answer: "rejected", by: "Automation" });
+    expect(after.partnerMessages!.some((m) => m.kind === "moved" && m.partnerId === "p1")).toBe(true);
+    expect(JSON.stringify(after.partnerMessages)).not.toContain("Private Donor");
+    expect(after.autoLast?.text).toContain("1 gift moved");
+  });
+  it("runs on the daily schedule, with the cron secret, only when the organisation has it on", async () => {
+    const cfg = (await d.store.getConfig("demo"))!;
+    const wo = { key: "a", lineId: "a", status: "ready", itemId: "S", itemName: "Orphan Sponsorship Monthly", subscriptionId: "", instalmentCount: "", instalmentNumber: "", paidDate: "2026-11-01", frameworkId: "wf" } as never;
+    await d.store.saveWorkOrders("demo", [wo]);
+    const fw = { id: "wf", name: "Pump", unit: "pump", cycle: "on_delivery", reportType: "", unitsPerBeneficiary: 1, confirmDays: 3, moveAfterDays: 2 };
+    const gift = { key: "a", partnerId: "p1", giftProjectId: "g1", itemId: "S", parts: 1, how: "auto" as const, at: "2026-11-01T00:00:00Z", batch: 1 };
+    await d.store.putConfig("demo", { ...cfg, frameworks: [fw] as never, assignments: { records: [gift] }, autoRules: { daily: false } });
+    expect((await handlePickup(req({ headers: { authorization: "Bearer wrong" } }), d)).status).toBe(401);
+    const off = await handlePickup(req({ headers: { authorization: "Bearer cron-secret" } }), d);
+    expect((off.body as { results: { automation: { ran: boolean } }[] }).results[0]?.automation.ran).toBe(false);
+    expect((await d.store.getConfig("demo"))!.assignments!.records).toHaveLength(1); // switched off: nothing moved
+    await d.store.putConfig("demo", { ...(await d.store.getConfig("demo"))!, autoRules: { daily: true } });
+    const on = await handlePickup(req({ headers: { authorization: "Bearer cron-secret" } }), d);
+    expect((on.body as { results: { automation: { ran: boolean } }[] }).results[0]?.automation.ran).toBe(true);
+    expect((await d.store.getConfig("demo"))!.assignments!.records).toHaveLength(0); // the unanswered gift moved
+    expect((await d.store.getConfig("demo"))!.autoLast?.by).toBe("Automation");
   });
 });

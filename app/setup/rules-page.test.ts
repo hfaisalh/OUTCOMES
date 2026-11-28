@@ -64,6 +64,22 @@ describe("the Rules page: delivery, reporting, timing and what is not automatic 
   });
   it("lists what is not automatic yet, so nobody expects it", () => {
     expect(html).toContain('id="ru-notyet"');
-    expect(html).toContain("Reminders to a partner");
+    expect(html).toContain("Messages to donors");
+  });
+});
+
+describe("the automatic work on the Rules page (decision 326)", () => {
+  const html = rulesPage(v({ autoRules: { allocate: true, remindBefore: 2 }, autoLast: { at: "2026-12-01T03:00:00Z", by: "Automation", text: "Reminders and moves: 2 reminders left, 1 gift moved." } }));
+  it("has the group, with every value a setting rather than fixed", () => {
+    expect(html).toContain("Reminders, moving gifts and the daily run");
+    for (const k of ["daily", "remind", "assign", "allocate", "remindLate", "remindBefore"]) expect(html).toContain(`data-auto-rule="${k}"`);
+    expect(html).toMatch(/checked[^>]*data-auto-rule="allocate"/); // the saved setting is shown
+    expect(html).toContain('data-auto-rule="remindBefore" value="2"');
+    expect(html).toContain('data-wf-moveafter="wf-orphan"');
+    expect(html).toContain('placeholder="Never"');
+  });
+  it("can be run by hand and says what the last run did", () => {
+    expect(html).toContain('data-auto="run">Run now');
+    expect(html).toContain("Last run 01/12/26 by Automation: Reminders and moves: 2 reminders left, 1 gift moved.");
   });
 });

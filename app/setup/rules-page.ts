@@ -10,15 +10,14 @@
 import { normaliseSteps } from "../../modules/09-allocation/order";
 import { automationRules, type RuleSection } from "../../modules/16-rules/rules";
 import { confirmDaysOf, flagOf, assignOf, reportLoopOf, unitModeOf } from "../../modules/02-project-rules/workflows";
-import { allocateSettings, assignSettings, confirmSettings, DEFAULT_GRACE, deliverySettings, releaseSettings, reportingSettings, timingSettings, waitingSettings } from "./rules-settings";
+import { allocateSettings, assignSettings, automaticSettings, confirmSettings, DEFAULT_GRACE, deliverySettings, releaseSettings, reportingSettings, timingSettings, waitingSettings } from "./rules-settings";
 import { esc, type View } from "../shared/pages";
 
 // What the system does not do by itself yet, so nobody expects it to. Each is a candidate for a rule of its own.
 const NOT_YET = [
-  "Reminders to a partner that has not answered or is late on a phase: late is flagged, nothing is sent.",
-  "Moving a batch to another partner when the first does not answer in time.",
-  "Messages to donors (a partner confirmed, a report, a request for feedback) and to partners (work sent back): these need the CRM's outgoing channel.",
-  "Running Assign and Allocate on a schedule: today a person presses the button.",
+  "Messages to donors (a partner confirmed, a report, a request for feedback): these need the CRM's outgoing channel. Partners are already told in their own inbox.",
+  "Choosing a time of day for the daily run: it runs once a day, after the CRM pick-up, and the hosting plan allows no more often.",
+  "Telling a partner by email or text when a message arrives: today it waits behind the bell on the partner's screen.",
 ];
 
 // --- At a glance ---
@@ -36,7 +35,7 @@ function glance(v: View): string {
 
 // --- A group: its number, its rules, and its settings beside it ---
 // A group whose settings are a table of workflows gets the settings under its rules, across the full width.
-const WIDE: RuleSection["id"][] = ["assign", "delivery", "reporting"];
+const WIDE: RuleSection["id"][] = ["assign", "delivery", "reporting", "automatic"];
 function section(s: RuleSection, n: number, side: string): string {
   return `<section class="card ru-card${WIDE.includes(s.id) ? " ru-wide" : ""}" id="ru-${s.id}" aria-labelledby="ru-h-${s.id}"><div class="ru-grid"><div class="ru-main"><div class="ru-head"><span class="ru-num" aria-hidden="true">${n}</span><div><h2 id="ru-h-${s.id}">${esc(s.title)}</h2><p class="muted">${esc(s.intro)}</p></div></div>
     <ol class="ru-rules">${s.rules.map((r) => `<li>${esc(r.text)} <span class="ru-src">${esc(r.decision)}</span></li>`).join("")}</ol></div>
@@ -47,7 +46,7 @@ export function rulesPage(v: View): string {
   const sections = automationRules({ graceDays: v.graceDays ?? DEFAULT_GRACE, requireRef: v.requireRef === true, steps: v.allocationSteps ?? normaliseSteps(undefined) });
   const side: Record<RuleSection["id"], string> = {
     assign: assignSettings(v), confirm: confirmSettings(), allocate: allocateSettings(v), waiting: waitingSettings(v), release: releaseSettings(v),
-    delivery: deliverySettings(v), reporting: reportingSettings(v), timing: timingSettings(v),
+    delivery: deliverySettings(v), reporting: reportingSettings(v), timing: timingSettings(v), automatic: automaticSettings(v),
   };
   const nav = `<nav class="ru-nav" aria-label="Groups of rules"><ol>${sections.map((s, i) => `<li><a href="#ru-${s.id}"><span class="ru-num sm" aria-hidden="true">${i + 1}</span>${esc(s.title)}</a></li>`).join("")}<li><a href="#ru-notyet"><span class="ru-num sm off" aria-hidden="true">!</span>Not automatic yet</a></li></ol></nav>`;
   return `<h1>Rules</h1>

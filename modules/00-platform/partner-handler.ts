@@ -21,6 +21,7 @@ import { addMany, MAX_ROWS } from "../13-partner-portal/import.js";
 import { giftDetails } from "../13-partner-portal/gift-details.js";
 import { partnerSlice, PARTNER_PERMISSION } from "../13-partner-portal/scope.js";
 import { acceptPlace, upsertPlace } from "../14-locations/locations.js";
+import { markRead } from "../18-automation/messages.js";
 import { setOwnProfile } from "../13-partner-portal/profile.js";
 import { applyCostAction, COST_CATEGORIES, emptyCosts } from "../15-partner-costs/costs.js";
 import { changesBetween } from "./change-log.js";
@@ -89,6 +90,12 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
     message = "Profile saved.";
     Object.assign(config, next);
     migrated.partners = r.value;
+  } else if (req.method === "POST" && body["action"] === "msg-read") {
+    // Rule (DECISIONS 326): a partner marks its own messages read, the ones given or all. It cannot touch another partner's.
+    const ids = Array.isArray(body["ids"]) ? (body["ids"] as unknown[]).filter((x): x is string => typeof x === "string") : "all";
+    const next = { ...config, partnerMessages: markRead(config.partnerMessages ?? [], a.claims.partner as string, ids) };
+    await d.store.putConfig(a.claims.org, next);
+    Object.assign(config, next);
   } else if (req.method === "POST" && typeof body["action"] === "string" && body["action"].startsWith("cost-")) {
     // Rule (DECISIONS 280): a partner records, corrects and removes its own costs. Record only: nothing is paid or approved.
     const mineProjects = migrated.giftProjects.filter((g) => g.partnerIds.includes(a.claims.partner as string)).map((g) => g.id);
@@ -130,6 +137,7 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
     progress: config.progress ?? emptyProgress(),
     allocations: config.allocations ?? emptyAllocations(),
     costs: config.partnerCosts?.records ?? [],
+    messages: config.partnerMessages ?? [],
   }, a.claims.partner as string);
   return slice ? json(200, message ? { ...slice, message, ...(upload ? { upload } : {}) } : slice, { "cache-control": "no-store" }) : json(404, { error: "This partner was not found." });
 }

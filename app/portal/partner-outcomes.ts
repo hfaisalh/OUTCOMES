@@ -14,7 +14,7 @@ import { pipeline, STANDING_LABEL, type PartnerOutcome, type Standing } from "..
 
 // --- Shared types and helpers ---
 // The small state of the screen: the batches and the gift details that are open, the beneficiary form that is open, the gifts a refusal form is open for, and the last message or error.
-export interface PartnerUi { open: string[]; details: string[]; lastOpened: string; refusing: string[] | null; form: EntryForm | null; csv: CsvState | null; cost?: CostForm | null; profile?: ProfileForm | null; message: string; error: string }
+export interface PartnerUi { inbox?: boolean; open: string[]; details: string[]; lastOpened: string; refusing: string[] | null; form: EntryForm | null; csv: CsvState | null; cost?: CostForm | null; profile?: ProfileForm | null; message: string; error: string }
 export const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 export const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 

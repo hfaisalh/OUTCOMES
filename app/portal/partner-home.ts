@@ -13,6 +13,7 @@ import { beneficiariesCardHtml } from "./partner-beneficiaries";
 import { costsCardHtml } from "./partner-costs";
 import { profileCardHtml } from "./partner-profile";
 import { journeyHtml, type PartnerUi } from "./partner-outcomes";
+import { bellHtml, inboxHtml } from "./partner-inbox";
 
 // --- Helpers ---
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -36,9 +37,10 @@ export function partnerHomeHtml(slice: PartnerSlice, who: string, version: strin
 
   return `<div class="phome">
     <header class="phome-bar"><div class="phome-brand"><img class="brand-mark" src="/brand/mark-light.svg" alt="" width="30" height="30"><span>OUTCOMES<small>${esc(p.name)}</small></span></div>
-      <div class="phome-who"><span class="badge-demo">${canReturn ? "Testing as partner" : "Partner"}</span><span class="ver" title="The version of this page. If it is not the latest, refresh the page.">${esc(version)}</span><span>${esc(who)}</span>${canReturn ? `<button data-action="view-as" data-partner="">Back to staff</button>` : ""}<button data-action="sign-out">Sign out</button></div></header>
+      <div class="phome-who">${bellHtml(slice, ui)}<span class="badge-demo">${canReturn ? "Testing as partner" : "Partner"}</span><span class="ver" title="The version of this page. If it is not the latest, refresh the page.">${esc(version)}</span><span>${esc(who)}</span>${canReturn ? `<button data-action="view-as" data-partner="">Back to staff</button>` : ""}<button data-action="sign-out">Sign out</button></div></header>
     <main class="phome-main">
       <h1>Welcome, ${esc(p.name)}</h1><p class="sub">Your gifts, beneficiaries and outcomes. You see only your own.</p>
+      ${inboxHtml(slice, ui)}
       ${journeyHtml(gifts)}
       <div class="metrics">${tile(all.length, "Beneficiaries")}${tile(enrolled.size, "Enrolled")}${tile(waiting, "Waiting for a vacancy")}${tile(review, "Need details")}</div>
       <div class="phome-grid">

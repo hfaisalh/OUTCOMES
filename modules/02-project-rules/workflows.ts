@@ -97,6 +97,16 @@ export const removeTask = (frameworks: FrameworkTemplate[], id: string, tid: str
     return left.length ? { ...f, tasks: left } : rest;
   });
 
+// ---- Moving an unanswered gift (DECISIONS 326) ----
+// Rule: a gift the partner has not answered is moved to another partner this many days after its deadline. Empty or 0 is never.
+export const setMoveAfter = (frameworks: FrameworkTemplate[], id: string, days: unknown): Edited => {
+  const raw = typeof days === "number" ? String(days) : typeof days === "string" ? days.trim() : "";
+  if (raw === "" || raw === "0") return editWf(frameworks, id, (f) => { const { moveAfterDays: _gone, ...rest } = f; return rest; });
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > 60) return { error: "The days after the deadline are a whole number from 1 to 60, or empty for never." };
+  return editWf(frameworks, id, (f) => ({ ...f, moveAfterDays: n }));
+};
+
 // ---- The reporting loop of a living gift (DECISIONS 317) ----
 // Rule: a living workflow (a unit is one period, a sponsorship) repeats its report on its cycle for as long as payments keep coming. After each report the gift goes back to the report step for the next round. It leaves the loop, and goes on to feedback, only when the gift stops (cancelled, paused or completed) or the term of its plan has ended. A workflow whose cycle is "on delivery" does not loop, and neither does one that releases only when fully paid.
 // Returns the cycle the report repeats on, or null when the workflow does not loop.

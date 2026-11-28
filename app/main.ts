@@ -36,7 +36,7 @@ import { applyAllocationAction, allocateContext, syncAllocations } from "../modu
 import { applyProgressAction, emptyProgress } from "../modules/12-progress/progress";
 import { progressContext } from "../modules/12-progress/context";
 import { batchSizeOf } from "../modules/08-assignment/batches";
-import { applyConfirmationAction, confirmOnBehalf, emptyConfirmations } from "../modules/11-confirmation/confirmation";
+import { applyConfirmationAction, confirmOnBehalf, emptyConfirmations, refusedBy } from "../modules/11-confirmation/confirmation";
 import { applyAssignmentAction, assignables, contextFrom, demandByItem } from "../modules/08-assignment/assignment";
 import { loadSampleSetup, realProjectsFor, wholeByItem, type SampleState, removeSampleSetup, removedSummaryText, sampleSummaryText } from "../modules/07-beneficiaries/sample-setup";
 import { poolMessage, settlePool } from "../modules/07-beneficiaries/waiting";
@@ -91,6 +91,8 @@ import { viewAsMenu } from "./view-as-menu";
 import { DEMO_ROLES, suggestItemFrameworks } from "./demo-data";
 import { setItemKind, setItemUnits } from "../modules/02-project-rules/benefits";
 import { setItemTimeline } from "../modules/02-project-rules/timeline";
+import { autoRulesOf, setAutoRule } from "../modules/18-automation/rules";
+import { sweepRecords } from "../modules/18-automation/run";
 import { applyKindAction, type SavedFeatures } from "../modules/02-project-rules/kind-features";
 import { landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
 import { listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, esc, categoriesPage, settingsPage, type Filter, type View } from "./shared/pages";
@@ -137,7 +139,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
-    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.outcomeAllocations = o.outcomeAllocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.locations = o.locations ?? state.locations; state.partnerCosts = o.partnerCosts ?? state.partnerCosts; state.priorityGifts = o.priorityGifts ?? state.priorityGifts; state.allocationSteps = o.allocationSteps ?? state.allocationSteps; state.itemUnits = o.itemUnits ?? state.itemUnits; state.itemTimelines = o.itemTimelines ?? state.itemTimelines; state.enrolments = o.enrolments ?? state.enrolments; state.assignments = o.assignments ?? state.assignments; state.allocations = o.allocations ?? state.allocations; state.itemIcons = o.itemIcons ?? state.itemIcons; state.itemKinds = o.itemKinds ?? state.itemKinds; state.kindFeatures = o.kindFeatures ?? state.kindFeatures;
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.outcomeAllocations = o.outcomeAllocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.locations = o.locations ?? state.locations; state.partnerCosts = o.partnerCosts ?? state.partnerCosts; state.priorityGifts = o.priorityGifts ?? state.priorityGifts; state.allocationSteps = o.allocationSteps ?? state.allocationSteps; state.itemUnits = o.itemUnits ?? state.itemUnits; state.itemTimelines = o.itemTimelines ?? state.itemTimelines; state.autoRules = o.autoRules ?? state.autoRules; state.autoLast = o.autoLast ?? state.autoLast; state.enrolments = o.enrolments ?? state.enrolments; state.assignments = o.assignments ?? state.assignments; state.allocations = o.allocations ?? state.allocations; state.itemIcons = o.itemIcons ?? state.itemIcons; state.itemKinds = o.itemKinds ?? state.itemKinds; state.kindFeatures = o.kindFeatures ?? state.kindFeatures;
       // Rule (DECISIONS 258): the answers and the steps taken are read when the page loads too, so a partner's answer is on the Confirmation list without anyone pressing anything first.
       state.confirmations = o.confirmations ?? state.confirmations; state.progress = o.progress ?? state.progress; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
@@ -216,7 +218,7 @@ function view(): View {
   const flaggedItems = [...items.values()];
   return {
     locations: state.locations, allocationSteps: state.allocationSteps, priorityGifts: state.priorityGifts, partnerCosts: state.partnerCosts, workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, confirmations: state.confirmations, progress: state.progress, prgFilter: state.prgFilter, assignFilter: state.assignFilter, pageTab: state.pageTab, allocations: state.allocations, allocFilter: state.allocFilter, cnfFilter: state.cnfFilter, pjFilter: state.pjFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftKeys: state.giftKeys, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, outcomeAllocations: state.outcomeAllocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), message: state.message, config: MWF_CRM_CONFIG,
-    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, itemUnits: state.itemUnits, itemTimelines: state.itemTimelines, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
+    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, itemUnits: state.itemUnits, itemTimelines: state.itemTimelines, autoRules: state.autoRules, ...(state.autoLast ? { autoLast: state.autoLast } : {}), workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, ...(state.me?.logins ? { logins: state.me.logins } : {}), attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
 }
@@ -255,7 +257,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.partnerCosts = r.partnerCosts ?? state.partnerCosts;
       state.priorityGifts = r.priorityGifts ?? state.priorityGifts;
       state.allocationSteps = r.allocationSteps ?? state.allocationSteps;
-      state.itemUnits = r.itemUnits ?? state.itemUnits; state.itemTimelines = r.itemTimelines ?? state.itemTimelines;
+      state.itemUnits = r.itemUnits ?? state.itemUnits; state.itemTimelines = r.itemTimelines ?? state.itemTimelines; state.autoRules = r.autoRules ?? state.autoRules; state.autoLast = r.autoLast ?? state.autoLast;
       state.enrolments = r.enrolments ?? state.enrolments;
       state.assignments = r.assignments ?? state.assignments;
       state.confirmations = r.confirmations ?? state.confirmations;
@@ -311,7 +313,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "asg-run": case "asg-confirm": case "asg-set": case "asg-unassign": case "asg-reset": { // Assignment (DECISIONS 170): the same pure rule the server uses.
           const wosA = view().workOrders;
           const namesA = new Map(wosA.map((w) => [w.itemId, w.itemName]));
-          const ctx = contextFrom({ urgent: prioritySet(state.priorityGifts), workOrders: wosA, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString(), enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, namesA.get(itemId) ?? ""), itemUnits: state.itemUnits, stock: state.allocations.stock });
+          const ctx = contextFrom({ urgent: prioritySet(state.priorityGifts), refused: refusedBy(state.confirmations.records), workOrders: wosA, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: new Date().toISOString().slice(0, 10), now: new Date().toISOString(), enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, namesA.get(itemId) ?? ""), itemUnits: state.itemUnits, stock: state.allocations.stock });
           const r = applyAssignmentAction(ctx, state.assignments, body);
           if (!r) { error = "That request is not understood."; break; }
           if ("error" in r) { error = r.error; break; }
@@ -376,6 +378,26 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
         case "release": state.outcomeAllocations = releaseAllocation(state.outcomeAllocations, str("commitmentKey")); break;
         case "item-icon": { const icon = str("icon"); const next = { ...state.itemIcons }; if (icon === "") delete next[str("itemId")]; else next[str("itemId")] = icon; state.itemIcons = next; break; }
         case "item-timeline": { const r = setItemTimeline(state.itemTimelines, str("itemId"), body["part"], body["value"]); if ("error" in r) error = r.error; else state.itemTimelines = r.value; break; }
+        // The automatic work (DECISIONS 326), in the demo: the same rules the server uses.
+        case "auto-rule": { const r = setAutoRule(state.autoRules, body["key"], body["value"]); if ("error" in r) error = r.error; else state.autoRules = r.value; break; }
+        case "auto-note": state.autoLast = { at, by: "Demo administrator", text: str("text") }; break;
+        case "auto-sweep": {
+          const r = sweepRecords({ workOrders: view().workOrders, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, assignments: state.assignments, confirmations: state.confirmations, allocations: state.allocations, progress: state.progress, messages: state.partnerMessages, priorityGifts: state.priorityGifts, rules: state.autoRules }, at);
+          state.assignments = r.assignments; state.confirmations = r.confirmations; state.partnerMessages = r.messages;
+          state.message = `${r.reminded} reminder${r.reminded === 1 ? "" : "s"} left, ${r.moved} gift${r.moved === 1 ? "" : "s"} moved`;
+          break;
+        }
+        case "auto-run": {
+          const rules = autoRulesOf(state.autoRules);
+          const did: string[] = [];
+          if (rules.remind || state.frameworks.some((f) => f.moveAfterDays !== undefined)) { await outcomeChange({ action: "auto-sweep" }); did.push(`Reminders and moves: ${state.message}`); }
+          if (rules.assign) { await outcomeChange({ action: "asg-run" }); did.push(`Assign: ${state.message || "done"}`); }
+          if (rules.allocate) { await outcomeChange({ action: "alc-run" }); did.push(`Allocate: ${state.message || "done"}`); }
+          if (did.length === 0) did.push("Nothing to do: reminders, Assign and Allocate are all off");
+          state.autoLast = { at, by: "Demo administrator", text: `${did.join(". ")}.` };
+          state.message = state.autoLast.text;
+          break;
+        }
         case "item-units": { const r = setItemUnits(state.itemUnits, str("itemId"), body["units"]); if ("error" in r) error = r.error; else state.itemUnits = r.value; break; }
         case "item-kind": { const r = setItemKind(state.itemKinds, str("itemId"), str("kind")); if ("error" in r) error = r.error; else state.itemKinds = r.value; break; }
         default: {

@@ -15,7 +15,7 @@ import { DEFAULT_GRACE_DAYS } from "../05-outcomes/outcomes.js";
 
 // --- Types ---
 export interface Rule { text: string; decision: string } // decision: where the rule comes from, for example "DECISIONS 183"
-export interface RuleSection { id: "assign" | "confirm" | "allocate" | "waiting" | "release" | "delivery" | "reporting" | "timing"; title: string; intro: string; rules: Rule[] }
+export interface RuleSection { id: "assign" | "confirm" | "allocate" | "waiting" | "release" | "delivery" | "reporting" | "timing" | "automatic"; title: string; intro: string; rules: Rule[] }
 export interface LiveSettings { graceDays: number; requireRef: boolean; batchSize?: number; steps?: Step[] }
 
 // --- The rules, in the order a gift travels ---
@@ -72,6 +72,13 @@ export function automationRules(s: LiveSettings): RuleSection[] {
       { text: "A single payment starts the journey the day it is paid. A workflow that releases only when fully paid starts it at the last payment; any other starts it at the first.", decision: "DECISIONS 316" },
       { text: "Each benefit has the days to fulfil a gift, counted from the start of the journey (90 unless the benefit says otherwise). The partner sees the last day.", decision: "DECISIONS 315, 316" },
       { text: "The Dashboard reads a gift's age in quarters of that time, so every benefit is measured the same way.", decision: "DECISIONS 311" },
+    ] },
+    { id: "automatic", title: "Reminders, moving gifts and the daily run", intro: "What OUTCOMES does by itself, and when. Every number here is a setting.", rules: [
+      { text: "Once a day, after the CRM pick-up, OUTCOMES can run by itself. It does, in order: the sweep (reminders, and moving unanswered gifts), then Assign, then Allocate. Reminders, Assign and Allocate each have a switch. Assign and Allocate are off until switched on, and Assign still follows each workflow's Automatic or Suggest setting.", decision: "DECISIONS 326" },
+      { text: "A partner is reminded the set number of days before a deadline (an answer, or a phase to finish) and each day it is late: one message for each partner and deadline, not one for each gift.", decision: "DECISIONS 326" },
+      { text: "A gift the partner has not answered moves to another partner when its workflow sets the days: that many days after the deadline. Only unanswered gifts move: a gift the partner accepted stays, even in the same batch. The move is recorded as a refusal (No answer within the days), the same partner is not chosen again, and the partner is told.", decision: "DECISIONS 326" },
+      { text: "A partner reads its messages behind the bell on its own screen: reminders, late notices, gifts moved away, work sent back at review and new batches. A message holds no donor details.", decision: "DECISIONS 326" },
+      { text: "Run now does the same by hand, and the Rules page shows what the last run did.", decision: "DECISIONS 326" },
     ] },
   ];
 }

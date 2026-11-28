@@ -786,3 +786,12 @@ tr.clickrow{cursor:pointer}tr.clickrow:hover{background:color-mix(in srgb,var(--
 @media (max-width:1100px){.ru-layout{grid-template-columns:1fr}.ru-nav{position:static}.ru-nav ol{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}.ru-grid{grid-template-columns:1fr}}
 .ru-wide .ru-grid{grid-template-columns:1fr}.ru-wide .ru-table{min-width:560px}.ru-side .tablewrap{overflow-x:auto}
 .ru-wide .ru-rules{max-width:none;columns:2;column-gap:32px}.ru-wide .ru-rules li{break-inside:avoid;margin-bottom:8px}@media (max-width:1100px){.ru-wide .ru-rules{columns:1}}
+
+/* --- The partner's bell and inbox (DECISIONS 326) --- */
+.phome-bell{position:relative;display:inline-grid;place-items:center;width:36px;height:36px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#fff;cursor:pointer;transition:background .15s,transform .15s}
+.phome-bell:hover,.phome-bell.on{background:rgba(255,255,255,.28)}.phome-bell:active{transform:scale(.94)}.phome-bell:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.phome-bell-n{position:absolute;top:-3px;right:-3px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#e34948;color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
+.pm-card{margin-bottom:16px}.pm-top{display:flex;justify-content:space-between;align-items:center;gap:12px}.pm-top h2{margin:0}
+.pm-list{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}.pm{padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:13.5px;line-height:1.45}
+.pm.new{background:var(--accent-bg);border-color:#c5d0ea}.pm-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:2px}.pm-d{margin-left:auto;font-size:12px}
+.ru-side .wf-field input[type=number]{max-width:120px}

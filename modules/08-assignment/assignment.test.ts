@@ -304,3 +304,16 @@ describe("capacity from parked outcomes (DECISIONS 209)", () => {
     expect(c.derived?.(backup, "I10", "aghosh")).toBeUndefined(); // no parked outcomes: its typed capacity applies as before
   });
 });
+
+describe("not back to a partner that refused (decision 326)", () => {
+  it("leaves a partner that refused a gift out of its suggestion, and says so when no one is left", () => {
+    const one = [wo("G01")];
+    expect(suggestAssignments(ctx({ workOrders: one }), emptyAssignments())[0]?.partnerId).toBe("trust");
+    const after = suggestAssignments(ctx({ workOrders: one, refused: { G01: ["trust"] } }), emptyAssignments())[0]!;
+    expect(after.partnerId).toBe("backup"); // the next partner of the project, not the one that refused
+    expect(after.candidates.map((c) => c.name)).toEqual(["Backup"]);
+    const none = suggestAssignments(ctx({ workOrders: one, refused: { G01: ["trust", "backup"] } }), emptyAssignments())[0]!;
+    expect(none.partnerId).toBe("");
+    expect(none.why).toContain("already refused it or did not answer in time");
+  });
+});

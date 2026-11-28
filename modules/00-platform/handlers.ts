@@ -28,6 +28,9 @@ import { defaultConfig, setupOf, type OrgConfig } from "./store.js";
 import { autoCreateProjects } from "../06-projects/projects.js";
 import { PARTNER_PERMISSIONS } from "../13-partner-portal/scope.js";
 import { publicOf } from "./logins.js";
+import { autoRulesOf } from "../18-automation/rules.js";
+import { runAutomation } from "./outcomes-handler.js";
+import { SESSION_COOKIE } from "./launch-token.js";
 import { json, need, nowSeconds, sessionOf, text, type Deps, type HttpRequest, type HttpResponse } from "./http.js";
 export type { Deps, HttpRequest, HttpResponse } from "./http.js";
 export { handleOutcomes, MAX_OUTCOMES } from "./outcomes-handler.js";
@@ -157,6 +160,22 @@ async function pickupOne(org: string, d: Deps) {
   return { org, ok: run.ok, error: run.error, created: run.created, rerouted: run.rerouted };
 }
 
+// Rule (DECISIONS 326): after the pick-up, the scheduled job also does the automatic work, if the organisation has it on. It runs as the system: a short session for "Automation" that can do what a person who maps frameworks can, so every change is logged under that name.
+async function automateOne(org: string, d: Deps): Promise<{ ran: boolean; text?: string; error?: string }> {
+  try {
+    const config = await d.store.getConfig(org);
+    if (!config || !autoRulesOf(config.autoRules).daily) return { ran: false };
+    const now = nowSeconds(d);
+    const claims: Claims = { typ: "session", jti: d.newId(), sub: "automation", name: "Automation", org, perms: [P.access, P.mapFrameworks, P.viewWorkOrders], iat: now, exp: now + 600 };
+    const cookie = `${SESSION_COOKIE}=${signToken(d.secrets.session, claims)}`;
+    const r = await runAutomation({ method: "POST", query: {}, headers: { cookie }, body: { action: "auto-run" } }, d, org, "Automation");
+    return { ran: true, text: String((r.body as { warning?: unknown } | undefined)?.warning ?? "") };
+  } catch (e) {
+    console.error("automatic work failed", e);
+    return { ran: true, error: "The automatic work failed. See the server log." };
+  }
+}
+
 // POST /api/pickup  A person runs a pick-up for their own organisation now.
 // GET  /api/pickup  The scheduled job (Vercel cron) runs one for every organisation, with the cron secret.
 export async function handlePickup(req: HttpRequest, d: Deps): Promise<HttpResponse> {
@@ -167,7 +186,7 @@ export async function handlePickup(req: HttpRequest, d: Deps): Promise<HttpRespo
   }
   if (d.secrets.cron === "" || req.headers["authorization"] !== `Bearer ${d.secrets.cron}`) return json(401, { error: "Not allowed." });
   const results = [];
-  for (const org of await d.store.listOrgs()) results.push(await pickupOne(org, d));
+  for (const org of await d.store.listOrgs()) results.push({ ...(await pickupOne(org, d)), automation: await automateOne(org, d) });
   return json(200, { results });
 }
 
