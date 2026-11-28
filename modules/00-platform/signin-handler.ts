@@ -7,6 +7,7 @@
  * Rules: an account signs in only to the organisation that holds it. A wrong email and a wrong password give the same answer. A plain form post gets redirects, a script gets JSON.
  */
 
+import { accountLimit, callerOf, signInLimit, tooMany } from "./guard.js";
 import { PERMISSIONS as P } from "../../app/menu.js";
 import { addLogin, findLogin, removeLogin, sessionPartsFor } from "./logins.js";
 import { sessionCookie, sessionFrom, SESSION_SECONDS, signToken, type Claims } from "./launch-token.js";
@@ -45,17 +46,29 @@ async function manage(req: HttpRequest, d: Deps): Promise<HttpResponse> {
 // --- Sign in with an email and password ---
 async function signInWithAccount(req: HttpRequest, d: Deps): Promise<HttpResponse> {
   const b = (req.body ?? {}) as Record<string, unknown>;
+  // Rule (DECISIONS 291): wrong tries are counted for the address and for the email, and too many stop sign-in for a while.
+  const addr = `login|${callerOf(req)}`;
+  const acct = `acct|${typeof b["email"] === "string" ? b["email"].trim().toLowerCase().slice(0, 120) : ""}`;
+  const now0 = d.nowMs();
+  if (signInLimit.blocked(addr, now0) || accountLimit.blocked(acct, now0)) {
+    const wait = Math.max(signInLimit.retrySeconds(addr, now0), accountLimit.retrySeconds(acct, now0));
+    return isForm(req) ? back("/app/?signin=wait") : tooMany(wait);
+  }
   const orgs = d.demoLogin ? [OWNER_ORG, DEMO_ORG] : [OWNER_ORG];
   for (const org of orgs) {
     const config = await d.store.getConfig(org);
     const login = findLogin(config?.logins ?? [], b["email"], b["password"]);
     if (!login) continue;
+    signInLimit.clear(addr);
+    accountLimit.clear(acct);
     const now = nowSeconds(d);
     const parts = sessionPartsFor(login);
     const claims: Claims = { typ: "launch", jti: d.newId(), sub: `login-${login.email}`, name: login.name, org, perms: parts.perms, ...(parts.partner ? { partner: parts.partner } : {}), iat: now, exp: now + 60 };
     const headers = { "set-cookie": sessionCookie(signToken(d.secrets.session, sessionFrom(claims, d.newId(), now)), SESSION_SECONDS), "cache-control": "no-store" };
     return isForm(req) ? { status: 302, headers: { ...headers, location: "/app/" } } : json(200, { ok: true }, headers);
   }
+  signInLimit.fail(addr, now0);
+  accountLimit.fail(acct, now0);
   return isForm(req) ? back("/app/?signin=wrong-login") : json(401, { error: "That email or password is not right." });
 }
 

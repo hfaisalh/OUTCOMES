@@ -11,6 +11,7 @@
  * permission. A launch token works once. Errors are plain English and never show secrets.
  */
 
+import { callerOf, signInLimit, tooMany } from "./guard.js";
 import { PERMISSIONS as P } from "../../app/menu.js";
 import { roleById } from "./roles.js";
 import { currentFeedConfig } from "../01c-crm-connector/feed.js";
@@ -181,9 +182,14 @@ export async function handleOwnerLogin(req: HttpRequest, d: Deps): Promise<HttpR
   // A plain form post (the page's sign-in form) gets redirects back to the app. A script (JSON) gets JSON.
   const isForm = (req.headers["content-type"] ?? "").includes("application/x-www-form-urlencoded");
   const given = (req.body as { passphrase?: unknown } | undefined)?.passphrase;
+  // Rule (DECISIONS 291): too many wrong tries from one address stops sign-in for a while, even for the right passphrase.
+  const who = `owner|${callerOf(req)}`;
+  if (signInLimit.blocked(who, d.nowMs())) return isForm ? { status: 302, headers: { location: "/app/?signin=wait", "cache-control": "no-store" } } : tooMany(signInLimit.retrySeconds(who, d.nowMs()));
   if (typeof given !== "string" || !timingSafeEqual(digest(given), digest(secret))) {
+    signInLimit.fail(who, d.nowMs());
     return isForm ? { status: 302, headers: { location: "/app/?signin=wrong", "cache-control": "no-store" } } : json(401, { error: "That passphrase is not right." });
   }
+  signInLimit.clear(who);
   const now = nowSeconds(d);
   const config = (await d.store.getConfig(OWNER_ORG)) ?? defaultConfig();
   if (config.crm.kind === "none") await d.store.putConfig(OWNER_ORG, { ...config, crm: { kind: "upload" } });

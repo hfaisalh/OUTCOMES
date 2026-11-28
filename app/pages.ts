@@ -152,7 +152,8 @@ export function signinNote(search: string): string {
   const q = new URLSearchParams(search);
   if (q.get("signin") === "wrong-login") return "That email or password is not right. Try again.";
   if (q.get("signin") === "wrong") return "That passphrase is not right. Try again.";
-  return q.get("account") ?? "";
+  if (q.get("signin") === "wait") return "Too many tries. Wait a few minutes and try again.";
+  return (q.get("account") ?? "").slice(0, 160); // a message from the server, kept short so a made-up link cannot show a long text
 }
 
 // Demo only: load your own CRM export files. They are read in this browser and go nowhere else.

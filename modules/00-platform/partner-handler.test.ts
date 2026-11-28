@@ -288,3 +288,22 @@ describe("costs for a benefit, and the agreed rate (DECISIONS 290)", () => {
     expect((await handleOutcomes(as(c1, { method: "POST", body: { ...cost, itemId: "WELL" } }), d)).status).toBe(400);
   });
 });
+
+describe("the limit on wrong sign-in tries (DECISIONS 291)", () => {
+  it("stops sign-in after too many wrong tries from one address, even with the right password, and says so", async () => {
+    const { signInLimit, accountLimit } = await import("./guard");
+    const { handleSignIn } = await import("./signin-handler");
+    const { addLogin } = await import("./logins");
+    const cfg = (await d.store.getConfig("demo"))!;
+    const made = addLogin([], { email: "amina@example.org", name: "Amina", role: "partner", partnerId: "p1", password: "correct horse battery" }, ["p1"]);
+    if ("error" in made) throw new Error(made.error);
+    await d.store.putConfig("demo", { ...cfg, logins: made.value });
+    const attempt = (password: string) => handleSignIn(req({ method: "POST", headers: { "x-forwarded-for": "203.0.113.77" }, body: { email: "amina@example.org", password } }), d);
+    for (let i = 0; i < 8; i++) expect((await attempt("wrong")).status).toBe(401);
+    const blocked = await attempt("correct horse battery");
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers?.["retry-after"]).toBeDefined();
+    signInLimit.clear("login|203.0.113.77"); accountLimit.clear("acct|amina@example.org");
+    expect((await attempt("correct horse battery")).status).toBe(200);
+  });
+});
