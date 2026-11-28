@@ -28,9 +28,9 @@ One module at a time. Each ends with: working screen, tests, module README, deci
 | 9b | **Parked outcomes** | Built | A partner loads outcomes ahead of any gift (a pump site, a house plot), in a cluster. A gift assigned to the partner takes one, and the partner's capacity counts them (DECISIONS 209). Not built: requiring stock before assignment, more details per outcome, loading from a file. |
 | 5a | **Outcomes (first cut)** | Built | Outcomes with a framework and capacity, one pie per outcome by status, automatic allocation of recurring commitments, move and release. Expected, missed and one-off payments for per-period items are in. See `modules/05-outcomes/README.md` (DECISIONS 60 to 64). |
 | 13 | **Partner portal** | Started (own-data rule, email sign-in, partner home) | The partner's own sign-in, seeing only its own beneficiaries, gifts and outcomes (`partnerSlice`, DECISIONS 249). Next: adding children one by one or by CSV, accept or refuse a batch, work order details, one profile with two views, validated locations, partner costs. See `modules/13-partner-portal/README.md`. |
-| 14 | **Locations** | Built (Area picker for staff and partners, Dashboard map and fix window) | Validated places from a free search (Photon/OpenStreetMap), kept once per organisation, for reports by location and a map later (DECISIONS 274). Next: a real base map, bulk-checking CSV areas, reports in the Dashboard. |
+| 14 | **Locations** | Built (Area picker for staff and partners, Dashboard map and fix window) | Validated places from a free search (Photon/OpenStreetMap), kept once per organisation, for reports by location and a map later (DECISIONS 274). The real map is on the Dashboard (DECISIONS 278, 279). Next: bulk-checking CSV areas, project location restrictions (parked). |
 | 15 | **Partner costs** | Built (record only) | Partners record administration, marketing, media and other costs for reporting; staff see totals by partner and category on the Dashboard (DECISIONS 280). Next: own categories, cost per beneficiary, export. |
-| 16 | **Automation rules** | Built (list and settings) | The rules behind auto assign, confirmation, auto allocate, the waiting list and release, in plain English, with the settings that can change (DECISIONS 283). Next: make the allocation order data so an organisation can reorder it. |
+| 16 | **Automation rules** | Built (list and settings) | The rules behind auto assign, confirmation, auto allocate, the waiting list and release, in plain English, with the settings that can change (DECISIONS 283). The allocation order is a setting, dragged into order (DECISIONS 293). Next: the assignment order the same way, and rules per workflow. |
 | 5 | **Frameworks** | | One at a time, starting with Orphan Sponsorship: beneficiaries, care types, allocation, lifecycle (renewals, lapses, offboarding). |
 | 6 | **Field data capture** | | Institute / partner portal, mobile entry, approvals. |
 | 7 | **Donor feedback** | | Report templates (drag blocks), quarterly reports, write back to Salesforce. |
@@ -57,3 +57,14 @@ Take the lead from layered, editorial diagram styles (for example diagramdesign.
 - **Needs are live**, reusing the checks we already have (the connected-end-to-end check on the Benefits page, partner eligibility, room from children), shown as a tick or a cross with a count.
 - **Built or not built** is shown on every stage (Confirmation, Review, Report and Feedback are not built yet).
 - Written from the recorded decisions and the workflow's own settings, so the chart and the system cannot disagree. Plain words only. The same card is reused on the outcomes screen, for one gift.
+
+## Quality and handover (28/11/26)
+
+| Area | State | Notes |
+|---|---|---|
+| Security | Hardened (DECISIONS 291, 295) | Headers and CSP, sign-in limit, cross-site refusal, partner isolation tested. Open items in `docs/SECURITY.md`. |
+| Accessibility | WCAG 2.2 AA clean on every staff page and window (DECISIONS 294, 297) | `npm run a11y`. Next: a manual screen-reader pass; partner screens in the automated run. |
+| Structure | `app/` grouped by feature (`docs/CONVENTIONS.md`) | Next: split `app/main.ts` (1,900 lines), `modules/06-projects/projects.ts` and `app/gifts/gifts-page.ts` to under 200 lines. |
+| Performance | One 620 KB script (180 KB compressed) | Next: load each page's code when first opened. |
+| Brand | Logo, icons, manifest (DECISIONS 292) | |
+| Waiting on a decision | Agreements with dated versions and a locked rate; approval of unagreed partner costs | See the questions in the notes of 28/11/26. |

@@ -3,13 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Fulfilment and donor-feedback system for Minhaj Welfare Foundation",
+  "description": "From a gift to a delivered outcome, reported back to the donor. A fulfilment and donor-feedback system for charities.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm test",
+    "check": "npm run typecheck && npm test && npm run build",
     "feed:from-exports": "node scripts/export-to-feed.ts",
     "db:init": "node --env-file=.env.local scripts/db-init.mjs",
     "db:reset-records": "node --env-file=.env.local scripts/db-reset-records.mjs",
@@ -26,5 +26,16 @@
   "dependencies": {
     "@neondatabase/serverless": "^1.2.1",
     "leaflet": "^1.9.4"
-  }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "charity",
+    "fulfilment",
+    "donor-feedback",
+    "nonprofit",
+    "crm",
+    "accessibility"
+  ]
 }
