@@ -9,7 +9,7 @@
 import { shell } from "../shell";
 import { state } from "../state";
 import { updateTemplate, type FrameworkTemplate } from "../../modules/02-project-rules/categories";
-import { addTask, assignToWorkflow, removeTask, setTask, setUnitRule, setFlag, setConfirm, addStage, setStage, removeStage, moveStage, setAssign, unassignItem } from "../../modules/02-project-rules/workflows";
+import { addTask, assignToWorkflow, removeTask, setTask, setUnitRule, setFlag, setConfirm, addStage, setStage, removeStage, moveStage, setAssign, setFulfilled, unassignItem } from "../../modules/02-project-rules/workflows";
 import { csvChange } from "../portal/partner-csv-session";
 
 // ---- Outcome types on the Categories and frameworks page (DECISIONS 103) ----
@@ -140,6 +140,11 @@ document.addEventListener("change", (e) => {
   if (t.dataset?.assignWf !== undefined) { if (t.value !== "") moveItem(t.dataset.assignWf, t.value); return; }
   // How a unit supports an outcome (DECISIONS 131).
   if (t.dataset?.itemUnits !== undefined) { void shell.outcomeChange({ action: "item-units", itemId: t.dataset.itemUnits, units: (t as HTMLInputElement).value }); return; }
+  if (t.dataset?.wfFulfilled !== undefined) {
+    const r = setFulfilled(state.frameworks, t.dataset.wfFulfilled, t.value);
+    if ("error" in r) { state.message = r.error; shell.draw(); } else { state.frameworks = r.frameworks; shell.afterConfig(false); shell.draw(); }
+    return;
+  }
   if (t.dataset?.itemTl !== undefined) { const [id, part] = t.dataset.itemTl.split("|"); void shell.outcomeChange({ action: "item-timeline", itemId: id, part, value: (t as HTMLSelectElement).value }); return; }
   if (t.dataset?.wfToggle !== undefined) { moveItem(t.dataset.wfToggle, (t as HTMLInputElement).checked ? (t.dataset.wf ?? "") : ""); return; }
   if (t.dataset?.wfShares !== undefined || t.dataset?.wfFull !== undefined) {

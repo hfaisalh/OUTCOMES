@@ -15,8 +15,8 @@
  * - Starting workflows are only added when missing, by id or by name, so nothing a person built is replaced.
  */
 
-import type { Changed, Cycle, FrameworkTemplate, ImplStage, InstalmentRule, Setup, WorkflowTask } from "./categories.js";
-import { resolveFrameworkId } from "./categories.js";
+import type { Changed, Cycle, Fulfilled, FrameworkTemplate, ImplStage, InstalmentRule, Setup, WorkflowTask } from "./categories.js";
+import { FULFILLED_LABELS, resolveFrameworkId } from "./categories.js";
 import { typeForFramework, type OutcomeType } from "../05-outcomes/outcome-types.js";
 
 export type { WorkflowTask };
@@ -96,6 +96,11 @@ export const removeTask = (frameworks: FrameworkTemplate[], id: string, tid: str
     const { tasks: _t, ...rest } = f;
     return left.length ? { ...f, tasks: left } : rest;
   });
+
+// ---- Fulfilled when (DECISIONS 316) ----
+// Rule: the stage at which a gift counts as fulfilled, for the Dashboard and the time to fulfil: the workflow's own setting, else allocated for a unit that is one period (a sponsorship is fulfilled once a beneficiary is funded, and the workflow carries on with its reports), else complete (a build).
+export const fulfilledOf = (fw: FrameworkTemplate | undefined): Fulfilled => fw?.fulfilled ?? (fw?.instalment === "per_period" ? "allocated" : "complete");
+export const setFulfilled = (frameworks: FrameworkTemplate[], id: string, fulfilled: string): Edited => (fulfilled in FULFILLED_LABELS ? editWf(frameworks, id, (f) => ({ ...f, fulfilled: fulfilled as Fulfilled })) : { error: "That stage is not known." } as Edited);
 
 // ---- Assigned for implementation (DECISIONS 137) ----
 // Rule: how a released work order is handed to a partner: the workflow's own setting, else the outcome type's old setting, else suggested to a person.

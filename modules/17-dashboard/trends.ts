@@ -21,8 +21,10 @@ export interface GiftLife {
   itemId: string;
   partnerId?: string; // the partner it was assigned to, absent until it is (DECISIONS 305)
   paidAt: string; // YYYY-MM-DD, the first payment
-  startAt?: string | null; // when the journey started, by the item's timeline (DECISIONS 314). Absent: the first payment. null: not started yet (waiting for full payment)
-  ongoing?: boolean; // a recurring gift whose outcome lives on, so it is not measured against a target to complete
+  startAt?: string | null; // when the journey started, by the item's timeline (DECISIONS 316). Absent: the first payment. null: not started yet (waiting for full payment)
+  fulfilledStage?: number; // the stage (3 allocated, 4 delivered, 5 complete) at which this gift counts as fulfilled, from its workflow (DECISIONS 316). Absent: 5
+  fulfilledAt?: string; // YYYY-MM-DD, when it reached that stage
+  targetDays?: number; // the days its benefit has to be fulfilled. Absent: the default
   assignedAt?: string;
   answeredAt?: string; // when the partner answered
   confirmedAt?: string; // when it accepted (the answer, if it was an acceptance)

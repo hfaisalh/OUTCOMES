@@ -26,6 +26,11 @@ describe("how long a partner has to complete a gift (decision 315)", () => {
     const after = giftDetails({ assignments: [asg("G1")], workOrders: [wo("G1")], frameworks: [fw], allocations: [{ key: "G1", at: "2026-11-10T08:00:00Z" }] })["G1"]!;
     expect(after.completeBy).toBe("2026-12-08");
   });
+  it("uses the benefit's own days from the start of the journey when it sets them", () => {
+    const d = giftDetails({ assignments: [asg("G1")], workOrders: [wo("G1")], frameworks: [fw], itemTimelines: { I11: { days: 60 } } })["G1"]!;
+    expect(d.completeWithin).toBe(60);
+    expect(d.completeBy).toBe("2026-12-04"); // a single payment, paid 5 Oct: the journey starts that day
+  });
 });
 
 describe("what a partner may know about a gift", () => {

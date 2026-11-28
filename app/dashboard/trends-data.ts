@@ -11,7 +11,9 @@ import { prioritySet } from "../../modules/08-assignment/priority-gifts";
 import { confirmDaysOf } from "../../modules/02-project-rules/workflows";
 import { improvements, lastMonths, monthlyTrends, type GiftLife, type Improvement, type MonthPoint } from "../../modules/17-dashboard/trends";
 import type { View } from "../shared/pages";
-import { isOngoing, journeyStart, timelineOf, type GiftPayments } from "../../modules/02-project-rules/timeline";
+import { journeyStart, type GiftPayments } from "../../modules/02-project-rules/timeline";
+import { FULFILLED_STAGE } from "../../modules/02-project-rules/categories";
+import { fulfilledOf } from "../../modules/02-project-rules/workflows";
 
 export interface PartnerTrend { id: string; name: string; gifts: number; points: MonthPoint[]; improvements: Improvement[] }
 export interface TrendsData { points: MonthPoint[]; improvements: Improvement[]; benefits: { id: string; name: string }[]; partners: { id: string; name: string }[]; byPartner: PartnerTrend[]; gifts: number; lives?: GiftLife[]; today?: string }
@@ -42,9 +44,10 @@ export function trendsData(v: View, itemId = "", months = 12, partnerId = ""): T
     const a = answers.get(u.key);
     const fw = fws.get(u.w.frameworkId ?? "");
     const st = stageAt.get(u.key);
-    const tl = timelineOf(v.itemTimelines, u.w.itemId, fw?.instalment), pay = paymentsOf(v, u);
+    const pay = paymentsOf(v, u), fs = FULFILLED_STAGE[fulfilledOf(fw)];
+    const reached = (fs === 3 ? allocated.get(u.key) : fs === 4 ? st?.first : st?.done)?.slice(0, 10);
     return {
-      key: u.key, itemId: u.w.itemId, ...(partnerOf.has(u.key) ? { partnerId: partnerOf.get(u.key) as string } : {}), paidAt: (u.w.paidDate ?? "").slice(0, 10) || today, startAt: journeyStart(tl, pay) ?? (pay.paid.length === 0 ? undefined : null), ...(isOngoing(tl, pay) ? { ongoing: true } : {}),
+      key: u.key, itemId: u.w.itemId, ...(partnerOf.has(u.key) ? { partnerId: partnerOf.get(u.key) as string } : {}), paidAt: (u.w.paidDate ?? "").slice(0, 10) || today, startAt: journeyStart(fw?.instalment, pay) ?? (pay.paid.length === 0 ? undefined : null), fulfilledStage: fs, ...(reached ? { fulfilledAt: reached } : {}), ...(v.itemTimelines?.[u.w.itemId]?.days ? { targetDays: v.itemTimelines[u.w.itemId]!.days as number } : {}),
       ...(assigned.has(u.key) ? { assignedAt: assigned.get(u.key) as string } : {}),
       ...(a ? { answeredAt: a.at, ...(a.answer === "confirmed" ? { confirmedAt: a.at } : {}), answerDays: fw ? confirmDaysOf(fw) : 3 } : {}),
       ...(allocated.has(u.key) ? { allocatedAt: allocated.get(u.key) as string } : {}),

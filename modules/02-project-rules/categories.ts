@@ -35,6 +35,10 @@ export const CYCLE_LABELS: Record<Cycle, string> = {
 // How an instalment counts toward a unit (DECISIONS 52). Not guessed: a category without it shows a reminder.
 // - per_period: a unit is one part for one period (a month). Each instalment is 1 unit, and a single payment is as many units as the plan has payments. Sponsorships, scholarships.
 // - share_of_whole: a unit is the whole item. Each instalment is a share of it, a single payment is 1 unit, and it is complete only when every instalment is paid. Pumps, wells, buildings.
+// The stage of the journey at which a gift counts as fulfilled (DECISIONS 316). What comes after, such as reports that repeat, is left to the workflow.
+export type Fulfilled = "allocated" | "delivered" | "complete";
+export const FULFILLED_LABELS: Record<Fulfilled, string> = { allocated: "Allocated: a beneficiary or outcome is funded", delivered: "Delivered: the partner's phases are done", complete: "Complete: reviewed, reported, the donor told" };
+export const FULFILLED_STAGE: Record<Fulfilled, number> = { allocated: 3, delivered: 4, complete: 5 }; // the number of the journey stage
 export type InstalmentRule = "per_period" | "share_of_whole";
 
 export const INSTALMENT_LABELS: Record<InstalmentRule, string> = {
@@ -57,6 +61,7 @@ export interface Framework {
   cycle: Cycle;
   reportType: string; // the name of the report the donor receives
   instalment?: InstalmentRule; // how an instalment counts toward a unit. Absent means not set yet
+  fulfilled?: Fulfilled; // the stage at which a gift counts as fulfilled (DECISIONS 316). Absent: allocated for a unit that is one period, complete otherwise
 }
 
 // A framework template (DECISIONS 59): defined once, used by any number of categories and items.

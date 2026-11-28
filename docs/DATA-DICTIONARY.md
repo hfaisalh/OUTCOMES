@@ -282,5 +282,5 @@ Stored on the organisation's setup as `itemUnits`, by CRM item id.
 | `note` | A few words |
 | `by`, `at` | Who recorded or last changed it, and when |
 
-## itemTimelines (DECISIONS 314)
-Per item id, an optional `start` ("first" or "full") and `life` ("delivery", "term" or "open"). Absent: the item workflow default. `start` is when the gift journey starts; `life` is how long its outcome lives.
+## itemTimelines (DECISIONS 316)
+Per item id, an optional `days`: the days a gift of that benefit has to be fulfilled, counted from the start of its journey. Absent: the default (90). The workflow, not the item, says when the journey starts (full payment when it releases only when fully paid, else the first payment) and which stage counts as fulfilled (`fulfilled` on the workflow: allocated, delivered or complete).

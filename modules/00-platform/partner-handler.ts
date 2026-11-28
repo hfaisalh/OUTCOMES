@@ -117,7 +117,7 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
   for (const w of workOrders) if (w.itemName) itemNames[w.itemId] = w.itemName;
   // What the partner may know about each gift assigned to it (DECISIONS 259): no donor and no money. Only this partner's own gifts are looked at.
   const mineAssigned = (config.assignments ?? emptyAssignments()).records.filter((x) => x.partnerId === a.claims.partner);
-  const details = giftDetails({ assignments: mineAssigned, workOrders, frameworks: setupOf(config).frameworks, allocations: (config.allocations ?? emptyAllocations()).records });
+  const details = giftDetails({ assignments: mineAssigned, workOrders, frameworks: setupOf(config).frameworks, allocations: (config.allocations ?? emptyAllocations()).records, itemTimelines: config.itemTimelines ?? {} });
   const slice = partnerSlice({
     itemNames,
     giftDetails: details,

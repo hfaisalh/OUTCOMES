@@ -18,6 +18,7 @@ import { confirmDaysOf } from "../02-project-rules/workflows.js";
 import type { Assignment } from "../08-assignment/assignment.js";
 import { addDays } from "../11-confirmation/confirmation.js";
 import { stepsFor } from "../12-progress/context.js";
+import { journeyStart, type ItemTimelines } from "../02-project-rules/timeline.js";
 
 export interface GiftDetail {
   reference: string; // the gift's own key (a CRM line or plan id), for the partner to quote back to MWF
@@ -33,10 +34,10 @@ export interface GiftDetail {
   feedback: boolean; // the donor is asked for feedback
   answerBy: string; // YYYY-MM-DD, the last day to accept or refuse
   completeWithin: number; // the days the delivery phases add up to, counted from allocation (DECISIONS 315)
-  completeBy?: string; // YYYY-MM-DD, allocation date plus those days. Absent until the gift is allocated
+  completeBy?: string; // YYYY-MM-DD, the journey start (or allocation date) plus those days. Absent until known
 }
 
-export interface GiftDetailInput { assignments: Assignment[]; workOrders: WorkOrder[]; frameworks: FrameworkTemplate[]; allocations?: { key: string; at: string }[] }
+export interface GiftDetailInput { assignments: Assignment[]; workOrders: WorkOrder[]; frameworks: FrameworkTemplate[]; allocations?: { key: string; at: string }[]; itemTimelines?: ItemTimelines }
 
 export function giftDetails(i: GiftDetailInput): Record<string, GiftDetail> {
   const out: Record<string, GiftDetail> = {};
@@ -47,7 +48,11 @@ export function giftDetails(i: GiftDetailInput): Record<string, GiftDetail> {
     const fw = i.frameworks.find((f) => f.id === first?.frameworkId);
     const steps = stepsFor(fw);
     // Rule (DECISIONS 315): a partner is told how long it has to complete a gift: the days of its phases in all, and the last day once the gift is allocated (the earliest allocation of it).
-    const completeWithin = steps.phases.reduce((t, p) => t + p.days, 0);
+    // Rule (DECISIONS 316): when the benefit sets its days to fulfil, they count from the start of the gift's journey; otherwise the days of the phases count from allocation.
+    const own = first ? i.itemTimelines?.[first.itemId]?.days : undefined;
+    const planN = (first?.instalmentCount ?? "") === "" ? 1 : /^indefinite/i.test(first?.instalmentCount ?? "") ? "open" as const : Number(first?.instalmentCount) > 0 ? Number(first?.instalmentCount) : null;
+    const began = own ? journeyStart(fw?.instalment, { paid: group.map((w) => w.paidDate.slice(0, 10)), planned: planN }) : null;
+    const completeWithin = own ?? steps.phases.reduce((t, p) => t + p.days, 0);
     const allocatedAt = (i.allocations ?? []).filter((r) => r.key === a.key).map((r) => r.at.slice(0, 10)).sort()[0];
     const planned = recurring ? Number(first?.instalmentCount) : NaN;
     out[a.key] = {
@@ -56,7 +61,7 @@ export function giftDetails(i: GiftDetailInput): Record<string, GiftDetail> {
       ...(recurring ? { paid: first?.planPaid ?? group.length } : {}),
       cause: first?.cause ?? "", intention: first?.intention ?? "", tribute: group.find((w) => (w.tribute ?? "") !== "")?.tribute ?? "",
       phases: steps.phases.map((p) => ({ label: p.label, days: p.days })), review: steps.review, feedback: steps.feedback,
-      completeWithin, ...(allocatedAt && completeWithin > 0 ? { completeBy: addDays(allocatedAt, completeWithin) } : {}),
+      completeWithin, ...(own && began ? { completeBy: addDays(began, own) } : !own && allocatedAt && completeWithin > 0 ? { completeBy: addDays(allocatedAt, completeWithin) } : {}),
       answerBy: addDays(a.at.slice(0, 10), fw ? confirmDaysOf(fw) : 3),
     };
   }

@@ -8,8 +8,8 @@
  */
 
 import { switchHtml } from "../shared/switch";
-import { CYCLE_LABELS, type Cycle, type FrameworkTemplate } from "../../modules/02-project-rules/categories";
-import { assignOf, confirmDaysOf, flagOf, totalDays, unitModeOf } from "../../modules/02-project-rules/workflows";
+import { CYCLE_LABELS, FULFILLED_LABELS, type Cycle, type Fulfilled, type FrameworkTemplate } from "../../modules/02-project-rules/categories";
+import { assignOf, confirmDaysOf, flagOf, fulfilledOf, totalDays, unitModeOf } from "../../modules/02-project-rules/workflows";
 import { typeForFramework, type OutcomeType } from "../../modules/05-outcomes/outcome-types";
 import { flowChart } from "./workflow-flowchart";
 import { ICONS, iconHtml, itemIcon } from "../shared/icons";
@@ -40,7 +40,8 @@ function stagePanel(f: FrameworkTemplate, type: OutcomeType | undefined, stage: 
     return `<h3>Work orders: gift into units and shares</h3>
     <label class="wf-field"><span>Units in one outcome</span><input type="number" min="1" max="100" step="1" data-wf-shares="${esc(f.id)}" value="${f.unitsPerBeneficiary}"${full ? " disabled" : ""}></label>
     <div class="ot-check">${switchHtml({ label: "Release only when fully paid", on: full, attrs: `data-wf-full="${esc(f.id)}"` })}</div>
-    <p class="muted">How units are allocated to one outcome in this workflow. With 1, a unit is a whole outcome. With more, the outcome is made of that many units. This is mostly automatic once set: a paid gift becomes work order units, and they are released to be assigned for implementation.</p>`;
+    <label class="wf-field"><span>A gift counts as fulfilled when</span><select data-wf-fulfilled="${esc(f.id)}">${(Object.keys(FULFILLED_LABELS) as Fulfilled[]).map((k) => `<option value="${k}"${fulfilledOf(f) === k ? " selected" : ""}>${esc(FULFILLED_LABELS[k])}</option>`).join("")}</select></label>
+    <p class="muted">Fulfilled is the point the Dashboard measures against the benefit's time to fulfil. A sponsorship is fulfilled once a beneficiary is funded, and the workflow carries on with its reports after that. A build is fulfilled when it is complete. How units are allocated to one outcome in this workflow. With 1, a unit is a whole outcome. With more, the outcome is made of that many units. This is mostly automatic once set: a paid gift becomes work order units, and they are released to be assigned for implementation.</p>`;
   }
   const tasksTable = `<table class="wf-tasks"><thead><tr><th>Check for the partner or caseworker</th><th class="num">Due after (months)</th><th>Photo</th><th class="actcol"><span class="sr-only">Actions</span></th></tr></thead><tbody>
       ${(f.tasks ?? []).map((k) => `<tr><td><input data-wf-task="label" data-wf="${esc(f.id)}" data-task="${esc(k.id)}" value="${esc(k.label)}"></td><td class="num"><input type="number" min="0" max="120" data-wf-task="after" data-wf="${esc(f.id)}" data-task="${esc(k.id)}" value="${k.afterMonths}"></td><td class="c"><input type="checkbox" data-wf-task="photo" data-wf="${esc(f.id)}" data-task="${esc(k.id)}"${k.photo ? " checked" : ""} aria-label="Asks for a photo"></td><td class="actcol"><div class="actbox"><button class="iconact" data-wf-act="task-remove" data-wf="${esc(f.id)}" data-task="${esc(k.id)}" title="Remove this check" aria-label="Remove this check">${BIN}</button></div></td></tr>`).join("") || `<tr><td colspan="4" class="muted">No checks yet.</td></tr>`}
