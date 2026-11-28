@@ -128,6 +128,7 @@ export interface OutcomesReply {
   progress?: Progress;
   allocations?: Allocations;
   itemIcons?: Record<string, string>;
+  itemTimelines?: import("../../modules/02-project-rules/timeline").ItemTimelines;
   itemUnits?: Record<string, number>;
   itemKinds?: Record<string, string>;
   kindFeatures?: Record<string, unknown>;

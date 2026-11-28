@@ -140,6 +140,7 @@ document.addEventListener("change", (e) => {
   if (t.dataset?.assignWf !== undefined) { if (t.value !== "") moveItem(t.dataset.assignWf, t.value); return; }
   // How a unit supports an outcome (DECISIONS 131).
   if (t.dataset?.itemUnits !== undefined) { void shell.outcomeChange({ action: "item-units", itemId: t.dataset.itemUnits, units: (t as HTMLInputElement).value }); return; }
+  if (t.dataset?.itemTl !== undefined) { const [id, part] = t.dataset.itemTl.split("|"); void shell.outcomeChange({ action: "item-timeline", itemId: id, part, value: (t as HTMLSelectElement).value }); return; }
   if (t.dataset?.wfToggle !== undefined) { moveItem(t.dataset.wfToggle, (t as HTMLInputElement).checked ? (t.dataset.wf ?? "") : ""); return; }
   if (t.dataset?.wfShares !== undefined || t.dataset?.wfFull !== undefined) {
     const id = (t.dataset.wfShares ?? t.dataset.wfFull) as string;

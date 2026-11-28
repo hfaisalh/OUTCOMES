@@ -281,3 +281,6 @@ Stored on the organisation's setup as `itemUnits`, by CRM item id.
 | `projectId` | The project it was for, empty for the partner's work in general |
 | `note` | A few words |
 | `by`, `at` | Who recorded or last changed it, and when |
+
+## itemTimelines (DECISIONS 314)
+Per item id, an optional `start` ("first" or "full") and `life` ("delivery", "term" or "open"). Absent: the item workflow default. `start` is when the gift journey starts; `life` is how long its outcome lives.

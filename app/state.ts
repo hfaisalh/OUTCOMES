@@ -123,6 +123,7 @@ export const state = {
   itemIcons: {} as Record<string, string>, // the icon chosen for an item (DECISIONS 107)
   kindSel: "", // the kind the Benefits page shows (DECISIONS 146)
   kindFeatures: {} as Record<string, unknown>, // the features of the kinds a person changed (DECISIONS 146)
+  itemTimelines: {} as import("../modules/02-project-rules/timeline").ItemTimelines, // the timeline of an item, by item (DECISIONS 314)
   itemUnits: {} as Record<string, number>, // the units that make one whole beneficiary, by item (DECISIONS 188)
   itemKinds: {} as Record<string, string>, // the kind of benefit chosen for an item (DECISIONS 143)
   idCounters: {} as Record<string, number>, // the last number used for each ID prefix (DECISIONS 105)

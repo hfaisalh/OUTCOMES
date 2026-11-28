@@ -21,6 +21,8 @@ export interface GiftLife {
   itemId: string;
   partnerId?: string; // the partner it was assigned to, absent until it is (DECISIONS 305)
   paidAt: string; // YYYY-MM-DD, the first payment
+  startAt?: string | null; // when the journey started, by the item's timeline (DECISIONS 314). Absent: the first payment. null: not started yet (waiting for full payment)
+  ongoing?: boolean; // a recurring gift whose outcome lives on, so it is not measured against a target to complete
   assignedAt?: string;
   answeredAt?: string; // when the partner answered
   confirmedAt?: string; // when it accepted (the answer, if it was an acceptance)

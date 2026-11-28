@@ -18,6 +18,7 @@ import { adoptLegacy, allocOptions, migrateGiftProjects, applyProjectAction, cle
 import { addOutcomes, autoAllocate, DEFAULT_GRACE_DAYS, releaseApprovals, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive } from "../05-outcomes/outcomes.js";
 import { defaultConfig, setupOf, type OrgConfig } from "./store.js";
 import { setItemKind, setItemUnits } from "../02-project-rules/benefits.js";
+import { setItemTimeline } from "../02-project-rules/timeline.js";
 import { applyKindAction, type SavedFeatures } from "../02-project-rules/kind-features.js";
 import { applyBeneficiaryAction, emptyRegister } from "../07-beneficiaries/beneficiaries.js";
 import { applyAllocationAction, emptyAllocations, allocateContext } from "../09-allocation/allocation.js";
@@ -73,7 +74,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   let confirmations = config.confirmations ?? emptyConfirmations(); // the partners' answers to those assignments (DECISIONS 231)
   let progress = config.progress ?? emptyProgress(); // the steps taken after allocation, and the batches closed (DECISIONS 232)
   // Rule: every answer carries the whole picture (all the records the page draws from), so a page never has to ask twice. The few things an answer changes are passed in `over`.
-  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, outcomeAllocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, allocations, locations: config.locations ?? [], priorityGifts: config.priorityGifts ?? [], allocationSteps: normaliseSteps(config.allocationSteps), partnerCosts: config.partnerCosts?.records ?? [], itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...over });
+  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, outcomeAllocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, allocations, locations: config.locations ?? [], priorityGifts: config.priorityGifts ?? [], allocationSteps: normaliseSteps(config.allocationSteps), partnerCosts: config.partnerCosts?.records ?? [], itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, itemTimelines: config.itemTimelines ?? {}, kindFeatures: config.kindFeatures ?? {}, ...over });
   // Rule (DECISIONS 105): every outcome and allocation has an ID. Any without one are given one here, so older ones get theirs too.
   const settle = (): boolean => {
     const r = ensureRefs({ outcomes, outcomeAllocations, counters: idCounters }, outcomeTypes, config.allocationPrefix);
@@ -269,6 +270,13 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       if ("error" in r) return fail(r.error);
       await save({ ...config, itemUnits: r.value });
       return reply({ itemUnits: r.value });
+    }
+    // The timeline of an item (DECISIONS 314): when its journey starts and how long its outcome lives. An empty value takes the item's own choice back, so its workflow's default applies.
+    if (b["action"] === "item-timeline") {
+      const r = setItemTimeline(config.itemTimelines ?? {}, str("itemId"), b["part"], b["value"]);
+      if ("error" in r) return fail(r.error);
+      await save({ ...config, itemTimelines: r.value });
+      return reply({ itemTimelines: r.value });
     }
     // The features of a kind of benefit (DECISIONS 146): the same pure rule the demo uses.
     if (typeof b["action"] === "string" && b["action"].startsWith("kf-")) {

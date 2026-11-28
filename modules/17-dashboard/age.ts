@@ -9,6 +9,7 @@
  * - Rule: the stage is the furthest step the gift has taken: Paid, Assigned, Confirmed, Allocated, Delivered, Complete.
  * - Rule: the age of a gift that is complete is the days from payment to completion; the age of any other gift is the days from payment to today.
  * - Rule: age is read against the target, in quarters of it, plus "over target". The same stage-for-age rule then fits every benefit and project, whatever its own deadline: 25% of the target should have reached Assigned, 50% Confirmed, 75% Allocated, and a gift past the target should be Complete.
+ * - Rule (DECISIONS 314): age counts from the start of the journey set by the item's timeline (modules/02-project-rules/timeline.ts), not always the first payment. A gift not started yet, and an ongoing gift, are counted apart and not placed on the chart.
  * - Rule: a gift at or beyond the stage its age asks for is "on pace", before it is "behind pace", past the target and not complete is "past target", and complete after the target is "completed late".
  */
 
@@ -27,7 +28,7 @@ const daysBetween = (a: string, b: string): number => Math.max(0, Math.round((Da
 export function stageOf(g: GiftLife): number {
   return g.completedAt ? 5 : g.deliveredAt ? 4 : g.allocatedAt ? 3 : g.confirmedAt ? 2 : g.assignedAt ? 1 : 0;
 }
-export const ageOf = (g: GiftLife, today: string): number => daysBetween(g.paidAt, g.completedAt ?? today);
+export const ageOf = (g: GiftLife, today: string): number => daysBetween(g.startAt ?? g.paidAt, g.completedAt ?? today);
 
 // The band of an age: 0 to 3 are the quarters of the target (the last quarter includes the target day itself), 4 is over it.
 export const bandOf = (age: number, target: number): number => (age > target ? 4 : Math.min(3, Math.floor((age / target) * 4)));
@@ -46,16 +47,21 @@ export function bandLabel(band: number, target: number): string {
 
 // --- The counts ---
 export interface Cell { stage: number; band: number; count: number; tone: Tone }
-export interface AgeScatter { target: number; cells: Cell[]; total: number; byTone: Record<Tone, number> }
+export interface AgeScatter { target: number; cells: Cell[]; total: number; byTone: Record<Tone, number>; notStarted: number; ongoing: number }
 
 export function ageScatter(gifts: GiftLife[], today: string, target: number): AgeScatter {
   const counts = new Map<string, number>();
   const byTone: Record<Tone, number> = { ok: 0, behind: 0, over: 0, late: 0 };
+  let notStarted = 0, ongoing = 0, total = 0;
   for (const g of gifts) {
+    // Rule: a gift whose journey has not started (waiting for full payment) or that is ongoing by its item's timeline is counted apart, not placed on the chart.
+    if (g.startAt === null) { notStarted += 1; continue; }
+    if (g.ongoing === true) { ongoing += 1; continue; }
+    total += 1;
     const stage = stageOf(g), band = bandOf(ageOf(g, today), target);
     counts.set(`${stage}|${band}`, (counts.get(`${stage}|${band}`) ?? 0) + 1);
     byTone[toneOf(stage, band)] += 1;
   }
   const cells = [...counts].map(([k, count]) => { const [s, b] = k.split("|").map(Number) as [number, number]; return { stage: s, band: b, count, tone: toneOf(s, b) }; });
-  return { target, cells, total: gifts.length, byTone };
+  return { target, cells, total, byTone, notStarted, ongoing };
 }

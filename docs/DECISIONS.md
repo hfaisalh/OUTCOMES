@@ -1142,3 +1142,6 @@ Summary tiles were redone to match the stage tiles of the Gift journey (centred,
 
 ## 313 (28/11/26): paired Dashboard cards fill their row
 Two cards side by side (Benefits share and journey, Partners compared chart and table) are as tall as the taller one, and the shorter one spreads its bars or table rows to fill it. Chart cards taller than their content centre the chart and keep "View as a table" at the foot. Reason: Faisal asked for no empty blocks under a card on the Dashboard.
+
+## 314 (28/11/26): the timeline belongs to the item
+When a gift journey starts and how long its outcome lives is set per ITEM on the Benefits page (Journey starts: first payment or full payment; Outcome lasts: until delivered, until the plan ends, or no end), because one workflow holds several items on different payment terms. The workflow instalment rule gives the default (a whole-item unit starts on full payment and ends on delivery, a per-period unit starts on the first payment and lasts for the term), so only an item that differs is set. A single payment always starts the day it is paid. Gift age on the Dashboard counts from the start, and a gift not started yet or an ongoing one is counted apart, not placed on the chart. Pure rule: modules/02-project-rules/timeline.ts. Reason: Faisal, because items in one workflow have different timeline expectations.
