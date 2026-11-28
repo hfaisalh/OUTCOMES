@@ -512,7 +512,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
         ${row("Recurring ID", g.kind === "recurring" ? `<b>${esc(g.key)}</b>` : "")}
         ${row("Project chosen", esc(g.projectName))}
         ${row("Site", first?.site ? `${siteChip(first.site, first.currency)} <span class="muted">${esc(first.currency ?? "")}</span>` : "")}
-        ${row("Old site", carried(g) ? `<span class="gi warn" aria-hidden="true">${SYM.legacy}</span> <span class="muted">Carried over from the old website</span>` : "")}
+        ${row("Old site", carried(g) ? `<span class="gi warn" aria-hidden="true">${SYM.legacy}</span> <span class="muted">Carried over from the old website. Check that the item and project the migration chose are right, and exclude the gift if they are not.</span>` : "")}
         ${row("Cause", esc(first?.cause ?? ""))}
         ${row("Tribute", esc(first?.tribute ?? ""))}
         ${row("Parts per instalment", partsControl ? `<span class="partsrow">${partsControl}</span>${fixed ? `<div class="muted">Set manually. The CRM says ${esc(String(g.payments.find((w) => w.legacyUpload !== true) ? sentPartsOf(g.payments.find((w) => w.legacyUpload !== true) as WorkOrder) : g.parts))}.</div>` : ""}` : "")}

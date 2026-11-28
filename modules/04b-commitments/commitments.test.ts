@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { WorkOrder } from "../01c-crm-connector/work-orders";
-import { allocatable, buildCommitments, needsLook, oneOffCommitments } from "./commitments";
+import { allocatable, buildCommitments, needsLook, oneOffCommitments, type Commitment } from "./commitments";
 
 const wo = (key: string, over: Partial<WorkOrder> = {}): WorkOrder => ({
   key, lineId: key, transactionRef: `T${key}`, paidDate: "2026-06-10 10:00:00", supporterId: "D1", supporterName: "Sample Supporter", group: "", itemId: "I1", itemName: "Small Pump",
@@ -102,5 +102,16 @@ describe("one-off payments (DECISIONS 64)", () => {
     const list = [inst("1", 1, "2026-06-01", { frameworkId: "fw-month" }), once("A1")];
     expect(buildCommitments(list).commitments).toHaveLength(1);
     expect(allocatable(list, per, "2026-11-20").map((c) => c.subscriptionId)).toEqual(["S1", "once-A1"]);
+  });
+});
+
+describe("a plan carried over from the old site (DECISIONS 286)", () => {
+  const clean = { conflict: false, partsVary: false, gaps: [], startsLate: false, legacyOpening: false, carriedOver: true } as unknown as Commitment;
+  it("is not flagged as needing a look on its own: it has its own icon", () => {
+    expect(needsLook(clean)).toBe(false);
+  });
+  it("is still flagged when something else is wrong with it", () => {
+    expect(needsLook({ ...clean, gaps: [3] } as Commitment)).toBe(true);
+    expect(needsLook({ ...clean, partsVary: true } as Commitment)).toBe(true);
   });
 });

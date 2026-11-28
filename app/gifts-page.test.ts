@@ -501,7 +501,8 @@ describe("giftsPage", () => {
     expect((rest.match(/data-sel-gift=/g) ?? []).length).toBe(1); // two values only, whatever the gift is
     const window = giftDetailHtml(view({ workOrders: orders }), "SO");
     expect(window).toContain("Carried over from the old website");
-    expect(window).toContain("Carried over from the old site"); // the note under Needs a look
+    expect(window).not.toContain("Needs a look"); // it has its own icon, so it is no longer flagged as needing a look (DECISIONS 286)
+    expect(window).toContain("Check that the item and project the migration chose are right"); // the advice sits on the Old site line
     expect(giftDetailHtml(view({ workOrders: orders }), "SN")).not.toContain("Carried over from the old");
   });
 

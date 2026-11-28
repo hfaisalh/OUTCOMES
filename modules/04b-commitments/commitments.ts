@@ -85,7 +85,7 @@ const dayNumber = (d: string): number => (d === "" ? 0 : Math.round(Date.parse(`
 
 // Rule: "needs a look" is any of: a conflict, varying parts, a gap, or a plan that starts late.
 // A late start that a legacy opening explains is not odd, so it does not count.
-export const needsLook = (c: Commitment): boolean => c.conflict || c.partsVary || c.gaps.length > 0 || (c.startsLate && !c.legacyOpening && c.prior?.match !== "found") || c.carriedOver === true;
+export const needsLook = (c: Commitment): boolean => c.conflict || c.partsVary || c.gaps.length > 0 || (c.startsLate && !c.legacyOpening && c.prior?.match !== "found");  // Rule (DECISIONS 286): a plan carried over from the old site has its own icon, so it is not also flagged as needing a look
 
 export function buildCommitments(workOrders: WorkOrder[]): CommitmentsView {
   const live = workOrders.filter((w) => w.status !== "excluded");
