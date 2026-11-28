@@ -6,10 +6,13 @@
  * Rules:
  * - Rule: an area is "unchecked" when it has text and no place id. Many people usually typed the same area, so they are listed once with a count, and one choice fixes them all.
  * - Rule: the same typed area is found whatever its case, accents or spacing (normPlace).
+ * - Rule (DECISIONS 278): where a beneficiary is FROM (their Area) and where the benefit is SERVED (the location of the cluster they are enrolled in) are different. An orphanage in Lahore serves beneficiaries who come from all over Pakistan. A sub cluster with no location of its own is served where the cluster it sits in is.
  * - Rule: reports count persons and households that have an area. A beneficiary with no area is counted apart, never hidden.
  */
 
 import type { Beneficiary, Register } from "../07-beneficiaries/beneficiaries.js";
+import type { Enrolment } from "../07-beneficiaries/enrolments.js";
+import type { Cluster } from "../06-projects/clusters.js";
 import { label, normPlace, type Place } from "./locations.js";
 
 // --- Areas still to check ---
@@ -45,11 +48,12 @@ export function resolveArea(reg: Register, typed: string, place: Place): { regis
 export interface PlaceCount { id: string; name: string; district: string; region: string; country: string; lat: number; lon: number; count: number }
 export interface AreaReport { places: PlaceCount[]; countries: { country: string; count: number }[]; checked: number; unchecked: number; none: number }
 
-export function areaReport(reg: Register, places: Place[]): AreaReport {
+export function areaReport(reg: Register, places: Place[], only?: Set<string>): AreaReport {
   const byId = new Map(places.map((p) => [p.id, p]));
   const counts = new Map<string, number>();
   let checked = 0, unchecked = 0, none = 0;
   for (const b of reg.records) {
+    if (only && !only.has(b.id)) continue; // a project's own beneficiaries only
     if (b.locationId && byId.has(b.locationId)) { checked++; counts.set(b.locationId, (counts.get(b.locationId) ?? 0) + 1); }
     else if (normPlace(b.area) !== "") unchecked++;
     else none++;
@@ -72,3 +76,40 @@ export function mapPoints(rows: PlaceCount[]): MapPoint[] {
   return rows.map((r) => ({ id: r.id, name: r.name, count: r.count, x: round(10 + 80 * ((r.lon - (w + e) / 2) / span + 0.5)), y: round(10 + 80 * (0.5 - (r.lat - (s + n) / 2) / span)), r: round(2 + 5 * Math.sqrt(r.count / max)) }));
 }
 const round = (v: number): number => Math.round(v * 10) / 10;
+
+// --- Where it is served ---
+// The beneficiaries of one project: those enrolled in it and those waiting for it.
+export function projectBeneficiaries(reg: Register, enrolments: Enrolment[], projectId: string): Set<string> {
+  const ids = new Set(enrolments.filter((e) => e.giftProjectId === projectId && e.status === "active").map((e) => e.beneficiaryId));
+  for (const b of reg.records) if (b.targetProjectId === projectId) ids.add(b.id);
+  return ids;
+}
+
+// The checked place a cluster is served at: its own, else that of the cluster it sits in, and so on up.
+function placeOfCluster(clusters: Cluster[], id: string, byId: Map<string, Place>): Place | undefined {
+  for (let c = clusters.find((x) => x.id === id), guard = 0; c && guard < 20; c = clusters.find((x) => x.id === c?.parentId), guard++) {
+    const p = c.locationId ? byId.get(c.locationId) : undefined;
+    if (p) return p;
+  }
+  return undefined;
+}
+
+export interface ServedReport { places: PlaceCount[]; served: number; unplaced: number }
+// Counts active enrolments (one per beneficiary and project, however many benefits) by the place their cluster is served at. `projects` are the gift projects with their clusters; `projectId` "" means all.
+export function servedReport(projects: { id: string; clusters?: Cluster[] }[], enrolments: Enrolment[], places: Place[], projectId = ""): ServedReport {
+  const byId = new Map(places.map((p) => [p.id, p]));
+  const seen = new Set<string>();
+  const counts = new Map<string, number>();
+  let unplaced = 0;
+  for (const e of enrolments) {
+    if (e.status !== "active" || (projectId !== "" && e.giftProjectId !== projectId)) continue;
+    const once = `${e.giftProjectId}|${e.beneficiaryId}`;
+    if (seen.has(once)) continue;
+    seen.add(once);
+    const gp = projects.find((p) => p.id === e.giftProjectId);
+    const p = placeOfCluster(gp?.clusters ?? [], e.clusterId, byId);
+    if (p) counts.set(p.id, (counts.get(p.id) ?? 0) + 1); else unplaced++;
+  }
+  const rows: PlaceCount[] = [...counts].map(([id, count]) => ({ ...(byId.get(id) as Place), count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  return { places: rows, served: seen.size - unplaced, unplaced };
+}

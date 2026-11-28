@@ -7,7 +7,7 @@
  * UX: the card is a 2D grid (map beside the table on a wide screen, one column on a phone); the fix window is a modal dialog (role, aria-modal, Close, Esc) that stays open so several areas can be fixed in a row. The map has a text alternative (the table), dots are sized by count and also labelled with it, and every button is a real button with a name.
  */
 
-import { areaReport, mapPoints, uncheckedAreas } from "../modules/14-locations/areas";
+import { areaReport, mapPoints, projectBeneficiaries, servedReport, uncheckedAreas } from "../modules/14-locations/areas";
 import type { Place } from "../modules/14-locations/locations";
 import { label } from "../modules/14-locations/locations";
 import { esc, type View } from "./pages";
@@ -35,17 +35,32 @@ function mapSvg(rows: ReturnType<typeof areaReport>["places"]): string {
 const EMPTY = { records: [], counters: {} };
 
 // --- The Dashboard card ---
-export function areasCard(v: View): string {
+// mode "from": where beneficiaries are from (their Area). mode "served": where the benefit is served (the place of the cluster they are enrolled in). `project` "" is all projects (DECISIONS 278).
+export interface AreasView { mode: "from" | "served"; project: string }
+export const noAreasView = (): AreasView => ({ mode: "from", project: "" });
+const tile = (n: number, text: string, cls = ""): string => `<div class="metric${cls}"><b>${n}</b><span>${esc(text)}</span></div>`;
+const placeTable = (rows: ReturnType<typeof areaReport>["places"], countLabel: string): string => rows.length === 0 ? `<p class="muted">Nothing to show yet.</p>` : `<div class="tablewrap"><table><thead><tr><th>Place</th><th>Region</th><th>Country</th><th class="num">${countLabel}</th></tr></thead><tbody>${rows.map((p) => `<tr><td>${esc(p.name)}</td><td>${esc([p.district, p.region].filter((x) => x).join(", "))}</td><td>${esc(p.country)}</td><td class="num">${p.count}</td></tr>`).join("")}</tbody></table></div>`;
+
+export function areasCard(v: View, view: AreasView = noAreasView()): string {
   const reg = v.beneficiaries ?? EMPTY;
-  const rep = areaReport(reg, v.locations ?? []);
+  const projects = v.giftProjects ?? [];
+  const only = view.project === "" ? undefined : projectBeneficiaries(reg, v.enrolments?.records ?? [], view.project);
   const anomalies = uncheckedAreas(reg).length;
-  const tile = (n: number, text: string, cls = ""): string => `<div class="metric${cls}"><b>${n}</b><span>${esc(text)}</span></div>`;
-  return `<section class="card ar-card" aria-labelledby="ar-h"><div class="ar-head"><div><h2 id="ar-h">Where beneficiaries are</h2><p class="muted">By village, town or district, from a free place search so a place is always spelled the same. A household address is never held.</p></div>
+  const from = view.mode === "from";
+  const rep = areaReport(reg, v.locations ?? [], only);
+  const srv = servedReport(projects, v.enrolments?.records ?? [], v.locations ?? [], view.project);
+  const rows = from ? rep.places : srv.places;
+  const tiles = from
+    ? `${tile(rep.checked + rep.unchecked + rep.none, "Beneficiaries")}${tile(rep.checked, "From a checked place")}${tile(rep.unchecked, "Typed, to check", rep.unchecked ? " warn" : "")}${tile(rep.none, "No area")}`
+    : `${tile(srv.served + srv.unplaced, "Enrolled")}${tile(srv.served, "Served at a checked place")}${tile(srv.unplaced, "At a cluster with no location", srv.unplaced ? " warn" : "")}`;
+  const mode = (m: "from" | "served", text: string): string => `<button type="button" class="ar-seg" data-action="ar-mode" data-mode="${m}" aria-pressed="${view.mode === m}">${text}</button>`;
+  return `<section class="card ar-card" aria-labelledby="ar-h"><div class="ar-head"><div><h2 id="ar-h">Where beneficiaries are</h2><p class="muted">${from ? "Where each beneficiary comes from, by village, town or district." : "Where the benefit is served: the location of the cluster each beneficiary is enrolled in. Set it on the cluster's Details tab."} A household address is never held.</p></div>
       <button type="button" data-action="ar-open"${anomalies ? ' class="primary"' : ""}>Fix anomalies${anomalies ? ` (${anomalies})` : ""}</button></div>
-    <div class="metrics">${tile(rep.checked + rep.unchecked + rep.none, "Beneficiaries")}${tile(rep.checked, "With a checked place")}${tile(rep.unchecked, "Typed, to check", rep.unchecked ? " warn" : "")}${tile(rep.none, "No area")}</div>
-    <div class="ar-grid"><div>${mapSvg(rep.places)}<p class="muted ar-note">A plain layout by position. A full map can replace it later; the counts stay the same.</p></div>
-      <div>${rep.places.length === 0 ? `<p class="muted">No beneficiary has a checked place yet.</p>` : `<div class="tablewrap"><table><thead><tr><th>Place</th><th>Region</th><th>Country</th><th class="num">Beneficiaries</th></tr></thead><tbody>${rep.places.map((p) => `<tr><td>${esc(p.name)}</td><td>${esc([p.district, p.region].filter((x) => x).join(", "))}</td><td>${esc(p.country)}</td><td class="num">${p.count}</td></tr>`).join("")}</tbody></table></div>
-      <p class="muted">By country: ${rep.countries.map((c) => `${esc(c.country)} ${c.count}`).join(", ")}.</p>`}</div></div></section>`;
+    <div class="ar-controls"><div class="ar-segs" role="group" aria-label="Map by">${mode("from", "Where they are from")}${mode("served", "Where it is served")}</div>
+      <label class="ar-proj"><span class="muted">Project</span><select id="ar-project" aria-label="Project"><option value="">All projects</option>${projects.map((p) => `<option value="${esc(p.id)}"${p.id === view.project ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</select></label></div>
+    <div class="metrics">${tiles}</div>
+    <div class="ar-grid"><div>${mapSvg(rows)}<p class="muted ar-note">A plain layout by position. A full map can replace it later; the counts stay the same.</p></div>
+      <div>${placeTable(rows, from ? "Beneficiaries" : "Enrolled")}${from && rep.countries.length ? `<p class="muted">By country: ${rep.countries.map((c) => `${esc(c.country)} ${c.count}`).join(", ")}.</p>` : ""}</div></div></section>`;
 }
 
 // --- The pop-up window that fixes anomalies ---

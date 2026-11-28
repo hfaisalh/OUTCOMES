@@ -7,13 +7,15 @@
  */
 
 import { searchPlaces } from "./api";
-import { noAreasUi, type AreasUi } from "./areas-page";
+import { noAreasUi, noAreasView, type AreasUi, type AreasView } from "./areas-page";
 
 export const areasUi: AreasUi = noAreasUi();
+export const areasView: AreasView = noAreasView(); // which map the Dashboard card shows (DECISIONS 278)
 
 // `redraw` redraws the page and the window. Opening and closing keep the window state; a choice keeps it open.
 export async function areasAction(action: string, el: HTMLElement, send: (body: Record<string, unknown>) => Promise<void>, redraw: () => void): Promise<void> {
   const key = el.dataset["key"] ?? "";
+  if (action === "ar-mode") { areasView.mode = el.dataset["mode"] === "served" ? "served" : "from"; return redraw(); }
   if (action === "ar-open") { Object.assign(areasUi, noAreasUi(true)); redraw(); (document.getElementById("ar-close") as HTMLElement | null)?.focus(); return; }
   if (action === "ar-close") { Object.assign(areasUi, noAreasUi()); redraw(); (document.querySelector('[data-action="ar-open"]') as HTMLElement | null)?.focus(); return; }
   if (action === "ar-find") {

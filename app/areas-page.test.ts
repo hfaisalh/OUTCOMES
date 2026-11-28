@@ -24,7 +24,7 @@ describe("the Dashboard areas card and its fix window", () => {
   it("counts checked, typed and empty areas, lists each typed area once with Find place, and tables the places", () => {
     const html = areasCard(view()) + areasWindowHtml(view(), noAreasUi(true));
     expect(html).toContain("<b>4</b><span>Beneficiaries");
-    expect(html).toContain("<b>1</b><span>With a checked place");
+    expect(html).toContain("<b>1</b><span>From a checked place");
     expect(html).toContain("Fix anomalies (1)");
     expect(html).toContain('role="dialog"');
     expect(html).toContain("<b>2</b><span>Typed, to check");
@@ -43,5 +43,31 @@ describe("the Dashboard areas card and its fix window", () => {
     const html = areasCard({ beneficiaries: emptyRegister(), locations: [] } as unknown as View) + areasWindowHtml({ beneficiaries: emptyRegister(), locations: [] } as unknown as View, noAreasUi(true));
     expect(html).toContain("Nothing to do here");
     expect(html).toContain("The map appears when");
+  });
+});
+
+describe("the two views and the project filter (DECISIONS 278)", () => {
+  const lahore = { id: "osm:N5", name: "Lahore", district: "", region: "Punjab", country: "Pakistan", countryCode: "PK", lat: 31.5, lon: 74.3 };
+  const v = () => {
+    const base = view() as unknown as Record<string, unknown>;
+    const ids = (base["beneficiaries"] as { records: { id: string }[] }).records.map((b) => b.id);
+    return { ...base, locations: [kasur, lahore], giftProjects: [{ id: "g1", name: "Orphan care", clusters: [{ id: "home", name: "Home", label: "Home", parentId: "", place: "Lahore", locationId: "osm:N5", status: "active" }] }, { id: "g2", name: "Water", clusters: [] }],
+      enrolments: { counter: 2, records: ids.slice(0, 2).map((b, i) => ({ id: `E${i}`, beneficiaryId: b, giftProjectId: "g1", clusterId: "home", itemId: "S", role: "", status: "active", since: "2026-01-01" })) } } as unknown as View;
+  };
+  it("shows where beneficiaries are from by default, with a switch and a project list", () => {
+    const html = areasCard(v());
+    expect(html).toContain('data-mode="from" aria-pressed="true"');
+    expect(html).toContain('<option value="g1">Orphan care</option>');
+    expect(html).toContain("From a checked place");
+  });
+  it("shows where it is served: enrolled beneficiaries at the cluster's place, though they are from elsewhere", () => {
+    const html = areasCard(v(), { mode: "served", project: "" });
+    expect(html).toContain("<b>2</b><span>Served at a checked place");
+    expect(html).toContain("<td>Lahore</td>");
+    expect(html).not.toContain("<td>Kasur</td>"); // Kasur is where one is from, not where anything is served
+  });
+  it("limits the view to one project", () => {
+    expect(areasCard(v(), { mode: "served", project: "g2" })).toContain("<b>0</b><span>Enrolled");
+    expect(areasCard(v(), { mode: "from", project: "g2" })).toContain("<b>0</b><span>Beneficiaries");
   });
 });

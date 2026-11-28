@@ -73,7 +73,7 @@ import { handlePartnerAction, partnerKeys, partnerUi, switchView } from "./partn
 import { csvChange } from "./partner-csv-session";
 import { initPlacePicker } from "./place-picker";
 import { areasCard, areasWindowHtml } from "./areas-page";
-import { areasAction, areasUi } from "./areas-session";
+import { areasAction, areasUi, areasView } from "./areas-session";
 import { acceptPlace, upsertPlace, type Place } from "../modules/14-locations/locations";
 import { resolveArea } from "../modules/14-locations/areas";
 
@@ -540,7 +540,7 @@ function draw(): void {
     : state.page === "progress" ? progressPage(v)
     : state.page === "outcome-list" ? beneficiariesPage(v)
     : state.page === "audit" ? auditPage(v)
-    : state.page === "dashboard" ? dashboardPage(v) + areasCard(v)
+    : state.page === "dashboard" ? dashboardPage(v) + areasCard(v, areasView)
     : state.page === "categories" ? categoriesPage(v)
     : state.page === "sources" ? mapping.html()
     : settingsPage(v);
@@ -1797,6 +1797,7 @@ function renderAreasWindow(): void {
   if (!root) { root = document.createElement("div"); root.id = "area-root"; document.body.appendChild(root); }
   putWindow(root, areasWindowHtml(view(), areasUi));
 }
+document.addEventListener("change", (e) => { const t = e.target as HTMLSelectElement | null; if (t?.id === "ar-project") { areasView.project = t.value; draw(); } });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && areasUi.open) { areasUi.open = false; renderAreasWindow(); } });
 function renderBenWindow(error = "", draft?: Partial<Beneficiary>): void {
   const w = state.benWin;

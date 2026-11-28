@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { addBeneficiary, emptyRegister, type Register } from "../07-beneficiaries/beneficiaries";
-import { areaReport, mapPoints, resolveArea, uncheckedAreas } from "./areas";
+import { areaReport, mapPoints, projectBeneficiaries, resolveArea, servedReport, uncheckedAreas } from "./areas";
 import type { Place } from "./locations";
 
 const kasur: Place = { id: "osm:N1", name: "Kasur", district: "Kasur District", region: "Punjab", country: "Pakistan", countryCode: "PK", lat: 31.1, lon: 74.4 };
@@ -58,5 +58,39 @@ describe("counting by place", () => {
     expect(mapPoints([])).toEqual([]);
     const one = mapPoints([{ ...kasur, count: 1 }])[0]!;
     expect([one.x, one.y]).toEqual([50, 50]);
+  });
+});
+
+describe("where it is served, apart from where beneficiaries are from (DECISIONS 278)", () => {
+  const lahore: Place = { id: "osm:N5", name: "Lahore", district: "", region: "Punjab", country: "Pakistan", countryCode: "PK", lat: 31.5, lon: 74.3 };
+  const clusters = [
+    { id: "home", name: "Home", label: "Home", parentId: "", place: "Lahore", locationId: "osm:N5", status: "active" as const },
+    { id: "block", name: "Block A", label: "Block", parentId: "home", place: "", status: "active" as const },
+    { id: "far", name: "Far", label: "Home", parentId: "", place: "", status: "active" as const },
+  ];
+  const enr = (id: string, beneficiaryId: string, clusterId: string, giftProjectId = "g1", status: "active" | "ended" = "active", itemId = "S") => ({ id, beneficiaryId, giftProjectId, clusterId, itemId, role: "", status, since: "2026-01-01" });
+  const projects = [{ id: "g1", clusters }, { id: "g2", clusters: [] }];
+
+  it("counts enrolments by the place of their cluster, a sub cluster taking its parent's place, once per person and project", () => {
+    const r = servedReport(projects, [enr("1", "a", "block"), enr("2", "b", "home"), enr("3", "b", "home", "g1", "active", "T"), enr("4", "c", "far"), enr("5", "d", "home", "g1", "ended")], [lahore]);
+    expect(r.places.map((p) => [p.name, p.count])).toEqual([["Lahore", 2]]);
+    expect([r.served, r.unplaced]).toEqual([2, 1]);
+  });
+  it("can be limited to one project", () => {
+    const r = servedReport(projects, [enr("1", "a", "home"), enr("2", "b", "x", "g2")], [lahore], "g2");
+    expect([r.places.length, r.unplaced]).toEqual([0, 1]);
+  });
+  it("finds a project's beneficiaries: enrolled in it, or waiting for it", () => {
+    let r = emptyRegister();
+    for (const [name, t] of [["Amina Khan", "g1"], ["Bilal Ahmed", ""], ["Chand Bibi", "g2"]] as const) {
+      const x = addBeneficiary(r, "person", { name, targetProjectId: t }, true, "2026-11-01");
+      if ("error" in x) throw new Error(x.error);
+      r = x.value;
+    }
+    const [a, b, c] = r.records;
+    const ids = projectBeneficiaries(r, [enr("1", b!.id, "home")], "g1");
+    expect([...ids].sort()).toEqual([a!.id, b!.id].sort());
+    expect(ids.has(c!.id)).toBe(false);
+    expect(areaReport(r, [], ids).none).toBe(2); // only the project's two are counted
   });
 });
