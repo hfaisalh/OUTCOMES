@@ -45,7 +45,7 @@ describe("the Dashboard areas card and its fix window", () => {
   it("is calm when there is nothing to show", () => {
     const html = areasCard({ beneficiaries: emptyRegister(), locations: [] } as unknown as View) + areasWindowHtml({ beneficiaries: emptyRegister(), locations: [] } as unknown as View, noAreasUi(true));
     expect(html).toContain("Nothing to do here");
-    expect(html).toContain("The map appears when");
+    expect(html).toContain("The map and the table appear once one does."); // one calm message, not two
   });
 });
 

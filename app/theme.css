@@ -639,3 +639,16 @@ tr.rowlink[data-cnfwin]{cursor:pointer}tr.rowlink[data-cnfwin]:hover td{backgrou
 /* Touch targets of at least 24px for the small buttons in column headings (WCAG 2.2, target size) */
 .fbtn{min-width:24px;min-height:24px;display:inline-grid;place-items:center}.sortbtn{display:inline-flex;align-items:center;min-height:24px}
 .wbtn.on small,.wbtn.on .muted{color:inherit;opacity:.85}
+/* A positive pill (Active, Approved) like the others, and a readable line length for page introductions */
+.pill.ok{background:rgba(31,138,76,.14);color:#17683a}.content .sub{max-width:96ch}
+/* Phone layout (DECISIONS 294): the menu is one row that scrolls sideways instead of a block of wrapped buttons, the top bar keeps to one line, and the tabs of a module scroll rather than wrap */
+@media(max-width:800px){
+  .nav{flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;padding:6px 8px;gap:2px;-webkit-overflow-scrolling:touch}.nav::-webkit-scrollbar{display:none}.nav a,.nav button{flex:none;white-space:nowrap}
+  .side .foot{display:none}
+  .top{padding:0 12px;gap:8px;height:52px}.top .badge-demo{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}.top .ver{display:none}
+  .modtabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.modtabs::-webkit-scrollbar{display:none}.modtabs button{flex:none;white-space:nowrap}
+  .content{padding:14px 14px 28px}
+  .modhead{flex-direction:column;gap:2px}
+}
+@media(max-width:800px){.app{grid-template-columns:minmax(0,1fr)}.side,.top,.content{min-width:0;max-width:100vw}}
+.phome-brand{display:flex;align-items:center}

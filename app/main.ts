@@ -748,7 +748,7 @@ document.addEventListener("click", (e) => {
   if (state.topMenu !== "" && !target.closest(".pop")) { state.topMenu = ""; draw(); }
   const el = target.closest("[data-page],[data-filter],[data-action]") as HTMLElement | null;
   if (!el) return;
-  if (el.dataset.page) { state.page = el.dataset.page as PageId; state.topMenu = ""; }
+  if (el.dataset.page) { if (state.page !== el.dataset.page) state.message = ""; state.page = el.dataset.page as PageId; state.topMenu = ""; } // a note about one page (for example "Sample setup loaded") does not follow the person to the next
   if (el.dataset.filter) state.filter = el.dataset.filter as Filter;
   const action = el.dataset.action;
   if (action === "clear-filters") {

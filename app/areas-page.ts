@@ -59,8 +59,8 @@ export function areasCard(v: View, view: AreasView = noAreasView()): string {
     <div class="ar-controls"><div class="ar-segs" role="group" aria-label="Map by">${mode("from", "Where they are from")}${mode("served", "Where it is served")}</div>
       <label class="ar-proj"><span class="muted">Project</span><select id="ar-project" aria-label="Project"><option value="">All projects</option>${projects.map((p) => `<option value="${esc(p.id)}"${p.id === view.project ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</select></label></div>
     <div class="metrics">${tiles}</div>
-    <div class="ar-grid"><div><div id="ar-leaflet" class="ar-leaflet" data-rows="${esc(JSON.stringify(rows))}">${mapSvg(rows)}</div><p class="muted ar-note">Map data &copy; OpenStreetMap contributors. If the map cannot load, a plain layout by position is shown.</p></div>
-      <div>${placeTable(rows, from ? "Beneficiaries" : "Enrolled")}${from && rep.countries.length ? `<p class="muted">By country: ${rep.countries.map((c) => `${esc(c.country)} ${c.count}`).join(", ")}.</p>` : ""}</div></div></section>`;
+    ${rows.length === 0 ? `<div class="empty">${from ? "No beneficiary has a checked place yet." : "No cluster has a checked location yet. Set it on the cluster's Details tab."} The map and the table appear once one does.</div>` : `    <div class="ar-grid"><div><div id="ar-leaflet" class="ar-leaflet" data-rows="${esc(JSON.stringify(rows))}">${mapSvg(rows)}</div><p class="muted ar-note">Map data &copy; OpenStreetMap contributors. If the map cannot load, a plain layout by position is shown.</p></div>
+      <div>${placeTable(rows, from ? "Beneficiaries" : "Enrolled")}${from && rep.countries.length ? `<p class="muted">By country: ${rep.countries.map((c) => `${esc(c.country)} ${c.count}`).join(", ")}.</p>` : ""}</div></div>`}</section>`;
 }
 
 // --- The pop-up window that fixes anomalies ---
