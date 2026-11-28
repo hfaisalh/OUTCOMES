@@ -190,3 +190,11 @@ export function applyProgressAction(ctx: ProgressContext, existing: Progress, bo
     default: return null;
   }
 }
+
+// --- What the Dashboard counts from a gift's progress (DECISIONS 324) ---
+// Rule: delivered means the partner's phases are all done (a workflow with no phases is delivered once allocated). Reviewable is delivered and asks MWF to review; reviewed is reviewable and the review is taken.
+export function deliveryFlags(p: GiftProgress): { delivered: boolean; reviewable: boolean; reviewed: boolean } {
+  const delivered = p.allocated && p.steps.filter((x) => x.kind === "phase").every((x) => x.done);
+  const review = p.steps.find((x) => x.id === "review");
+  return { delivered, reviewable: delivered && review !== undefined, reviewed: delivered && review !== undefined && review.done };
+}

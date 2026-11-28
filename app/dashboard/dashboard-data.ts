@@ -20,6 +20,7 @@ import { benefitShares, byAgeBand, fulfilmentScore, fundingLevels, journey, topP
 import { totalText } from "../../modules/15-partner-costs/costs";
 import { isLate, rowsOf } from "../allocation/confirmation-rows";
 import { standingsOf } from "../allocation/progress-page";
+import { deliveryFlags } from "../../modules/12-progress/progress";
 import { valueByCurrency } from "../gifts/gifts-page";
 import { iconHtml, itemIcon } from "../shared/icons";
 import type { View } from "../shared/pages";
@@ -79,7 +80,9 @@ export function dashboardData(v: View): DashData {
     confirmed: rows.filter((r) => r.st.state === "confirmed").length,
     lateAnswers: rows.filter(isLate).length,
     allocated: allocated.length,
-    delivered: allocated.filter((s) => s.stage !== "allocation").length,
+    delivered: allocated.filter((s) => deliveryFlags(s).delivered).length,
+    reviewable: allocated.filter((s) => deliveryFlags(s).reviewable).length,
+    reviewed: allocated.filter((s) => deliveryFlags(s).reviewed).length,
     lateDelivery: allocated.filter((s) => (s.next?.lateDays ?? 0) > 0).length,
     complete: allocated.filter((s) => s.complete).length,
   };
@@ -132,7 +135,7 @@ export function dashboardData(v: View): DashData {
   const rowByKey = new Map(rows.map((r) => [r.key, r]));
   const standByKey = new Map(stand.map((s) => [s.key, s]));
   const assignedKeys = new Set(mine.map((a) => a.key));
-  const blank = (): JourneyCounts => ({ paymentsIn30: 0, gifts: 0, assigned: 0, confirmed: 0, lateAnswers: 0, allocated: 0, delivered: 0, lateDelivery: 0, complete: 0 });
+  const blank = (): JourneyCounts => ({ paymentsIn30: 0, gifts: 0, assigned: 0, confirmed: 0, lateAnswers: 0, allocated: 0, delivered: 0, reviewable: 0, reviewed: 0, lateDelivery: 0, complete: 0 });
   const per = new Map<string, { name: string; framework: string; counts: JourneyCounts }>();
   for (const u of units) {
     const e = per.get(u.w.itemId) ?? { name: u.w.itemName, framework: u.w.frameworkId ?? "", counts: blank() };
@@ -141,7 +144,7 @@ export function dashboardData(v: View): DashData {
     if (assignedKeys.has(u.key)) c.assigned++;
     if (r?.st.state === "confirmed") c.confirmed++;
     if (r && isLate(r)) c.lateAnswers++;
-    if (s?.allocated) { c.allocated++; if (s.stage !== "allocation") c.delivered++; if ((s.next?.lateDays ?? 0) > 0) c.lateDelivery++; if (s.complete) c.complete++; }
+    if (s?.allocated) { c.allocated++; const fl = deliveryFlags(s); if (fl.delivered) c.delivered++; if (fl.reviewable) c.reviewable++; if (fl.reviewed) c.reviewed++; if ((s.next?.lateDays ?? 0) > 0) c.lateDelivery++; if (s.complete) c.complete++; }
     per.set(u.w.itemId, e);
   }
   const benefits: BenefitView[] = benefitShares([...per].map(([itemId, e]) => ({ itemId, name: e.name || itemId, counts: e.counts }))).map((b) => ({

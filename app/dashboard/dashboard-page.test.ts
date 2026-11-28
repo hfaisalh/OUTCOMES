@@ -12,7 +12,7 @@ import { CATEGORICAL, donutHtml, kpiHtml, NEUTRAL, ORDINAL, paint, ringHtml } fr
 import type { DashData } from "./dashboard-data";
 import type { View } from "../shared/pages";
 
-const counts = { paymentsIn30: 18, gifts: 298, assigned: 298, confirmed: 290, lateAnswers: 3, allocated: 250, delivered: 5, lateDelivery: 21, complete: 3 };
+const counts = { paymentsIn30: 18, gifts: 298, assigned: 298, confirmed: 290, lateAnswers: 3, allocated: 250, delivered: 5, reviewable: 0, reviewed: 0, lateDelivery: 21, complete: 3 };
 const stages = journey(counts);
 const data = (over: Partial<DashData> = {}): DashData => ({
   stages, score: fulfilmentScore(stages), counts, review: { under: 4, sentBack: 2, reviewed: 6, rejections: 2 }, value: "£88,187", recurringActive: 271, plansStopped: 27, needAttention: 54, unallocated: 40, beneficiaries: 300, enrolled: 300, waiting: 12, needDetails: 54,
@@ -64,7 +64,7 @@ describe("the Dashboard page", () => {
   it("leads with the journey: a score and six stages that link to their pages, with late counts in words", () => {
     expect(html.indexOf("Gift journey")).toBeLessThan(html.indexOf("Gifts</h2>"));
     expect(html).toContain("fulfilment score");
-    expect(html.match(/class="dash-stage dash-link"/g)).toHaveLength(6);
+    expect(html.match(/class="dash-stage dash-link"/g)).toHaveLength(7);
     for (const p of ["assignment", "confirmation", "allocate", "progress"]) expect(html).toContain(`data-page="${p}"`);
     expect(html).toContain("21 late");
     expect(html).toContain("3 late");
@@ -77,7 +77,7 @@ describe("the Dashboard page", () => {
     expect(html).toContain("Review");
   });
   it("says there is nothing yet, rather than showing 0%, when no stage has data", () => {
-    const none = dashboardHtml(data({ stages: journey({ ...counts, gifts: 0, assigned: 0, confirmed: 0, allocated: 0, lateAnswers: 0, lateDelivery: 0, delivered: 0, complete: 0 }), score: null }));
+    const none = dashboardHtml(data({ stages: journey({ ...counts, gifts: 0, assigned: 0, confirmed: 0, allocated: 0, lateAnswers: 0, lateDelivery: 0, delivered: 0, reviewable: 0, reviewed: 0, complete: 0 }), score: null }));
     expect(none).toContain("Nothing has reached the first stage yet");
     expect(none).toContain("no data yet");
   });
@@ -90,14 +90,14 @@ describe("the figures gathered from a View", () => {
     expect(d.counts.gifts).toBe(0);
     expect(d.beneficiaries).toBe(0);
     expect(d.splits.funding.map((p) => p.value)).toEqual([0, 0, 0]);
-    expect(d.stages).toHaveLength(6);
+    expect(d.stages).toHaveLength(7);
     expect(() => dashboardHtml(d)).not.toThrow();
   });
 });
 
 describe("benefits in the journey (DECISIONS 302)", () => {
   const b = (itemId: string, name: string, gifts: number, c: Partial<typeof counts> = {}) => {
-    const k = { ...counts, gifts, assigned: gifts, confirmed: gifts, allocated: Math.floor(gifts / 2), delivered: 1, complete: 0, lateAnswers: 0, lateDelivery: 2, ...c };
+    const k = { ...counts, gifts, assigned: gifts, confirmed: gifts, allocated: Math.floor(gifts / 2), delivered: 1, reviewable: 0, reviewed: 0, complete: 0, lateAnswers: 0, lateDelivery: 2, ...c };
     return { itemId, name, gifts, share: 0, counts: k, stages: journey(k), late: k.lateAnswers + k.lateDelivery, icon: "<svg></svg>", value: "\u00A310" };
   };
   it("shows each benefit's share as ranked bars with the count and the percentage, and folds the tail into one bar", () => {

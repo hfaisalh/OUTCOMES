@@ -5,7 +5,7 @@
  * Who calls it: vitest. Depends on: progress.ts.
  */
 import { describe, expect, it } from "vitest";
-import { applyProgressAction, emptyProgress, isClosed, progressOf, stepsOf, type ProgressContext, type Steps } from "./progress";
+import { applyProgressAction, deliveryFlags, emptyProgress, isClosed, progressOf, stepsOf, type ProgressContext, type Steps } from "./progress";
 
 const steps: Steps = { phases: [{ id: "check", label: "Basic check", days: 14 }, { id: "photo", label: "Photo update", days: 30 }], review: true, feedback: true };
 const ALLOCATED = "2026-11-01T09:00:00Z";
@@ -170,5 +170,20 @@ describe("rejecting the work at review (decision 320)", () => {
     const r = reject(upToReview) as { value: { records: typeof upToReview } };
     const undone = applyProgressAction(ctx, r.value, { action: "prg-undo", key: "sub:S1" }, "MWF", "2026-11-24T11:00:00Z") as { value: { records: unknown[] } };
     expect(undone.value.records).toHaveLength(2);
+  });
+});
+
+describe("what the Dashboard counts from a gift (decision 324)", () => {
+  const rec = (id: string, at: string, kind: "phase" | "stage" = "phase") => ({ key: "sub:S1", kind, id, at, by: "T" });
+  it("is delivered when every phase is done, reviewable when the workflow asks for review, reviewed once it is taken", () => {
+    const flags = (records: ReturnType<typeof rec>[]) => deliveryFlags(progressOf("sub:S1", ALLOCATED, records, steps, "2026-11-25"));
+    expect(flags([rec("check", "2026-11-05T09:00:00Z")])).toEqual({ delivered: false, reviewable: false, reviewed: false });
+    const phases = [rec("check", "2026-11-05T09:00:00Z"), rec("photo", "2026-11-20T09:00:00Z")];
+    expect(flags(phases)).toEqual({ delivered: true, reviewable: true, reviewed: false });
+    expect(flags([...phases, rec("review", "2026-11-21T09:00:00Z", "stage")])).toEqual({ delivered: true, reviewable: true, reviewed: true });
+  });
+  it("counts a workflow with no phases as delivered once allocated, and one that skips review as not reviewable", () => {
+    expect(deliveryFlags(progressOf("k", ALLOCATED, [], { phases: [], review: false, feedback: false }, "2026-11-25"))).toEqual({ delivered: true, reviewable: false, reviewed: false });
+    expect(deliveryFlags(progressOf("k", undefined, [], steps, "2026-11-25")).delivered).toBe(false);
   });
 });

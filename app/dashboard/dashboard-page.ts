@@ -50,9 +50,9 @@ function cell(s: Stage): string {
   return `<td class="dash-mini" title="${s.done.toLocaleString("en-GB")} of ${s.of.toLocaleString("en-GB")}"><span class="dash-mbar" aria-hidden="true"><i style="width:${s.pct}%"></i></span><span class="dash-mpct">${s.pct}%</span></td>`;
 }
 function benefitJourney(d: DashData): string {
-  const rows = d.benefits.slice(0, 25).map((b) => `<tr><th scope="row"><span class="dash-bname">${b.icon}<span>${esc(b.name)}</span></span></th><td class="num">${b.gifts.toLocaleString("en-GB")}</td>${["assigned", "confirmed", "allocated", "delivered", "complete"].map((id) => cell(b.stages.find((s) => s.id === id) as Stage)).join("")}<td class="num">${b.late > 0 ? `<span class="dash-pill dash-pill-bad">${dashIcon("clock", 12)}${b.late} late</span>` : `<span class="muted">0</span>`}</td></tr>`).join("");
+  const rows = d.benefits.slice(0, 25).map((b) => `<tr><th scope="row"><span class="dash-bname">${b.icon}<span>${esc(b.name)}</span></span></th><td class="num">${b.gifts.toLocaleString("en-GB")}</td>${["assigned", "confirmed", "allocated", "delivered", "reviewed", "complete"].map((id) => cell(b.stages.find((s) => s.id === id) as Stage)).join("")}<td class="num">${b.late > 0 ? `<span class="dash-pill dash-pill-bad">${dashIcon("clock", 12)}${b.late} late</span>` : `<span class="muted">0</span>`}</td></tr>`).join("");
   return `<section class="dash-card dash-bj" aria-labelledby="db-h"><h3 id="db-h" class="dash-h">Each benefit's journey</h3>
-    <div class="tablewrap"><table class="dash-table"><thead><tr><th>Benefit</th><th class="num">Gifts</th><th>Assigned</th><th>Confirmed</th><th>Allocated</th><th>Delivered</th><th>Complete</th><th class="num">Late</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="tablewrap"><table class="dash-table"><thead><tr><th>Benefit</th><th class="num">Gifts</th><th>Assigned</th><th>Confirmed</th><th>Allocated</th><th>Delivered</th><th>Reviewed</th><th>Complete</th><th class="num">Late</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="muted dash-note">Each figure is the share of the step before it, as in the journey above. Hover a figure for the count.${d.benefits.length > 25 ? ` Showing the largest 25 of ${d.benefits.length}.` : ""}</p></section>`;
 }
 function benefitsHtml(d: DashData): string {

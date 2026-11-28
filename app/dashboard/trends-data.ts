@@ -11,6 +11,7 @@ import { prioritySet } from "../../modules/08-assignment/priority-gifts";
 import { confirmDaysOf } from "../../modules/02-project-rules/workflows";
 import { improvements, lastMonths, monthlyTrends, type GiftLife, type Improvement, type MonthPoint } from "../../modules/17-dashboard/trends";
 import type { View } from "../shared/pages";
+import { stepsFor } from "../../modules/12-progress/context";
 import { journeyStart, type GiftPayments } from "../../modules/02-project-rules/timeline";
 import { FULFILLED_STAGE } from "../../modules/02-project-rules/categories";
 import { fulfilledOf } from "../../modules/02-project-rules/workflows";
@@ -31,10 +32,13 @@ export function trendsData(v: View, itemId = "", months = 12, partnerId = ""): T
   const answers = new Map((v.confirmations?.records ?? []).map((c) => [c.key, c]));
   const allocated = new Map<string, string>();
   for (const r of v.allocations?.records ?? []) if (!allocated.has(r.key) || r.at < (allocated.get(r.key) as string)) allocated.set(r.key, r.at);
-  const stageAt = new Map<string, { first: string; done: string }>();
+  const stageAt = new Map<string, { first: string; done: string; review: string }>();
+  const phaseAt = new Map<string, Map<string, string>>(); // the earliest time each phase of a gift was done
   for (const p of v.progress?.records ?? []) {
+    if (p.kind === "phase") { const m = phaseAt.get(p.key) ?? new Map<string, string>(); if (!m.has(p.id) || p.at < (m.get(p.id) as string)) m.set(p.id, p.at); phaseAt.set(p.key, m); continue; }
     if (p.kind !== "stage") continue;
-    const cur = stageAt.get(p.key) ?? { first: "", done: "" };
+    const cur = stageAt.get(p.key) ?? { first: "", done: "", review: "" };
+    if (p.id === "review" && (cur.review === "" || p.at < cur.review)) cur.review = p.at;
     if (cur.first === "" || p.at < cur.first) cur.first = p.at;
     if ((p.id === "complete" || p.id === "feedback") && (cur.done === "" || p.at < cur.done)) cur.done = p.at;
     stageAt.set(p.key, cur);
@@ -44,6 +48,9 @@ export function trendsData(v: View, itemId = "", months = 12, partnerId = ""): T
     const a = answers.get(u.key);
     const fw = fws.get(u.w.frameworkId ?? "");
     const st = stageAt.get(u.key);
+    // Rule (DECISIONS 324): delivered is when the last of the workflow's phases was done (at allocation when it has none).
+    const steps = stepsFor(fw), got = phaseAt.get(u.key);
+    const delivered = steps.phases.length === 0 ? allocated.get(u.key) : steps.phases.every((p) => got?.has(p.id)) ? steps.phases.map((p) => got?.get(p.id) as string).sort().at(-1) : undefined;
     const pay = paymentsOf(v, u), fs = FULFILLED_STAGE[fulfilledOf(fw)];
     const reached = (fs === 3 ? allocated.get(u.key) : fs === 4 ? st?.first : st?.done)?.slice(0, 10);
     return {
@@ -51,7 +58,7 @@ export function trendsData(v: View, itemId = "", months = 12, partnerId = ""): T
       ...(assigned.has(u.key) ? { assignedAt: assigned.get(u.key) as string } : {}),
       ...(a ? { answeredAt: a.at, ...(a.answer === "confirmed" ? { confirmedAt: a.at } : {}), answerDays: fw ? confirmDaysOf(fw) : 3 } : {}),
       ...(allocated.has(u.key) ? { allocatedAt: allocated.get(u.key) as string } : {}),
-      ...(st?.first ? { deliveredAt: st.first } : {}),
+      ...(delivered ? { deliveredAt: delivered } : {}), needsReview: steps.review, ...(st?.review ? { reviewedAt: st.review } : {}),
       ...(st?.done ? { completedAt: st.done } : {}),
     };
   });

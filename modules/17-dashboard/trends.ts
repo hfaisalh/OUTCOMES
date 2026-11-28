@@ -30,7 +30,9 @@ export interface GiftLife {
   confirmedAt?: string; // when it accepted (the answer, if it was an acceptance)
   answerDays?: number; // the days its workflow allows to answer
   allocatedAt?: string;
-  deliveredAt?: string; // the first of review, report or complete
+  deliveredAt?: string; // when the partner's phases were all done (DECISIONS 324)
+  needsReview?: boolean; // its workflow asks MWF to review
+  reviewedAt?: string; // when the review was taken
   completedAt?: string;
 }
 
@@ -86,7 +88,7 @@ export function monthlyTrends(lives: GiftLife[], months: Month[]): MonthPoint[] 
     const assigned = c((g) => by(g.assignedAt, m) && by(g.paidAt, m));
     const confirmed = c((g) => by(g.confirmedAt, m));
     const allocated = c((g) => by(g.allocatedAt, m));
-    const stages = journey({ paymentsIn30: 0, gifts, assigned, confirmed, lateAnswers: 0, allocated, delivered: c((g) => by(g.deliveredAt, m)), lateDelivery: 0, complete: c((g) => by(g.completedAt, m)) });
+    const stages = journey({ paymentsIn30: 0, gifts, assigned, confirmed, lateAnswers: 0, allocated, delivered: c((g) => by(g.deliveredAt, m)), reviewable: c((g) => g.needsReview === true && by(g.deliveredAt, m)), reviewed: c((g) => g.needsReview === true && by(g.reviewedAt, m)), lateDelivery: 0, complete: c((g) => by(g.completedAt, m)) });
     const answered = lives.filter((g) => inMonth(g.answeredAt, m) && g.assignedAt !== undefined);
     const withLimit = answered.filter((g) => g.answerDays !== undefined);
     return {

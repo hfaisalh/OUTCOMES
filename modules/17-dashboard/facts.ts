@@ -20,12 +20,14 @@ export interface JourneyCounts {
   confirmed: number; // the partner accepted
   lateAnswers: number; // assigned, no answer yet, and past the day to answer
   allocated: number; // funding a beneficiary or an outcome
-  delivered: number; // allocated and past the partner's phases (review, report or complete)
+  delivered: number; // allocated and the partner's phases are all done (DECISIONS 324)
+  reviewable: number; // delivered, in a workflow that asks MWF to review
+  reviewed: number; // of those, the review is taken
   lateDelivery: number; // allocated and a step past its due day
   complete: number; // reviewed, reported and completed
 }
 
-export type StageId = "in" | "assigned" | "confirmed" | "allocated" | "delivered" | "complete";
+export type StageId = "in" | "assigned" | "confirmed" | "allocated" | "delivered" | "reviewed" | "complete";
 export interface Stage {
   id: StageId;
   title: string;
@@ -44,9 +46,11 @@ export function journey(c: JourneyCounts): Stage[] {
     { id: "in", title: "Payments in", rule: "Every gift that needs feedback", pct: null, done: c.paymentsIn30, of: 0, late: 0, page: "work-orders" },
     { id: "assigned", title: "Assigned", rule: "Handed to a partner with room", pct: pct(c.assigned, c.gifts), done: c.assigned, of: c.gifts, late: 0, page: "assignment" },
     { id: "confirmed", title: "Confirmed", rule: "The partner accepts within its days", pct: pct(c.confirmed, c.assigned), done: c.confirmed, of: c.assigned, late: c.lateAnswers, page: "confirmation" },
-    { id: "allocated", title: "Allocated", rule: "Funds a beneficiary or an outcome", pct: pct(c.allocated, c.confirmed), done: c.allocated, of: c.confirmed, late: 0, page: "allocate" },
+    // Rule (DECISIONS 324): a gift allocated without a recorded answer (older gifts) still counts as confirmed, so the share never reads "249 of 15".
+    { id: "allocated", title: "Allocated", rule: "Funds a beneficiary or an outcome", pct: pct(c.allocated, Math.max(c.confirmed, c.allocated)), done: c.allocated, of: Math.max(c.confirmed, c.allocated), late: 0, page: "allocate" },
     { id: "delivered", title: "Delivered", rule: "The partner's phases are done", pct: pct(c.delivered, c.allocated), done: c.delivered, of: c.allocated, late: c.lateDelivery, page: "progress" },
-    { id: "complete", title: "Complete", rule: "Reviewed, reported, the donor told", pct: pct(c.complete, c.allocated), done: c.complete, of: c.allocated, late: 0, page: "progress" },
+    { id: "reviewed", title: "Reviewed", rule: "MWF checks the work", pct: pct(c.reviewed, c.reviewable), done: c.reviewed, of: c.reviewable, late: 0, page: "progress" },
+    { id: "complete", title: "Complete", rule: "Reported, the donor told", pct: pct(c.complete, c.allocated), done: c.complete, of: c.allocated, late: 0, page: "progress" },
   ];
 }
 

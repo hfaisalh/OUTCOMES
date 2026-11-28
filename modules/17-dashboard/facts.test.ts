@@ -7,16 +7,16 @@
 import { describe, expect, it } from "vitest";
 import { ageOn, benefitShares, byAgeBand, fulfilmentScore, fundingLevels, journey, rejectionRate, topParts, type JourneyCounts } from "./facts";
 
-const counts = (over: Partial<JourneyCounts> = {}): JourneyCounts => ({ paymentsIn30: 12, gifts: 100, assigned: 80, confirmed: 60, lateAnswers: 5, allocated: 30, delivered: 15, lateDelivery: 2, complete: 6, ...over });
+const counts = (over: Partial<JourneyCounts> = {}): JourneyCounts => ({ paymentsIn30: 12, gifts: 100, assigned: 80, confirmed: 60, lateAnswers: 5, allocated: 30, delivered: 15, reviewable: 10, reviewed: 4, lateDelivery: 2, complete: 6, ...over });
 
 describe("the journey of a gift", () => {
   it("measures each stage against the one before it, with late counts and the page behind it", () => {
     const s = journey(counts());
-    expect(s.map((x) => [x.id, x.pct, x.done, x.of, x.late])).toEqual([["in", null, 12, 0, 0], ["assigned", 80, 80, 100, 0], ["confirmed", 75, 60, 80, 5], ["allocated", 50, 30, 60, 0], ["delivered", 50, 15, 30, 2], ["complete", 20, 6, 30, 0]]);
+    expect(s.map((x) => [x.id, x.pct, x.done, x.of, x.late])).toEqual([["in", null, 12, 0, 0], ["assigned", 80, 80, 100, 0], ["confirmed", 75, 60, 80, 5], ["allocated", 50, 30, 60, 0], ["delivered", 50, 15, 30, 2], ["reviewed", 40, 4, 10, 0], ["complete", 20, 6, 30, 0]]);
     expect(s.find((x) => x.id === "confirmed")?.page).toBe("confirmation");
   });
   it("says nothing to measure (null) rather than 0% when there is nothing before a stage, and never goes over 100", () => {
-    const s = journey(counts({ gifts: 0, assigned: 0, confirmed: 0, allocated: 0, delivered: 0, complete: 0, lateAnswers: 0, lateDelivery: 0 }));
+    const s = journey(counts({ gifts: 0, assigned: 0, confirmed: 0, allocated: 0, delivered: 0, reviewable: 0, reviewed: 0, complete: 0, lateAnswers: 0, lateDelivery: 0 }));
     expect(s.every((x) => x.pct === null)).toBe(true);
     expect(journey(counts({ gifts: 10, assigned: 25 }))[1]?.pct).toBe(100);
   });
@@ -24,11 +24,11 @@ describe("the journey of a gift", () => {
 
 describe("the fulfilment score", () => {
   it("is the plain average of the stages that have data", () => {
-    expect(fulfilmentScore(journey(counts()))).toBe(Math.round((80 + 75 + 50 + 50 + 20) / 5));
+    expect(fulfilmentScore(journey(counts()))).toBe(Math.round((80 + 75 + 50 + 50 + 40 + 20) / 6));
   });
   it("leaves out a stage with no data, and is null when none has any", () => {
-    expect(fulfilmentScore(journey(counts({ gifts: 0 })))).toBe(Math.round((75 + 50 + 50 + 20) / 4)); // assigned has nothing to measure, so it is left out
-    expect(fulfilmentScore(journey(counts({ gifts: 0, assigned: 0, confirmed: 0, allocated: 0 })))).toBeNull();
+    expect(fulfilmentScore(journey(counts({ gifts: 0 })))).toBe(Math.round((75 + 50 + 50 + 40 + 20) / 5)); // assigned has nothing to measure, so it is left out
+    expect(fulfilmentScore(journey(counts({ gifts: 0, assigned: 0, confirmed: 0, allocated: 0, reviewable: 0 })))).toBeNull();
   });
 });
 
@@ -57,7 +57,7 @@ describe("each benefit's share (DECISIONS 302)", () => {
     const r = benefitShares([{ itemId: "B", name: "Water Pump", counts: counts({ gifts: 25, lateAnswers: 1, lateDelivery: 2 }) }, { itemId: "A", name: "Orphan Sponsorship", counts: counts({ gifts: 75 }) }, { itemId: "C", name: "Another", counts: counts({ gifts: 25 }) }]);
     expect(r.map((x) => [x.name, x.gifts, x.share])).toEqual([["Orphan Sponsorship", 75, 60], ["Another", 25, 20], ["Water Pump", 25, 20]]);
     expect(r[2]?.late).toBe(3);
-    expect(r[0]?.stages).toHaveLength(6);
+    expect(r[0]?.stages).toHaveLength(7);
   });
   it("gives every benefit 0% when there are no gifts, and nothing for no benefits", () => {
     expect(benefitShares([{ itemId: "A", name: "A", counts: counts({ gifts: 0 }) }])[0]?.share).toBe(0);
@@ -69,5 +69,17 @@ describe("rejection rate (decision 323)", () => {
   it("is the share of review decisions that sent the work back, and none until one is made", () => {
     expect(rejectionRate({ reviewed: 6, rejections: 2 })).toBe(25);
     expect(rejectionRate({ reviewed: 0, rejections: 0 })).toBeNull();
+  });
+});
+
+describe("the Reviewed stage and the fixed figures (decision 324)", () => {
+  it("measures review against the delivered gifts whose workflow asks for it, and leaves itself out when none does", () => {
+    expect(journey(counts()).find((x) => x.id === "reviewed")).toMatchObject({ pct: 40, done: 4, of: 10 });
+    expect(journey(counts({ reviewable: 0, reviewed: 0 })).find((x) => x.id === "reviewed")?.pct).toBeNull();
+    expect(fulfilmentScore(journey(counts({ reviewable: 0, reviewed: 0 })))).toBe(Math.round((80 + 75 + 50 + 50 + 20) / 5)); // no review asked: the score is as before
+  });
+  it("never reads more allocated than confirmed: older gifts allocated with no recorded answer still count as confirmed", () => {
+    const a = journey(counts({ confirmed: 15, allocated: 249 })).find((x) => x.id === "allocated");
+    expect(a).toMatchObject({ done: 249, of: 249, pct: 100 });
   });
 });
