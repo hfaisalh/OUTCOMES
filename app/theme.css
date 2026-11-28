@@ -640,7 +640,7 @@ tr.rowlink[data-cnfwin]{cursor:pointer}tr.rowlink[data-cnfwin]:hover td{backgrou
 .fbtn{min-width:24px;min-height:24px;display:inline-grid;place-items:center}.sortbtn{display:inline-flex;align-items:center;min-height:24px}
 .wbtn.on small,.wbtn.on .muted{color:inherit;opacity:.85}
 /* A positive pill (Active, Approved) like the others, and a readable line length for page introductions */
-.pill.ok{background:rgba(31,138,76,.14);color:#17683a}.content .sub{max-width:96ch}
+.pill.ok{background:rgba(31,138,76,.14);color:#17683a}.content .sub{max-width:none}
 /* Phone layout (DECISIONS 294): the menu is one row that scrolls sideways instead of a block of wrapped buttons, the top bar keeps to one line, and the tabs of a module scroll rather than wrap */
 @media(max-width:800px){
   .nav{flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;padding:6px 8px;gap:2px;-webkit-overflow-scrolling:touch}.nav::-webkit-scrollbar{display:none}.nav a,.nav button{flex:none;white-space:nowrap}
