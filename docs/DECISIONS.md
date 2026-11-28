@@ -1130,3 +1130,6 @@ The one-line key now joins the list tools row, left, beside the Columns button (
 
 ## 309 (28/11/26): page intro text spans the page
 The intro paragraph under each page title was capped at 96 characters, leaving the right of the page empty. The cap is removed on every page. Reason: Faisal asked for less empty space.
+
+## 310 (28/11/26): one look and motion for the summary tiles
+Tiles on every page are now small cards with a coloured top edge that draws across on hover or when on, a larger figure, a hairline above the small counts (number and label side by side), a lift on hover, a spring press, a ring and tick when a tile filter is on, and a staggered entrance. Reduced motion turns it all off. Reason: Faisal did not like how the old boxes looked or behaved.

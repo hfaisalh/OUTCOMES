@@ -699,3 +699,27 @@ tr.rowlink[data-cnfwin]{cursor:pointer}tr.rowlink[data-cnfwin]:hover td{backgrou
 .listtools.withkey .keyline{margin:0}
 .page-tabs{margin:10px 0 12px;padding:0}
 .page-tabs button[aria-selected="true"]{color:var(--text)}
+
+/* --- Summary tiles, one look everywhere (DECISIONS 310) ---
+   Rule: a tile is a small card with a coloured top edge, a big figure, its label, and a hairline above the small counts.
+   A tile that filters is a button: it lifts on hover, springs on press, and shows a ring and a tick when it is on. */
+.metrics{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.metrics .metric{position:relative;overflow:hidden;padding:14px 16px 12px;border:1px solid var(--line);border-radius:14px;background:var(--card);box-shadow:0 1px 2px rgba(31,41,55,.04);--tone:var(--accent)}
+.metrics .metric::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:var(--tone);opacity:.85;transform-origin:left;transform:scaleX(.28);transition:transform .45s var(--ease-out)}
+.metrics .metric:hover::before,.metrics .metric[aria-pressed="true"]::before{transform:scaleX(1)}
+.metrics .metric.warn{--tone:#d98c00}.metrics .metric.ok{--tone:var(--ok)}
+.metrics .metric > b{font-size:26px;font-weight:650;line-height:1.1;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.metrics .metric > span{display:block;margin-top:2px;font-size:12.5px;color:var(--muted)}
+.metrics .metric .smrow{margin-top:10px;padding-top:8px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:2px 14px}
+.metrics .metric .sm{font-size:12px;color:var(--muted);white-space:nowrap}
+.metrics .metric .sm b{display:inline;font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+button.metric.tile{box-shadow:0 1px 2px rgba(31,41,55,.04);transition:transform .22s var(--spring,cubic-bezier(.34,1.56,.64,1)),box-shadow .2s,border-color .15s,background-color .15s}
+button.metric.tile:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--tone) 45%,var(--line));box-shadow:0 8px 20px -8px rgba(31,41,55,.22)}
+button.metric.tile:active{transform:translateY(0) scale(.975);box-shadow:0 1px 2px rgba(31,41,55,.06)}
+button.metric.tile[aria-pressed="true"]{background:color-mix(in srgb,var(--tone) 7%,var(--card));border-color:var(--tone);box-shadow:0 0 0 1px var(--tone),0 8px 20px -10px color-mix(in srgb,var(--tone) 55%,transparent)}
+button.metric.tile[aria-pressed="true"]::after{content:"";position:absolute;top:10px;right:12px;width:16px;height:16px;border-radius:50%;background:var(--tone) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.4l2.3 2.3 4.7-5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat;animation:tile-tick .28s var(--spring,cubic-bezier(.34,1.56,.64,1)) both}
+@keyframes tile-tick{from{transform:scale(0)}to{transform:scale(1)}}
+.fx .metrics .metric{animation:tile-in .42s var(--spring,cubic-bezier(.34,1.56,.64,1)) both}
+.fx .metrics .metric:nth-child(2){animation-delay:.05s}.fx .metrics .metric:nth-child(3){animation-delay:.1s}.fx .metrics .metric:nth-child(4){animation-delay:.15s}.fx .metrics .metric:nth-child(5){animation-delay:.2s}.fx .metrics .metric:nth-child(6){animation-delay:.25s}
+@keyframes tile-in{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.metrics .metric,.metrics .metric::before,button.metric.tile{transition:none;animation:none}button.metric.tile:hover{transform:none}}
