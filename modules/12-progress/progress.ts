@@ -11,6 +11,7 @@
  * - Rule: a person can take back the latest step, one at a time, so a slip can be put right without a record being edited.
  * - Rule: a step of a gift in a closed batch cannot be taken back until the batch is opened again, so a closed batch never holds a gift that is not complete.
  * - Rule: a gift is complete once its Complete step is taken (or any later one). A batch is ready to close when every gift in it is complete, and is closed by a person, never by itself. A closed batch can be opened again.
+ * - Rule (DECISIONS 319): a living gift (a workflow whose report repeats) is fulfilled once allocated, and the workflow carries on in rounds: each round is Report, then Complete, and the next round's Report falls due the workflow's cycle after the last Complete. A round Complete counts as complete for the batch. The loop ends, and the gift moves on to Feedback, when its allocation ends because the plan was completed (its term is over), or when the months set for reporting have passed. A gift whose allocation ends for any other reason (plan paused or cancelled, the beneficiary left) falls back to before allocation and is no longer followed; if it is allocated again its rounds start afresh.
  * - Nothing is changed in place: every function returns a new value.
  */
 
@@ -29,7 +30,7 @@ export interface Progress { records: ProgressEntry[] }
 export const emptyProgress = (): Progress => ({ records: [] });
 
 // What the workflow says about a gift: its phases, and whether MWF reviews and the donor is asked for feedback.
-export interface Steps { phases: { id: string; label: string; days: number }[]; review: boolean; feedback: boolean }
+export interface Steps { phases: { id: string; label: string; days: number }[]; review: boolean; feedback: boolean; loop?: { everyDays: number; months?: number } } // loop: the report repeats every so many days, for so many months at most (DECISIONS 319)
 
 export interface StepRow { kind: "phase" | "stage"; id: string; label: string; done: boolean; doneAt: string; due: string; lateDays: number }
 export interface GiftProgress {
@@ -37,7 +38,9 @@ export interface GiftProgress {
   steps: StepRow[]; // every step in order, taken or not
   next: StepRow | undefined; // the first not taken, undefined when all are
   stage: "allocation" | StageId; // where the gift stands: still with the partner, or the last stage taken
-  complete: boolean; // the Complete step (or a later one) is taken
+  complete: boolean; // the Complete step (or a later one) is taken. For a living gift: the first round is complete
+  round?: number; // a living gift: the round it is in, from 1
+  ongoing?: boolean; // a living gift whose loop is still running
 }
 
 const DAY = 86400000;
@@ -54,9 +57,11 @@ export function stepsOf(s: Steps): { kind: "phase" | "stage"; id: string; label:
   ];
 }
 
-export function progressOf(key: string, allocatedAt: string | undefined, records: ProgressEntry[], steps: Steps, today: string): GiftProgress {
+export function progressOf(key: string, allocatedAt: string | undefined, records: ProgressEntry[], steps: Steps, today: string, endedAt?: string): GiftProgress {
   const allocated = allocatedAt !== undefined;
-  const mine = records.filter((r) => r.key === key && r.kind !== "batch");
+  // Rule (DECISIONS 319): a living gift counts only the steps taken since it was allocated, so a new allocation starts afresh.
+  const mine = records.filter((r) => r.key === key && r.kind !== "batch" && (!steps.loop || allocatedAt === undefined || r.at >= allocatedAt));
+  if (steps.loop) return loopProgress(allocated, allocatedAt, mine, steps, today, endedAt);
   let from = allocatedAt ?? "";
   const rows: StepRow[] = stepsOf(steps).map((s) => {
     const hit = mine.filter((r) => r.kind === s.kind && r.id === s.id).sort((x, y) => y.at.localeCompare(x.at))[0];
@@ -72,6 +77,38 @@ export function progressOf(key: string, allocatedAt: string | undefined, records
   return { allocated, steps: rows, next, stage: lastStage ? (lastStage.id as StageId) : "allocation", complete };
 }
 
+
+// The progress of a living gift (DECISIONS 319): the phases and the review once, then rounds of Report and Complete, then Feedback when the loop ends.
+function loopProgress(allocated: boolean, allocatedAt: string | undefined, mine: ProgressEntry[], steps: Steps, today: string, endedAt?: string): GiftProgress {
+  const loop = steps.loop as { everyDays: number; months?: number };
+  const at = (kind: ProgressEntry["kind"], id: string): ProgressEntry[] => mine.filter((r) => r.kind === kind && r.id === id).sort((x, y) => x.at.localeCompare(y.at));
+  const reports = at("stage", "report"), completes = at("stage", "complete");
+  // Rule: the loop ends when the plan was completed, or when the months set for reporting have passed since the first report.
+  const monthsEnd = loop.months && reports[0] ? addDays(reports[0].at, Math.round(loop.months * 30.4)) : "";
+  const ended = endedAt !== undefined ? endedAt : monthsEnd !== "" && monthsEnd <= today.slice(0, 10) ? monthsEnd : undefined;
+  const rounds = completes.length;
+  const lateOf = (due: string): number => (due === "" ? 0 : Math.max(0, Math.round((Date.parse(today.slice(0, 10) + "T00:00:00Z") - Date.parse(due + "T00:00:00Z")) / DAY)));
+  let from = allocatedAt ?? "";
+  const rows: StepRow[] = [];
+  for (const s of stepsOf(steps)) {
+    if (s.id === "report" || s.id === "complete" || s.id === "feedback") continue;
+    const hit = at(s.kind, s.id).at(-1);
+    const due = allocated && s.days > 0 && from !== "" ? addDays(from, s.days) : "";
+    if (hit) from = hit.at;
+    rows.push({ kind: s.kind, id: s.id, label: s.label, done: hit !== undefined, doneAt: hit?.at ?? "", due, lateDays: hit ? 0 : lateOf(due) });
+  }
+  const lastDone = completes.at(-1)?.at ?? "";
+  const reportDue = rounds === 0 ? "" : addDays(lastDone, loop.everyDays);
+  const reported = reports.length > rounds;
+  const name = rounds > 0 && !ended ? ` (round ${rounds + 1})` : "";
+  rows.push({ kind: "stage", id: "report", label: `${STAGE_LABELS.report}${name}`, done: ended !== undefined || reported, doneAt: reports.at(-1)?.at ?? ended ?? "", due: reported || ended ? "" : reportDue, lateDays: reported || ended ? 0 : lateOf(reportDue) });
+  rows.push({ kind: "stage", id: "complete", label: `${STAGE_LABELS.complete}${name}`, done: ended !== undefined, doneAt: ended ?? "", due: "", lateDays: 0 });
+  if (steps.feedback) { const fb = at("stage", "feedback").at(-1); rows.push({ kind: "stage", id: "feedback", label: STAGE_LABELS.feedback, done: fb !== undefined, doneAt: fb?.at ?? "", due: "", lateDays: 0 }); }
+  // Review sits before the first report: it is already in `rows` from stepsOf, but it must come after the phases and before Report, which it does.
+  const next = allocated ? rows.find((r) => !r.done) : undefined;
+  return { allocated, steps: rows, next, stage: ended !== undefined || rounds > 0 ? "complete" : reported ? "report" : rows.some((r) => r.id === "review" && r.done) ? "review" : "allocation", complete: rounds > 0 || ended !== undefined, round: rounds + 1, ongoing: allocated && ended === undefined };
+}
+
 // ---- Batches (DECISIONS 232): closed by a person once every gift in them is complete ----
 export const batchKey = (partnerId: string, batch: number): string => `${partnerId}|${batch}`;
 export const isClosed = (records: ProgressEntry[], partnerId: string, batch: number): boolean => {
@@ -81,7 +118,7 @@ export const isClosed = (records: ProgressEntry[], partnerId: string, batch: num
 
 // What the requests need to know about the gifts, supplied by the caller from assignments, allocations and workflows, so this file never reads a store.
 export interface ProgressContext {
-  gift: (key: string) => { allocatedAt: string | undefined; steps: Steps } | undefined; // undefined: not an assigned gift
+  gift: (key: string) => { allocatedAt: string | undefined; steps: Steps; endedAt?: string } | undefined; // undefined: not an assigned gift
   batchKeys: (partnerId: string, batch: number) => string[]; // the gifts in a batch
   batchOf: (key: string) => { partnerId: string; batch: number } | undefined; // the batch a gift is in
   today: string;
@@ -98,7 +135,7 @@ export function applyProgressAction(ctx: ProgressContext, existing: Progress, bo
     case "prg-next": {
       const g = ctx.gift(str("key"));
       if (!g) return { error: "That gift was not found, or it is not assigned to a partner." };
-      const p = progressOf(str("key"), g.allocatedAt, existing.records, g.steps, ctx.today);
+      const p = progressOf(str("key"), g.allocatedAt, existing.records, g.steps, ctx.today, g.endedAt);
       if (!p.allocated) return { error: "That gift is not allocated yet. Allocate it first." };
       if (!p.next) return { error: "Every step of that gift is already taken." };
       return { value: { records: [...existing.records, { key: str("key"), kind: p.next.kind, id: p.next.id, at, by }] }, message: `${p.next.label} taken.` };
@@ -116,7 +153,7 @@ export function applyProgressAction(ctx: ProgressContext, existing: Progress, bo
       const keys = ctx.batchKeys(partnerId, batch);
       if (keys.length === 0) return { error: "That batch was not found." };
       if (isClosed(existing.records, partnerId, batch)) return { error: "That batch is already closed." };
-      const open = keys.filter((k) => { const g = ctx.gift(k); return !g || !progressOf(k, g.allocatedAt, existing.records, g.steps, ctx.today).complete; }).length;
+      const open = keys.filter((k) => { const g = ctx.gift(k); return !g || !progressOf(k, g.allocatedAt, existing.records, g.steps, ctx.today, g.endedAt).complete; }).length;
       if (open > 0) return { error: `${open} of its ${keys.length} gifts ${open === 1 ? "is" : "are"} not complete yet. A batch closes when every gift in it is complete.` };
       return { value: { records: [...existing.records, { key: batchKey(partnerId, batch), kind: "batch", id: "closed", at, by }] }, message: "The batch is closed." };
     }

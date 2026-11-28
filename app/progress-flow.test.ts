@@ -31,6 +31,7 @@ describe("Progress, used like a person would", () => {
     click({ page: "workflows" }, "data-page");
     toggle("I10", "sponsorship-shared-parts");
     toggle("I13", "sponsorship-shared-parts");
+    fire("change", { target: { id: "", dataset: { wfLoop: "sponsorship-shared-parts" }, checked: false, value: "" } }); // this walk-through is of one delivery, so the report does not repeat (decision 319)
     click({ page: "settings" }, "data-page");
     click({ sample: "load" }, "data-sample"); await flush();
     click({ page: "assignment" }, "data-page");

@@ -90,3 +90,43 @@ describe("the context built from the app's records", () => {
     expect(stepsFor(undefined)).toEqual({ phases: [], review: true, feedback: true });
   });
 });
+
+describe("a living gift loops in rounds (decision 319)", () => {
+  const living: Steps = { ...steps, loop: { everyDays: 30 } };
+  const rec = (id: string, at: string, kind: "phase" | "stage" = "stage") => ({ key: "sub:S1", kind, id, at, by: "T" });
+  const phases = [rec("check", "2026-11-05T09:00:00Z", "phase"), rec("photo", "2026-11-20T09:00:00Z", "phase"), rec("review", "2026-11-21T09:00:00Z")];
+  it("goes through the phases and review once, then reports, and a round complete counts as complete", () => {
+    const first = progressOf("sub:S1", ALLOCATED, [...phases, rec("report", "2026-11-22T09:00:00Z")], living, "2026-11-23");
+    expect(first.next?.id).toBe("complete");
+    expect(first.complete).toBe(false);
+    const done = progressOf("sub:S1", ALLOCATED, [...phases, rec("report", "2026-11-22T09:00:00Z"), rec("complete", "2026-11-23T09:00:00Z")], living, "2026-11-24");
+    expect(done.complete).toBe(true);
+    expect(done.ongoing).toBe(true);
+  });
+  it("falls due again the cycle after the last Complete, and says which round it is in", () => {
+    const records = [...phases, rec("report", "2026-11-22T09:00:00Z"), rec("complete", "2026-11-23T09:00:00Z")];
+    const next = progressOf("sub:S1", ALLOCATED, records, living, "2026-12-30");
+    expect(next.round).toBe(2);
+    expect(next.next).toMatchObject({ id: "report", due: "2026-12-23", lateDays: 7 });
+    expect(next.next?.label).toContain("round 2");
+  });
+  it("ends the loop and moves on to feedback when its plan was completed", () => {
+    const records = [...phases, rec("report", "2026-11-22T09:00:00Z"), rec("complete", "2026-11-23T09:00:00Z")];
+    const p = progressOf("sub:S1", ALLOCATED, records, living, "2027-02-01", "2027-01-15T00:00:00Z");
+    expect(p.ongoing).toBe(false);
+    expect(p.next?.id).toBe("feedback");
+  });
+  it("ends the loop when the months set for reporting have passed", () => {
+    const records = [...phases, rec("report", "2026-11-22T09:00:00Z"), rec("complete", "2026-11-23T09:00:00Z")];
+    const p = progressOf("sub:S1", ALLOCATED, records, { ...living, loop: { everyDays: 30, months: 3 } }, "2027-03-01");
+    expect(p.ongoing).toBe(false);
+    expect(progressOf("sub:S1", ALLOCATED, records, { ...living, loop: { everyDays: 30, months: 3 } }, "2027-01-01").ongoing).toBe(true);
+  });
+  it("falls back to before allocation when the allocation ends, and starts afresh when allocated again", () => {
+    const records = [...phases, rec("report", "2026-11-22T09:00:00Z"), rec("complete", "2026-11-23T09:00:00Z")];
+    expect(progressOf("sub:S1", undefined, records, living, "2026-12-01").allocated).toBe(false);
+    const again = progressOf("sub:S1", "2026-12-10T09:00:00Z", records, living, "2026-12-11");
+    expect(again.complete).toBe(false); // the old steps were for the old allocation
+    expect(again.next?.id).toBe("check");
+  });
+});

@@ -28,7 +28,8 @@ export function standingsOf(v: View): GiftStanding[] {
 }
 
 // Rule: a gift still with the partner is in its phases. Otherwise it is at the last stage taken. Late is the next step past its due day.
-const stageName = (s: GiftStanding): string => (s.stage === "allocation" ? "With the partner" : STAGE_LABELS[s.stage as StageId]);
+// Rule (DECISIONS 319): a living gift whose loop is running is "Ongoing" with its round, once its first round is complete.
+const stageName = (s: GiftStanding): string => (s.ongoing && (s.round ?? 1) > 1 ? `Ongoing, round ${s.round}` : s.stage === "allocation" ? "With the partner" : STAGE_LABELS[s.stage as StageId]);
 const isLate = (s: GiftStanding): boolean => (s.next?.lateDays ?? 0) > 0;
 const matches = (s: GiftStanding, f: ProgressFilter): boolean => f === "all" || (f === "partner" ? s.stage === "allocation" : f === "late" ? isLate(s) : f === "review" ? s.stage === "review" || s.stage === "report" : s.complete);
 

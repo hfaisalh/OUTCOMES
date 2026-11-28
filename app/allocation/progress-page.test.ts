@@ -46,3 +46,14 @@ describe("the Progress page", () => {
     expect(progressPage(view({ allocations: { records: [], counter: 0 } }))).toContain("No gift is allocated yet");
   });
 });
+
+describe("a living gift on the Progress page (decision 319)", () => {
+  it("is shown as ongoing with its round once its loop is running", async () => {
+    const { progressOf } = await import("../../modules/12-progress/progress");
+    const steps = { phases: [], review: false, feedback: false, loop: { everyDays: 30 } };
+    const recs = [{ key: "k", kind: "stage" as const, id: "report", at: "2026-11-02T00:00:00Z", by: "T" }, { key: "k", kind: "stage" as const, id: "complete", at: "2026-11-03T00:00:00Z", by: "T" }];
+    const p = progressOf("k", "2026-11-01T00:00:00Z", recs, steps, "2026-11-20");
+    expect(p.ongoing).toBe(true);
+    expect(p.round).toBe(2);
+  });
+});
