@@ -320,7 +320,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
           if (r.message) state.message = r.message;
           break;
         }
-        case "prg-next": case "prg-undo": case "prg-close-batch": case "prg-open-batch": case "prg-reset": { // Progress after allocation (DECISIONS 232): the same pure rule the server uses.
+        case "prg-next": case "prg-reject": case "prg-undo": case "prg-close-batch": case "prg-open-batch": case "prg-reset": { // Progress after allocation (DECISIONS 232): the same pure rule the server uses.
           const wosP = view().workOrders;
           const namesP = new Map(wosP.map((w) => [w.itemId, w.itemName]));
           const actxP = contextFrom({ urgent: prioritySet(state.priorityGifts), workOrders: wosP, partners: state.projects, giftProjects: state.giftProjects, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, today: at.slice(0, 10), now: at, enrolments: state.enrolments.records, beneficiaries: state.beneficiaries.records, rulesOf: (itemId) => itemRulesOf(state.itemKinds, state.kindFeatures as SavedFeatures, itemId, namesP.get(itemId) ?? ""), itemUnits: state.itemUnits, stock: state.allocations.stock });

@@ -155,6 +155,7 @@ export function installListEvents({ state, draw, outcomeChange }: ListEventDeps)
     if (!b) return;
     const d = b.dataset;
     if (d.prg === "next") return void outcomeChange({ action: "prg-next", key: d.key });
+    if (d.prg === "reject") { const reason = (document.querySelector?.(`[data-rj="${d.key}"]`) as HTMLInputElement | null)?.value ?? ""; return void outcomeChange({ action: "prg-reject", key: d.key, reason }); }
     if (d.prg === "undo") return void outcomeChange({ action: "prg-undo", key: d.key });
     if (d.prg === "close") return void outcomeChange({ action: "prg-close-batch", partnerId: d.partner, batch: Number(d.batch) });
     if (d.prg === "open") return void outcomeChange({ action: "prg-open-batch", partnerId: d.partner, batch: Number(d.batch) });

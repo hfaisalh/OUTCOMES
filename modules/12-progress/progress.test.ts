@@ -130,3 +130,36 @@ describe("a living gift loops in rounds (decision 319)", () => {
     expect(again.next?.id).toBe("check");
   });
 });
+
+describe("rejecting the work at review (decision 320)", () => {
+  const rec = (id: string, at: string, kind: "phase" | "stage" = "phase") => ({ key: "sub:S1", kind, id, at, by: "T" });
+  const upToReview = [rec("check", "2026-11-05T09:00:00Z"), rec("photo", "2026-11-20T09:00:00Z")];
+  const ctx: ProgressContext = { today: "2026-11-25", gift: () => ({ allocatedAt: ALLOCATED, steps }), batchOf: () => undefined, batchKeys: () => [] };
+  const reject = (records: typeof upToReview, reason = "The photo is blurred", c = ctx) => applyProgressAction(c, { records }, { action: "prg-reject", key: "sub:S1", reason }, "MWF", "2026-11-24T10:00:00Z");
+
+  it("sends the work back to the partner: the last phase opens again, due its days after the rejection, with the reason kept", () => {
+    const r = reject(upToReview) as { value: { records: typeof upToReview } };
+    const p = progressOf("sub:S1", ALLOCATED, r.value.records, steps, "2026-11-25");
+    expect(p.next).toMatchObject({ id: "photo", due: "2026-12-24" }); // 30 days after the rejection
+    expect(p.steps.find((x) => x.id === "check")?.done).toBe(true); // earlier phases stay done
+    expect(p.sentBack).toMatchObject({ reason: "The photo is blurred", phase: "Photo update" });
+  });
+  it("goes to review again once the partner has done the phase again", () => {
+    const r = reject(upToReview) as { value: { records: typeof upToReview } };
+    const again = [...r.value.records, rec("photo", "2026-11-25T09:00:00Z")];
+    const p = progressOf("sub:S1", ALLOCATED, again, steps, "2026-11-26");
+    expect(p.next?.id).toBe("review");
+    expect(p.sentBack).toBeUndefined();
+  });
+  it("needs a reason, a gift waiting for review, and a phase to send back to", () => {
+    expect("error" in (reject(upToReview, "  ") as object)).toBe(true);
+    expect("error" in (reject([rec("check", "2026-11-05T09:00:00Z")]) as object)).toBe(true); // not at review yet
+    const none: ProgressContext = { ...ctx, gift: () => ({ allocatedAt: ALLOCATED, steps: { phases: [], review: true, feedback: true } }) };
+    expect("error" in (reject([], "x", none) as object)).toBe(true);
+  });
+  it("taking back the latest step takes back a rejection", () => {
+    const r = reject(upToReview) as { value: { records: typeof upToReview } };
+    const undone = applyProgressAction(ctx, r.value, { action: "prg-undo", key: "sub:S1" }, "MWF", "2026-11-24T11:00:00Z") as { value: { records: unknown[] } };
+    expect(undone.value.records).toHaveLength(2);
+  });
+});

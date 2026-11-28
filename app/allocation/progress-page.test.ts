@@ -57,3 +57,16 @@ describe("a living gift on the Progress page (decision 319)", () => {
     expect(p.round).toBe(2);
   });
 });
+
+describe("rejecting at review on the Progress page (decision 320)", () => {
+  const phase = { key: "G01", kind: "phase" as const, id: "check", at: "2026-11-10T00:00:00Z", by: "Sam" };
+  it("offers a reason box and a Reject button when a gift waits for review, and shows why a rejected one was sent back", () => {
+    const html = progressPage(view({ progress: { records: [phase] } }));
+    expect(html).toContain('data-rj="G01"');
+    expect(html).toContain('data-prg="reject" data-key="G01"');
+    expect(html).not.toContain('data-rj="G02"'); // G02 has not done its phase yet
+    const back = progressPage(view({ progress: { records: [phase, { key: "G01", kind: "reject" as const, id: "review", at: "2026-11-12T00:00:00Z", by: "MWF", reason: "Photo is blurred" }] } }));
+    expect(back).toContain("Sent back to the partner (Basic check): Photo is blurred");
+    expect(back).not.toContain('data-prg="reject" data-key="G01"');
+  });
+});

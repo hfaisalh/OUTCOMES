@@ -8,6 +8,7 @@
  * - Rule: a gift has no progress until it is allocated. Placing it is what starts the partner's work.
  * - Rule: the steps run in order: the workflow's implementation phases, then Review (unless the workflow does not ask MWF to approve), Report, Complete, and Feedback (unless the workflow does not ask the donor). The next step is the first one not yet taken.
  * - Rule: a phase is due its number of days after the step before it was taken (the first, after the gift was allocated). A phase not taken past its due day is late. Late is advised, not acted on.
+ * - Rule (DECISIONS 320): at Review, MWF can reject the work and send it back to the partner, with a reason that is kept. The last phase of the workflow is opened again and falls due its days after the rejection; the steps before it stay done. Review is taken again once the partner has done it again. A gift with no phases has nothing to send back, so it cannot be rejected. Taking back the latest step also takes back a rejection.
  * - Rule: a person can take back the latest step, one at a time, so a slip can be put right without a record being edited.
  * - Rule: a step of a gift in a closed batch cannot be taken back until the batch is opened again, so a closed batch never holds a gift that is not complete.
  * - Rule: a gift is complete once its Complete step is taken (or any later one). A batch is ready to close when every gift in it is complete, and is closed by a person, never by itself. A closed batch can be opened again.
@@ -21,8 +22,9 @@ export const STAGE_VERBS: Record<StageId, string> = { review: "Mark reviewed", r
 
 export interface ProgressEntry {
   key: string; // the gift (assignment) it is about, or "<partner>|<batch>" for a batch
-  kind: "phase" | "stage" | "batch";
-  id: string; // the phase id, the stage id, or "closed"
+  kind: "phase" | "stage" | "batch" | "reject";
+  id: string; // the phase id, the stage id, "closed", or "review" for a rejection
+  reason?: string; // a rejection: why it was sent back
   at: string; // ISO time
   by: string; // who, a display name
 }
@@ -39,6 +41,7 @@ export interface GiftProgress {
   next: StepRow | undefined; // the first not taken, undefined when all are
   stage: "allocation" | StageId; // where the gift stands: still with the partner, or the last stage taken
   complete: boolean; // the Complete step (or a later one) is taken. For a living gift: the first round is complete
+  sentBack?: { at: string; reason: string; phase: string }; // MWF rejected the review and the last phase is open again (DECISIONS 320)
   round?: number; // a living gift: the round it is in, from 1
   ongoing?: boolean; // a living gift whose loop is still running
 }
@@ -62,11 +65,15 @@ export function progressOf(key: string, allocatedAt: string | undefined, records
   // Rule (DECISIONS 319): a living gift counts only the steps taken since it was allocated, so a new allocation starts afresh.
   const mine = records.filter((r) => r.key === key && r.kind !== "batch" && (!steps.loop || allocatedAt === undefined || r.at >= allocatedAt));
   if (steps.loop) return loopProgress(allocated, allocatedAt, mine, steps, today, endedAt);
+  const rejectAt = mine.filter((r) => r.kind === "reject").map((r) => r.at).sort().at(-1);
+  const lastPhase = steps.phases.at(-1)?.id;
   let from = allocatedAt ?? "";
   const rows: StepRow[] = stepsOf(steps).map((s) => {
-    const hit = mine.filter((r) => r.kind === s.kind && r.id === s.id).sort((x, y) => y.at.localeCompare(x.at))[0];
+    // Rule (DECISIONS 320): after a rejection at review, the last phase counts only if it was done again after it, and is due its days after the rejection.
+    const reopened = s.kind === "phase" && s.id === lastPhase && rejectAt !== undefined;
+    const hit = mine.filter((r) => r.kind === s.kind && r.id === s.id && (!reopened || r.at > (rejectAt as string))).sort((x, y) => y.at.localeCompare(x.at))[0];
     // Rule: a phase is due its days after the step before it was taken (the first, after the gift was allocated).
-    const due = allocated && s.days > 0 && from !== "" ? addDays(from, s.days) : "";
+    const due = allocated && s.days > 0 && from !== "" ? addDays(reopened ? (rejectAt as string) : from, s.days) : "";
     const late = !hit && due !== "" ? Math.max(0, Math.round((Date.parse(today.slice(0, 10) + "T00:00:00Z") - Date.parse(due + "T00:00:00Z")) / DAY)) : 0;
     if (hit) from = hit.at;
     return { kind: s.kind, id: s.id, label: s.label, done: hit !== undefined, doneAt: hit?.at ?? "", due, lateDays: late };
@@ -74,7 +81,9 @@ export function progressOf(key: string, allocatedAt: string | undefined, records
   const next = allocated ? rows.find((r) => !r.done) : undefined;
   const lastStage = [...rows].reverse().find((r) => r.kind === "stage" && r.done);
   const complete = rows.some((r) => r.kind === "stage" && r.done && (r.id === "complete" || r.id === "feedback"));
-  return { allocated, steps: rows, next, stage: lastStage ? (lastStage.id as StageId) : "allocation", complete };
+  const rej = mine.filter((r) => r.kind === "reject").sort((x, y) => y.at.localeCompare(x.at))[0];
+  const open = rej && rows.find((r) => r.kind === "phase" && r.id === lastPhase && !r.done);
+  return { allocated, steps: rows, next, stage: lastStage ? (lastStage.id as StageId) : "allocation", complete, ...(rej && open ? { sentBack: { at: rej.at, reason: rej.reason ?? "", phase: open.label } } : {}) };
 }
 
 
@@ -82,6 +91,7 @@ export function progressOf(key: string, allocatedAt: string | undefined, records
 function loopProgress(allocated: boolean, allocatedAt: string | undefined, mine: ProgressEntry[], steps: Steps, today: string, endedAt?: string): GiftProgress {
   const loop = steps.loop as { everyDays: number; months?: number };
   const at = (kind: ProgressEntry["kind"], id: string): ProgressEntry[] => mine.filter((r) => r.kind === kind && r.id === id).sort((x, y) => x.at.localeCompare(y.at));
+  const rejectAt = mine.filter((r) => r.kind === "reject").map((r) => r.at).sort().at(-1);
   const reports = at("stage", "report"), completes = at("stage", "complete");
   // Rule: the loop ends when the plan was completed, or when the months set for reporting have passed since the first report.
   const monthsEnd = loop.months && reports[0] ? addDays(reports[0].at, Math.round(loop.months * 30.4)) : "";
@@ -92,8 +102,9 @@ function loopProgress(allocated: boolean, allocatedAt: string | undefined, mine:
   const rows: StepRow[] = [];
   for (const s of stepsOf(steps)) {
     if (s.id === "report" || s.id === "complete" || s.id === "feedback") continue;
-    const hit = at(s.kind, s.id).at(-1);
-    const due = allocated && s.days > 0 && from !== "" ? addDays(from, s.days) : "";
+    const reopened = s.kind === "phase" && s.id === steps.phases.at(-1)?.id && rejectAt !== undefined;
+    const hit = at(s.kind, s.id).filter((r) => !reopened || r.at > (rejectAt as string)).at(-1);
+    const due = allocated && s.days > 0 && from !== "" ? addDays(reopened ? (rejectAt as string) : from, s.days) : "";
     if (hit) from = hit.at;
     rows.push({ kind: s.kind, id: s.id, label: s.label, done: hit !== undefined, doneAt: hit?.at ?? "", due, lateDays: hit ? 0 : lateOf(due) });
   }
@@ -139,6 +150,17 @@ export function applyProgressAction(ctx: ProgressContext, existing: Progress, bo
       if (!p.allocated) return { error: "That gift is not allocated yet. Allocate it first." };
       if (!p.next) return { error: "Every step of that gift is already taken." };
       return { value: { records: [...existing.records, { key: str("key"), kind: p.next.kind, id: p.next.id, at, by }] }, message: `${p.next.label} taken.` };
+    }
+    case "prg-reject": {
+      const g = ctx.gift(str("key"));
+      if (!g) return { error: "That gift was not found, or it is not assigned to a partner." };
+      const p = progressOf(str("key"), g.allocatedAt, existing.records, g.steps, ctx.today, g.endedAt);
+      if (p.next?.id !== "review") return { error: "Only a gift waiting for its review can be rejected." };
+      const last = g.steps.phases.at(-1);
+      if (!last) return { error: "This workflow has no phase to send back to the partner." };
+      const reason = str("reason").trim().replace(/\s+/g, " ").slice(0, 300);
+      if (reason === "") return { error: "Say why the work is rejected, so the partner knows what to put right." };
+      return { value: { records: [...existing.records, { key: str("key"), kind: "reject", id: "review", at, by, reason }] }, message: `Sent back to the partner: ${last.label}.` };
     }
     case "prg-undo": {
       const mine = existing.records.filter((r) => r.key === str("key") && r.kind !== "batch").sort((x, y) => y.at.localeCompare(x.at));
