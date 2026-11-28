@@ -8,6 +8,7 @@
  * Depends on: the connector types, menu.ts and demo-data.ts (categories list).
  */
 
+import type { Step } from "../modules/09-allocation/order";
 import type { PartnerCost } from "../modules/15-partner-costs/costs";
 import type { Place } from "../modules/14-locations/locations";
 import { accountsCard } from "./accounts-card";
@@ -57,6 +58,7 @@ export interface View {
   benFilter?: BenFilter; // the filters on the Outcomes list page
   beneficiaries?: Register; // the Beneficiary register (DECISIONS 163)
   locations?: Place[]; // the checked places in use (DECISIONS 274)
+  allocationSteps?: Step[]; // the order a gift looks for a place in (DECISIONS 293)
   priorityGifts?: string[]; // the gifts marked Priority, as assignment keys (DECISIONS 284)
   partnerCosts?: PartnerCost[]; // what partners recorded as spent, for the Dashboard card (DECISIONS 280)
   allocations?: Allocations; // which place each assigned gift fills (DECISIONS 175)

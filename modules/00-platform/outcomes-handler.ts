@@ -7,6 +7,7 @@
  */
 
 import { prioritySet, setManyPriority } from "../08-assignment/priority-gifts.js";
+import { normaliseSteps, orderText } from "../09-allocation/order.js";
 import { PERMISSIONS as P } from "../../app/menu.js";
 import { applyOutcomeTypeAction, starterOutcomeTypes } from "../05-outcomes/outcome-types.js";
 import { ensureRefs, withPrefixes } from "../05-outcomes/refs.js";
@@ -72,7 +73,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   let confirmations = config.confirmations ?? emptyConfirmations(); // the partners' answers to those assignments (DECISIONS 231)
   let progress = config.progress ?? emptyProgress(); // the steps taken after allocation, and the batches closed (DECISIONS 232)
   // Rule: every answer carries the whole picture (all the records the page draws from), so a page never has to ask twice. The few things an answer changes are passed in `over`.
-  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, outcomeAllocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, allocations, locations: config.locations ?? [], priorityGifts: config.priorityGifts ?? [], partnerCosts: config.partnerCosts?.records ?? [], itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...over });
+  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, outcomeAllocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, allocations, locations: config.locations ?? [], priorityGifts: config.priorityGifts ?? [], allocationSteps: normaliseSteps(config.allocationSteps), partnerCosts: config.partnerCosts?.records ?? [], itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, kindFeatures: config.kindFeatures ?? {}, ...over });
   // Rule (DECISIONS 105): every outcome and allocation has an ID. Any without one are given one here, so older ones get theirs too.
   const settle = (): boolean => {
     const r = ensureRefs({ outcomes, outcomeAllocations, counters: idCounters }, outcomeTypes, config.allocationPrefix);
@@ -146,7 +147,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       const wos = await d.store.listWorkOrders(org);
       const names = new Map(wos.map((w) => [w.itemId, w.itemName]));
       const actx = contextFrom({ urgent: prioritySet(config.priorityGifts), workOrders: wos, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: at.slice(0, 10), now: at, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), itemUnits: config.itemUnits, stock: allocations.stock });
-      const ctx = allocateContext({ urgent: prioritySet(config.priorityGifts), assignments: assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: enrolments.records, beneficiaries: beneficiaries.records, giftProjects, frameworks: fw, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), now: at, ...(config.itemUnits ? { itemUnits: config.itemUnits } : {}) });
+      const ctx = allocateContext({ steps: normaliseSteps(config.allocationSteps), urgent: prioritySet(config.priorityGifts), assignments: assignments.records, assignables: assignables(actx), workOrders: wos, enrolments: enrolments.records, beneficiaries: beneficiaries.records, giftProjects, frameworks: fw, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, names.get(itemId) ?? ""), now: at, ...(config.itemUnits ? { itemUnits: config.itemUnits } : {}) });
       const r = applyAllocationAction(ctx, allocations, b);
       if (!r) return fail("That request is not understood.");
       if ("error" in r) return fail(r.error);
@@ -210,6 +211,13 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       return reply({ warning: r.message });
     }
     // The Beneficiary register (DECISIONS 163) and enrolments (DECISIONS 167): the same pure rules the demo uses. A beneficiary that is enrolled cannot be removed.
+    // Rule (DECISIONS 293): the order a gift looks for a place in, as the organisation set it. A list that is damaged is repaired, never refused.
+    if (b["action"] === "alloc-steps") {
+      const next = normaliseSteps(b["steps"]);
+      await save({ ...config, allocationSteps: next });
+      config.allocationSteps = next;
+      return reply({ warning: `Allocation order saved: ${orderText(next)}.` });
+    }
     // Rule (DECISIONS 284): a gift is marked Priority, or the mark is taken away. It only changes the order of assignment and allocation.
     if (b["action"] === "gift-priority") {
       // One gift (key) or several at once (keys, from the bulk bar).

@@ -30,9 +30,16 @@ describe("the automation rules", () => {
     expect(text(true)).toContain("This is switched on.");
     expect(text(false)).toContain("A setting can require an ID.");
   });
-  it("states the allocation order the code uses, priority included", () => {
-    const order = all().find((x) => x.id === "allocate")!.rules.find((r) => r.text.startsWith("Which place"))!.text;
-    expect(order.indexOf("own beneficiaries")).toBeLessThan(order.indexOf("Priority"));
-    expect(order.indexOf("Priority")).toBeLessThan(order.indexOf("lowest fill"));
+  it("states the allocation order in use, as the organisation set it", async () => {
+    const { reorder, DEFAULT_STEPS, setStepOn } = await import("../09-allocation/order");
+    const place = (steps?: Parameters<typeof automationRules>[0]["steps"]) => automationRules({ graceDays: 15, requireRef: false, ...(steps ? { steps } : {}) }).find((x) => x.id === "allocate")!.rules.find((r) => r.text.startsWith("Which place"))!.text;
+    const usual = place();
+    expect(usual.indexOf("own beneficiaries")).toBeLessThan(usual.indexOf("marked priority"));
+    expect(usual.indexOf("marked priority")).toBeLessThan(usual.indexOf("least funded"));
+    const changed = place(reorder(setStepOn(DEFAULT_STEPS, "own", false), "fill", 0));
+    expect(changed).not.toContain("own beneficiaries"); // off: not in the order
+    expect(changed.indexOf("least funded")).toBeLessThan(changed.indexOf("marked priority"));
+    expect(changed.startsWith("Which place, in this order: the previous beneficiary")).toBe(true); // the fixed first step stays first
+    expect(changed).toContain("then the earliest enrolled");
   });
 });

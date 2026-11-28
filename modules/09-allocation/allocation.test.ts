@@ -8,6 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 import { freeStock, setStockPriority } from "./stock";
+import { DEFAULT_STEPS, reorder, setStepOn } from "./order";
 import type { Assignment } from "../08-assignment/assignment";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { GiftProject } from "../06-projects/projects";
@@ -389,5 +390,20 @@ describe("priority (DECISIONS 282)", () => {
     expect(off.value.stock?.[1]).not.toHaveProperty("priority");
     expect(setStockPriority(on.value, "STK-0002", false, new Set(["STK-0002"]))).toEqual({ error: "A gift has taken that outcome, so its priority cannot change." });
     expect(setStockPriority(on.value, "nope", true, new Set())).toEqual({ error: "That parked outcome was not found." });
+  });
+});
+
+describe("the order a gift looks for a place in is the organisation's (DECISIONS 293)", () => {
+  const beneficiaries = [child("B1", "Amina", { partnerId: "trust" }), child("B2", "Bilal", { partnerId: "backup", priority: true })];
+  it("tries the partner's own first by default, and Priority first when the organisation says so", () => {
+    const usual = ctx({ beneficiaries, assignments: [asg("G1")] });
+    expect(optionsFor(usual, asg("G1"), []).map((o) => o.name)).toEqual(["Amina", "Bilal"]);
+    const prioFirst = ctx({ beneficiaries, assignments: [asg("G1")], steps: reorder(DEFAULT_STEPS, "priority", 0) });
+    expect(optionsFor(prioFirst, asg("G1"), []).map((o) => o.name)).toEqual(["Bilal", "Amina"]);
+    expect(suggestAllocations(prioFirst, emptyAllocations())[0]?.enrolmentId).toBe("EN-2");
+  });
+  it("skips a step that is switched off", () => {
+    const noOwn = ctx({ beneficiaries, assignments: [asg("G1")], steps: setStepOn(DEFAULT_STEPS, "own", false) });
+    expect(optionsFor(noOwn, asg("G1"), []).map((o) => o.name)).toEqual(["Bilal", "Amina"]); // Priority now decides
   });
 });

@@ -27,6 +27,7 @@ import type { Assignable, Assignment } from "../08-assignment/assignment.js";
 import type { FrameworkTemplate } from "../02-project-rules/categories.js";
 import { unitsOfItem } from "../02-project-rules/benefits.js";
 import type { GiftProject } from "../06-projects/projects.js";
+import { comparePlaces, DEFAULT_STEPS, type Step } from "./order.js";
 import { addStock, freeStock, removeStock, setStockPriority, usedStock, type StockItem } from "./stock.js";
 import type { Beneficiary } from "../07-beneficiaries/beneficiaries.js";
 import type { Enrolment, ItemRules } from "../07-beneficiaries/enrolments.js";
@@ -68,10 +69,11 @@ export interface AllocationContext {
   rulesOf: (itemId: string) => ItemRules | undefined;
   now: string; // ISO time
   urgent?: Set<string>; // the assignments marked Priority (DECISIONS 284): allocated before the others. Absent: none
+  steps?: Step[]; // the order a gift looks for a place in (DECISIONS 293). Absent: the usual order
 }
 
 // Builds the context from what the callers hold. The workflow of an item is the one its gifts are routed under.
-export function allocateContext(a: { assignments: Assignment[]; assignables: Assignable[]; workOrders: { itemId: string; frameworkId?: string; subscriptionId?: string; paidDate?: string; planStatus?: string }[]; enrolments: Enrolment[]; beneficiaries: Beneficiary[]; giftProjects: GiftProject[]; frameworks: FrameworkTemplate[]; rulesOf: (itemId: string) => ItemRules | undefined; now: string; itemUnits?: Record<string, number>; urgent?: Set<string> }): AllocationContext {
+export function allocateContext(a: { assignments: Assignment[]; assignables: Assignable[]; workOrders: { itemId: string; frameworkId?: string; subscriptionId?: string; paidDate?: string; planStatus?: string }[]; enrolments: Enrolment[]; beneficiaries: Beneficiary[]; giftProjects: GiftProject[]; frameworks: FrameworkTemplate[]; rulesOf: (itemId: string) => ItemRules | undefined; now: string; itemUnits?: Record<string, number>; urgent?: Set<string>; steps?: Step[] }): AllocationContext {
   const itemFramework: Record<string, string> = {};
   for (const w of a.workOrders) if ((w.frameworkId ?? "") !== "" && itemFramework[w.itemId] === undefined) itemFramework[w.itemId] = w.frameworkId as string;
   // The gifts still in scope. When no list of gifts is given (a caller that only has assignments), every assignment counts.
@@ -84,7 +86,7 @@ export function allocateContext(a: { assignments: Assignment[]; assignables: Ass
     const status = [...lines].sort((x, y) => x.paidDate.localeCompare(y.paidDate)).at(-1)?.planStatus ?? "";
     if (status === "paused" || status === "cancelled" || status === "completed") parkedBy[`sub:${sub}`] = status;
   }
-  return { assignments: a.assignments.filter((x) => live.has(x.key)), live, parkedBy, itemUnits: a.itemUnits ?? {}, assignables: a.assignables, enrolments: a.enrolments, beneficiaries: a.beneficiaries, giftProjects: a.giftProjects, frameworks: a.frameworks, itemFramework, rulesOf: a.rulesOf, now: a.now, ...(a.urgent ? { urgent: a.urgent } : {}) };
+  return { assignments: a.assignments.filter((x) => live.has(x.key)), live, parkedBy, itemUnits: a.itemUnits ?? {}, assignables: a.assignables, enrolments: a.enrolments, beneficiaries: a.beneficiaries, giftProjects: a.giftProjects, frameworks: a.frameworks, itemFramework, rulesOf: a.rulesOf, now: a.now, ...(a.urgent ? { urgent: a.urgent } : {}), ...(a.steps ? { steps: a.steps } : {}) };
 }
 
 export type Blocked = "" | "no-beneficiary" | "full" | "no-project-beneficiary" | "no-type";
@@ -123,7 +125,8 @@ export function optionsFor(ctx: AllocationContext, a: Assignment, records: Alloc
     .filter((e) => { const b = byId.get(e.beneficiaryId); return !!b && b.status === "active" && (b.kind !== "person" || b.eligibility === "ready"); })
     .map((e): AllocationOption => { const u = used(records, e.id, ctx.live); return { enrolmentId: e.id, beneficiaryId: e.beneficiaryId, name: byId.get(e.beneficiaryId)?.name ?? e.beneficiaryId, giftProjectId: e.giftProjectId, clusterId: e.clusterId, used: u, capacity: whole, fits: u + a.parts <= whole }; })
     // Rule (DECISIONS 186): a plan that runs again is offered its previous child first. Rule (DECISIONS 183): then the assigned partner's own children, since a partner's room is its own children. Rule (DECISIONS 282): then a beneficiary marked Priority. Then the lowest fill, then the earliest enrolled.
-    .sort((x, y) => Number(prefer.has(y.enrolmentId)) - Number(prefer.has(x.enrolmentId)) || Number(byId.get(y.beneficiaryId)?.partnerId === a.partnerId) - Number(byId.get(x.beneficiaryId)?.partnerId === a.partnerId) || Number(byId.get(y.beneficiaryId)?.priority === true) - Number(byId.get(x.beneficiaryId)?.priority === true) || x.used - y.used || x.enrolmentId.localeCompare(y.enrolmentId));
+    // Rule (DECISIONS 293): the steps in between are the organisation's own order; the previous beneficiary comes first and the earliest enrolled decides a tie.
+    .sort((x, y) => Number(prefer.has(y.enrolmentId)) - Number(prefer.has(x.enrolmentId)) || comparePlaces(ctx.steps ?? DEFAULT_STEPS, { own: byId.get(x.beneficiaryId)?.partnerId === a.partnerId, priority: byId.get(x.beneficiaryId)?.priority === true, used: x.used }, { own: byId.get(y.beneficiaryId)?.partnerId === a.partnerId, priority: byId.get(y.beneficiaryId)?.priority === true, used: y.used }) || x.enrolmentId.localeCompare(y.enrolmentId));
 }
 
 /**

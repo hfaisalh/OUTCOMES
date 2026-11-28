@@ -16,7 +16,7 @@ describe("the Automation rules page", () => {
     for (const t of ["Assigning a gift to a partner", "Confirmation by the partner", "Allocating a gift", "The waiting list and enrolment", "Releasing a place"]) expect(html).toContain(t);
     expect(html.indexOf("Assigning")).toBeLessThan(html.indexOf("Allocating"));
     expect(html).toContain('<span class="ru-src">DECISIONS 183</span>');
-    expect(html).toContain("a beneficiary marked Priority");
+    expect(html).toContain("beneficiaries marked priority");
   });
   it("carries the live numbers in the rules", () => {
     expect(html).toContain("30 days after it was due");

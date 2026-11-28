@@ -7,6 +7,8 @@
  * UX: a 2D grid, rules on the left and their settings on the right (one column on a phone); every setting has a visible label; rules are ordered lists because order matters; each rule names the decision it comes from, so a developer can find it.
  */
 
+import { normaliseSteps } from "../modules/09-allocation/order";
+import { stepsHtml } from "./rules-steps";
 import { switchHtml } from "./switch";
 import { automationRules, type RuleSection } from "../modules/16-rules/rules";
 import { assignOf, confirmDaysOf, flagOf } from "../modules/02-project-rules/workflows";
@@ -30,7 +32,7 @@ function assignSettings(v: View): string {
 }
 
 function allocateSettings(v: View): string {
-  return `<h3>Setting</h3>${switchHtml({ label: "Allocate only to beneficiaries that have an ID", on: v.requireRef === true, attrs: 'data-require-ref="1"' })}`;
+  return `${stepsHtml(v.allocationSteps ?? normaliseSteps(undefined))}<h3>Setting</h3>${switchHtml({ label: "Allocate only to beneficiaries that have an ID", on: v.requireRef === true, attrs: 'data-require-ref="1"' })}`;
 }
 
 function waitingSettings(v: View): string {
@@ -49,7 +51,7 @@ function section(s: RuleSection, side: string): string {
 }
 
 export function rulesPage(v: View): string {
-  const sections = automationRules({ graceDays: v.graceDays ?? DEFAULT_GRACE, requireRef: v.requireRef === true });
+  const sections = automationRules({ graceDays: v.graceDays ?? DEFAULT_GRACE, requireRef: v.requireRef === true, steps: v.allocationSteps ?? normaliseSteps(undefined) });
   const side: Record<RuleSection["id"], string> = {
     assign: assignSettings(v),
     confirm: `<p class="muted">The days to confirm are set for each workflow, in the table under Assigning.</p>`,

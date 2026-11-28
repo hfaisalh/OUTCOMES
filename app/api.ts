@@ -9,6 +9,7 @@
  * stays in demo mode with its invented data.
  */
 
+import type { Step } from "../modules/09-allocation/order";
 import type { PartnerCost } from "../modules/15-partner-costs/costs";
 import type { Place } from "../modules/14-locations/locations";
 import type { GiftProject, Node, Project } from "../modules/06-projects/projects";
@@ -120,6 +121,7 @@ export interface OutcomesReply {
   locations?: Place[]; // the checked places in use (DECISIONS 274)
   partnerCosts?: PartnerCost[]; // what partners recorded as spent (DECISIONS 280)
   priorityGifts?: string[]; // the gifts marked Priority (DECISIONS 284)
+  allocationSteps?: Step[]; // the order a gift looks for a place in (DECISIONS 293)
   enrolments?: Enrolments;
   assignments?: Assignments;
   confirmations?: Confirmations;

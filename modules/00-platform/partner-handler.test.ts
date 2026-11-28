@@ -307,3 +307,16 @@ describe("the limit on wrong sign-in tries (DECISIONS 291)", () => {
     expect((await attempt("correct horse battery")).status).toBe(200);
   });
 });
+
+describe("the allocation order is a setting (DECISIONS 293)", () => {
+  it("is saved by staff, repaired when damaged, and returned with the reply; a partner cannot change it", async () => {
+    const staff = cookieOf(await handleDemoLogin(req(), d));
+    const post = (c: string, body: unknown) => handleOutcomes(as(c, { method: "POST", body }), d);
+    const r = await post(staff, { action: "alloc-steps", steps: [{ id: "fill", on: true }, { id: "own", on: false }] });
+    expect(r.body).toMatchObject({ allocationSteps: [{ id: "fill", on: true }, { id: "own", on: false }, { id: "priority", on: true }], warning: expect.stringContaining("Allocation order saved") });
+    expect((await d.store.getConfig("demo"))!.allocationSteps).toEqual([{ id: "fill", on: true }, { id: "own", on: false }, { id: "priority", on: true }]);
+    expect((await post(staff, { action: "alloc-steps", steps: "rubbish" })).body).toMatchObject({ allocationSteps: [{ id: "own", on: true }, { id: "priority", on: true }, { id: "fill", on: true }] });
+    const partner = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
+    expect((await post(partner, { action: "alloc-steps", steps: [] })).status).toBe(400);
+  });
+});

@@ -8,6 +8,7 @@
  * Who calls it: app/main.ts. Depends on: modules/09-allocation/allocation.ts, 08-assignment, 07-beneficiaries (enrolments) and esc and View from pages.ts.
  */
 
+import { normaliseSteps } from "../modules/09-allocation/order";
 import { prioritySet } from "../modules/08-assignment/priority-gifts";
 import { siteBadge } from "./site-chip";
 import { assignables, contextFrom, emptyAssignments } from "../modules/08-assignment/assignment";
@@ -36,7 +37,7 @@ export function allocatePage(v: View): string {
   const units = assignables(actx);
   const unitOf = new Map(units.map((u) => [u.key, u]));
   const names = new Map(v.workOrders.map((w) => [w.itemId, w.itemName]));
-  const ctx = allocateContext({ assignments, assignables: units, workOrders: v.workOrders, enrolments, beneficiaries: people, giftProjects: gps, frameworks: v.frameworks ?? [], rulesOf: (i) => itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, i, names.get(i) ?? ""), now, itemUnits: v.itemUnits });
+  const ctx = allocateContext({ steps: v.allocationSteps ?? normaliseSteps(undefined), urgent: prioritySet(v.priorityGifts), assignments, assignables: units, workOrders: v.workOrders, enrolments, beneficiaries: people, giftProjects: gps, frameworks: v.frameworks ?? [], rulesOf: (i) => itemRulesOf(v.itemKinds ?? {}, (v.kindFeatures ?? {}) as SavedFeatures, i, names.get(i) ?? ""), now, itemUnits: v.itemUnits });
   // Rule (DECISIONS 187): the page shows the true state now. An allocation of a gift whose plan has been parked, whose child has left, or whose assignment was withdrawn is shown as ended even before a run records it.
   const synced = syncAllocations(ctx, recorded);
   const allocations = synced.value;

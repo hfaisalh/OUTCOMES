@@ -8,6 +8,7 @@
  * Rules: this file only describes. The behaviour itself stays in modules 07, 08, 09 and 11, and each line here names its decision so a developer can find the code. When a rule changes there, its line here changes with it, and the test below that names each decision is the reminder.
  */
 
+import { DEFAULT_STEPS, orderText, type Step } from "../09-allocation/order.js";
 import { DEFAULT_BATCH_SIZE } from "../08-assignment/batches.js";
 import { DEFAULT_CONFIRM_DAYS } from "../11-confirmation/confirmation.js";
 import { DEFAULT_GRACE_DAYS } from "../05-outcomes/outcomes.js";
@@ -15,7 +16,7 @@ import { DEFAULT_GRACE_DAYS } from "../05-outcomes/outcomes.js";
 // --- Types ---
 export interface Rule { text: string; decision: string } // decision: where the rule comes from, for example "DECISIONS 183"
 export interface RuleSection { id: "assign" | "confirm" | "allocate" | "waiting" | "release"; title: string; intro: string; rules: Rule[] }
-export interface LiveSettings { graceDays: number; requireRef: boolean; batchSize?: number }
+export interface LiveSettings { graceDays: number; requireRef: boolean; batchSize?: number; steps?: Step[] }
 
 // --- The rules, in the order a gift travels ---
 export function automationRules(s: LiveSettings): RuleSection[] {
@@ -40,7 +41,7 @@ export function automationRules(s: LiveSettings): RuleSection[] {
     { id: "allocate", title: "Allocating a gift to a beneficiary or an outcome", intro: "Once a gift has a confirmed partner it is allocated: it fills a place of a beneficiary, or it creates an outcome.", rules: [
       { text: "A gift for a type where the beneficiary comes first (sponsorship) fills an open place: an enrolled, approved beneficiary in a cluster of the gift's project, for that benefit. A person must be Ready.", decision: "DECISIONS 175" },
       { text: "Which project: a gift that carries a project fills that project's places only. A gift with no project goes to any project that offers the benefit and has the gift's partner among its partners.", decision: "DECISIONS 175" },
-      { text: "Which place, in this order: the previous beneficiary of a plan that runs again; the assigned partner's own beneficiaries; a beneficiary marked Priority; the place with the lowest fill, so more beneficiaries are sponsored; then the earliest enrolled.", decision: "DECISIONS 183, 186, 282" },
+      { text: `Which place, in this order: the previous beneficiary of a plan that runs again; then ${orderText(s.steps ?? DEFAULT_STEPS)}; then the earliest enrolled. The steps in the middle can be put in another order or switched off on this page.`, decision: "DECISIONS 183, 186, 282, 293" },
       { text: "Gifts are looked after in this order: those marked Priority first, then the oldest payment first, so a Priority gift gets the place or outcome before the others.", decision: "DECISIONS 284" },
       { text: "A gift goes whole into one place. If none can take all of it, it is spread over the places that have room, the lowest fill first, if together they can take all of it.", decision: "DECISIONS 181" },
       { text: "A gift for a type where the gift comes first (a pump, a camp), or with no beneficiary (a mosque), creates an outcome. The partner's own parked outcome for the benefit is taken first, one marked Priority before an older one.", decision: "DECISIONS 209, 282" },
