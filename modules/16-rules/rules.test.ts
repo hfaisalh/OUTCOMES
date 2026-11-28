@@ -11,7 +11,7 @@ const all = (s = { graceDays: 15, requireRef: false }) => automationRules(s);
 
 describe("the automation rules", () => {
   it("lists the sections in the order a gift travels", () => {
-    expect(all().map((x) => x.id)).toEqual(["assign", "confirm", "allocate", "waiting", "release"]);
+    expect(all().map((x) => x.id)).toEqual(["assign", "confirm", "allocate", "waiting", "release", "delivery", "reporting", "timing"]);
   });
   it("gives every rule its words and the decision it comes from", () => {
     for (const s of all()) for (const r of s.rules) { expect(r.text.length).toBeGreaterThan(20); expect(r.decision).toMatch(/^DECISIONS \d+/); }

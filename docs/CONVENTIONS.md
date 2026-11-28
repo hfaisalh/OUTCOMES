@@ -28,7 +28,7 @@ For the developers who take OUTCOMES over. Read with `CLAUDE.md` (the coding sta
 | `allocation/` | Assignment, Confirmation, Allocate, Progress. |
 | `partners/` and `projects/` | The staff pages for partners, projects and clusters. |
 | `portal/` | What a partner sees and does when it signs in: batches, beneficiaries, CSV upload, costs, profile. |
-| `setup/` | Workflows, Benefits, Automation rules, the data mapping pages. |
+| `setup/` | Workflows, Benefits, Rules, the data mapping pages. |
 | `dashboard/` | The Dashboard cards: where beneficiaries are, the map, partner costs. |
 
 ## Names

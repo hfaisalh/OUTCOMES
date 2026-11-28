@@ -15,7 +15,7 @@ import { DEFAULT_GRACE_DAYS } from "../05-outcomes/outcomes.js";
 
 // --- Types ---
 export interface Rule { text: string; decision: string } // decision: where the rule comes from, for example "DECISIONS 183"
-export interface RuleSection { id: "assign" | "confirm" | "allocate" | "waiting" | "release"; title: string; intro: string; rules: Rule[] }
+export interface RuleSection { id: "assign" | "confirm" | "allocate" | "waiting" | "release" | "delivery" | "reporting" | "timing"; title: string; intro: string; rules: Rule[] }
 export interface LiveSettings { graceDays: number; requireRef: boolean; batchSize?: number; steps?: Step[] }
 
 // --- The rules, in the order a gift travels ---
@@ -56,6 +56,22 @@ export function automationRules(s: LiveSettings): RuleSection[] {
     ] },
     { id: "release", title: "Releasing a place after a missed payment", intro: "What happens when a sponsor stops paying.", rules: [
       { text: `A payment may be unpaid for ${s.graceDays} days after it was due before the place may be released. A manager approves each release.`, decision: "DECISIONS 74" },
+    ] },
+    { id: "delivery", title: "Delivery, review and fulfilment", intro: "What happens after a gift is allocated, until the work is accepted.", rules: [
+      { text: "Delivered is when every phase of the workflow is done. A phase is due its days after the one before it (the first, after the gift was allocated). Late is advice: nothing moves by itself.", decision: "DECISIONS 232, 324" },
+      { text: "When the workflow asks MWF to review, a person marks the work Reviewed, or rejects it with a reason. A rejection opens the last phase again for the partner, who sees the reason and the last day. A workflow with no phases adds the step Put right by the partner.", decision: "DECISIONS 320, 322" },
+      { text: "Fulfilled is the stage the workflow calls fulfilled: allocated, delivered or complete. From then the gift counts as fulfilled and its clock stops, whatever the workflow does next.", decision: "DECISIONS 316" },
+      { text: "A batch is closed by a person, once every gift in it has completed its first round.", decision: "DECISIONS 232, 319" },
+    ] },
+    { id: "reporting", title: "Reporting that repeats", intro: "For a living gift, such as a sponsorship, where payments keep coming.", rules: [
+      { text: "A living workflow repeats its report on its cycle for as long as payments continue. Each round is Report, then Complete, and the next Report falls due one cycle after the last Complete.", decision: "DECISIONS 317, 319" },
+      { text: "The loop ends, and the gift goes on to Feedback, when its plan was completed or when the months set for reporting have passed since the first report.", decision: "DECISIONS 318, 319" },
+      { text: "If the plan is paused or cancelled, or the beneficiary leaves, the allocation ends. The gift falls back to before allocation and is no longer followed. Allocated again, its rounds start afresh.", decision: "DECISIONS 186, 319" },
+    ] },
+    { id: "timing", title: "How the clock runs", intro: "When a gift's journey starts, and how long it has.", rules: [
+      { text: "A single payment starts the journey the day it is paid. A workflow that releases only when fully paid starts it at the last payment; any other starts it at the first.", decision: "DECISIONS 316" },
+      { text: "Each benefit has the days to fulfil a gift, counted from the start of the journey (90 unless the benefit says otherwise). The partner sees the last day.", decision: "DECISIONS 315, 316" },
+      { text: "The Dashboard reads a gift's age in quarters of that time, so every benefit is measured the same way.", decision: "DECISIONS 311" },
     ] },
   ];
 }

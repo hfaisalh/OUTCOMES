@@ -72,7 +72,7 @@ export function enhanceTables(root: ParentNode, tt: TableToolsState, page: strin
     const heads = Array.from(table.querySelectorAll<HTMLTableCellElement>("thead tr:last-child th"));
     const body = table.tBodies[0];
     if (!body || heads.length < 2) return;
-    if (table.classList.contains("giftlist") || table.querySelector("[data-gsort],table,details,th[colspan]")) return;
+    if (table.classList.contains("giftlist") || table.classList.contains("ru-table") || table.querySelector("[data-gsort],table,details,th[colspan]")) return;
     const trs = Array.from(body.rows);
     if (trs.length === 0) return;
     // A list that already sorts itself (Beneficiaries, Outcomes) keeps its own order and sort buttons and only gains the funnel and Columns.

@@ -74,7 +74,7 @@ export const MENU: MenuItem[] = [
   { id: "sources", label: "Other sources", icon: "⇪", permission: PERMISSIONS.otherSources, section: "Data", module: "data" },
   { id: "attention", label: "Needs attention", icon: "!", permission: PERMISSIONS.viewWorkOrders, section: "Set up", module: "setup" },
   { id: "workflows", label: "Workflows", icon: "◈", permission: PERMISSIONS.mapFrameworks, section: "Set up", module: "setup" },
-  { id: "rules", label: "Automation rules", icon: "☰", permission: PERMISSIONS.mapFrameworks, section: "Set up", module: "setup" },
+  { id: "rules", label: "Rules", icon: "☰", permission: PERMISSIONS.mapFrameworks, section: "Set up", module: "setup" },
   { id: "benefits", label: "Benefits", icon: "◉", permission: PERMISSIONS.mapFrameworks, section: "Set up", module: "setup" },
   { id: "settings", label: "Organisation", icon: "⚙", permission: PERMISSIONS.settings, section: "Set up", module: "setup" },
 ];
