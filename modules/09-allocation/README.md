@@ -18,7 +18,7 @@ Assignments (which partner each gift has), the enrolments (the places), the bene
 - A gift with no place waits with the reason. A person can choose another open place, or take a placement back.
 
 ## History (DECISIONS 186)
-Nothing is deleted. A placement has a start and, when it ends, an end day and a reason (plan paused, cancelled or completed; child left; moved; taken back). It frees the child's place and stays as history. Each run first ends the placements of a parked plan and of a child who has left. A plan that runs again is offered its previous child if still free, else a new place. `history.ts` builds the rows for a gift and for a place; `app/history-window.ts` shows them in pop-ups.
+Nothing is deleted. A placement has a start and, when it ends, an end day and a reason (plan paused, cancelled or completed; child left; moved; taken back). It frees the child's place and stays as history. Each run first ends the placements of a parked plan and of a child who has left. A plan that runs again is offered its previous child if still free, else a new place. `history.ts` builds the rows for a gift and for a place; `app/gifts/history-window.ts` shows them in pop-ups.
 
 ## Not built yet
 - Month by month on these records, releasing a place when a plan stops paying (the 15 day grace and approval), the gift's stage showing Allocated on the Gifts list, and the Partners page counting these records.
@@ -31,7 +31,7 @@ Nothing is deleted. A placement has a start and, when it ends, an end day and a 
 | `history.ts` | The allocation history as pure functions: every child a gift has held, every gift that has sponsored a child, and the counts |
 | `history.test.ts` | Tests and examples |
 
-The screen is `app/allocate-page.ts`. Placements are saved on the organisation's setup as `placements`.
+The screen is `app/allocation/allocate-page.ts`. Placements are saved on the organisation's setup as `placements`.
 
 ## How to test
 `npm test`. To try it: load the sample setup, give two sponsorship items a workflow, assign the gifts (Assignment, Confirm all suggestions), open Allocate, press Place automatically, and read which child each gift filled. Reset placements clears it.

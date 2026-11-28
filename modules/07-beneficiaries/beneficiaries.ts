@@ -4,7 +4,7 @@
  * What it does: the Beneficiary register (DECISIONS 163). The people and households that receive what a gift delivers. A beneficiary is a record with one permanent ID, a kind (person or household),
  * its own details, and a duplicate check, so the same child is never entered twice. It holds recipients only: what is delivered (a house, a pump, a sponsorship) is an outcome, and a beneficiary is
  * enrolled to an outcome in a cluster later (DECISIONS 163, next step). A community outcome such as a mosque has no beneficiary at all.
- * Who calls it: the Beneficiaries page (app/register-page.ts), the server (modules/00-platform/handlers.ts) and the demo (app/main.ts), all through applyBeneficiaryAction.
+ * Who calls it: the Beneficiaries page (app/beneficiaries/register-page.ts), the server (modules/00-platform/handlers.ts) and the demo (app/main.ts), all through applyBeneficiaryAction.
  * Depends on: nothing. Pure functions: no database, no screen, so the rules can be ported to Salesforce (Apex) or another stack.
  *
  * Rules:

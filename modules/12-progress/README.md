@@ -14,4 +14,4 @@
 
 **Not built, on purpose.** The partner taking the steps itself (a person takes them for now, as with Confirmation). Evidence such as photos and the phase's "needs" list. The donor report and feedback request themselves (the steps record that they happened). A late phase is advised only, by agreement, and nothing moves by itself.
 
-**How to test.** `npx vitest run modules/12-progress app/progress-page.test.ts app/progress-flow.test.ts`. Tests use invented data and double as examples.
+**How to test.** `npx vitest run modules/12-progress app/allocation/progress-page.test.ts app/progress-flow.test.ts`. Tests use invented data and double as examples.

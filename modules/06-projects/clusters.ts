@@ -5,7 +5,7 @@
  * Inside a cluster there are sub clusters, as many as are needed, to any depth: a faculty, a department, a classroom, a hostel. Each cluster or sub cluster has its own name, its own label
  * (what it is called, for example Home or Classroom), its own place, status and roles (the people it needs, for example Principal or Warden). There is no shared chain of levels: how deep a
  * cluster is comes from where it sits. A cluster has no configuration link to benefits: it only groups beneficiaries, who are enrolled into a node later.
- * Who calls it: the Clusters tab of the project window (app/clusters-tab.ts) and the project actions (modules/06-projects/projects.ts). Depends on: nothing. Pure functions: no database, no screen.
+ * Who calls it: the Clusters tab of the project window (app/projects/clusters-tab.ts) and the project actions (modules/06-projects/projects.ts). Depends on: nothing. Pure functions: no database, no screen.
  *
  * Rules:
  * - A cluster of the top sits in nothing. A sub cluster sits inside one cluster, chosen by pressing "add sub cluster" on that cluster.

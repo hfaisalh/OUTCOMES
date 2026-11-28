@@ -31,7 +31,7 @@ Two different things in this module share the word "project", which is confusing
 - **Partner** (called `Project` in `projects.ts`, an older name): who delivers. Profile, benefits it offers, capacity and cost per benefit. Its old Structure tab (levels, types, places) is being replaced by clusters and will be removed once the beneficiary register exists.
 - **Gift project** (`GiftProject`): what a donor chooses. A shell: Display Name, Original Name (the CRM's, fixed), the benefits it offers, the partners that deliver it in priority order, and its clusters. Its progress is rolled up from its gifts and outcomes, not stored.
 - **Clusters** (`clusters.ts`): the master distribution of a gift project (a school, a university, a home) with sub clusters to any depth. Each has its own name, label, place, status and roles. There is no shared chain of levels. Capacity is set on the master cluster only and shared evenly down as a guide (`evenShare`). Older projects that saved levels are read through `clusterStateOf`.
-- Screens: `app/clusters-tab.ts` (the tree with hierarchy lines, and one cluster's details) inside `app/project-form.ts`.
+- Screens: `app/projects/clusters-tab.ts` (the tree with hierarchy lines, and one cluster's details) inside `app/projects/project-form.ts`.
 
 ## Not built yet
 - Activities (one-offs with stages and reports), profile fields, vendor updates and the vendor portal.
@@ -45,7 +45,7 @@ Two different things in this module share the word "project", which is confusing
 | `clusters.test.ts` | Tests and examples: a university with faculties and departments, a school |
 | `readiness.ts` | Whether a benefit is ready to receive gifts (workflow, type and an eligible partner) |
 
-The screens are `app/projects-page.ts` and `app/project-form.ts` (Projects), `app/partners-page.ts`, `app/partner-window.ts` and `app/partner-form.ts` (Partners: profile and structure), `app/beneficiaries-page.ts` (Beneficiaries) and `app/allocation-page.ts` (Allocation, Place gifts). The server actions are on `/api/outcomes` (Vercel's Hobby plan allows only 12 functions).
+The screens are `app/projects/projects-page.ts` and `app/projects/project-form.ts` (Projects), `app/partners/partners-page.ts`, `app/partners/partner-window.ts` and `app/partners/partner-form.ts` (Partners: profile and structure), `app/beneficiaries/beneficiaries-page.ts` (Beneficiaries) and `app/allocation-page.ts` (Allocation, Place gifts). The server actions are on `/api/outcomes` (Vercel's Hobby plan allows only 12 functions).
 
 ## How to test
 `npm test`. To try it: Partners, New partner (name and type), Save. Then on its Structure tab add the levels (Branch, then Class and House under it), a type (Child, belongs to Branch, grouped by Class and House, sponsored as shared parts) and a place (Branch 1) with its groups (Class 5A, Rose House). Then on its Beneficiaries tab add 20 to Branch 1 in Class 5A and Rose House.

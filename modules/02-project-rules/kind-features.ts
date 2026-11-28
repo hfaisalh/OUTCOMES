@@ -5,7 +5,7 @@
  * Each has features that are managed here: a description, a few properties (needs a location, holds sensitive data, eligibility check, on behalf of, who receives) and the profile
  * fields a beneficiary of that kind holds (each with a type, whether it is needed first, and whether it goes in the donor report). Each kind starts with sensible defaults, and only a
  * kind a person has changed is saved. This module holds the defaults and the changes, as pure functions.
- * Who calls it: the Benefits page (app/benefits-page.ts), the demo (app/main.ts) and the server (modules/00-platform/handlers.ts). Depends on: benefits.ts and outcome-types.ts (the list of field types only). Pure.
+ * Who calls it: the Benefits page (app/setup/benefits-page.ts), the demo (app/main.ts) and the server (modules/00-platform/handlers.ts). Depends on: benefits.ts and outcome-types.ts (the list of field types only). Pure.
  *
  * Rules:
  * - Features belong to the kind, never to the item or to a workflow. An item is only a tag that points at a kind.

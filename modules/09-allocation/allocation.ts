@@ -4,7 +4,7 @@
  * What it does: Allocation rewired onto what has been built (DECISIONS 175). Once a gift has a partner (Assignment), it is allocated: a gift for a type where the beneficiary comes first (sponsorship) fills an open
  * place, which is an enrolment of an approved beneficiary in a cluster of the gift's project for that benefit. A gift for a type where the gift comes first (a pump, a camp) creates an outcome, and its recipients
  * are enrolled after. A gift for a type that has no beneficiary (a mosque) creates an outcome and waits for no one. The results are kept as separate records, so a test run can be reset.
- * Who calls it: the Allocate page (app/allocate-page.ts), the server (modules/00-platform/handlers.ts) and the demo (app/main.ts), all through applyPlacementAction. Depends on: assignment.ts, enrolments.ts,
+ * Who calls it: the Allocate page (app/allocation/allocate-page.ts), the server (modules/00-platform/handlers.ts) and the demo (app/main.ts), all through applyPlacementAction. Depends on: assignment.ts, enrolments.ts,
  * projects.ts (the types) and categories.ts (the types). Pure functions: no database, no screen, so the rules can be ported to Salesforce (Apex) or another stack.
  *
  * Rules:

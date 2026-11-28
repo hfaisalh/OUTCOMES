@@ -12,7 +12,7 @@ import { PERMISSIONS as P } from "../../app/menu.js";
 import { applyOutcomeTypeAction, starterOutcomeTypes } from "../05-outcomes/outcome-types.js";
 import { ensureRefs, withPrefixes } from "../05-outcomes/refs.js";
 import { linkStarterTypes } from "../02-project-rules/workflows.js";
-import { ICON_IDS } from "../../app/icons.js";
+import { ICON_IDS } from "../../app/shared/icons.js";
 import { allocatable } from "../04b-commitments/commitments.js";
 import { adoptLegacy, allocOptions, migrateGiftProjects, applyProjectAction, clearLegacy, allocateInNode, allocateInPartner } from "../06-projects/projects.js";
 import { addOutcomes, autoAllocate, DEFAULT_GRACE_DAYS, releaseApprovals, perPeriodRule, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive } from "../05-outcomes/outcomes.js";

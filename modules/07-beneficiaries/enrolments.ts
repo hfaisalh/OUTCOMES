@@ -5,7 +5,7 @@
  * Warden). A person sponsored in orphan care, an education scholarship and Hifz has one beneficiary record and three enrolments. For a type where the beneficiary comes first (sponsorship), an enrolment of
  * an approved beneficiary is the open place a gift fills (Allocation, a later step). A type where the gift comes first (house, pump, tent) creates its outcome from the gift, and its recipients are enrolled
  * after. A community outcome (a mosque) has no beneficiary, so nothing is enrolled.
- * Who calls it: the Beneficiaries tab of a cluster (app/cluster-people.ts), the server (modules/00-platform/handlers.ts) and the demo (app/main.ts), all through applyEnrolmentAction.
+ * Who calls it: the Beneficiaries tab of a cluster (app/projects/cluster-people.ts), the server (modules/00-platform/handlers.ts) and the demo (app/main.ts), all through applyEnrolmentAction.
  * Depends on: beneficiaries.ts, clusters.ts, projects.ts (the project type only) and kind-features.ts (the types only). Pure functions: no database, no screen.
  *
  * Rules:

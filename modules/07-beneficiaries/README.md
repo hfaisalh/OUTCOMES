@@ -25,7 +25,7 @@ A beneficiary is enrolled in a cluster of a project for a benefit, in a role if 
 
 ## The list is the month by month view (DECISIONS 190)
 
-The Beneficiaries page shows one row per active enrolment with a pie per month (a slice per unit of the whole beneficiary, coloured paid, expected, missed or nothing expected). The rule is `implementation.ts` (pure). Test: `npx vitest run modules/07-beneficiaries app/register-page.test.ts`.
+The Beneficiaries page shows one row per active enrolment with a pie per month (a slice per unit of the whole beneficiary, coloured paid, expected, missed or nothing expected). The rule is `implementation.ts` (pure). Test: `npx vitest run modules/07-beneficiaries app/beneficiaries/register-page.test.ts`.
 
 ## Not built yet
 - A Beneficiary import for real data (read in the browser, mapped, duplicate checked, previewed, into a local or private environment only), the open places that Allocation fills, Assignment, and Allocation rewired onto them (DECISIONS 165).
@@ -45,7 +45,7 @@ The Beneficiaries page shows one row per active enrolment with a pie per month (
 
 The sample setup is loaded from the Organisation settings page (DECISIONS 168, 169). It covers every scenario the workflow must place (a partner with little room, a lapsed one, a full home, a closed home, a university three levels deep, every admission decision, a possible duplicate, an inactive child, one waiting) and attaches to a real project when one carries the items. Real children's data is never loaded this way.
 
-The screens are `app/register-page.ts` (the table and filters), `app/register-form.ts` (the window) and `app/cluster-people.ts` (the Beneficiaries tab of a cluster). Saved on the organisation's setup as `beneficiaries`.
+The screens are `app/beneficiaries/register-page.ts` (the table and filters), `app/beneficiaries/register-form.ts` (the window) and `app/projects/cluster-people.ts` (the Beneficiaries tab of a cluster). Saved on the organisation's setup as `beneficiaries`.
 
 ## How to test
 `npm test`. To try it: open Beneficiaries, New person (a name and date of birth), Save. Add the same name and date again and see it refused with the ID. Add the same name with another date and see the possible match tick box. New household, tick the person, Save.

@@ -3,7 +3,7 @@
  *
  * What it does: the pool and the waiting list (DECISIONS 246). A partner feeds the register, each person with the project they are meant for (targetProjectId). This module does, without anyone dragging
  * or picking: (1) decides admission for a complete record, (2) works out each project's waiting list, (3) enrols the next in line into the cluster with the most room, whenever there is room.
- * Who calls it: the server (modules/00-platform/outcomes-handler.ts) and the demo (app/main.ts) after any change to the register, enrolments or a project, and the pages (app/projects-page.ts, app/register-form.ts) for the figures.
+ * Who calls it: the server (modules/00-platform/outcomes-handler.ts) and the demo (app/main.ts) after any change to the register, enrolments or a project, and the pages (app/projects/projects-page.ts, app/beneficiaries/register-form.ts) for the figures.
  * Depends on: beneficiaries.ts, enrolments.ts and the cluster types. Pure functions: no database, no screen, so the rules can be ported to Salesforce (Apex) or another stack.
  *
  * Rules:

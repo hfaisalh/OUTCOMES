@@ -1,0 +1,162 @@
+/**
+ * register-page.ts
+ *
+ * What it does: draws the Beneficiaries page, the register of people and households that receive what gifts deliver (DECISIONS 163), as the month by month view of the implementation of gifts (DECISIONS 190).
+ * One row for each enrolment (a child with two benefits has two rows; one not enrolled has one row): ID, name, where (project and cluster), benefit, the units filled of the whole, then a small pie for each month
+ * with a slice for each unit, coloured paid, expected, missed or nothing expected. A row opens the profile in a window (app/beneficiaries/register-form.ts). Filters (kind, status, admission, project, search) and the buttons to
+ * add a person or a household stay. Contact details are not held here (they stay in the CRM). Pure: it takes a View and returns HTML.
+ * Who calls it: app/main.ts. Depends on: modules/07-beneficiaries (beneficiaries, implementation), outcomes.ts (monthsAround, perPeriodRule), commitments.ts, clusters.ts and esc and View from pages.ts.
+ */
+
+import { ageOf, ELIGIBILITY_LABEL, filterBeneficiaries, NO_FILTER, type BeneficiaryFilter } from "../../modules/07-beneficiaries/beneficiaries";
+import { commitmentsFor, implementationRows } from "../../modules/07-beneficiaries/implementation";
+import { monthsAround, perPeriodRule, type UnitStatus } from "../../modules/05-outcomes/outcomes";
+import { unitsOfItem } from "../../modules/02-project-rules/benefits";
+import { normName } from "../../modules/07-beneficiaries/beneficiaries";
+import { icon, SYMBOL } from "../gifts/gifts-page";
+import { SYM } from "../shared/symbols";
+import { esc, type View } from "../shared/pages";
+
+const MAX_ROWS = 300;
+const NAME = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const KEY: [UnitStatus | "g", string][] = [["p", "Paid"], ["e", "Expected"], ["m", "Missed"], ["g", "Unfilled"]]; // one white state: no gift, or no gift expects anything that month (DECISIONS 213)
+
+// One small pie for a month: a slice for each unit of the whole beneficiary, coloured by what its gift did that month.
+function pie(slots: { status: UnitStatus | "g" }[], label: string): string {
+  const n = slots.length;
+  if (n === 0) return "";
+  // Rule (decision 201): an item of one unit has nothing to slice, so it is a rounded square, not a pie.
+  if (n === 1) return `<svg class="mpie" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="${esc(label)}"><rect class="ring" x="1.2" y="1.2" width="21.6" height="21.6" rx="7" stroke-width=".7"/><rect class="sq ${slots[0]?.status}" x="4" y="4" width="16" height="16" rx="5"/></svg>`;
+  const R = 9, C = 2 * Math.PI * R;
+  const arcs = slots.map((sl, i) => { const len = C / n; return `<circle class="seg ${sl.status}" cx="12" cy="12" r="${R}" fill="none" stroke-width="6" stroke-dasharray="${n === 1 ? C : Math.max(len - 1.2, 0.5)} ${C}" stroke-dashoffset="${-i * len}" transform="rotate(-90 12 12)"/>`; });
+  // A thin ring marks the edge so an unfilled (white) unit still shows as an empty slot.
+  const rings = `<circle class="ring" cx="12" cy="12" r="11.7" stroke-width=".7"/><circle class="ring" cx="12" cy="12" r="6.3" stroke-width=".7"/>`;
+  return `<svg class="mpie" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="${esc(label)}">${rings}${arcs.join("")}</svg>`;
+}
+
+export function registerPage(v: View): string {
+  const all = v.beneficiaries?.records ?? [];
+  const f: BeneficiaryFilter = v.registerFilter ?? NO_FILTER;
+  const today = v.today ?? "2026-01-01";
+  const fws = v.frameworks ?? [];
+  const projects = v.giftProjects ?? [];
+  const byId = new Map(all.map((b) => [b.id, b]));
+  const itemName = new Map((v.workOrders ?? []).map((w) => [w.itemId, w.itemName]));
+  const itemFw = new Map<string, string>();
+  for (const w of v.workOrders ?? []) if (w.frameworkId && !itemFw.has(w.itemId)) itemFw.set(w.itemId, w.frameworkId);
+  const months = monthsAround(today, 5, 6);
+  // Rule: the whole beneficiary is the units the benefit needs (set on the item, else the workflow's, else 1).
+  const whole = (itemId: string): number => unitsOfItem(v.itemUnits, itemId, fws.find((x) => x.id === itemFw.get(itemId))?.unitsPerBeneficiary ?? 1);
+  // Rule: the project filter keeps the beneficiaries enrolled in that project.
+  const inProject = new Set((v.enrolments?.records ?? []).filter((e) => e.status === "active" && (f.project ?? "") !== "" && e.giftProjectId === f.project).map((e) => e.beneficiaryId));
+  const text = normName(f.text);
+  const byText = filterBeneficiaries(all, f); // kind, status, admission and the text against the profile
+  const pool = filterBeneficiaries(all, { ...f, text: "" }).filter((b) => (f.project ?? "") === "" || inProject.has(b.id));
+  const commitments = commitmentsFor(v.workOrders ?? [], perPeriodRule(fws), today);
+  const partnerOfKey = new Map((v.assignments?.records ?? []).map((x) => [x.key, x.partnerId]));
+  const partnerName = (id: string): string => (v.projects ?? []).find((p) => p.id === id)?.name ?? id;
+  const impl = implementationRows({ beneficiaryIds: pool.map((b) => b.id), enrolments: v.enrolments?.records ?? [], allocations: v.allocations?.records ?? [], commitments, whole, partnerOf: (k) => partnerOfKey.get(k) ?? "", months, today });
+  const profileHit = new Set(byText.map((b) => b.id));
+  // Rule: the search finds a beneficiary by its profile (name, ID, area, guardian) or by the donor whose gift fills a unit, the partner or the project.
+  const matches = (r: (typeof impl)[number]): boolean => {
+    if (text === "") return true;
+    const b = byId.get(r.beneficiaryId);
+    const hay = normName(`${r.donors.join(" ")} ${[...r.partnerIds.map(partnerName), b ? partnerName(b.partnerId) : ""].join(" ")} ${projects.find((p) => p.id === r.giftProjectId)?.name ?? ""}`);
+    return profileHit.has(r.beneficiaryId) || hay.includes(text);
+  };
+  // Rule: show only gaps (a unit with no gift), only failed payments (a missed month), or only plans that are paused, cancelled or completed.
+  const showOk = (r: (typeof impl)[number], mode: string = f.show ?? ""): boolean => {
+    const s = mode;
+    if (s === "") return true;
+    if (r.enrolmentId === "") return false;
+    // Rule (DECISIONS 213): a gap is a unit with no gift this month or later. Months before a gift began are unfilled too, but they are history, not something to act on.
+    return s === "gaps" ? r.cells.some((c) => c.month >= today.slice(0, 7) && c.slots.some((x) => x.status === "g")) : r.missed > 0;
+  };
+  // Rule (DECISIONS 196): a click on a column heading sorts by it, a second click reverses it. Empty values go last either way, and ties keep the name order.
+  const sort = v.registerSort;
+  const sortValue = (r: (typeof impl)[number], key: string): string | number | null => {
+    const b = byId.get(r.beneficiaryId);
+    if (!b) return null;
+    const first = r.gifts[0];
+    const partner = r.partnerIds.length > 0 ? r.partnerIds.map(partnerName).join(", ") : b.partnerId !== "" ? partnerName(b.partnerId) : "";
+    switch (key) {
+      case "name": return b.name.toLowerCase();
+      case "sex": return b.gender === "" ? null : b.gender;
+      case "age": return b.kind === "person" ? ageOf(b.dob, today) : null;
+      case "partner": return partner === "" ? null : partner.toLowerCase();
+      case "project": return r.enrolmentId === "" ? null : (projects.find((p) => p.id === r.giftProjectId)?.name ?? "").toLowerCase();
+      case "benefit": return r.enrolmentId === "" ? null : (itemName.get(r.itemId) ?? r.itemId).toLowerCase();
+      case "plan": return first ? (first.once ? 1 : first.planned ? first.paid / first.planned : 0) : null;
+      case "donor": return first ? first.donor.toLowerCase() : null;
+      case "allocated": return r.enrolmentId === "" ? null : r.pct;
+      case "status": return b.status === "active" ? 1 : 0;
+      default: return null;
+    }
+  };
+  const list = impl.filter((r) => matches(r) && showOk(r));
+  // Tiles (DECISIONS 224): the summary of the list, and the quickest way to the ones that need a person. They count under the search and the drop-downs but not under the tile choice, so they do not change as one is pressed.
+  const base = impl.filter(matches);
+  const gapsN = base.filter((r) => showOk(r, "gaps")).length, missedN = base.filter((r) => showOk(r, "missed")).length;
+  // Rule: the first two tiles count people, not list rows. A person enrolled in two benefits has two rows but is one beneficiary.
+  const people = new Set(base.map((r) => r.beneficiaryId));
+  const peopleWhere = (ok: (id: string) => boolean): number => [...people].filter(ok).length;
+  const enrolledPeople = new Set(base.filter((r) => r.enrolmentId !== "").map((r) => r.beneficiaryId)).size;
+  const small = (n: number, label: string): string => `<span class="sm"><b>${n}</b> ${label}</span>`;
+  const tile = (mode: string, cls: string, inner: string): string => `<button type="button" class="metric tile${cls}" data-regshow="${mode}" aria-pressed="${(f.show ?? "") === mode ? "true" : "false"}">${inner}</button>`;
+  const tiles = `<div class="metrics">${tile("", "", `<b>${people.size}</b><span>Beneficiaries</span><div class="smrow">${small(peopleWhere((id) => byId.get(id)?.kind === "household"), "households")}${small(peopleWhere((id) => byId.get(id)?.status === "active"), "active")}</div>`)}
+    <div class="metric"><b>${enrolledPeople}</b><span>Enrolled</span><div class="smrow">${small(people.size - enrolledPeople, "not enrolled yet")}</div></div>
+    ${tile("gaps", gapsN ? " warn" : "", `<b>${gapsN}</b><span>With gaps</span><div class="smrow">${small(gapsN, "need a gift this month or later")}</div>`)}
+    ${tile("missed", missedN ? " warn" : "", `<b>${missedN}</b><span>Failed payments</span><div class="smrow">${small(missedN, "with a missed month")}</div>`)}</div>`;
+  if (sort && sort.key !== "") {
+    const dir = sort.dir === "desc" ? -1 : 1;
+    list.sort((a, b) => {
+      const x = sortValue(a, sort.key), y = sortValue(b, sort.key);
+      if (x === null && y === null) return 0;
+      if (x === null) return 1;
+      if (y === null) return -1;
+      return (x < y ? -1 : x > y ? 1 : 0) * dir;
+    });
+  }
+  const shownIds = new Set(list.map((r) => r.beneficiaryId));
+  const shown = pool.filter((b) => shownIds.has(b.id));
+  const where = (gpId: string): string => projects.find((p) => p.id === gpId)?.name ?? "";
+  // Plan like the Gifts list: instalments paid over planned (2/∞), with the plan's own status icon when it is not running.
+  const planOf = (g: { once: boolean; paid: number; planned: number | null; planStatus: string }): string => (g.once ? `${g.paid}/${g.planned ?? 1}` : `${g.paid}/${g.planned ?? "\u221E"}`);
+  const rows = list.slice(0, MAX_ROWS).map((r) => {
+    const b = byId.get(r.beneficiaryId);
+    if (!b) return "";
+    const age = b.kind === "person" ? ageOf(b.dob, today) : null;
+    const sex = b.kind === "person" ? (b.gender === "female" ? "F" : b.gender === "male" ? "M" : "") : "";
+    const partner = r.partnerIds.length > 0 ? r.partnerIds.map(partnerName).join(", ") : b.partnerId !== "" ? partnerName(b.partnerId) : "";
+    const first = r.gifts[0];
+    const more = r.gifts.length > 1 ? ` <span class="muted">+${r.gifts.length - 1}</span>` : "";
+    const donor = first ? `${icon(first.once ? "one" : "rec", first.once ? SYMBOL.one : SYMBOL.recurring, first.once ? "One payment" : "Recurring gift")} ${esc(first.donor)}${more}` : "";
+    // Status is the beneficiary's own: active (green) or inactive (red), set in the profile. A gift can pause, a beneficiary does not.
+    const status = b.status === "active" ? `<span class="dot on" role="img" title="Active" aria-label="Active"></span>` : `<span class="dot off" role="img" title="Inactive" aria-label="Inactive"></span>`;
+    const lead = `<td class="nm" title="${esc([b.id, b.area].filter((x) => x !== "").join(" \u00B7 "))}"><b>${esc(b.name)}</b></td><td>${esc(sex)}</td><td class="num">${age === null ? "" : age}</td><td>${esc(partner)}</td>`;
+    const rest = r.enrolmentId === ""
+      ? `<td colspan="${months.length + 5}" class="muted">Not enrolled in any benefit yet</td>`
+      : `<td>${esc(where(r.giftProjectId))}</td><td>${esc(itemName.get(r.itemId) ?? r.itemId)}</td><td class="num" title="${esc(r.gifts.map((g) => `${g.donor}: ${planOf(g) || "one payment"}`).join("; "))}">${first ? planOf(first) : ""}</td><td class="dn" title="${esc(r.donors.join(", "))}">${donor}</td><td class="num" title="Unit-months paid or expected in the months shown, out of all the unit-months">${r.pct}%</td>${r.cells.map((c) => `<td class="m">${pie(c.slots, `${NAME[Number(c.month.slice(5, 7)) - 1]} ${c.month.slice(0, 4)}`)}</td>`).join("")}`;
+    return `<tr class="rowlink" data-bn="open" data-id="${esc(b.id)}" tabindex="0">${lead}${rest}<td class="c st">${status}</td></tr>`;
+  }).join("");
+  const th = (key: string, label: string, cls = "", tip = ""): string => `<th${cls ? ` class="${cls}"` : ""}${tip ? ` title="${esc(tip)}"` : ""}><button type="button" class="sortbtn" data-regsort="${key}">${label}${sort?.key === key ? (sort.dir === "desc" ? " \u25BC" : " \u25B2") : ""}</button></th>`;
+  const head = `<thead><tr>${th("name", "Name")}${th("sex", "M/F")}${th("age", "Age", "num")}${th("partner", "Partner")}${th("project", "Project")}${th("benefit", "Benefit")}${th("plan", "Plan")}${th("donor", "Donor")}${th("allocated", "Allocated", "num", "Allocation score: the share of the months shown that a gift has paid or expects")}${months.map((m) => `<th class="m${m === today.slice(0, 7) ? " now" : ""}">${NAME[Number(m.slice(5, 7)) - 1]}</th>`).join("")}${th("status", "Status")}</tr></thead>`;
+  // The key sits in a disclosure, as on Gifts (DECISIONS 223).
+  const legend = `<details class="keydrop"><summary>${SYM.info} Key to the symbols</summary><p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; <span class="dot on"></span> active &nbsp; <span class="dot off"></span> inactive</p><div class="legendrow">${KEY.map(([s, t]) => `<span><span class="sw ${s}"></span>${t}</span>`).join("")}</div></details>`;
+  const sel = (x: string | undefined, val: string): string => (x === val ? " selected" : "");
+  const projectSel = `<select data-regf="project" aria-label="Project"><option value="">All projects</option>${projects.map((p) => `<option value="${esc(p.id)}"${sel(f.project, p.id)}>${esc(p.name)}</option>`).join("")}</select>`;
+  const filters = `<div class="filters"><select data-regf="kind" aria-label="Kind"><option value="">People and households</option><option value="person"${sel(f.kind, "person")}>People</option><option value="household"${sel(f.kind, "household")}>Households</option></select>
+    ${projectSel}
+    <select data-regf="show" aria-label="Show"><option value="">All</option><option value="gaps"${sel(f.show, "gaps")}>Gaps: not fully allocated</option><option value="missed"${sel(f.show, "missed")}>Failed payments</option></select>
+    <select data-regf="status" aria-label="Status"><option value="">Any status</option><option value="active"${sel(f.status, "active")}>Active</option><option value="inactive"${sel(f.status, "inactive")}>Inactive</option></select>
+    <select data-regf="eligibility" aria-label="Admission decision"><option value="">Any decision</option>${(["ready", "review", "declined"] as const).map((e) => `<option value="${e}"${sel(f.eligibility, e)}>${esc(ELIGIBILITY_LABEL[e])}</option>`).join("")}</select>
+    <span class="searchbox">${SYM.search}<input type="search" data-regf="text" value="${esc(f.text)}" placeholder="Search name, ID, donor, partner, area or guardian" aria-label="Search" /></span></div>`;
+  return `<h1>Beneficiaries</h1>
+    <p class="sub">Month by month, what is happening with each beneficiary: the gifts that fill each unit of the benefit, paid, expected or missed, and the gaps. Search by name, ID or donor. Open a row for the profile and the ID. Contact details stay in the CRM.</p>
+    ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
+    <div class="actions"><button class="primary" data-bn="new" data-kind="person">New person</button><button data-bn="new" data-kind="household">New household</button></div>
+    ${all.length === 0 ? "" : tiles}
+    ${filters}
+    ${all.length === 0 ? '<div class="empty">No beneficiaries yet. Add the first person or household.</div>' : shown.length === 0 ? '<div class="empty">Nothing matches.</div>' : `${legend}<div class="tablewrap regwrap"><table class="octable regtable">${head}<tbody>${rows}</tbody></table></div>
+    <p class="muted">${shown.length} of ${all.length} beneficiaries${shown.length > MAX_ROWS ? `, the first ${MAX_ROWS} shown` : ""}.</p>`}`;
+}

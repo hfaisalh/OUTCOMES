@@ -10,8 +10,8 @@ import type { WorkOrder } from "../01c-crm-connector/work-orders";
 import { buildCommitments } from "./commitments";
 import { coverage, fillMonths, setCovers, setLooked, setParts, suggestCatchUps, suggestPartFixes } from "./catch-up";
 import { giftRows } from "./gifts";
-import { giftDetailHtml } from "../../app/gifts-page";
-import type { View } from "../../app/pages";
+import { giftDetailHtml } from "../../app/gifts/gifts-page";
+import type { View } from "../../app/shared/pages";
 
 const inst = (n: number, date: string, amount = 35, over: Partial<WorkOrder> = {}): WorkOrder => ({
   key: `L${n}`, lineId: `L${n}`, transactionRef: `T${n}`, paidDate: `${date} 10:00:00`, supporterId: "D1", supporterName: "Sample Supporter", group: "", itemId: "I1", itemName: "Orphan Sponsorship",

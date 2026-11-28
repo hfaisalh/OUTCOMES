@@ -4,7 +4,7 @@
  * What it does: Assignment (DECISIONS 138, 154, 170). It hands each released work order to the first eligible partner that has room, in the order of the gift's project. A work order is a gift line that has a workflow.
  * The workflow decides whether this is done automatically or only suggested to a person (its Assignment setting), and whether a person may reassign it (its Reassign switch). An urgent gift is allocated first.
  * The result is kept as separate records, one per work order, never written onto the gift itself, so the whole run can be reset and run again.
- * Who calls it: the Assignment page (app/assignment-page.ts), the server (modules/00-platform/handlers.ts) and the demo (app/main.ts), all through applyAssignmentAction. Depends on: work-orders.ts and projects.ts
+ * Who calls it: the Assignment page (app/allocation/assignment-page.ts), the server (modules/00-platform/handlers.ts) and the demo (app/main.ts), all through applyAssignmentAction. Depends on: work-orders.ts and projects.ts
  * (the types and partner rules only). Pure functions: no database, no screen, so the rules can be ported to Salesforce (Apex) or another stack.
  *
  * Rules:

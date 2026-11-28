@@ -3,7 +3,7 @@
  *
  * What it does: builds the Outcomes list (DECISIONS 197): one row for each outcome a gift has created (OUT-0001 and so on), for the benefits where the gift comes first (a pump, a camp) or that have no
  * beneficiary (a mosque). For each it says what was funded, for which project, who delivers it, who gave, how far funded it is, and what the gift did in each of the months shown.
- * Who calls it: app/outcome-records-page.ts. Depends on: allocation.ts (the Allocation type), implementation.ts (the gift lookup and the month cells), outcomes.ts (monthStatus) and commitments.ts (the Commitment type).
+ * Who calls it: app/beneficiaries/outcome-records-page.ts. Depends on: allocation.ts (the Allocation type), implementation.ts (the gift lookup and the month cells), outcomes.ts (monthStatus) and commitments.ts (the Commitment type).
  * Pure functions: no database, no screen, so the rules can be ported to Salesforce (Apex) or another stack.
  *
  * Rules:

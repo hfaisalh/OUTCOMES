@@ -3,7 +3,7 @@
  *
  * What it does: the allocation history (DECISIONS 186). From the allocation records it builds, for one gift, every child (or outcome) the gift has held, and for one enrolment (a child in a cluster for a benefit),
  * every gift that has sponsored it, each with the day it started, the day it ended (or "now") and why it ended. Newest first. Nothing is deleted when an allocation ends, so this is everything that happened.
- * Who calls it: the history windows (app/history-window.ts) and the counts on the gift window and on a cluster's Beneficiaries tab. Depends on: allocation.ts (the types only). Pure functions: no database, no screen.
+ * Who calls it: the history windows (app/gifts/history-window.ts) and the counts on the gift window and on a cluster's Beneficiaries tab. Depends on: allocation.ts (the types only). Pure functions: no database, no screen.
  *
  * Rules:
  * - A row is one allocation record. A gift spread over several children has a row for each, with the units each took.

@@ -28,7 +28,7 @@ Work orders (the gifts, with their workflow), partners (their eligibility, capac
 | `assignment.ts` | The rules as pure functions (which gifts, which partners, room, suggest, run, assign by a person, unassign, loads) and `applyAssignmentAction`, used by the server and the demo |
 | `assignment.test.ts` | Tests and examples on invented gifts and partners |
 
-The screen is `app/assignment-page.ts`. Assignments are saved on the organisation's setup as `assignments`.
+The screen is `app/allocation/assignment-page.ts`. Assignments are saved on the organisation's setup as `assignments`.
 
 ## How to test
 `npm test`. To try it: load the sample setup (Settings, Organisation), give an item a workflow (Workflows), open Allocation then Assignment, press Assign automatically (or Confirm all suggestions), and read who each gift went to and why. Reset assignments clears it.

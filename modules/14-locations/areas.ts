@@ -2,7 +2,7 @@
  * areas.ts
  *
  * What it does: the rules that work on the Area of beneficiaries (DECISIONS 275): which areas are only typed text and still to be checked, resolving one typed area to a checked place for everyone who typed it, and counting beneficiaries by place for reports and a map.
- * Who calls it: the staff server (modules/00-platform/outcomes-handler.ts), the Areas page (app/areas-page.ts) and the tests. Depends on: locations.ts and the Register type. Pure: no network, no database, so it can be ported (CLAUDE.md rule 4).
+ * Who calls it: the staff server (modules/00-platform/outcomes-handler.ts), the Areas page (app/dashboard/areas-page.ts) and the tests. Depends on: locations.ts and the Register type. Pure: no network, no database, so it can be ported (CLAUDE.md rule 4).
  * Rules:
  * - Rule: an area is "unchecked" when it has text and no place id. Many people usually typed the same area, so they are listed once with a count, and one choice fixes them all.
  * - Rule: the same typed area is found whatever its case, accents or spacing (normPlace).

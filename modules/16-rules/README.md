@@ -10,8 +10,8 @@
 
 **Changing a rule.** Per workflow: assign mode, urgent first, move to another partner, days to confirm (Workflows page handlers). Global: ID required, grace days. The order of the allocation steps is code, not setting.
 
-**Files.** `rules.ts`, `app/rules-page.ts`.
+**Files.** `rules.ts`, `app/setup/rules-page.ts`.
 
 **Decisions.** DECISIONS 283.
 
-**How to test.** `npx vitest run modules/16-rules app/rules-page.test.ts`.
+**How to test.** `npx vitest run modules/16-rules app/setup/rules-page.test.ts`.

@@ -2,7 +2,7 @@
  * import.ts
  *
  * What it does: lets a partner add many beneficiaries at once from a CSV file (DECISIONS 271). It has two halves: reading the file into rows with a problem noted for each (used in the browser to show a preview before anything is sent), and adding the rows one by one with the same rule as adding a single beneficiary (used by the server, which decides for itself and never trusts the preview).
- * Who calls it: app/partner-csv.ts (the preview) and the server (modules/00-platform/partner-handler.ts). Depends on: entry.ts (the one-by-one rule) and modules/01-data-mapping/csv.ts. Pure: no database, no screen, so it can be ported (CLAUDE.md rule 4).
+ * Who calls it: app/portal/partner-csv.ts (the preview) and the server (modules/00-platform/partner-handler.ts). Depends on: entry.ts (the one-by-one rule) and modules/01-data-mapping/csv.ts. Pure: no database, no screen, so it can be ported (CLAUDE.md rule 4).
  *
  * Rules:
  * - Rule: the file's first row names the columns, in any order and spelling close to the template ("Date of birth", "DOB", "National ID"...). Name is required. A column it does not know is ignored.

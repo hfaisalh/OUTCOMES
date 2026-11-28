@@ -4,7 +4,7 @@
  * What it does: checks that each gift item is connected end to end before Assignment is built on top (DECISIONS 156): it has a workflow, a type, at least one partner that can
  * take it, and it says which projects offer it. An item that is not connected says what is missing, so nothing is left unmapped. Custom Amount items are not checked yet: they
  * are dealt with separately later (Faisal, 23/11/2026).
- * Who calls it: the Benefits page (app/benefits-page.ts). Depends on: projects.ts. Pure functions: no database, no screen.
+ * Who calls it: the Benefits page (app/setup/benefits-page.ts). Depends on: projects.ts. Pure functions: no database, no screen.
  *
  * Rules:
  * - Ready means: it has a workflow, it has a type (chosen or suggested), and at least one partner is eligible for it (active, approved, delivering it, capacity not 0).

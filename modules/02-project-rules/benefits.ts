@@ -4,7 +4,7 @@
  * What it does: the types of benefit (DECISIONS 143) and which type each gift item has. Called "kind" in the code and the saved settings, shown as "type" on screen (DECISIONS 147). A benefit is what a gift item delivers, so each item has one. Its kind says what the
  * specific beneficiary is, which decides the fields and evidence of its profile. This module holds the list of kinds, a suggestion of a kind from an item's name, and the rule
  * for choosing one. The kind of each item is set once, in Settings, and flows through the work order unchanged.
- * Who calls it: the Benefits page (app/benefits-page.ts), the demo (app/main.ts) and the server (modules/00-platform/handlers.ts). Depends on: nothing. Pure.
+ * Who calls it: the Benefits page (app/setup/benefits-page.ts), the demo (app/main.ts) and the server (modules/00-platform/handlers.ts). Depends on: nothing. Pure.
  *
  * Rules:
  * - Six kinds for now: Person(s), Activity, Build, Distribution, Programme, Waqf. Micro finance is dealt with separately and is not a kind yet (DECISIONS 143).

@@ -2,7 +2,7 @@
  * rules.ts
  *
  * What it does: the plain-English list of the rules OUTCOMES follows when it works by itself (DECISIONS 283): how a gift is assigned to a partner, how a partner confirms, how a gift finds its beneficiary or outcome, how a person gets off the waiting list, and when a place is released. Each rule says where it comes from, and the numbers in it are the ones in use now, so the list cannot drift from what the system does.
- * Who calls it: the Automation rules page (app/rules-page.ts) and the tests. Depends on the default values the rules themselves use. Pure: no database, no screen, so it can be ported (CLAUDE.md rule 4).
+ * Who calls it: the Automation rules page (app/setup/rules-page.ts) and the tests. Depends on the default values the rules themselves use. Pure: no database, no screen, so it can be ported (CLAUDE.md rule 4).
  * Data flow: the live settings come in (grace days, whether an ID is needed, the default batch size); the sections come out, in the order a gift travels. The page adds the controls for the settings that can be changed.
  *
  * Rules: this file only describes. The behaviour itself stays in modules 07, 08, 09 and 11, and each line here names its decision so a developer can find the code. When a rule changes there, its line here changes with it, and the test below that names each decision is the reminder.

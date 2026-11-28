@@ -2,7 +2,7 @@
  * project-stats.ts
  *
  * What it does: the figures of one project for the Projects list (DECISIONS 245): the people enrolled in it, its clusters, the capacity of its top clusters and how many are enrolled and vacant, who is waiting, and the roles it needs.
- * Who calls it: app/projects-page.ts. Depends on: the project and cluster types (module 6) and the enrolment rules (activeIn). Pure: no database, no page, so it can be ported (CLAUDE.md rule 4).
+ * Who calls it: app/projects/projects-page.ts. Depends on: the project and cluster types (module 6) and the enrolment rules (activeIn). Pure: no database, no page, so it can be ported (CLAUDE.md rule 4).
  *
  * Rules:
  * - Places are the capacity set on a project's top clusters (DECISIONS 161). A cluster with no capacity set adds none, and a project with none has no capacity figure (shown as a dash), never zero.

@@ -15,40 +15,40 @@ import { normaliseSteps, orderText } from "../modules/09-allocation/order";
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, autoCreateProjects, clearLegacy, allocateInNode, allocateInPartner, samplePartnerProfile, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
 import { markCustomAmounts } from "../modules/04b-commitments/parts";
-import { enhanceTables, newTableTools } from "./table-tools";
-import { GIFT_COLUMNS, GIFT_HIDDEN_DEFAULT, giftDetailHtml, giftKeysOfPayments, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts-page";
-import { partnersPage } from "./partners-page";
-import { projectsPage, type ProjectFilter } from "./projects-page";
-import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
-import { registerPage } from "./register-page";
-import { NO_OUTCOME_FILTER, outcomeRecordsPage } from "./outcome-records-page";
+import { enhanceTables, newTableTools } from "./shared/table-tools";
+import { GIFT_COLUMNS, GIFT_HIDDEN_DEFAULT, giftDetailHtml, giftKeysOfPayments, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts/gifts-page";
+import { partnersPage } from "./partners/partners-page";
+import { projectsPage, type ProjectFilter } from "./projects/projects-page";
+import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries/beneficiaries-page";
+import { registerPage } from "./beneficiaries/register-page";
+import { NO_OUTCOME_FILTER, outcomeRecordsPage } from "./beneficiaries/outcome-records-page";
 import { applyErasure, exportBeneficiary } from "../modules/07-beneficiaries/erasure";
-import { installHouseholdPicker } from "./household-picker";
-import { confirmationWindowHtml } from "./confirmation-window";
-import { installGiftActions } from "./gift-actions";
-import { installListEvents, placePopover } from "./list-events";
-import { progressPage } from "./progress-page";
-import { confirmationPage, type ConfirmFilter } from "./confirmation-page";
-import { assignmentPage } from "./assignment-page";
-import { allocatePage } from "./allocate-page";
-import { enrolmentHistoryHtml, giftHistoryHtml, type HistoryData } from "./history-window";
+import { installHouseholdPicker } from "./beneficiaries/household-picker";
+import { confirmationWindowHtml } from "./allocation/confirmation-window";
+import { installGiftActions } from "./gifts/gift-actions";
+import { installListEvents, placePopover } from "./shared/list-events";
+import { progressPage } from "./allocation/progress-page";
+import { confirmationPage, type ConfirmFilter } from "./allocation/confirmation-page";
+import { assignmentPage } from "./allocation/assignment-page";
+import { allocatePage } from "./allocation/allocate-page";
+import { enrolmentHistoryHtml, giftHistoryHtml, type HistoryData } from "./gifts/history-window";
 import { applyAllocationAction, emptyAllocations, allocateContext, syncAllocations, type Allocations } from "../modules/09-allocation/allocation";
 import { applyProgressAction, emptyProgress, type Progress } from "../modules/12-progress/progress";
 import { progressContext } from "../modules/12-progress/context";
 import { batchSizeOf } from "../modules/08-assignment/batches";
 import { applyConfirmationAction, confirmOnBehalf, emptyConfirmations, type Confirmations } from "../modules/11-confirmation/confirmation";
 import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments, type Assignments } from "../modules/08-assignment/assignment";
-import { registerFormHtml } from "./register-form";
+import { registerFormHtml } from "./beneficiaries/register-form";
 import { loadSampleSetup, realProjectsFor, wholeByItem, type SampleState, removeSampleSetup, removedSummaryText, sampleSummaryText } from "../modules/07-beneficiaries/sample-setup";
 import { poolMessage, settlePool, standingOf } from "../modules/07-beneficiaries/waiting";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf, type Enrolments } from "../modules/07-beneficiaries/enrolments";
 import { applyBeneficiaryAction, emptyRegister, NO_FILTER as NO_REGISTER_FILTER, type Beneficiary, type BeneficiaryFilter, type BeneficiaryKind, type Register } from "../modules/07-beneficiaries/beneficiaries";
-import { projectFormHtml, readProjectForm } from "./project-form";
-import { ICON_SETTINGS } from "./icons";
+import { projectFormHtml, readProjectForm } from "./projects/project-form";
+import { ICON_SETTINGS } from "./shared/icons";
 import { clusterStateOf } from "../modules/06-projects/clusters";
-import { closedClusters, clusterUi } from "./clusters-tab";
-import { benefitRow, NEW_CONTACT_ROW, NEW_DOC_ROW, readPartnerForm } from "./partner-form";
-import { partnerWindowHtml, type PartnerTab } from "./partner-window";
+import { closedClusters, clusterUi } from "./projects/clusters-tab";
+import { benefitRow, NEW_CONTACT_ROW, NEW_DOC_ROW, readPartnerForm } from "./partners/partner-form";
+import { partnerWindowHtml, type PartnerTab } from "./partners/partner-window";
 import { addOutcomes, autoAllocate, perPeriodRule, releaseApprovals, moveAllocation, releaseAllocation, removeOutcome, removeUnused, setActive, type OutcomeAllocation, type Outcome } from "../modules/05-outcomes/outcomes";
 import { allocatable } from "../modules/04b-commitments/commitments";
 import { filterWorkOrders, NO_CRITERIA, type Criteria } from "../modules/01c-crm-connector/filter";
@@ -57,32 +57,32 @@ import { acceptSuggestions, addCategory, addFramework, resolveFrameworkId, assig
 import { parseCsv, toRecords } from "../modules/01-data-mapping/csv";
 import { adaptFiles } from "../modules/01e-crm-export-adapter/export-adapter";
 import { buildAttention, type AttentionItem } from "../modules/04-triage/triage";
-import { changeOutcomes, loadOutcomes, decideAttention, signOut, importFeed, loadAttention, loadAudits, loadConfig, loadPartner, loadWorkOrders, fetchMe, runPickupNow, saveConfig, searchPlaces, type Me } from "./api";
+import { changeOutcomes, loadOutcomes, decideAttention, signOut, importFeed, loadAttention, loadAudits, loadConfig, loadPartner, loadWorkOrders, fetchMe, runPickupNow, saveConfig, searchPlaces, type Me } from "./shared/api";
 import { packFeed } from "../modules/01e-crm-export-adapter/compact";
 import type { AuditRecord } from "../modules/01f-batch-audit/audit";
 import { PERMISSIONS } from "./menu";
-import { frameLists } from "./list-frames";
-import { dataFeedPage, dataFilesPage } from "./data-page";
-import { benefitsPage } from "./benefits-page";
-import { unitPie, workflowsPage } from "./workflows-page";
-import { rulesPage } from "./rules-page";
-import { initStepOrder } from "./rules-steps";
+import { frameLists } from "./shared/list-frames";
+import { dataFeedPage, dataFilesPage } from "./setup/data-page";
+import { benefitsPage } from "./setup/benefits-page";
+import { unitPie, workflowsPage } from "./setup/workflows-page";
+import { rulesPage } from "./setup/rules-page";
+import { initStepOrder } from "./setup/rules-steps";
 
 initStepOrder(() => state.allocationSteps, (steps) => void outcomeChange({ action: "alloc-steps", steps }));
 import { mergeWorkflow, addStarterWorkflows, addTask, assignToWorkflow, linkStarterTypes, removeTask, removeWorkflow, setTask, setUnitRule, setFlag, setConfirm, addStage, setStage, removeStage, moveStage, setAssign, suggestWorkflowFor, unassignItem } from "../modules/02-project-rules/workflows";
-import { createMapping } from "./mapping-controller";
+import { createMapping } from "./setup/mapping-controller";
 import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { ensureRefs } from "../modules/05-outcomes/refs";
 import { checkingHtml, signinHtml } from "./signin-page";
-import { partnerHomeHtml } from "./partner-home";
-import { handlePartnerAction, partnerKeys, partnerUi, switchView } from "./partner-session";
-import { csvChange } from "./partner-csv-session";
-import { initPlacePicker } from "./place-picker";
-import { areasCard, areasWindowHtml } from "./areas-page";
-import { mountAreasMap } from "./areas-map";
-import { costsCard } from "./costs-card";
+import { partnerHomeHtml } from "./portal/partner-home";
+import { handlePartnerAction, partnerKeys, partnerUi, switchView } from "./portal/partner-session";
+import { csvChange } from "./portal/partner-csv-session";
+import { initPlacePicker } from "./shared/place-picker";
+import { areasCard, areasWindowHtml } from "./dashboard/areas-page";
+import { mountAreasMap } from "./dashboard/areas-map";
+import { costsCard } from "./dashboard/costs-card";
 import type { PartnerCost } from "../modules/15-partner-costs/costs";
-import { areasAction, areasUi, areasView } from "./areas-session";
+import { areasAction, areasUi, areasView } from "./dashboard/areas-session";
 import { acceptPlace, upsertPlace, type Place } from "../modules/14-locations/locations";
 import { resolveArea } from "../modules/14-locations/areas";
 
@@ -93,7 +93,7 @@ import { DEMO_ROLES, demoCategories, demoFeedRows, starterFrameworks, suggestIte
 import { setItemKind, setItemUnits } from "../modules/02-project-rules/benefits";
 import { applyKindAction, type SavedFeatures } from "../modules/02-project-rules/kind-features";
 import { isPageId, landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
-import { listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, type Filter, type View } from "./pages";
+import { listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, type Filter, type View } from "./shared/pages";
 
 // The Gifts columns a person has hidden are remembered in this browser only (DECISIONS 215). Storage can be blocked or empty, so every read and write is guarded and the usual columns are the fallback.
 const GIFT_COLS_KEY = "outcomes.gifts.hiddenColumns";
@@ -501,7 +501,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
   draw();
 }
 
-// The changes a person makes to a gift's work order (app/gift-actions.ts).
+// The changes a person makes to a gift's work order (app/gifts/gift-actions.ts).
 const { applyExclusion } = installGiftActions({ state, draw, reloadLive, deriveDemoParts });
 
 
@@ -1954,6 +1954,6 @@ document.addEventListener("keydown", (e) => {
   if (row && e.key === "Enter") { state.benWin = { open: true, id: row.dataset.id ?? "", kind: "person" }; renderBenWindow(); }
 });
 
-// ---- Events of the lists: sort, filter, columns, tiles, the drop-down panel, and the buttons of Confirmation and Progress (app/list-events.ts) ----
+// ---- Events of the lists: sort, filter, columns, tiles, the drop-down panel, and the buttons of Confirmation and Progress (app/shared/list-events.ts) ----
 installListEvents({ state, draw, outcomeChange });
-installHouseholdPicker(); // the household member picker in the beneficiary window (app/household-picker.ts)
+installHouseholdPicker(); // the household member picker in the beneficiary window (app/beneficiaries/household-picker.ts)

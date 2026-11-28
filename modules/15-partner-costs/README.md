@@ -8,8 +8,8 @@
 
 **Rules (pure, in `costs.ts`).** Own costs only; amount above zero, 2 decimals; a category from the list; a project the partner delivers; one total per currency, never mixed.
 
-**Files.** `costs.ts` (rules), `modules/00-platform/partner-handler.ts` (the `cost-` actions), `app/partner-costs.ts` and `app/partner-cost-session.ts` (the partner's card and form), `app/costs-card.ts` (staff Dashboard card).
+**Files.** `costs.ts` (rules), `modules/00-platform/partner-handler.ts` (the `cost-` actions), `app/portal/partner-costs.ts` and `app/portal/partner-cost-session.ts` (the partner's card and form), `app/dashboard/costs-card.ts` (staff Dashboard card).
 
 **Decisions.** DECISIONS 280.
 
-**How to test.** `npx vitest run modules/15-partner-costs modules/00-platform/partner-handler.test.ts app/partner-costs.test.ts`.
+**How to test.** `npx vitest run modules/15-partner-costs modules/00-platform/partner-handler.test.ts app/portal/partner-costs.test.ts`.

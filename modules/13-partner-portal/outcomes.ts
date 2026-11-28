@@ -2,7 +2,7 @@
  * outcomes.ts
  *
  * What it does: shows a partner how outcomes work for it (DECISIONS 251). Each gift assigned to the partner is one row that follows the journey: assigned, answered (confirm or refuse), allocated to a child or made into an outcome, then the delivery steps up to Complete. It also counts how many sit at each point.
- * Who calls it: app/partner-outcomes.ts (the partner's screen). Depends on: the partner slice (scope.ts) and the stage words of module 12. Pure: no database, no screen, so it can be ported (CLAUDE.md rule 4).
+ * Who calls it: app/portal/partner-outcomes.ts (the partner's screen). Depends on: the partner slice (scope.ts) and the stage words of module 12. Pure: no database, no screen, so it can be ported (CLAUDE.md rule 4).
  *
  * Rules:
  * - Rule: where a gift stands is the furthest point it has reached: Refused (the partner said no), To answer, Confirmed, Allocated (a child or an outcome holds it), Complete (the Complete step is taken).

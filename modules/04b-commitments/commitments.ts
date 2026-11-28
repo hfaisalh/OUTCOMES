@@ -5,7 +5,7 @@
  * instalment that shares a subscription id, with how many are paid out of how many planned. It also
  * lists recurring lines that have no subscription id (the CRM did not link them) and suggests which
  * commitment each may belong to.
- * Who calls it: the Commitments page (app/pages.ts). Depends on: work-orders.ts types only.
+ * Who calls it: the Commitments page (app/shared/pages.ts). Depends on: work-orders.ts types only.
  * Pure functions: no database, no screen. Read only: it changes nothing and saves nothing (DECISIONS 53).
  *
  * Rules:

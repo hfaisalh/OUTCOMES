@@ -2,12 +2,12 @@
  * accounts-card.ts
  *
  * What it does: the "Sign-in accounts" card on the Settings page (DECISIONS 250): the test accounts, how to remove one, and a form to add one (email, name, what it signs in as, password).
- * Who calls it: app/pages.ts (settingsPage). Depends on: the example roles (modules/00-platform/roles.ts) and the page View type. Pure: it takes a View and returns HTML.
+ * Who calls it: app/shared/pages.ts (settingsPage). Depends on: the example roles (modules/00-platform/roles.ts) and the page View type. Pure: it takes a View and returns HTML.
  * Data flow: the list comes from /api/me (only for a person who may change settings). The forms are plain posts to /api/owner-login, which answers with a redirect back to Settings, so no script is needed.
  */
 
 import { ROLES } from "../modules/00-platform/roles";
-import type { View } from "./pages";
+import type { View } from "./shared/pages";
 
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 

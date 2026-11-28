@@ -6,7 +6,7 @@
  * made from a framework template (how a gift counts, the report) and its outcome type (the profile, the source rule, the assignment). Each item has its own workflow.
  * A category is only a label for reporting. This module holds the pure parts: the tasks, the plain sentence, the six stages, the starter workflows and which workflow
  * suits an item by its name.
- * Who calls it: the Workflows page (app/workflows-page.ts) and the demo (app/main.ts). Depends on: categories.ts and outcome-types.ts. Pure: no database, no screen.
+ * Who calls it: the Workflows page (app/setup/workflows-page.ts) and the demo (app/main.ts). Depends on: categories.ts and outcome-types.ts. Pure: no database, no screen.
  *
  * Rules:
  * - A payment buys either a month of support (per period: sponsorships) or a share of one whole (a pump, a house). That decides whether a gift waits to be fully paid.

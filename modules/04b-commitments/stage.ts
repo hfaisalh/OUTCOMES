@@ -3,7 +3,7 @@
  *
  * What it does: works out which stage of its workflow a gift is in now (DECISIONS 141, 142), from what is known about it: whether it has a workflow, whether it is funded, and whether it
  * has been allocated in an outcome. The stages follow the workflow chart, named as states for the gift list: Gift, WO created, Assigned, Confirmed, Allocated, Reviewed, Reported, Completed, Feedback.
- * Who calls it: the Gifts list and window (app/gifts-page.ts). Depends on: nothing. Pure functions: no database, no screen, so they can be ported to Apex.
+ * Who calls it: the Gifts list and window (app/gifts/gifts-page.ts). Depends on: nothing. Pure functions: no database, no screen, so they can be ported to Apex.
  *
  * Rules:
  * - A gift with no workflow is still at Gift: there is nothing to move it on. An excluded payment has no stage.

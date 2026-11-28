@@ -3,7 +3,7 @@
  *
  * What it does: turns work orders (one per paid line) into gifts for one list (DECISIONS 77). A gift is a subscription with all its payments, or a single
  * payment, or a recurring line the CRM did not link to a subscription, or an excluded payment. The list shows one row for each, with the payments inside it.
- * Who calls it: the Gifts page (app/gifts-page.ts). Depends on: commitments.ts and the work order type. Pure functions: no database, no screen.
+ * Who calls it: the Gifts page (app/gifts/gifts-page.ts). Depends on: commitments.ts and the work order type. Pure functions: no database, no screen.
  *
  * Rules:
  * - A gift is the work orders with the same subscription id. A payment with no subscription and no instalment count is a one-off gift. A recurring line with no

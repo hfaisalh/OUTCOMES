@@ -3,7 +3,7 @@
  *
  * What it does: builds the "implementation of gifts" view of the Beneficiaries list (DECISIONS 190). For each enrolment (a beneficiary in a cluster for a benefit) it works out the units that make one whole
  * beneficiary, how many of them live gifts fill, and for every month a slot per unit with the status of the gift that fills it: paid, expected, missed, or nothing expected.
- * Who calls it: app/register-page.ts. Depends on: allocation.ts (the Allocation type), enrolments.ts, outcomes.ts (monthStatus) and commitments.ts (the Commitment type).
+ * Who calls it: app/beneficiaries/register-page.ts. Depends on: allocation.ts (the Allocation type), enrolments.ts, outcomes.ts (monthStatus) and commitments.ts (the Commitment type).
  * Pure functions: no database, no screen, so the rules can be ported to Salesforce (Apex) or another stack.
  *
  * Rules:
