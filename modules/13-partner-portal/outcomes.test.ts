@@ -30,7 +30,7 @@ const slice = (): PartnerSlice => ({
     { key: "sub:3", kind: "beneficiary", enrolmentId: "EN-1", outcomeRef: "", giftProjectId: "g1", itemId: "S", parts: 1, how: "auto", at: "x" },
     { key: "sub:4", kind: "outcome", enrolmentId: "", outcomeRef: "OUT-0007", giftProjectId: "g1", itemId: "S", parts: 1, how: "auto", at: "x" },
   ],
-  itemNames: { S: "Orphan Sponsorship Monthly" }, gifts: { "sub:3": { reference: "sub:3", recurring: true, units: 1, planned: 12, paid: 3, cause: "Orphans", intention: "", tribute: "For Aisha", phases: [], review: true, feedback: true, answerBy: "2026-11-04" } },
+  itemNames: { S: "Orphan Sponsorship Monthly" }, gifts: { "sub:3": { reference: "sub:3", recurring: true, units: 1, planned: 12, paid: 3, cause: "Orphans", intention: "", tribute: "For Aisha", phases: [], review: true, feedback: true, completeWithin: 0, answerBy: "2026-11-04" } },
 });
 
 describe("following a gift", () => {

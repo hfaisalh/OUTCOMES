@@ -23,7 +23,7 @@ const slice = (): PartnerSlice => ({
   enrolments: [{ id: "EN-1", beneficiaryId: "PRS-3", giftProjectId: "g1", clusterId: "c", itemId: "S", role: "", status: "active", since: "2026-11-01" }],
   assignments: [{ key: "sub:1", partnerId: "p1", giftProjectId: "g1", itemId: "S", parts: 1, how: "auto", at: "2026-11-02T00:00:00Z" }],
   confirmations: [], progress: [], allocations: [], itemNames: { S: "Orphan Sponsorship Monthly" },
-  gifts: { "sub:1": { reference: "sub:1", recurring: true, units: 2, planned: 12, paid: 3, cause: "Orphans", intention: "", tribute: "For my mother <Aisha>", phases: [{ label: "Visit the home", days: 7 }], review: true, feedback: false, answerBy: "2026-11-05" } },
+  gifts: { "sub:1": { reference: "sub:1", recurring: true, units: 2, planned: 12, paid: 3, cause: "Orphans", intention: "", tribute: "For my mother <Aisha>", phases: [{ label: "Visit the home", days: 7 }], review: true, feedback: false, completeWithin: 0, answerBy: "2026-11-05" } },
 });
 
 describe("the partner's home screen", () => {

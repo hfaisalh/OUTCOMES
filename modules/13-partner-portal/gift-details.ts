@@ -32,9 +32,11 @@ export interface GiftDetail {
   review: boolean; // MWF reviews the work before it is reported
   feedback: boolean; // the donor is asked for feedback
   answerBy: string; // YYYY-MM-DD, the last day to accept or refuse
+  completeWithin: number; // the days the delivery phases add up to, counted from allocation (DECISIONS 315)
+  completeBy?: string; // YYYY-MM-DD, allocation date plus those days. Absent until the gift is allocated
 }
 
-export interface GiftDetailInput { assignments: Assignment[]; workOrders: WorkOrder[]; frameworks: FrameworkTemplate[] }
+export interface GiftDetailInput { assignments: Assignment[]; workOrders: WorkOrder[]; frameworks: FrameworkTemplate[]; allocations?: { key: string; at: string }[] }
 
 export function giftDetails(i: GiftDetailInput): Record<string, GiftDetail> {
   const out: Record<string, GiftDetail> = {};
@@ -44,6 +46,9 @@ export function giftDetails(i: GiftDetailInput): Record<string, GiftDetail> {
     const first = group[0];
     const fw = i.frameworks.find((f) => f.id === first?.frameworkId);
     const steps = stepsFor(fw);
+    // Rule (DECISIONS 315): a partner is told how long it has to complete a gift: the days of its phases in all, and the last day once the gift is allocated (the earliest allocation of it).
+    const completeWithin = steps.phases.reduce((t, p) => t + p.days, 0);
+    const allocatedAt = (i.allocations ?? []).filter((r) => r.key === a.key).map((r) => r.at.slice(0, 10)).sort()[0];
     const planned = recurring ? Number(first?.instalmentCount) : NaN;
     out[a.key] = {
       reference: a.key, recurring, units: a.parts,
@@ -51,6 +56,7 @@ export function giftDetails(i: GiftDetailInput): Record<string, GiftDetail> {
       ...(recurring ? { paid: first?.planPaid ?? group.length } : {}),
       cause: first?.cause ?? "", intention: first?.intention ?? "", tribute: group.find((w) => (w.tribute ?? "") !== "")?.tribute ?? "",
       phases: steps.phases.map((p) => ({ label: p.label, days: p.days })), review: steps.review, feedback: steps.feedback,
+      completeWithin, ...(allocatedAt && completeWithin > 0 ? { completeBy: addDays(allocatedAt, completeWithin) } : {}),
       answerBy: addDays(a.at.slice(0, 10), fw ? confirmDaysOf(fw) : 3),
     };
   }

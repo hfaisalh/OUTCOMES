@@ -18,6 +18,16 @@ const fw = { id: "wf", name: "Pump", unitsPerBeneficiary: 1, unit: "pump", cycle
 const asg = (key: string, parts = 1): Assignment => ({ key, partnerId: "p1", giftProjectId: "g1", itemId: "I11", parts, how: "auto", at: "2026-11-02T09:00:00Z", batch: 1 });
 const run = (assignments: Assignment[], workOrders: WorkOrder[]) => giftDetails({ assignments, workOrders, frameworks: [fw] });
 
+describe("how long a partner has to complete a gift (decision 315)", () => {
+  it("adds up the phase days, and gives the last day once the gift is allocated", () => {
+    const before = run([asg("G1")], [wo("G1")])["G1"]!;
+    expect(before.completeWithin).toBe(28); // 7 days to survey and 21 to build
+    expect(before.completeBy).toBeUndefined(); // not allocated yet
+    const after = giftDetails({ assignments: [asg("G1")], workOrders: [wo("G1")], frameworks: [fw], allocations: [{ key: "G1", at: "2026-11-10T08:00:00Z" }] })["G1"]!;
+    expect(after.completeBy).toBe("2026-12-08");
+  });
+});
+
 describe("what a partner may know about a gift", () => {
   it("describes a one-off gift: the facts, the tribute from the start, what delivering it involves, and when to answer by", () => {
     const d = run([asg("G1", 2)], [wo("G1", { tribute: "For my late mother, Aisha" })])["G1"]!;
@@ -44,7 +54,7 @@ describe("what a partner may know about a gift", () => {
     const all = JSON.stringify(run([asg("G1")], [wo("G1", { tribute: "A tribute" })]));
     for (const secret of ["Private Donor Name", "DONOR-777", "Secret Group", "T-SECRET-REF", "GBP"]) expect(all).not.toContain(secret);
     expect(all).not.toMatch(/amount|lineTotal|price|currency|supporter/i);
-    expect(Object.keys(run([asg("G1")], [wo("G1")])["G1"]!).sort()).toEqual(["answerBy", "cause", "feedback", "intention", "phases", "recurring", "reference", "review", "tribute", "units"]);
+    expect(Object.keys(run([asg("G1")], [wo("G1")])["G1"]!).sort()).toEqual(["answerBy", "cause", "completeWithin", "feedback", "intention", "phases", "recurring", "reference", "review", "tribute", "units"]);
   });
 
   it("still describes a gift whose work order is missing, with empty facts", () => {

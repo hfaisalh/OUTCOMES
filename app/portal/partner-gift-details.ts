@@ -20,8 +20,15 @@ function delivery(d: GiftDetail): string {
   return `${phases}${after ? `<div class="muted">After delivery: ${esc(after)}.</div>` : ""}`;
 }
 
+// Rule (DECISIONS 315): how long the partner has to complete the gift, counted from allocation, and the last day once it is allocated.
+function complete(d: GiftDetail): string {
+  if (d.completeWithin <= 0) return `<span class="muted">No time limit is set for this workflow.</span>`;
+  const by = d.completeBy ? `, by <b>${esc(shortDate(d.completeBy))}</b>` : `, counted from the day it is allocated`;
+  return `${plural(d.completeWithin, "day", "days")}${by}`;
+}
+
 export function giftDetailHtml(d: GiftDetail): string {
   const kind = d.recurring ? `Recurring${d.planned ? `: ${d.paid ?? 0} of ${d.planned} payments made` : d.paid ? `: ${plural(d.paid, "payment", "payments")} made so far` : ""}` : "One-off";
   const row = (label: string, value: string): string => `<div class="gd-row"><dt>${esc(label)}</dt><dd>${value}</dd></div>`;
-  return `<dl class="gd">${row("Gift reference", esc(d.reference))}${row("Units to deliver", String(d.units))}${row("Type", esc(kind))}${row("Cause", text(d.cause))}${row("Intention", text(d.intention))}${row("Tribute", text(d.tribute))}${row("Answer by", esc(shortDate(d.answerBy)))}${row("To deliver it", delivery(d))}</dl>`;
+  return `<dl class="gd">${row("Gift reference", esc(d.reference))}${row("Units to deliver", String(d.units))}${row("Type", esc(kind))}${row("Cause", text(d.cause))}${row("Intention", text(d.intention))}${row("Tribute", text(d.tribute))}${row("Answer by", esc(shortDate(d.answerBy)))}${row("Time to complete", complete(d))}${row("To deliver it", delivery(d))}</dl>`;
 }
