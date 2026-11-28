@@ -1691,7 +1691,7 @@ document.addEventListener("click", (e) => {
     case "stock-add": return clusterRequestThen("Parked outcome added.", { action: "alc-stock-add", clusterId: id, itemId: val("st-item"), partnerId: val("st-partner"), name: val("st-name") });
     case "stock-rm": return clusterRequestThen("Parked outcome removed.", { action: "alc-stock-remove", id });
     case "node-tab": clusterUi.nodeTab = b.dataset.tab === "inside" ? "inside" : b.dataset.tab === "people" ? "people" : b.dataset.tab === "outcomes" ? "outcomes" : "details"; clusterUi.adding = ""; return clusterView();
-    case "node-save": return clusterRequestThen("Saved.", { action: "cluster-set", clusterId: id, name: val("cn-name"), label: val("cn-label"), place: val("cn-place"), roles: val("cn-roles"), status: val("cn-status"), ...(document.getElementById("cn-capacity") ? { capacity: val("cn-capacity") } : {}) });
+    case "node-save": return clusterRequestThen("Saved.", { action: "cluster-set", clusterId: id, name: val("cn-name"), label: val("cn-label"), place: val("cn-place"), ...placeOfWindow(), roles: val("cn-roles"), status: val("cn-status"), ...(document.getElementById("cn-capacity") ? { capacity: val("cn-capacity") } : {}) });
     case "cluster-add": { // Rule: capacity belongs to the master cluster only, so a sub cluster is sent none.
       if (id === "") return clusterRequest({ action: "cluster-add", name: val("cl-tname"), label: val("cl-tlabel"), parentId: "", place: val("cl-tplace"), capacity: val("cl-tcap") });
       closedClusters.delete(id);
@@ -1783,6 +1783,13 @@ document.addEventListener("click", (e) => {
 
 // ---- The Beneficiaries page and its window (DECISIONS 163) ----
 // The window that adds or changes one beneficiary, drawn outside the page that is redrawn. `draft` keeps what was typed when a save is refused.
+// The place chosen in a place picker on screen (DECISIONS 274), as the fields a request carries: its id, and the place itself so the server can keep it once.
+function placeOfWindow(): Record<string, unknown> {
+  const get = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value ?? "";
+  let location: unknown;
+  try { location = get("pe-location") === "" ? undefined : JSON.parse(get("pe-location")); } catch { location = undefined; }
+  return { locationId: get("pe-locationId"), ...(location ? { location } : {}) };
+}
 // The window that fixes typed areas (DECISIONS 276). It lives apart from the page, so a redraw of the page does not close it.
 function renderAreasWindow(): void {
   let root = document.getElementById("area-root");

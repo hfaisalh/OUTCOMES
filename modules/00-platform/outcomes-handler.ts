@@ -368,6 +368,9 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
         if (r.error) return fail(r.error);
         ({ projects, nodes, outcomes, partnerTypes, partnerFields, giftProjects } = r.state);
         if (r.warning) extra = { warning: r.warning };
+        // Rule (DECISIONS 277): a place chosen for a cluster is kept in the organisation's list, once.
+        const chosen = acceptPlace(b["location"]);
+        if (chosen && chosen.id === b["locationId"]) config.locations = upsertPlace(config.locations ?? [], chosen);
         const pooled = await settlePoolNow(); // a bigger capacity, a new cluster or "Enrol automatically" may have opened room
         if (pooled) extra = { ...extra, warning: [extra["warning"], pooled].filter((x) => x).join(" ") };
       }

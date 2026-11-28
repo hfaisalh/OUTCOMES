@@ -134,3 +134,18 @@ describe("requests and older projects", () => {
     expect(clusterStateOf(undefined, undefined)).toEqual({ clusters: [] });
   });
 });
+
+describe("a checked place on a cluster (DECISIONS 277)", () => {
+  it("keeps a valid place id with the location, and clears it when the location is typed over", () => {
+    const added = addCluster(emptyClusters(), { name: "Lahore Home", place: "Lahore, Punjab, Pakistan", locationId: "osm:N1" });
+    if ("error" in added) throw new Error(added.error);
+    const c = added.value.clusters[0]!;
+    expect(c.locationId).toBe("osm:N1");
+    const typed = setCluster(added.value, c.id, { place: "Lahore City" });
+    if ("error" in typed) throw new Error(typed.error);
+    expect(typed.value.clusters[0]).not.toHaveProperty("locationId");
+    const bad = addCluster(emptyClusters(), { name: "Other", place: "x", locationId: "<b>" });
+    if ("error" in bad) throw new Error(bad.error);
+    expect(bad.value.clusters[0]).not.toHaveProperty("locationId");
+  });
+});

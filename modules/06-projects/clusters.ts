@@ -18,6 +18,8 @@
  * - Nothing is changed in place: every function returns a new value.
  */
 
+import { validPlaceId } from "../14-locations/locations.js";
+
 // Kept only to read what older projects saved.
 export interface ClusterLevel { id: string; name: string; parentId: string }
 export type ClusterStatus = "active" | "closed";
@@ -27,6 +29,7 @@ export interface Cluster {
   label: string; // what it is called: Home, Classroom, Faculty. "" when not said
   parentId: string; // "" sits in nothing (a top cluster)
   place: string;
+  locationId?: string; // the checked place the Location was chosen from (DECISIONS 274, 277). Absent when only typed
   capacity?: number; // top clusters only
   status: ClusterStatus;
   roles?: string[]; // the people it needs, for example Principal
@@ -86,7 +89,7 @@ export function suggestLabel(s: ClusterState, parentId: string): string {
   return s.clusters.find((c) => c.label !== "" && depthOf(s, c) === depth)?.label ?? "";
 }
 
-export function addCluster(s: ClusterState, raw: { name: unknown; label?: unknown; parentId?: unknown; place?: unknown; capacity?: unknown; roles?: unknown }): Result {
+export function addCluster(s: ClusterState, raw: { name: unknown; label?: unknown; parentId?: unknown; place?: unknown; locationId?: unknown; capacity?: unknown; roles?: unknown }): Result {
   const name = clean(raw.name).slice(0, 80);
   const parentId = clean(raw.parentId);
   if (name.length < 2) return { error: "Give the cluster a name." };
@@ -97,12 +100,12 @@ export function addCluster(s: ClusterState, raw: { name: unknown; label?: unknow
   const roles = cleanRoles(raw.roles ?? "");
   if (roles === "bad") return { error: `A cluster has at most ${MAX_ROLES} roles.` };
   const label = raw.label === undefined ? suggestLabel(s, parentId) : clean(raw.label).slice(0, 40);
-  const cluster: Cluster = { id: uniqueId(name, s.clusters.map((c) => c.id)), name, label, parentId, place: clean(raw.place).slice(0, 120), ...(capacity !== undefined && parentId === "" ? { capacity } : {}), status: "active", ...(roles.length ? { roles } : {}) };
+  const cluster: Cluster = { id: uniqueId(name, s.clusters.map((c) => c.id)), name, label, parentId, place: clean(raw.place).slice(0, 120), ...(validPlaceId(raw.locationId) ? { locationId: raw.locationId } : {}), ...(capacity !== undefined && parentId === "" ? { capacity } : {}), status: "active", ...(roles.length ? { roles } : {}) };
   return { value: { clusters: [...s.clusters, cluster] } };
 }
 
 // Rule: a cluster can change its name, label, place, capacity (top cluster only), status and roles. Where it sits does not change (remove it and add it again instead).
-export function setCluster(s: ClusterState, id: string, patch: { name?: unknown; label?: unknown; place?: unknown; capacity?: unknown; status?: unknown; roles?: unknown }): Result {
+export function setCluster(s: ClusterState, id: string, patch: { name?: unknown; label?: unknown; place?: unknown; locationId?: unknown; capacity?: unknown; status?: unknown; roles?: unknown }): Result {
   const c = s.clusters.find((x) => x.id === id);
   if (!c) return { error: "That cluster was not found." };
   const next: Cluster = { ...c };
@@ -114,6 +117,8 @@ export function setCluster(s: ClusterState, id: string, patch: { name?: unknown;
   }
   if (patch.label !== undefined) next.label = clean(patch.label).slice(0, 40);
   if (patch.place !== undefined) next.place = clean(patch.place).slice(0, 120);
+  // Rule (DECISIONS 277): the place id goes with the Location text. Typing over a chosen place sends no id, which clears it.
+  if (patch.place !== undefined || patch.locationId !== undefined) { if (validPlaceId(patch.locationId)) next.locationId = patch.locationId; else delete next.locationId; }
   if (patch.capacity !== undefined) {
     const cap = validCapacity(patch.capacity);
     if (cap === "bad") return { error: "Capacity is a whole number, or leave it empty." };
@@ -192,8 +197,8 @@ export function pathOf(s: ClusterState, id: string): Cluster[] {
 export function applyClusterAction(s: ClusterState, body: Record<string, unknown>, held: (clusterId: string) => number = () => 0): Result | null {
   const str = (k: string) => (typeof body[k] === "string" ? (body[k] as string) : "");
   switch (body["action"]) {
-    case "cluster-add": return addCluster(s, { name: body["name"], ...(body["label"] !== undefined ? { label: body["label"] } : {}), parentId: body["parentId"], place: body["place"], capacity: body["capacity"], roles: body["roles"] });
-    case "cluster-set": return setCluster(s, str("clusterId"), { ...(typeof body["name"] === "string" ? { name: body["name"] } : {}), ...(typeof body["label"] === "string" ? { label: body["label"] } : {}), ...(typeof body["place"] === "string" ? { place: body["place"] } : {}), ...(body["capacity"] !== undefined ? { capacity: body["capacity"] } : {}), ...(typeof body["status"] === "string" ? { status: body["status"] } : {}), ...(typeof body["roles"] === "string" ? { roles: body["roles"] } : {}) });
+    case "cluster-add": return addCluster(s, { name: body["name"], ...(body["label"] !== undefined ? { label: body["label"] } : {}), parentId: body["parentId"], place: body["place"], locationId: body["locationId"], capacity: body["capacity"], roles: body["roles"] });
+    case "cluster-set": return setCluster(s, str("clusterId"), { ...(typeof body["name"] === "string" ? { name: body["name"] } : {}), ...(typeof body["label"] === "string" ? { label: body["label"] } : {}), ...(typeof body["place"] === "string" ? { place: body["place"] } : {}), ...(body["locationId"] !== undefined ? { locationId: body["locationId"] } : {}), ...(body["capacity"] !== undefined ? { capacity: body["capacity"] } : {}), ...(typeof body["status"] === "string" ? { status: body["status"] } : {}), ...(typeof body["roles"] === "string" ? { roles: body["roles"] } : {}) });
     case "cluster-remove": return removeCluster(s, str("clusterId"), held(str("clusterId")));
     default: return null;
   }
