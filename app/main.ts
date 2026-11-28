@@ -103,6 +103,7 @@ import { dropWindow, putWindow, reducedMotion } from "./shared/windows";
 import { placeOfWindow, renderBenWindow } from "./beneficiaries/beneficiary-window";
 import { renderAreasWindow } from "./dashboard/areas-window";
 import "./dashboard/scatter-open";
+import { renderPrgWindow } from "./allocation/progress-window-session";
 import { state, keepPageInAddress } from "./state";
 
 
@@ -511,6 +512,7 @@ function draw(): void {
   placePopover();
   renderGiftWindow();
   renderCnfWindow();
+  renderPrgWindow();
 }
 
 // The Confirmation window of one batch, drawn outside the page. It is drawn again after every answer, keeping the scroll place, and closes itself if the batch is gone.

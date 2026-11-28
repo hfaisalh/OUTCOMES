@@ -8,7 +8,7 @@
  * - Rule: a gift has no progress until it is allocated. Placing it is what starts the partner's work.
  * - Rule: the steps run in order: the workflow's implementation phases, then Review (unless the workflow does not ask MWF to approve), Report, Complete, and Feedback (unless the workflow does not ask the donor). The next step is the first one not yet taken.
  * - Rule: a phase is due its number of days after the step before it was taken (the first, after the gift was allocated). A phase not taken past its due day is late. Late is advised, not acted on.
- * - Rule (DECISIONS 320): at Review, MWF can reject the work and send it back to the partner, with a reason that is kept. The last phase of the workflow is opened again and falls due its days after the rejection; the steps before it stay done. Review is taken again once the partner has done it again. A gift with no phases has nothing to send back, so it cannot be rejected. Taking back the latest step also takes back a rejection.
+ * - Rule (DECISIONS 320): at Review, MWF can reject the work and send it back to the partner, with a reason that is kept. The last phase of the workflow is opened again and falls due its days after the rejection; the steps before it stay done. Review is taken again once the partner has done it again. A workflow with no phases has none to open, so the gift gets a step of its own, "Put right by the partner", which a person marks when the partner has done it; Review comes after. Taking back the latest step also takes back a rejection.
  * - Rule: a person can take back the latest step, one at a time, so a slip can be put right without a record being edited.
  * - Rule: a step of a gift in a closed batch cannot be taken back until the batch is opened again, so a closed batch never holds a gift that is not complete.
  * - Rule: a gift is complete once its Complete step is taken (or any later one). A batch is ready to close when every gift in it is complete, and is closed by a person, never by itself. A closed batch can be opened again.
@@ -16,9 +16,9 @@
  * - Nothing is changed in place: every function returns a new value.
  */
 
-export type StageId = "review" | "report" | "complete" | "feedback";
-export const STAGE_LABELS: Record<StageId, string> = { review: "Reviewed", report: "Reported", complete: "Completed", feedback: "Feedback" };
-export const STAGE_VERBS: Record<StageId, string> = { review: "Mark reviewed", report: "Mark reported", complete: "Mark completed", feedback: "Mark feedback received" };
+export type StageId = "review" | "report" | "complete" | "feedback" | "resubmit";
+export const STAGE_LABELS: Record<StageId, string> = { review: "Reviewed", report: "Reported", complete: "Completed", feedback: "Feedback", resubmit: "Put right by the partner" };
+export const STAGE_VERBS: Record<StageId, string> = { review: "Mark reviewed", report: "Mark reported", complete: "Mark completed", feedback: "Mark feedback received", resubmit: "Partner has put it right" };
 
 export interface ProgressEntry {
   key: string; // the gift (assignment) it is about, or "<partner>|<batch>" for a batch
@@ -39,7 +39,7 @@ export interface GiftProgress {
   allocated: boolean;
   steps: StepRow[]; // every step in order, taken or not
   next: StepRow | undefined; // the first not taken, undefined when all are
-  stage: "allocation" | StageId; // where the gift stands: still with the partner, or the last stage taken
+  stage: "allocation" | Exclude<StageId, "resubmit">; // where the gift stands: still with the partner, or the last stage taken
   complete: boolean; // the Complete step (or a later one) is taken. For a living gift: the first round is complete
   sentBack?: { at: string; reason: string; phase: string }; // MWF rejected the review and the last phase is open again (DECISIONS 320)
   round?: number; // a living gift: the round it is in, from 1
@@ -78,12 +78,15 @@ export function progressOf(key: string, allocatedAt: string | undefined, records
     if (hit) from = hit.at;
     return { kind: s.kind, id: s.id, label: s.label, done: hit !== undefined, doneAt: hit?.at ?? "", due, lateDays: late };
   });
+  // Rule (DECISIONS 320, 322): with no phase to open, a rejection adds the step "Put right by the partner" before Review, until it is marked.
+  const fix = rejectAt !== undefined && lastPhase === undefined && !mine.some((r) => r.kind === "stage" && r.id === "resubmit" && r.at > (rejectAt as string));
+  if (fix) rows.splice(Math.max(0, rows.findIndex((r) => r.id === "review") >= 0 ? rows.findIndex((r) => r.id === "review") : rows.findIndex((r) => r.id === "report")), 0, { kind: "stage", id: "resubmit", label: STAGE_LABELS.resubmit, done: false, doneAt: "", due: "", lateDays: 0 });
   const next = allocated ? rows.find((r) => !r.done) : undefined;
-  const lastStage = [...rows].reverse().find((r) => r.kind === "stage" && r.done);
+  const lastStage = [...rows].reverse().find((r) => r.kind === "stage" && r.done && r.id !== "resubmit");
   const complete = rows.some((r) => r.kind === "stage" && r.done && (r.id === "complete" || r.id === "feedback"));
   const rej = mine.filter((r) => r.kind === "reject").sort((x, y) => y.at.localeCompare(x.at))[0];
-  const open = rej && rows.find((r) => r.kind === "phase" && r.id === lastPhase && !r.done);
-  return { allocated, steps: rows, next, stage: lastStage ? (lastStage.id as StageId) : "allocation", complete, ...(rej && open ? { sentBack: { at: rej.at, reason: rej.reason ?? "", phase: open.label } } : {}) };
+  const open = rej && (fix ? { label: "" } : rows.find((r) => r.kind === "phase" && r.id === lastPhase && !r.done));
+  return { allocated, steps: rows, next, stage: lastStage ? (lastStage.id as Exclude<StageId, "resubmit">) : "allocation", complete, ...(rej && open ? { sentBack: { at: rej.at, reason: rej.reason ?? "", phase: open.label } } : {}) };
 }
 
 
@@ -157,10 +160,9 @@ export function applyProgressAction(ctx: ProgressContext, existing: Progress, bo
       const p = progressOf(str("key"), g.allocatedAt, existing.records, g.steps, ctx.today, g.endedAt);
       if (p.next?.id !== "review") return { error: "Only a gift waiting for its review can be rejected." };
       const last = g.steps.phases.at(-1);
-      if (!last) return { error: "This workflow has no phase to send back to the partner." };
       const reason = str("reason").trim().replace(/\s+/g, " ").slice(0, 300);
       if (reason === "") return { error: "Say why the work is rejected, so the partner knows what to put right." };
-      return { value: { records: [...existing.records, { key: str("key"), kind: "reject", id: "review", at, by, reason }] }, message: `Sent back to the partner: ${last.label}.` };
+      return { value: { records: [...existing.records, { key: str("key"), kind: "reject", id: "review", at, by, reason }] }, message: last ? `Sent back to the partner: ${last.label}.` : "Sent back to the partner." };
     }
     case "prg-undo": {
       const mine = existing.records.filter((r) => r.key === str("key") && r.kind !== "batch").sort((x, y) => y.at.localeCompare(x.at));

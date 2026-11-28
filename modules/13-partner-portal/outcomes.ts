@@ -43,7 +43,7 @@ export function partnerOutcomes(s: PartnerSlice): PartnerOutcome[] {
     // Rule (DECISIONS 321): a partner is told when MWF sent its work back, why, and the last day to put it right: the days of the last phase from the rejection. It is shown until a phase is done again after the rejection.
     const rej = s.progress.filter((r) => r.key === a.key && r.kind === "reject").sort((x, y) => y.at.localeCompare(x.at))[0];
     const lastPhase = s.gifts[a.key]?.phases.at(-1);
-    const back = rej && lastPhase && !steps.some((r) => r.kind === "phase" && r.at > rej.at) ? { reason: rej.reason ?? "", phase: lastPhase.label, due: lastPhase.days > 0 ? addDays(rej.at.slice(0, 10), lastPhase.days) : "" } : undefined;
+    const back = rej && !steps.some((r) => (r.kind === "phase" || r.id === "resubmit") && r.at > rej.at) ? { reason: rej.reason ?? "", phase: lastPhase?.label ?? "", due: lastPhase && lastPhase.days > 0 ? addDays(rej.at.slice(0, 10), lastPhase.days) : "" } : undefined;
     const last = steps[steps.length - 1];
     const standing: Standing = answer?.answer === "rejected" ? "refused" : steps.some((r) => r.kind === "stage" && r.id === "complete") ? "complete" : held.length > 0 ? "allocated" : answer ? "confirmed" : "to-answer";
     return {

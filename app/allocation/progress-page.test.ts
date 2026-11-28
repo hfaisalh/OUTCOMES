@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { progressPage } from "./progress-page";
+import { progressWindowHtml } from "./progress-window";
 import type { View } from "../shared/pages";
 import type { WorkOrder } from "../../modules/01c-crm-connector/work-orders";
 import type { Project } from "../../modules/06-projects/projects";
@@ -58,15 +59,38 @@ describe("a living gift on the Progress page (decision 319)", () => {
   });
 });
 
-describe("rejecting at review on the Progress page (decision 320)", () => {
+describe("the review window on the Progress page (decisions 320, 322)", () => {
   const phase = { key: "G01", kind: "phase" as const, id: "check", at: "2026-11-10T00:00:00Z", by: "Sam" };
-  it("offers a reason box and a Reject button when a gift waits for review, and shows why a rejected one was sent back", () => {
+  it("shows a Review button on a row waiting for review, and every row opens its window", () => {
     const html = progressPage(view({ progress: { records: [phase] } }));
+    expect(html).toContain('data-prgwin="G01"');
+    expect(html).toContain('class="primary" data-prgwin="G01">Review');
+    expect(html).not.toContain('data-prg="reject"'); // the decision is in the window, not in the row
+    expect(html).toContain('data-prg="next" data-key="G02">Done: Basic check'); // another step keeps its one-click button
+  });
+  it("opens on the gift with what is reviewed, its steps, and Reviewed or Reject with a reason", () => {
+    const html = progressWindowHtml(view({ progress: { records: [phase] } }), "G01");
+    expect(html).toContain("What you are reviewing");
+    expect(html).toContain("Donor G01");
+    expect(html).toContain("OUT-G01"); // what it funds
+    expect(html).toContain("Basic check");
+    expect(html).toContain('data-prg="next" data-key="G01" data-prgwinclose="1">Reviewed');
     expect(html).toContain('data-rj="G01"');
+    expect(html).toContain('data-prg="reject" data-key="G01" data-prgwinclose="1"');
+  });
+  it("shows why a rejected gift was sent back, and its history", () => {
+    const rej = { key: "G01", kind: "reject" as const, id: "review", at: "2026-11-12T00:00:00Z", by: "MWF", reason: "Photo is blurred" };
+    const html = progressWindowHtml(view({ progress: { records: [phase, rej] } }), "G01");
+    expect(html).toContain("Sent back to the partner (Basic check): Photo is blurred");
+    expect(html).toContain("Sent back before");
+    expect(html).not.toContain('data-prg="reject"'); // it is with the partner again, so there is nothing to reject yet
+  });
+  it("offers Reject in a workflow with no phases too, since it then asks for the step Put right by the partner", () => {
+    const none = { ...fw, stages: [] };
+    const html = progressWindowHtml(view({ frameworks: [none] as unknown as View["frameworks"] }), "G01");
     expect(html).toContain('data-prg="reject" data-key="G01"');
-    expect(html).not.toContain('data-rj="G02"'); // G02 has not done its phase yet
-    const back = progressPage(view({ progress: { records: [phase, { key: "G01", kind: "reject" as const, id: "review", at: "2026-11-12T00:00:00Z", by: "MWF", reason: "Photo is blurred" }] } }));
-    expect(back).toContain("Sent back to the partner (Basic check): Photo is blurred");
-    expect(back).not.toContain('data-prg="reject" data-key="G01"');
+  });
+  it("is empty for a gift that is not allocated", () => {
+    expect(progressWindowHtml(view(), "G03")).toBe("");
   });
 });

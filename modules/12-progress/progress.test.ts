@@ -151,11 +151,20 @@ describe("rejecting the work at review (decision 320)", () => {
     expect(p.next?.id).toBe("review");
     expect(p.sentBack).toBeUndefined();
   });
-  it("needs a reason, a gift waiting for review, and a phase to send back to", () => {
+  it("needs a reason and a gift waiting for review", () => {
     expect("error" in (reject(upToReview, "  ") as object)).toBe(true);
     expect("error" in (reject([rec("check", "2026-11-05T09:00:00Z")]) as object)).toBe(true); // not at review yet
+  });
+  it("with no phase to open, adds the step Put right by the partner before Review, until a person marks it (decision 322)", () => {
     const none: ProgressContext = { ...ctx, gift: () => ({ allocatedAt: ALLOCATED, steps: { phases: [], review: true, feedback: true } }) };
-    expect("error" in (reject([], "x", none) as object)).toBe(true);
+    const r = reject([], "The photo is blurred", none) as { value: { records: typeof upToReview } };
+    const p = progressOf("sub:S1", ALLOCATED, r.value.records, { phases: [], review: true, feedback: true }, "2026-11-25");
+    expect(p.next).toMatchObject({ id: "resubmit", label: "Put right by the partner" });
+    expect(p.sentBack?.reason).toBe("The photo is blurred");
+    const fixed = [...r.value.records, rec("resubmit", "2026-11-26T09:00:00Z", "stage")];
+    const after = progressOf("sub:S1", ALLOCATED, fixed, { phases: [], review: true, feedback: true }, "2026-11-27");
+    expect(after.next?.id).toBe("review");
+    expect(after.sentBack).toBeUndefined();
   });
   it("taking back the latest step takes back a rejection", () => {
     const r = reject(upToReview) as { value: { records: typeof upToReview } };

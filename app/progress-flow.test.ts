@@ -24,6 +24,8 @@ const el = (attrs: Record<string, string>, match: string) => ({ dataset: attrs, 
 const fire = (type: string, e: unknown) => (handlers[type] ?? []).forEach((h) => h(e));
 const click = (attrs: Record<string, string>, match: string) => fire("click", { target: el(attrs, match) });
 const flush = () => new Promise((r) => setTimeout(r, 20));
+// A gift has a next step when its row offers a step button, or the Review button that opens its window (decision 322).
+const hasNext = (k: string): boolean => shell.innerHTML.includes(`data-prg="next" data-key="${k}"`) || shell.innerHTML.includes(`class="primary" data-prgwin="${k}">Review`);
 const toggle = (item: string, wf: string): void => fire("change", { target: { id: "", dataset: { wfToggle: item, wf }, checked: true, value: "" } });
 
 describe("Progress, used like a person would", () => {
@@ -44,12 +46,12 @@ describe("Progress, used like a person would", () => {
     click({ page: "progress" }, "data-page");
     expect(shell.innerHTML).toContain("<h1>Progress</h1>");
     expect(shell.innerHTML).toContain('data-tile="prg:partner" aria-pressed="false"><b>2</b><span>With the partner</span>');
-    const keys = [...shell.innerHTML.matchAll(/data-prg="next" data-key="([^"]+)"/g)].map((m) => m[1]!);
+    const keys = [...shell.innerHTML.matchAll(/data-prg="next" data-key="([^"]+)"|class="primary" data-prgwin="([^"]+)">Review/g)].map((m) => (m[1] ?? m[2])!);
     expect(keys).toHaveLength(2);
 
     // Take every step of the first gift, one click at a time, until nothing is left to take.
-    for (let i = 0; i < 12 && shell.innerHTML.includes(`data-prg="next" data-key="${keys[0]}"`); i++) { click({ prg: "next", key: keys[0]! }, "data-prg"); await flush(); }
-    expect(shell.innerHTML).not.toContain(`data-prg="next" data-key="${keys[0]}"`);
+    for (let i = 0; i < 12 && hasNext(keys[0]!); i++) { click({ prg: "next", key: keys[0]! }, "data-prg"); await flush(); }
+    expect(hasNext(keys[0]!)).toBe(false);
     expect(shell.innerHTML).toContain("All steps taken");
     expect(shell.innerHTML).toContain('data-tile="prg:complete" aria-pressed="false"><b>1</b><span>Complete</span>');
 
@@ -59,7 +61,7 @@ describe("Progress, used like a person would", () => {
 
     // Complete the second gift too: the batch is ready, a person closes it, and a step cannot be taken back in a closed batch until it is opened again.
     click({ page: "progress" }, "data-page");
-    for (let i = 0; i < 12 && shell.innerHTML.includes(`data-prg="next" data-key="${keys[1]}"`); i++) { click({ prg: "next", key: keys[1]! }, "data-prg"); await flush(); }
+    for (let i = 0; i < 12 && hasNext(keys[1]!); i++) { click({ prg: "next", key: keys[1]! }, "data-prg"); await flush(); }
     click({ page: "work-orders" }, "data-page");
     expect(shell.innerHTML).toContain('pill stage st-feedback'); // the Gifts list shows the stage the gift has reached (all steps taken, so Feedback)
     click({ page: "assignment" }, "data-page");

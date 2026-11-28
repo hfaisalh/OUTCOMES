@@ -18,6 +18,12 @@ import { esc, type View } from "../shared/pages";
 const MAX_ROWS = 150;
 export type ProgressFilter = "all" | "partner" | "late" | "review" | "complete";
 
+// The assignable gifts by key (what each gift is, who paid, the units), for the page and the window.
+export function giftUnitsOf(v: View): Map<string, ReturnType<typeof assignables>[number]> {
+  const ctx = contextFrom({ urgent: prioritySet(v.priorityGifts), workOrders: v.workOrders, partners: v.projects ?? [], giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today: v.today ?? "2026-01-01", now: `${v.today ?? "2026-01-01"}T00:00:00Z` });
+  return new Map(assignables(ctx).map((u) => [u.key, u]));
+}
+
 // --- Where every assigned gift stands, read once per page ---
 export function standingsOf(v: View): GiftStanding[] {
   const today = v.today ?? "2026-01-01";
@@ -37,8 +43,7 @@ export function progressPage(v: View): string {
   const allocated = standingsOf(v).filter((s) => s.allocated);
   const filter = (v.prgFilter ?? "all") as ProgressFilter;
   const partners = v.projects ?? [];
-  const ctx = contextFrom({ urgent: prioritySet(v.priorityGifts), workOrders: v.workOrders, partners, giftProjects: v.giftProjects ?? [], frameworks: v.frameworks ?? [], outcomeTypes: v.outcomeTypes ?? [], today: v.today ?? "2026-01-01", now: `${v.today ?? "2026-01-01"}T00:00:00Z` });
-  const units = new Map(assignables(ctx).map((u) => [u.key, u]));
+  const units = giftUnitsOf(v);
   const count = (f: ProgressFilter): number => allocated.filter((s) => matches(s, f)).length;
   const tile = (f: ProgressFilter, label: string, cls = ""): string => `<button type="button" class="metric tile${cls}" data-tile="prg:${f}" aria-pressed="${filter === f ? "true" : "false"}"><b>${count(f)}</b><span>${label}</span></button>`;
   const shown = allocated.filter((s) => matches(s, filter)).sort((x, y) => Number(isLate(y)) - Number(isLate(x)) || (x.next?.due || "9").localeCompare(y.next?.due || "9"));
@@ -49,10 +54,11 @@ export function progressPage(v: View): string {
       : `<span class="pill ready">${SYM.ok} All steps taken</span>`;
     // Rule (DECISIONS 320): a rejected review shows why, until the partner has done the phase again.
     const back = s.sentBack ? `<div class="muted rj-note" title="Rejected at review">${SYM.pastDue} Sent back to the partner (${esc(s.sentBack.phase)}): ${esc(s.sentBack.reason)}</div>` : "";
-    const reject = s.next?.id === "review" && s.steps.some((x) => x.kind === "phase") ? ` <input class="rj" data-rj="${esc(s.key)}" placeholder="Reason, to reject" aria-label="Reason for rejecting the work"> <button type="button" data-prg="reject" data-key="${esc(s.key)}" title="Send the work back to the partner">Reject</button>` : "";
+    // Rule (DECISIONS 322): the review step opens the gift's window, where the work is looked at and Reviewed or Reject is chosen; the other steps keep their one-click button.
+    const reviewBtn = s.next?.id === "review";
     const any = s.steps.some((x) => x.done);
-    const acts = `${s.next ? `<button type="button" class="primary" data-prg="next" data-key="${esc(s.key)}">${esc(s.next.kind === "phase" ? `Done: ${s.next.label}` : STAGE_VERBS[s.next.id as StageId])}</button>` : ""}${any ? ` <button type="button" data-prg="undo" data-key="${esc(s.key)}" title="Take the latest step back">Undo</button>` : ""}${reject}`;
-    return `<tr><td class="clip" title="${esc(u ? `${u.w.supporterName} · ${u.w.itemName}` : s.key)}">${u ? siteBadge(u.w.site, u.w.currency) : ""}${esc(u ? `${u.w.supporterName} · ${u.w.itemName}` : s.key)}</td><td class="clip">${esc(partners.find((p) => p.id === s.partnerId)?.name ?? s.partnerId)}</td><td class="num">${s.batch ?? ""}</td><td>${s.complete ? `<span class="pill ready">${SYM.completed} ${esc(stageName(s))}</span>` : `<span class="pill">${esc(stageName(s))}</span>`}</td><td>${next}${back}</td><td class="num">${esc(shortDate(s.next?.due ?? ""))}</td><td class="acts">${acts}</td></tr>`;
+    const acts = `${reviewBtn ? `<button type="button" class="primary" data-prgwin="${esc(s.key)}">Review</button>` : s.next ? `<button type="button" class="primary" data-prg="next" data-key="${esc(s.key)}">${esc(s.next.kind === "phase" ? `Done: ${s.next.label}` : STAGE_VERBS[s.next.id as StageId])}</button>` : ""}${any ? ` <button type="button" data-prg="undo" data-key="${esc(s.key)}" title="Take the latest step back">Undo</button>` : ""}`;
+    return `<tr data-prgwin="${esc(s.key)}" tabindex="0" class="clickrow"><td class="clip" title="${esc(u ? `${u.w.supporterName} · ${u.w.itemName}` : s.key)}">${u ? siteBadge(u.w.site, u.w.currency) : ""}${esc(u ? `${u.w.supporterName} · ${u.w.itemName}` : s.key)}</td><td class="clip">${esc(partners.find((p) => p.id === s.partnerId)?.name ?? s.partnerId)}</td><td class="num">${s.batch ?? ""}</td><td>${s.complete ? `<span class="pill ready">${SYM.completed} ${esc(stageName(s))}</span>` : `<span class="pill">${esc(stageName(s))}</span>`}</td><td>${next}${back}</td><td class="num">${esc(shortDate(s.next?.due ?? ""))}</td><td class="acts">${acts}</td></tr>`;
   }).join("");
   return `<h1>Progress</h1>
     <p class="sub">After a gift is allocated, the partner works through the phases of its workflow. Then it is reviewed, reported, completed and, where the workflow asks, the donor gives feedback. A person takes each step here for now. A phase past its due day is flagged, never moved by itself. A batch closes, on the Assignment page, once every gift in it is complete.</p>
