@@ -757,3 +757,6 @@ button.metric.tile:focus-visible{outline:2px solid var(--accent);outline-offset:
 .fc-badge.loop circle{stroke:var(--accent)}
 .fc-badge.loop .fc-ri{stroke:var(--accent)}
 .fc-badge.loop.off .slash{stroke:#c0392b;stroke-width:2}
+.fc-edge.loop{stroke-dasharray:2 5;stroke-linecap:round}
+.fc-loopbtn{cursor:pointer}.fc-loopbtn:hover circle,.fc-loopbtn.on circle{fill:var(--accent-bg);stroke-width:2.6}
+.fc-step:focus-visible .fc-loopbtn circle{stroke-width:3}

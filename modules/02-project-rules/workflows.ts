@@ -103,6 +103,14 @@ export const removeTask = (frameworks: FrameworkTemplate[], id: string, tid: str
 export function reportLoopOf(fw: FrameworkTemplate): Cycle | null {
   return unitModeOf(fw) !== "once" && fw.instalment !== undefined && fw.cycle !== "on_delivery" ? fw.cycle : null;
 }
+// Rule (DECISIONS 318): the term of the reporting loop. Absent, the loop runs for as long as the gift runs (until it stops or its plan ends). A number of months ends it sooner: the loop stops that many months after the first report, if the gift is still running.
+export const setLoopMonths = (frameworks: FrameworkTemplate[], id: string, months: unknown): Edited => {
+  const raw = typeof months === "number" ? String(months) : typeof months === "string" ? months.trim() : "";
+  if (raw === "" || raw === "0") return editWf(frameworks, id, (f) => { const { loopMonths: _gone, ...rest } = f; return rest; });
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > 240) return { error: "The months of reporting are a whole number from 1 to 240, or empty for as long as the gift runs." };
+  return editWf(frameworks, id, (f) => ({ ...f, loopMonths: n }));
+};
 // Switching the loop on gives the report a monthly cycle when it had none; switching it off takes the report back to once, on delivery.
 export const setReportLoop = (frameworks: FrameworkTemplate[], id: string, on: boolean): Edited => editWf(frameworks, id, (f) => ({ ...f, cycle: on ? (f.cycle === "on_delivery" ? "monthly" : f.cycle) : "on_delivery" }));
 

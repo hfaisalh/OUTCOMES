@@ -117,3 +117,18 @@ describe("the Workflows page", () => {
     expect(open).toContain("data-wf-iconcancel");
   });
 });
+
+describe("the reporting loop panel (decision 318)", () => {
+  const at = (id: string, stage: number) => workflowsPage(view({ workflowSel: { id, stage, parts: 1, allocated: false, pick: "" } }));
+  it("opens from the loop icon on the chart, and sets how often and for how long for a living workflow", () => {
+    const html = at("orphan-sponsorship", 8);
+    expect(html).toContain('data-wf-stage="8"');
+    expect(html).toContain("Reporting loop");
+    expect(html).toContain("data-wf-loop=");
+    expect(html).toContain("data-wf-loopmonths=");
+    expect(html).toContain("As long as the gift runs");
+  });
+  it("says a workflow that releases only when fully paid reports once", () => {
+    expect(at("water-pump", 8)).toContain("releases only when fully paid");
+  });
+});

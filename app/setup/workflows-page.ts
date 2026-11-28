@@ -87,14 +87,21 @@ function stagePanel(f: FrameworkTemplate, type: OutcomeType | undefined, stage: 
     <p class="muted">This improves the quality of delivery. When the donor is asked, how, and the questions come later.</p>`;
   const living = unitModeOf(f) !== "once";
   const loop = reportLoopOf(f);
+  // Stage 8, the reporting loop (DECISIONS 318): opened from the loop icons on the chart. How often the report repeats, and for how long.
+  if (stage === 8) {
+    if (!living) return `<h3>Reporting loop</h3><p class="muted">This workflow releases only when fully paid, so its report is sent once. The loop is for living workflows, where payments keep coming.</p>`;
+    return `<h3>Reporting loop</h3>
+    <h3 class="wf-h">Decision: repeat the report while payments keep coming</h3>
+    <div class="ot-check">${switchHtml({ label: "Repeat the report", on: loop !== null, attrs: `data-wf-loop="${esc(f.id)}"` })}</div>
+    ${loop === null ? `<p class="muted">The report is sent once. Switch the loop on to keep reporting on a cycle for as long as the gift runs.</p>` : `<div class="wf-two"><label class="wf-field"><span>How often the report repeats</span><select data-tpl="cycle" ${t}>${(Object.keys(CYCLE_LABELS) as Cycle[]).filter((y) => y !== "on_delivery").map((y) => `<option value="${y}"${y === f.cycle ? " selected" : ""}>${esc(CYCLE_LABELS[y])}</option>`).join("")}</select></label>
+    <label class="wf-field"><span>Report for (months)</span><input type="number" min="1" max="240" step="1" data-wf-loopmonths="${esc(f.id)}" value="${f.loopMonths ?? ""}" placeholder="As long as the gift runs"></label></div>
+    <p class="muted">After each report the gift goes back to the report step for the next round. ${f.loopMonths ? `Reporting stops ${f.loopMonths} month${f.loopMonths === 1 ? "" : "s"} after the first report.` : "With the months empty, reporting goes on for as long as the gift runs."} It also stops, and the gift goes on to feedback, when the gift stops (cancelled, paused or completed) or the term of its plan has ended. A plan with no end keeps going while its payments continue.</p>`}`;
+  }
   return `<h3>Report and complete</h3>
     <h3 class="wf-h">Decision: reporting protocol</h3>
-    <p class="muted">${living ? "A living order: it is not finished by one delivery. The donor hears back on the cycle below for as long as it runs, and it ends when the support ends." : "A transactional order: once it is complete the donor gets one completion report, and the order is closed."}</p>
+    <p class="muted">${living ? "A living order: it is not finished by one delivery. The donor hears back on the cycle for as long as it runs, and it ends when the support ends." : "A transactional order: once it is complete the donor gets one completion report, and the order is closed."}</p>
     <div class="wf-two"><label class="wf-field"><span>The report the donor gets</span><input data-tpl="reportType" ${t} value="${esc(f.reportType)}" placeholder="Quarterly update"></label>
-${living ? `<div></div></div>
-    <div class="ot-check">${switchHtml({ label: "Repeat the report while payments keep coming", on: loop !== null, attrs: `data-wf-loop="${esc(f.id)}"` })}</div>
-    ${loop !== null ? `<div class="wf-two"><label class="wf-field"><span>The report repeats</span><select data-tpl="cycle" ${t}>${(Object.keys(CYCLE_LABELS) as Cycle[]).filter((y) => y !== "on_delivery").map((y) => `<option value="${y}"${y === f.cycle ? " selected" : ""}>${esc(CYCLE_LABELS[y])}</option>`).join("")}</select></label></div>
-    <p class="muted">After each report the gift goes back to the report step for the next round. It leaves the loop and goes on to feedback only when the gift stops (cancelled, paused or completed) or the term of its plan has ended. A plan with no end keeps going while its payments continue.</p>` : `<p class="muted">The report is sent once. Switch the loop on to keep reporting on a cycle for as long as the gift runs.</p>`}` : `<label class="wf-field"><span>How often the donor hears back</span><select data-tpl="cycle" ${t}>${(Object.keys(CYCLE_LABELS) as Cycle[]).map((y) => `<option value="${y}"${y === f.cycle ? " selected" : ""}>${esc(CYCLE_LABELS[y])}</option>`).join("")}</select></label></div>`}
+    ${living ? `<div class="wf-field"><span>The report repeats</span><button type="button" class="chipbtn" data-wf-stage="8">${loop ? `${esc(CYCLE_LABELS[loop])}${f.loopMonths ? `, for ${f.loopMonths} months` : ""}` : "Not repeated"}: set the loop</button></div></div>` : `<label class="wf-field"><span>How often the donor hears back</span><select data-tpl="cycle" ${t}>${(Object.keys(CYCLE_LABELS) as Cycle[]).map((y) => `<option value="${y}"${y === f.cycle ? " selected" : ""}>${esc(CYCLE_LABELS[y])}</option>`).join("")}</select></label></div>`}
     <p class="muted">Feedback from the donor after the order is complete comes later.</p>`;
 }
 
@@ -115,7 +122,7 @@ export function workflowsPage(v: View): string {
   // Rule (DECISIONS 134): a workflow has its own icon, a target until one is chosen. It no longer follows an item or an outcome type.
   const iconOfWorkflow = (fid: string): string => fws.find((x) => x.id === fid)?.icon || "bullseye";
   const f = fws.find((x) => x.id === sel.id) ?? fws[0];
-  const stage = Math.min(7, Math.max(1, sel.stage));
+  const stage = Math.min(8, Math.max(1, sel.stage));
 
   const list = `<div class="card"><h2 class="wf-h">Workflows <span class="muted">(${fws.length})</span></h2><div class="wlist">${fws.map((x) => `<button class="wbtn${x.id === f?.id ? " on" : ""}" data-wf-select="${esc(x.id)}">${iconHtml(iconOfWorkflow(x.id), x.name, "lg") || `<span class="ico ico-lg"></span>`}<span><b>${esc(x.name)}</b><small>${itemsOf(x.id).length} item${itemsOf(x.id).length === 1 ? "" : "s"}</small></span></button>`).join("") || `<div class="empty">No workflows yet.</div>`}</div>
     <div class="actions"><input id="newfw" placeholder="New workflow name"><button data-action="add-framework">Add</button></div>

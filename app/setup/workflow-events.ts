@@ -9,7 +9,7 @@
 import { shell } from "../shell";
 import { state } from "../state";
 import { updateTemplate, type FrameworkTemplate } from "../../modules/02-project-rules/categories";
-import { addTask, assignToWorkflow, removeTask, setTask, setUnitRule, setFlag, setConfirm, addStage, setStage, removeStage, moveStage, setAssign, setFulfilled, setReportLoop, unassignItem } from "../../modules/02-project-rules/workflows";
+import { addTask, assignToWorkflow, removeTask, setTask, setUnitRule, setFlag, setConfirm, addStage, setStage, removeStage, moveStage, setAssign, setFulfilled, setLoopMonths, setReportLoop, unassignItem } from "../../modules/02-project-rules/workflows";
 import { csvChange } from "../portal/partner-csv-session";
 
 // ---- Outcome types on the Categories and frameworks page (DECISIONS 103) ----
@@ -140,6 +140,11 @@ document.addEventListener("change", (e) => {
   if (t.dataset?.assignWf !== undefined) { if (t.value !== "") moveItem(t.dataset.assignWf, t.value); return; }
   // How a unit supports an outcome (DECISIONS 131).
   if (t.dataset?.itemUnits !== undefined) { void shell.outcomeChange({ action: "item-units", itemId: t.dataset.itemUnits, units: (t as HTMLInputElement).value }); return; }
+  if (t.dataset?.wfLoopmonths !== undefined) {
+    const r = setLoopMonths(state.frameworks, t.dataset.wfLoopmonths, (t as HTMLInputElement).value);
+    if ("error" in r) { state.message = r.error; shell.draw(); } else { state.frameworks = r.frameworks; shell.afterConfig(false); shell.draw(); }
+    return;
+  }
   if (t.dataset?.wfLoop !== undefined) {
     const r = setReportLoop(state.frameworks, t.dataset.wfLoop, (t as HTMLInputElement).checked);
     if ("error" in r) { state.message = r.error; shell.draw(); } else { state.frameworks = r.frameworks; shell.afterConfig(false); shell.draw(); }

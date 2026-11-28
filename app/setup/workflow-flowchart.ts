@@ -73,9 +73,11 @@ export function flowChart(fw: FrameworkTemplate, _type: OutcomeType | undefined,
   const every = reportLoopOf(fw);
   const top = Y - 28;
   const loopBadge = (cx: number, cy: number, broken: boolean): string => `<g transform="translate(${cx} ${cy})" class="fc-badge loop${broken ? " off" : ""}"><title>${broken ? "The loop ends" : "The report repeats"}</title><circle r="10"/><g transform="translate(-7.5 -7.5) scale(.62)" class="fc-ri">${RULE_PATHS["release"]?.[0] ?? ""}</g>${broken ? '<path d="M-8 8 L8 -8" class="slash"/>' : ""}</g>`;
+  // The loop icons are steps of their own: a click opens the reporting loop panel (stage 8) where how often and for how long are set.
+  const loopStep = (inner: string, aria: string): string => step(8, aria, `<g class="fc-loopbtn${stage === 8 ? " on" : ""}">${inner}</g>`);
   const loop = every
-    ? `<path d="M${completeX} ${Y} V${top} H${reportX} V${Y - 2}" class="fc-edge loop" marker-end="url(#fc-arrow)"/>${loopBadge((reportX + completeX) / 2, top, false)}<text x="${(reportX + completeX) / 2}" y="${top - 14}" text-anchor="middle" class="fc-sub">Repeats ${esc(CYCLE_LABELS[every].toLowerCase())} while payments continue</text>`
-      + `<path d="M${completeX} ${Y + H} V${ly} H${feedbackX} V${Y + H + 2}" class="fc-edge loop" marker-end="url(#fc-arrow)"/>${loopBadge((completeX + feedbackX) / 2, ly, true)}<text x="${(completeX + feedbackX) / 2}" y="${ly + 28}" text-anchor="middle" class="fc-sub">When the gift stops or its plan ends</text>`
+    ? `<path d="M${completeX} ${Y} V${top} H${reportX} V${Y - 2}" class="fc-edge loop" marker-end="url(#fc-arrow)"/>${loopStep(loopBadge((reportX + completeX) / 2, top, false), "The reporting loop: click to set how often and for how long")}<text x="${(reportX + completeX) / 2}" y="${top - 14}" text-anchor="middle" class="fc-sub">Repeats ${esc(CYCLE_LABELS[every].toLowerCase())} while payments continue</text>`
+      + `<path d="M${completeX} ${Y + H} V${ly} H${feedbackX} V${Y + H + 2}" class="fc-edge loop" marker-end="url(#fc-arrow)"/>${loopStep(loopBadge((completeX + feedbackX) / 2, ly, true), "When the reporting loop ends: click to set the term of reporting")}<text x="${(completeX + feedbackX) / 2}" y="${ly + 28}" text-anchor="middle" class="fc-sub">When the gift stops or its plan ends</text>`
     : "";
   const extra = back(confirmX, assignX, "Reject: reassign") + back(reviewX, allocX, "Reject: back to the partner") + loop;
   const height = ly + 28 + 8;

@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { isFrameworkTemplate, type FrameworkTemplate } from "./categories";
 import { starterOutcomeTypes } from "../05-outcomes/outcome-types";
-import { reportLoopOf, setReportLoop, mergeWorkflow, addStage, assignOf, confirmDaysOf, setConfirm, flagOf, setFlag, moveStage, removeStage, setAssign, setStage, totalDays, assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, setUnitRule, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, suggestWorkflowFor } from "./workflows";
+import { reportLoopOf, setLoopMonths, setReportLoop, mergeWorkflow, addStage, assignOf, confirmDaysOf, setConfirm, flagOf, setFlag, moveStage, removeStage, setAssign, setStage, totalDays, assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, setUnitRule, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, suggestWorkflowFor } from "./workflows";
 
 const fw = (over: Partial<FrameworkTemplate> = {}): FrameworkTemplate => ({ id: "w", name: "Orphan sponsorship", unit: "orphan", cycle: "quarterly", reportType: "Quarterly orphan update", instalment: "per_period", unitsPerBeneficiary: 3, ...over });
 const ok = (r: { frameworks: FrameworkTemplate[] } | { error: string }): FrameworkTemplate[] => { if ("error" in r) throw new Error(r.error); return r.frameworks; };
@@ -212,5 +212,17 @@ describe("the reporting loop of a living workflow (decision 317)", () => {
     expect(off.frameworks[0]?.cycle).toBe("on_delivery");
     const on = setReportLoop(off.frameworks as never, "w", true) as { frameworks: { cycle: string }[] };
     expect(on.frameworks[0]?.cycle).toBe("monthly");
+  });
+});
+
+describe("the term of the reporting loop (decision 318)", () => {
+  const base = [{ id: "w", name: "S", unit: "orphan", cycle: "monthly" as const, reportType: "U", unitsPerBeneficiary: 1, instalment: "per_period" as const }];
+  it("sets the months, clears them when empty, and refuses nonsense", () => {
+    const set = setLoopMonths(base, "w", "12") as { frameworks: { loopMonths?: number }[] };
+    expect(set.frameworks[0]?.loopMonths).toBe(12);
+    const clear = setLoopMonths(set.frameworks as never, "w", "") as { frameworks: { loopMonths?: number }[] };
+    expect(clear.frameworks[0]?.loopMonths).toBeUndefined();
+    expect("error" in setLoopMonths(base, "w", "0.5")).toBe(true);
+    expect("error" in setLoopMonths(base, "w", "999")).toBe(true);
   });
 });
