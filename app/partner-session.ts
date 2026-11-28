@@ -7,6 +7,7 @@
  */
 
 import { costAction, costFocus } from "./partner-cost-session";
+import { profileAction, profileFocus } from "./partner-profile-session";
 import { partnerAnswer, viewAs } from "./api";
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 import { csvAction } from "./partner-csv-session";
@@ -44,6 +45,8 @@ export async function handlePartnerAction(action: string, el: HTMLElement, curre
     const wasOpen = partnerUi.open.includes(id);
     partnerUi.open = wasOpen ? partnerUi.open.filter((b) => b !== id) : [...partnerUi.open, id];
     if (!wasOpen) partnerUi.lastOpened = id; // only the batch just opened fades in, not every one on each redraw
+  } else if (action.startsWith("pt-profile-")) {
+    await profileAction(action, current, apply);
   } else if (action.startsWith("pt-cost-")) {
     await costAction(action, el, current, apply);
   } else if (action.startsWith("pt-csv-")) {
@@ -71,6 +74,7 @@ export async function handlePartnerAction(action: string, el: HTMLElement, curre
   redraw();
   restoreFocus(action, el, viaKeyboard);
   costFocus(action);
+  profileFocus(action);
 }
 
 // --- The beneficiary form: what is shown when editing, and what is sent on Save ---
@@ -123,12 +127,13 @@ export async function switchView(partnerId: string): Promise<void> {
 
 // --- The window's keys: Escape closes it, and Tab stays inside it (a dialog must not let focus wander to the page behind) ---
 export function partnerKeys(e: KeyboardEvent, redraw: () => void): void {
-  if (!partnerUi.form && !partnerUi.csv && !partnerUi.cost) return;
+  if (!partnerUi.form && !partnerUi.csv && !partnerUi.cost && !partnerUi.profile) return;
   if (e.key === "Escape") {
     if (partnerUi.csv?.busy) return; // not while rows are being added
     partnerUi.form = null;
     partnerUi.csv = null;
     partnerUi.cost = null;
+    partnerUi.profile = null;
     redraw();
     (document.querySelector('[data-action="pt-add"]') as HTMLElement | null)?.focus();
   } else if (e.key === "Tab") {

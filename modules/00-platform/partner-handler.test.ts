@@ -241,3 +241,15 @@ describe("partner costs (DECISIONS 280)", () => {
     expect((await handleOutcomes(as(staff), d)).body).toMatchObject({ partnerCosts: [{ id: "PC-0001" }] });
   });
 });
+
+describe("the partner changes its own profile (DECISIONS 281)", () => {
+  it("saves its contacts and reporting, and nothing that is MWF's, in the one record staff see", async () => {
+    const c = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
+    const r = await handleOutcomes(as(c, { method: "POST", body: { action: "profile-set", contacts: [{ name: "Amina Khan", email: "amina@example.org" }], reportVia: "WhatsApp", name: "Hacked" } }), d);
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ message: "Profile saved.", partner: { name: "Alpha Trust", reportVia: "WhatsApp", contacts: [{ name: "Amina Khan" }] } });
+    const saved = (await d.store.getConfig("demo"))!.projects!.find((p) => p.id === "p1")!;
+    expect(saved).toMatchObject({ name: "Alpha Trust", fundingNote: "private", reportVia: "WhatsApp" }); // the same record MWF reads, MWF's fields untouched
+    expect((await handleOutcomes(as(c, { method: "POST", body: { action: "profile-set", contacts: [{ name: "A", email: "bad" }] } }), d)).status).toBe(400);
+  });
+});

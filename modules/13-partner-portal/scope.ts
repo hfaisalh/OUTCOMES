@@ -41,7 +41,7 @@ export interface PartnerState {
 }
 
 // The profile fields a partner may see. Everything else on the record stays with MWF.
-const PROFILE_FIELDS = ["id", "name", "officialName", "reference", "type", "status", "contacts", "countries", "regions", "itemIds", "capacity", "batchSize", "reportVia", "reportContact", "language"] as const;
+const PROFILE_FIELDS = ["id", "name", "officialName", "reference", "type", "status", "contacts", "countries", "regions", "itemIds", "capacity", "batchSize", "reportVia", "reportContact", "language", "media"] as const;
 
 export interface PartnerSlice {
   partner: Partial<Project> & { id: string; name: string };

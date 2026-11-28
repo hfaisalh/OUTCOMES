@@ -11,6 +11,7 @@ import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 import { batchesHtml } from "./partner-batches";
 import { beneficiariesCardHtml } from "./partner-beneficiaries";
 import { costsCardHtml } from "./partner-costs";
+import { profileCardHtml } from "./partner-profile";
 import { journeyHtml, type PartnerUi } from "./partner-outcomes";
 
 // --- Helpers ---
@@ -32,7 +33,6 @@ export function partnerHomeHtml(slice: PartnerSlice, who: string, version: strin
   const review = people.filter((b) => b.eligibility === "review").length;
 
   const projects = slice.giftProjects.map((g) => `<li><b>${esc(g.name)}</b><span class="muted"> ${clusterCount(g.clusters ?? [])}</span></li>`).join("");
-  const facts = [["Reference", p.reference], ["Type", p.type], ["Countries", p.countries], ["Reports by", p.reportVia], ["Batch size", p.batchSize !== undefined ? String(p.batchSize) : ""]].filter(([, v]) => v);
 
   return `<div class="phome">
     <header class="phome-bar"><div class="phome-brand">OUTCOMES<small>${esc(p.name)}</small></div>
@@ -47,7 +47,7 @@ export function partnerHomeHtml(slice: PartnerSlice, who: string, version: strin
           ${costsCardHtml(slice, ui, today)}</div>
         <aside class="phome-side">
           <section class="card"><h2>Your projects</h2>${projects ? `<ul class="phome-list">${projects}</ul>` : `<div class="empty">No project has been given to you yet.</div>`}</section>
-          <section class="card"><h2>Your profile</h2>${facts.length ? `<table><tbody>${facts.map(([k, v]) => `<tr><td class="muted">${esc(k as string)}</td><td>${esc(v as string)}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">Your profile has no details yet.</div>`}</section>
+          ${profileCardHtml(slice, ui.profile, ui.message)}
         </aside>
       </div>
     </main></div>`;

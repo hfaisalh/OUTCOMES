@@ -21,6 +21,7 @@ import { addMany, MAX_ROWS } from "../13-partner-portal/import.js";
 import { giftDetails } from "../13-partner-portal/gift-details.js";
 import { partnerSlice, PARTNER_PERMISSION } from "../13-partner-portal/scope.js";
 import { acceptPlace, upsertPlace } from "../14-locations/locations.js";
+import { setOwnProfile } from "../13-partner-portal/profile.js";
 import { applyCostAction, COST_CATEGORIES, emptyCosts } from "../15-partner-costs/costs.js";
 import { changesBetween } from "./change-log.js";
 import { defaultConfig, setupOf } from "./store.js";
@@ -78,6 +79,16 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
       message = entryMessage(settled.register, settled.enrolments, migrated.giftProjects, r.id, r.added);
       Object.assign(config, next);
     }
+  } else if (req.method === "POST" && body["action"] === "profile-set") {
+    // Rule (DECISIONS 281): the one partner profile; a partner changes only its own part of it.
+    const r = setOwnProfile(migrated.partners, a.claims.partner as string, body);
+    if ("error" in r) return json(400, { error: r.error });
+    const next = { ...config, projects: r.value };
+    await d.store.putConfig(a.claims.org, next);
+    try { await d.store.addChanges(a.claims.org, changesBetween(config, next, a.claims.name, "profile-set", at)); } catch (e) { console.error("change log not written", e); }
+    message = "Profile saved.";
+    Object.assign(config, next);
+    migrated.partners = r.value;
   } else if (req.method === "POST" && typeof body["action"] === "string" && body["action"].startsWith("cost-")) {
     // Rule (DECISIONS 280): a partner records, corrects and removes its own costs. Record only: nothing is paid or approved.
     const mineProjects = migrated.giftProjects.filter((g) => g.partnerIds.includes(a.claims.partner as string)).map((g) => g.id);
