@@ -106,3 +106,8 @@ export function benefitShares(list: BenefitCounts[]): BenefitShare[] {
   return list.map((b) => ({ itemId: b.itemId, name: b.name, gifts: b.counts.gifts, share: total === 0 ? 0 : Math.round((b.counts.gifts / total) * 100), counts: b.counts, stages: journey(b.counts), late: b.counts.lateAnswers + b.counts.lateDelivery }))
     .sort((a, b) => b.gifts - a.gifts || a.name.localeCompare(b.name));
 }
+
+// --- Review (DECISIONS 323) ---
+// Rule: the share of reviews that sent the work back: rejections out of every decision made at review (passed or sent back). Null until a decision has been made.
+export interface ReviewCounts { under: number; sentBack: number; reviewed: number; rejections: number }
+export const rejectionRate = (r: Pick<ReviewCounts, "reviewed" | "rejections">): number | null => (r.reviewed + r.rejections === 0 ? null : Math.round((r.rejections / (r.reviewed + r.rejections)) * 100));

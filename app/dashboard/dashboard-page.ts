@@ -10,7 +10,7 @@
 import type { DashData } from "./dashboard-data";
 import { dashboardData } from "./dashboard-data";
 import { donutHtml, dashIcon, kpiHtml, paint, ringHtml, type Kpi } from "./dash-charts";
-import type { Stage } from "../../modules/17-dashboard/facts";
+import { rejectionRate, type Stage } from "../../modules/17-dashboard/facts";
 import { noTrendsView, trendsCard, type TrendsView } from "./trends-card";
 import { esc, type View } from "../shared/pages";
 
@@ -82,6 +82,9 @@ function groups(d: DashData): { title: string; tiles: Kpi[] }[] {
     { title: "Partners and delivery", tiles: [
       { label: "Active partners", value: String(d.partnersActive), icon: "partner", hue: 0, page: "partners", sub: "approved and in good standing" },
       { label: "Batches waiting", value: String(d.batchesWaiting), sub: "for the partner's answer", icon: "mail", hue: 1, page: "confirmation", ...(d.counts.lateAnswers > 0 ? { pill: { text: `${d.counts.lateAnswers} late`, tone: "bad" as const } } : {}) },
+      { label: "Under review", value: String(d.review.under), sub: "waiting for MWF to review", icon: "doc", hue: 3, page: "progress" },
+      { label: "Sent back", value: String(d.review.sentBack), sub: "with the partner to put right", icon: "alert", hue: 7, page: "progress", ...(d.review.sentBack > 0 ? { pill: { text: "Follow up", tone: "warn" as const } } : {}) },
+      { label: "Reviewed", value: String(d.review.reviewed), sub: rejectionRate(d.review) === null ? "passed review" : `passed review, ${rejectionRate(d.review)}% of reviews sent back`, icon: "check", hue: 2, page: "progress" },
       { label: "Late in delivery", value: String(d.counts.lateDelivery), sub: "a step past its due day", icon: "clock", hue: 7, page: "progress" },
       { label: "Partner costs", value: d.costCount === 0 ? "None" : d.costs, sub: plural(d.costCount, "cost", "costs") + " recorded", icon: "coins", hue: 5, page: "dashboard" },
     ] },

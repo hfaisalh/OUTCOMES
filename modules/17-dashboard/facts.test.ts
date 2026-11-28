@@ -5,7 +5,7 @@
  * Who calls it: vitest. Depends on: facts.ts.
  */
 import { describe, expect, it } from "vitest";
-import { ageOn, benefitShares, byAgeBand, fulfilmentScore, fundingLevels, journey, topParts, type JourneyCounts } from "./facts";
+import { ageOn, benefitShares, byAgeBand, fulfilmentScore, fundingLevels, journey, rejectionRate, topParts, type JourneyCounts } from "./facts";
 
 const counts = (over: Partial<JourneyCounts> = {}): JourneyCounts => ({ paymentsIn30: 12, gifts: 100, assigned: 80, confirmed: 60, lateAnswers: 5, allocated: 30, delivered: 15, lateDelivery: 2, complete: 6, ...over });
 
@@ -62,5 +62,12 @@ describe("each benefit's share (DECISIONS 302)", () => {
   it("gives every benefit 0% when there are no gifts, and nothing for no benefits", () => {
     expect(benefitShares([{ itemId: "A", name: "A", counts: counts({ gifts: 0 }) }])[0]?.share).toBe(0);
     expect(benefitShares([])).toEqual([]);
+  });
+});
+
+describe("rejection rate (decision 323)", () => {
+  it("is the share of review decisions that sent the work back, and none until one is made", () => {
+    expect(rejectionRate({ reviewed: 6, rejections: 2 })).toBe(25);
+    expect(rejectionRate({ reviewed: 0, rejections: 0 })).toBeNull();
   });
 });

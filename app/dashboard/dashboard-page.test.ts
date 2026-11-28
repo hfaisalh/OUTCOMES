@@ -15,7 +15,7 @@ import type { View } from "../shared/pages";
 const counts = { paymentsIn30: 18, gifts: 298, assigned: 298, confirmed: 290, lateAnswers: 3, allocated: 250, delivered: 5, lateDelivery: 21, complete: 3 };
 const stages = journey(counts);
 const data = (over: Partial<DashData> = {}): DashData => ({
-  stages, score: fulfilmentScore(stages), counts, value: "£88,187", recurringActive: 271, plansStopped: 27, needAttention: 54, unallocated: 40, beneficiaries: 300, enrolled: 300, waiting: 12, needDetails: 54,
+  stages, score: fulfilmentScore(stages), counts, review: { under: 4, sentBack: 2, reviewed: 6, rejections: 2 }, value: "£88,187", recurringActive: 271, plansStopped: 27, needAttention: 54, unallocated: 40, beneficiaries: 300, enrolled: 300, waiting: 12, needDetails: 54,
   funding: [{ label: "Not funded yet", value: 148 }, { label: "Partly funded", value: 123 }, { label: "Fully funded", value: 29 }], fully: 29, unfunded: 148, partlyFunded: 123, partnersActive: 6, batchesWaiting: 4, costs: "GBP 10.00", costCount: 1,
   benefits: [],
   splits: { funding: [{ label: "Not funded yet", value: 148 }, { label: "Partly funded", value: 123 }, { label: "Fully funded", value: 29 }], clusters: [{ label: "Lahore <home>", value: 20 }, { label: "Other", value: 3 }], ages: byAgeBand(["2016-01-01", ""], "2026-11-28"), where: [{ label: "Complete", value: 3 }], plans: [{ label: "Active", value: 5 }], partners: [] },
@@ -117,5 +117,15 @@ describe("benefits in the journey (DECISIONS 302)", () => {
   });
   it("says so calmly when no gift is routed to a benefit yet", () => {
     expect(dashboardHtml(data({ benefits: [] }))).toContain("No gift has been routed to a benefit yet");
+  });
+});
+
+describe("review tiles (decision 323)", () => {
+  it("shows what is under review, what was sent back, and what passed with the share sent back", () => {
+    const html = dashboardHtml(data());
+    expect(html).toContain("Under review");
+    expect(html).toContain("waiting for MWF to review");
+    expect(html).toContain("with the partner to put right");
+    expect(html).toContain("passed review, 25% of reviews sent back"); // 2 rejections of 8 decisions
   });
 });

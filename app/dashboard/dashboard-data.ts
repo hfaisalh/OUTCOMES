@@ -16,7 +16,7 @@ import { emptyRegister } from "../../modules/07-beneficiaries/beneficiaries";
 import { emptyEnrolments, itemRulesOf } from "../../modules/07-beneficiaries/enrolments";
 import { missingFor } from "../../modules/07-beneficiaries/waiting";
 import type { SavedFeatures } from "../../modules/02-project-rules/kind-features";
-import { benefitShares, byAgeBand, fulfilmentScore, fundingLevels, journey, topParts, type BenefitShare, type JourneyCounts, type Part, type Stage } from "../../modules/17-dashboard/facts";
+import { benefitShares, byAgeBand, fulfilmentScore, fundingLevels, journey, topParts, type BenefitShare, type JourneyCounts, type Part, type ReviewCounts, type Stage } from "../../modules/17-dashboard/facts";
 import { totalText } from "../../modules/15-partner-costs/costs";
 import { isLate, rowsOf } from "../allocation/confirmation-rows";
 import { standingsOf } from "../allocation/progress-page";
@@ -29,6 +29,7 @@ export interface DashData {
   stages: Stage[];
   score: number | null;
   counts: JourneyCounts;
+  review: ReviewCounts; // gifts under review, sent back, passed review, and the rejections made (DECISIONS 323)
   value: string; // the value of the payments, one figure for each currency
   recurringActive: number;
   plansStopped: number;
@@ -83,6 +84,14 @@ export function dashboardData(v: View): DashData {
     complete: allocated.filter((s) => s.complete).length,
   };
   const stages = journey(counts);
+  // Rule (DECISIONS 323): under review is waiting for MWF to review; sent back is with the partner after a rejection; reviewed has passed; rejections counts every rejection made, so a gift sent back twice counts twice.
+  const mineKeys = new Set(allocated.map((s) => s.key));
+  const review: ReviewCounts = {
+    under: allocated.filter((s) => s.next?.id === "review").length,
+    sentBack: allocated.filter((s) => s.sentBack !== undefined).length,
+    reviewed: allocated.filter((s) => s.steps.some((x) => x.id === "review" && x.done)).length,
+    rejections: (v.progress?.records ?? []).filter((r) => r.kind === "reject" && mineKeys.has(r.key)).length,
+  };
 
   // --- Gifts and plans ---
   const grows = giftRows(v.workOrders, v.workOrders, new Set(v.review.map((r) => r.key)));
@@ -142,7 +151,7 @@ export function dashboardData(v: View): DashData {
   }));
   const partnerCosts = v.partnerCosts ?? [];
   return {
-    stages, score: fulfilmentScore(stages), counts,
+    stages, score: fulfilmentScore(stages), counts, review,
     value: valueByCurrency(live).text,
     recurringActive: planCount("active"), plansStopped: recurring.filter((g) => ["cancelled", "paused", "completed"].includes(g.planStatus)).length,
     needAttention: grows.filter((g) => g.unrouted || g.inReview || g.needsLook).length,
