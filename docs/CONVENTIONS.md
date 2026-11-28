@@ -21,7 +21,7 @@ For the developers who take OUTCOMES over. Read with `CLAUDE.md` (the coding sta
 
 | Folder | What it holds |
 |---|---|
-| (root) | `main.ts` (the shell and the events), `state.ts` (the one state the screens draw from), `menu.ts` (the pages and who may open them), `signin-page.ts`, `demo-data.ts`, `theme.css`, `index.html`. |
+| (root) | `main.ts` (the shell and the events), `state.ts` (the one state the screens draw from), `shell.ts` (the calls the feature files use: draw, send a change), `menu.ts` (the pages and who may open them), `signin-page.ts`, `demo-data.ts`, `theme.css`, `index.html`. |
 | `shared/` | Pieces every screen uses: the server calls (`api.ts`), the `View` type and common pages (`pages.ts`), dates, icons, the on/off switch (`switch.ts`), pop-over lists, table tools, the place picker. |
 | `gifts/` | The Gifts list, a gift's window, the actions on a gift. |
 | `beneficiaries/` | The register of persons and households, its form, the Outcomes list. |

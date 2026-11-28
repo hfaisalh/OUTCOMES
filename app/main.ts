@@ -16,7 +16,7 @@ import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-conne
 import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, autoCreateProjects, clearLegacy, allocateInNode, allocateInPartner, samplePartnerProfile, type GiftProject } from "../modules/06-projects/projects";
 import { markCustomAmounts } from "../modules/04b-commitments/parts";
 import { enhanceTables } from "./shared/table-tools";
-import { GIFT_HIDDEN_DEFAULT, giftDetailHtml, giftKeysOfPayments, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts/gifts-page";
+import { giftDetailHtml, giftKeysOfPayments, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts/gifts-page";
 import { partnersPage } from "./partners/partners-page";
 import { projectsPage } from "./projects/projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries/beneficiaries-page";
@@ -38,11 +38,10 @@ import { progressContext } from "../modules/12-progress/context";
 import { batchSizeOf } from "../modules/08-assignment/batches";
 import { applyConfirmationAction, confirmOnBehalf, emptyConfirmations } from "../modules/11-confirmation/confirmation";
 import { applyAssignmentAction, assignables, contextFrom, demandByItem } from "../modules/08-assignment/assignment";
-import { registerFormHtml } from "./beneficiaries/register-form";
 import { loadSampleSetup, realProjectsFor, wholeByItem, type SampleState, removeSampleSetup, removedSummaryText, sampleSummaryText } from "../modules/07-beneficiaries/sample-setup";
-import { poolMessage, settlePool, standingOf } from "../modules/07-beneficiaries/waiting";
+import { poolMessage, settlePool } from "../modules/07-beneficiaries/waiting";
 import { applyEnrolmentAction, heldByBeneficiary, heldInCluster, itemRulesOf } from "../modules/07-beneficiaries/enrolments";
-import { applyBeneficiaryAction, type Beneficiary, type BeneficiaryFilter } from "../modules/07-beneficiaries/beneficiaries";
+import { applyBeneficiaryAction } from "../modules/07-beneficiaries/beneficiaries";
 import { projectFormHtml, readProjectForm } from "./projects/project-form";
 import { ICON_SETTINGS } from "./shared/icons";
 import { clusterStateOf } from "../modules/06-projects/clusters";
@@ -78,11 +77,11 @@ import { partnerHomeHtml } from "./portal/partner-home";
 import { handlePartnerAction, partnerKeys, partnerUi, switchView } from "./portal/partner-session";
 import { csvChange } from "./portal/partner-csv-session";
 import { initPlacePicker } from "./shared/place-picker";
-import { areasCard, areasWindowHtml } from "./dashboard/areas-page";
+import { areasCard } from "./dashboard/areas-page";
 import { mountAreasMap } from "./dashboard/areas-map";
 import { costsCard } from "./dashboard/costs-card";
 import { withSetupCard } from "./dashboard/setup-card";
-import { areasAction, areasUi, areasView } from "./dashboard/areas-session";
+import { areasAction, areasView } from "./dashboard/areas-session";
 import { acceptPlace, upsertPlace } from "../modules/14-locations/locations";
 import { resolveArea } from "../modules/14-locations/areas";
 
@@ -95,7 +94,12 @@ import { landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
 import { listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, type Filter, type View } from "./shared/pages";
 
 declare const __BUILD_LABEL__: string; // set at build time in vite.config.ts: version, commit and build time
-import { state, keepPageInAddress, saveHiddenCols } from "./state";
+import "./shared/list-controls";
+import { shell } from "./shell";
+import { dropWindow, putWindow, reducedMotion } from "./shared/windows";
+import { placeOfWindow, renderBenWindow } from "./beneficiaries/beneficiary-window";
+import { renderAreasWindow } from "./dashboard/areas-window";
+import { state, keepPageInAddress } from "./state";
 
 
 const permissions = () => (state.me ? state.me.perms : DEMO_ROLES.find((r) => r.id === state.roleId)?.permissions ?? []);
@@ -521,22 +525,6 @@ function renderCnfWindow(): void {
 // A pop-up outside the redrawn page. It is drawn again from the new state after every change, and closes itself when the gift is no longer there.
 // Motion (DECISIONS 220): the window eases in when it OPENS and out when it closes, and is not replayed when it is redrawn after a change inside it.
 // Rule: exits are shorter than entrances, only transform and opacity move, and a person who asks the system for less motion gets none.
-const reducedMotion = (): boolean => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-// Windows (DECISIONS 225): every window root eases in when it opens (not on a redraw inside it) and out when it closes, as the gift window does.
-const closers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
-function putWindow(root: HTMLElement, html: string): void {
-  const t = closers.get(root);
-  if (t !== undefined) { clearTimeout(t); closers.delete(root); root.classList?.remove?.("gw-out"); root.innerHTML = ""; }
-  const opening = root.innerHTML === "";
-  root.innerHTML = html;
-  root.classList?.toggle?.("gw-in", opening && html !== "" && !reducedMotion());
-}
-function dropWindow(root: HTMLElement | null): void {
-  if (!root || root.innerHTML === "" || closers.has(root)) return;
-  if (reducedMotion() || typeof root.classList?.add !== "function") { root.innerHTML = ""; return; } // no motion asked for, or nothing to animate (the test page)
-  root.classList.add("gw-out");
-  closers.set(root, setTimeout(() => { closers.delete(root); root.innerHTML = ""; root.classList.remove("gw-out"); }, 130));
-}
 let giftClosing: ReturnType<typeof setTimeout> | undefined;
 function renderGiftWindow(): void {
   let root = document.getElementById("gift-root");
@@ -1712,151 +1700,9 @@ document.addEventListener("click", (e) => {
   void outcomeChange({ action: b.dataset.sample === "remove" ? "sample-remove" : "sample-load" });
 });
 
-// ---- The Beneficiaries page and its window (DECISIONS 163) ----
-// The window that adds or changes one beneficiary, drawn outside the page that is redrawn. `draft` keeps what was typed when a save is refused.
-// The place chosen in a place picker on screen (DECISIONS 274), as the fields a request carries: its id, and the place itself so the server can keep it once.
-function placeOfWindow(): Record<string, unknown> {
-  const get = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value ?? "";
-  let location: unknown;
-  try { location = get("pe-location") === "" ? undefined : JSON.parse(get("pe-location")); } catch { location = undefined; }
-  return { locationId: get("pe-locationId"), ...(location ? { location } : {}) };
-}
-// The window that fixes typed areas (DECISIONS 276). It lives apart from the page, so a redraw of the page does not close it.
-function renderAreasWindow(): void {
-  let root = document.getElementById("area-root");
-  if (!areasUi.open) { dropWindow(root); return; }
-  if (!root) { root = document.createElement("div"); root.id = "area-root"; document.body.appendChild(root); }
-  putWindow(root, areasWindowHtml(view(), areasUi));
-}
-document.addEventListener("change", (e) => { const t = e.target as HTMLSelectElement | null; if (t?.id === "ar-project") { areasView.project = t.value; draw(); } });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && areasUi.open) { areasUi.open = false; renderAreasWindow(); } });
-function renderBenWindow(error = "", draft?: Partial<Beneficiary>): void {
-  const w = state.benWin;
-  let root = document.getElementById("ben-root");
-  if (!w.open) { dropWindow(root); return; }
-  if (!root) { root = document.createElement("div"); root.id = "ben-root"; document.body.appendChild(root); }
-  const existing = state.beneficiaries.records.find((r) => r.id === w.id);
-  const persons = state.beneficiaries.records.filter((r) => r.kind === "person");
-  putWindow(root, registerFormHtml(draft ?? existing ?? {}, w.id, existing?.kind ?? w.kind, persons, error, state.projects.map((p) => ({ id: p.id, name: p.name })), state.beneficiaries.records.filter((r) => r.kind === "household"), state.giftProjects.map((p) => ({ id: p.id, name: p.name })), existing ? standingOf(state.beneficiaries, state.enrolments, state.giftProjects, existing) : ""));
-}
-// What the window holds, as the fields of a request.
-function readBenWindow(): Record<string, unknown> {
-  const val = (i: string) => (document.getElementById(i) as HTMLInputElement | null)?.value ?? "";
-  let location: unknown; // the place chosen from the list, if any (DECISIONS 274)
-  try { const raw = val("pe-location"); location = raw === "" ? undefined : JSON.parse(raw); } catch { location = undefined; }
-  return {
-    locationId: val("pe-locationId"), ...(location ? { location } : {}),
-    name: val("rg-name"), dob: val("rg-dob"), gender: val("rg-gender"), guardian: val("rg-guardian"), guardianRelation: val("rg-guardianrel"), placeOfBirth: val("rg-pob"), idNumber: val("rg-idnumber"), fatherStatus: val("rg-father"), motherStatus: val("rg-mother"), eligibility: val("rg-eligibility"), eligibilityNote: val("rg-eligibilitynote"), partnerId: val("rg-partner"), partnerRef: val("rg-partnerref"), targetProjectId: val("rg-target"), priority: (document.getElementById("rg-priority") as HTMLInputElement | null)?.checked === true, priorityNote: val("rg-prioritynote"), area: val("rg-area"), notes: val("rg-notes"), size: val("rg-size"),
-    memberIds: [...document.querySelectorAll<HTMLInputElement>(".rg-member:checked")].map((c) => c.value),
-    allowSimilar: (document.getElementById("rg-different") as HTMLInputElement | null)?.checked === true,
-  };
-}
-document.addEventListener("click", (e) => {
-  const el = (e.target as HTMLElement).closest?.("[data-bn]") as HTMLElement | null;
-  if (!el) return;
-  const what = el.dataset.bn;
-  if (what === "new") { state.benWin = { open: true, id: "", kind: el.dataset.kind === "household" ? "household" : "person" }; return renderBenWindow(); }
-  if (what === "open") { state.benWin = { open: true, id: el.dataset.id ?? "", kind: "person" }; return renderBenWindow(); }
-  if (!state.benWin.open) return;
-  if (what === "cancel") { state.benWin = { ...state.benWin, open: false }; return renderBenWindow(); }
-  if (what === "save") {
-    const f = readBenWindow();
-    const isNew = state.benWin.id === "";
-    const status = (document.getElementById("rg-status") as HTMLSelectElement | null)?.value ?? "";
-    const draft: Partial<Beneficiary> = { name: String(f["name"]), dob: String(f["dob"]), gender: f["gender"] as Beneficiary["gender"], guardian: String(f["guardian"]), guardianRelation: String(f["guardianRelation"]), placeOfBirth: String(f["placeOfBirth"]), idNumber: String(f["idNumber"]), fatherStatus: f["fatherStatus"] as Beneficiary["fatherStatus"], motherStatus: f["motherStatus"] as Beneficiary["motherStatus"], eligibility: f["eligibility"] as Beneficiary["eligibility"], eligibilityNote: String(f["eligibilityNote"]), partnerId: String(f["partnerId"]), partnerRef: String(f["partnerRef"]), area: String(f["area"]), locationId: String(f["locationId"]), notes: String(f["notes"]), memberIds: f["memberIds"] as string[], ...(String(f["size"]) !== "" ? { size: Number(f["size"]) } : {}), ...(status !== "" ? { status: status as Beneficiary["status"] } : {}) };
-    const body = isNew ? { action: "ben-add", kind: state.benWin.kind, ...f } : { action: "ben-set", id: state.benWin.id, status, ...f };
-    void outcomeChange(body).then(() => {
-      if (lastError !== "") return renderBenWindow(lastError, draft);
-      state.benWin = { ...state.benWin, open: false };
-      renderBenWindow();
-    });
-  }
-  if (what === "remove") {
-    void outcomeChange({ action: "ben-remove", id: state.benWin.id }).then(() => {
-      if (lastError !== "") return renderBenWindow(lastError);
-      state.benWin = { ...state.benWin, open: false };
-      renderBenWindow();
-    });
-  }
-});
-// Filtering a Gifts column by its values (DECISIONS 217): the funnel in a heading opens its list of values, a tick keeps a value, "Show all" or a chip's cross clears the column, and "Done" closes the list.
-document.addEventListener("click", (e) => {
-  const t = e.target as HTMLElement;
-  const open = t.closest?.("[data-gfilt]") as HTMLElement | null;
-  const clear = t.closest?.("[data-gfclear]") as HTMLElement | null;
-  if (!open && !clear) return;
-  if (open) { const col = open.dataset.gfilt ?? ""; state.giftFiltOpen = state.giftFiltOpen === col ? "" : col; }
-  if (clear) { const { [clear.dataset.gfclear ?? ""]: _gone, ...rest } = state.giftColFilters; state.giftColFilters = rest; }
-  draw();
-});
-document.addEventListener("change", (e) => {
-  const t = e.target as HTMLInputElement | null;
-  const col = t?.dataset?.gfv;
-  if (!t || !col) return;
-  const cur = state.giftColFilters[col] ?? [];
-  state.giftColFilters = { ...state.giftColFilters, [col]: t.checked ? [...new Set([...cur, t.value])] : cur.filter((x) => x !== t.value) };
-  draw();
-});
-// The column chooser of the Gifts list (DECISIONS 215): a button opens it, a tick shows or hides a column, and one link goes back to the usual columns.
-document.addEventListener("click", (e) => {
-  const b = (e.target as HTMLElement).closest?.("[data-gcols]") as HTMLElement | null;
-  if (!b?.dataset?.gcols) return;
-  if (b.dataset.gcols === "toggle") state.giftColsOpen = !state.giftColsOpen;
-  else { state.giftHidden = [...GIFT_HIDDEN_DEFAULT]; saveHiddenCols(state.giftHidden); }
-  draw();
-});
-document.addEventListener("change", (e) => {
-  const t = e.target as HTMLInputElement | null;
-  const id = t?.dataset?.gcol;
-  if (!t || !id) return;
-  state.giftHidden = t.checked ? state.giftHidden.filter((x) => x !== id) : [...new Set([...state.giftHidden, id])];
-  saveHiddenCols(state.giftHidden);
-  draw();
-});
-// A click on a heading of the Gifts list sorts by it; a second click reverses it (DECISIONS 214).
-document.addEventListener("click", (e) => {
-  const b = (e.target as HTMLElement).closest?.("[data-gsort]") as HTMLElement | null;
-  if (!b?.dataset?.gsort) return;
-  const key = b.dataset.gsort;
-  state.giftSort = state.giftSort.key === key ? { key, dir: state.giftSort.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" as const };
-  draw();
-});
-// A click on a column heading of the Beneficiaries list sorts by it; a second click reverses it.
-document.addEventListener("click", (e) => {
-  const b = (e.target as HTMLElement).closest?.("[data-regsort]") as HTMLElement | null;
-  if (!b?.dataset?.regsort) return;
-  const key = b.dataset.regsort;
-  state.registerSort = state.registerSort.key === key ? { key, dir: state.registerSort.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" as const };
-  draw();
-});
-// A click on a heading of the Outcomes list sorts by it; a second click reverses it.
-document.addEventListener("click", (e) => {
-  const b = (e.target as HTMLElement).closest?.("[data-orsort]") as HTMLElement | null;
-  if (!b?.dataset?.orsort) return;
-  const key = b.dataset.orsort;
-  state.outcomeRecSort = state.outcomeRecSort.key === key ? { key, dir: state.outcomeRecSort.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" as const };
-  draw();
-});
-// The filters on the Outcomes list.
-document.addEventListener("change", (e) => {
-  const t = e.target as HTMLInputElement | HTMLSelectElement | null;
-  if (!t?.dataset?.orf) return;
-  state.outcomeRecFilter = { ...state.outcomeRecFilter, [t.dataset.orf]: t.value } as typeof state.outcomeRecFilter;
-  draw();
-});
-// The filters on the Beneficiaries page.
-document.addEventListener("change", (e) => {
-  const t = e.target as HTMLInputElement | HTMLSelectElement | null;
-  if (!t?.dataset?.regf) return;
-  state.registerFilter = { ...state.registerFilter, [t.dataset.regf]: t.value } as BeneficiaryFilter;
-  draw();
-});
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && state.benWin.open) { state.benWin = { ...state.benWin, open: false }; renderBenWindow(); }
-  const row = (e.target as HTMLElement).closest?.(".rowlink[data-bn]") as HTMLElement | null;
-  if (row && e.key === "Enter") { state.benWin = { open: true, id: row.dataset.id ?? "", kind: "person" }; renderBenWindow(); }
-});
-
 // ---- Events of the lists: sort, filter, columns, tiles, the drop-down panel, and the buttons of Confirmation and Progress (app/shared/list-events.ts) ----
 installListEvents({ state, draw, outcomeChange });
 installHouseholdPicker(); // the household member picker in the beneficiary window (app/beneficiaries/household-picker.ts)
+
+// The calls the feature files use (DECISIONS 298), filled in once everything above exists.
+Object.assign(shell, { draw, redrawLists, outcomeChange, view, lastError: () => lastError });
