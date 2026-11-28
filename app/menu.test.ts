@@ -55,3 +55,12 @@ describe("pages kept across a reload", () => {
     expect(PAGE_IDS.length).toBe(new Set(PAGE_IDS).size);
   });
 });
+
+describe("feature switches in the menu (decision 332)", () => {
+  it("leaves out a page whose feature is off, and lands on the next page", () => {
+    const off = (id: string) => id !== "home";
+    expect(visibleMenu(Object.values(P), off).some((m) => m.id === "home")).toBe(false);
+    expect(landingPage(Object.values(P), off)).toBe("work-orders");
+    expect(landingPage(Object.values(P))).toBe("home"); // with every feature on, Home is first
+  });
+});

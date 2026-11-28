@@ -407,4 +407,18 @@ describe("the partner inbox and the automatic work (decision 326)", () => {
     expect((await handleOwnerLogin(req({ method: "POST", body: { passphrase: "wrong-wrong-wrong-1" } }), dd)).status).toBe(401);
     expect((await handleOwnerLogin(req({ method: "POST", body: { passphrase: "test-passphrase-7890123" } }), { ...d, ownerPassphrase: "owner-passphrase-123456" })).status).toBe(401); // the test passphrase is off unless it is set
   });
+  it("switches a feature for an organisation, tells the page and the partner, and the daily run respects it (decision 332)", async () => {
+    const owner = cookieOf(await handleDemoLogin(req({ query: {} }), d));
+    const post = (body: unknown) => handleOutcomes(as(owner, { method: "POST", body }), d);
+    const on = (await post({ action: "feature-set", id: "automation", on: false })).body as { features: Record<string, boolean> };
+    expect(on.features).toMatchObject({ automation: false, home: true, partnerDashboard: true }); // the others keep their defaults
+    expect((await post({ action: "feature-set", id: "invented", on: true })).status).toBe(400);
+    expect((await d.store.getConfig("demo"))!.features).toEqual({ automation: false });
+    // the daily run does not run while its feature is off, even with the daily setting on
+    expect((await handlePickup(req({ headers: { authorization: "Bearer cron-secret" } }), d)).body).toMatchObject({ results: [{ automation: { ran: false } }] });
+    // a partner is told what is on, so its screen can hide what is off
+    await post({ action: "feature-set", id: "partnerDashboard", on: false });
+    const c = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
+    expect(((await handleOutcomes(as(c), d)).body as { features: Record<string, boolean> }).features["partnerDashboard"]).toBe(false);
+  });
 });

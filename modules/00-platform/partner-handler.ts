@@ -22,6 +22,7 @@ import { giftDetails } from "../13-partner-portal/gift-details.js";
 import { partnerSlice, PARTNER_PERMISSION } from "../13-partner-portal/scope.js";
 import { acceptPlace, upsertPlace } from "../14-locations/locations.js";
 import { markRead } from "../18-automation/messages.js";
+import { resolvedFeatures } from "../20-platform/features.js";
 import { setOwnProfile } from "../13-partner-portal/profile.js";
 import { applyCostAction, COST_CATEGORIES, emptyCosts } from "../15-partner-costs/costs.js";
 import { changesBetween } from "./change-log.js";
@@ -139,5 +140,5 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
     costs: config.partnerCosts?.records ?? [],
     messages: config.partnerMessages ?? [],
   }, a.claims.partner as string);
-  return slice ? json(200, message ? { ...slice, message, ...(upload ? { upload } : {}) } : slice, { "cache-control": "no-store" }) : json(404, { error: "This partner was not found." });
+  return slice ? json(200, message ? { ...slice, features: resolvedFeatures(config.features), message, ...(upload ? { upload } : {}) } : { ...slice, features: resolvedFeatures(config.features) }, { "cache-control": "no-store" }) : json(404, { error: "This partner was not found." });
 }

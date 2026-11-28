@@ -128,6 +128,7 @@ export interface OutcomesReply {
   progress?: Progress;
   allocations?: Allocations;
   itemIcons?: Record<string, string>;
+  features?: Record<string, boolean>;
   autoRules?: Partial<import("../../modules/18-automation/rules").AutoRules>;
   autoLast?: { at: string; by: string; text: string };
   itemTimelines?: import("../../modules/02-project-rules/timeline").ItemTimelines;

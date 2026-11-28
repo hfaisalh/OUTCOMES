@@ -46,6 +46,7 @@ export interface OrgConfig {
   outcomeAllocations?: OutcomeAllocation[];
   giftProjects?: GiftProject[]; // the projects donors choose, and the partners that deliver them (DECISIONS 76)
   kindFeatures?: Record<string, unknown>; // the features of each kind a person has changed, by kind id. Absent: the defaults (DECISIONS 146)
+  features?: Record<string, boolean>; // the feature switches of this organisation (DECISIONS 332). Absent: each feature's default
   autoRules?: Partial<import("../18-automation/rules.js").AutoRules>; // what the automatic work does and when it reminds (DECISIONS 326). Absent: the defaults
   partnerMessages?: import("../18-automation/messages.js").PartnerMessage[]; // the partners' inboxes
   autoLast?: { at: string; by: string; text: string }; // the last run of the automatic work, for the Rules page

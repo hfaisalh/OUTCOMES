@@ -106,11 +106,14 @@ import { placeOfWindow, renderBenWindow } from "./beneficiaries/beneficiary-wind
 import { renderAreasWindow } from "./dashboard/areas-window";
 import "./dashboard/scatter-open";
 import { renderPrgWindow } from "./allocation/progress-window-session";
+import { featureOn as featureOnIn } from "../modules/20-platform/features";
 import { homePage } from "./home/home-page";
 import "./home/home-events";
 import { state, keepPageInAddress } from "./state";
 
 
+// Rule (DECISIONS 332): a feature is on unless this organisation has switched it off. Before the server has answered (and in the demo) each feature has its default.
+const featureOn = (id: string): boolean => featureOnIn(state.features, id);
 const permissions = () => (state.me ? state.me.perms : DEMO_ROLES.find((r) => r.id === state.roleId)?.permissions ?? []);
 
 // Run the CRM feed through the connector and bring the work orders up to date.
@@ -141,7 +144,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
-    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.outcomeAllocations = o.outcomeAllocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.locations = o.locations ?? state.locations; state.partnerCosts = o.partnerCosts ?? state.partnerCosts; state.priorityGifts = o.priorityGifts ?? state.priorityGifts; state.allocationSteps = o.allocationSteps ?? state.allocationSteps; state.itemUnits = o.itemUnits ?? state.itemUnits; state.itemTimelines = o.itemTimelines ?? state.itemTimelines; state.autoRules = o.autoRules ?? state.autoRules; state.autoLast = o.autoLast ?? state.autoLast; state.enrolments = o.enrolments ?? state.enrolments; state.assignments = o.assignments ?? state.assignments; state.allocations = o.allocations ?? state.allocations; state.itemIcons = o.itemIcons ?? state.itemIcons; state.itemKinds = o.itemKinds ?? state.itemKinds; state.kindFeatures = o.kindFeatures ?? state.kindFeatures;
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.outcomeAllocations = o.outcomeAllocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.locations = o.locations ?? state.locations; state.partnerCosts = o.partnerCosts ?? state.partnerCosts; state.priorityGifts = o.priorityGifts ?? state.priorityGifts; state.allocationSteps = o.allocationSteps ?? state.allocationSteps; state.itemUnits = o.itemUnits ?? state.itemUnits; state.itemTimelines = o.itemTimelines ?? state.itemTimelines; state.autoRules = o.autoRules ?? state.autoRules; state.features = o.features ?? state.features; state.autoLast = o.autoLast ?? state.autoLast; state.enrolments = o.enrolments ?? state.enrolments; state.assignments = o.assignments ?? state.assignments; state.allocations = o.allocations ?? state.allocations; state.itemIcons = o.itemIcons ?? state.itemIcons; state.itemKinds = o.itemKinds ?? state.itemKinds; state.kindFeatures = o.kindFeatures ?? state.kindFeatures;
       // Rule (DECISIONS 258): the answers and the steps taken are read when the page loads too, so a partner's answer is on the Confirmation list without anyone pressing anything first.
       state.confirmations = o.confirmations ?? state.confirmations; state.progress = o.progress ?? state.progress; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
@@ -220,7 +223,7 @@ function view(): View {
   const flaggedItems = [...items.values()];
   return {
     locations: state.locations, allocationSteps: state.allocationSteps, priorityGifts: state.priorityGifts, partnerCosts: state.partnerCosts, workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, confirmations: state.confirmations, progress: state.progress, prgFilter: state.prgFilter, assignFilter: state.assignFilter, pageTab: state.pageTab, allocations: state.allocations, allocFilter: state.allocFilter, cnfFilter: state.cnfFilter, pjFilter: state.pjFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftKeys: state.giftKeys, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, outcomeAllocations: state.outcomeAllocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), message: state.message, config: MWF_CRM_CONFIG,
-    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, itemUnits: state.itemUnits, itemTimelines: state.itemTimelines, autoRules: state.autoRules, ...(state.autoLast ? { autoLast: state.autoLast } : {}), workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
+    categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, itemUnits: state.itemUnits, itemTimelines: state.itemTimelines, features: state.features, autoRules: state.autoRules, ...(state.autoLast ? { autoLast: state.autoLast } : {}), workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, ...(state.me?.logins ? { logins: state.me.logins } : {}), attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
 }
@@ -259,7 +262,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.partnerCosts = r.partnerCosts ?? state.partnerCosts;
       state.priorityGifts = r.priorityGifts ?? state.priorityGifts;
       state.allocationSteps = r.allocationSteps ?? state.allocationSteps;
-      state.itemUnits = r.itemUnits ?? state.itemUnits; state.itemTimelines = r.itemTimelines ?? state.itemTimelines; state.autoRules = r.autoRules ?? state.autoRules; state.autoLast = r.autoLast ?? state.autoLast;
+      state.itemUnits = r.itemUnits ?? state.itemUnits; state.itemTimelines = r.itemTimelines ?? state.itemTimelines; state.autoRules = r.autoRules ?? state.autoRules; state.features = r.features ?? state.features; state.autoLast = r.autoLast ?? state.autoLast;
       state.enrolments = r.enrolments ?? state.enrolments;
       state.assignments = r.assignments ?? state.assignments;
       state.confirmations = r.confirmations ?? state.confirmations;
@@ -463,10 +466,10 @@ function draw(): void {
     (document.getElementById("shell") as HTMLElement).innerHTML = html;
     return;
   }
-  const menu = visibleMenu(permissions());
+  const menu = visibleMenu(permissions(), featureOn);
   const role = DEMO_ROLES.find((r) => r.id === state.roleId);
   // Rule: if the current page is not allowed for this role, go to the first allowed page.
-  if (!menu.some((m) => m.id === state.page)) state.page = landingPage(permissions()) ?? state.page;
+  if (!menu.some((m) => m.id === state.page)) state.page = landingPage(permissions(), featureOn) ?? state.page;
   keepPageInAddress(state.page);
   const v = view();
   const body = menu.length === 0
@@ -494,7 +497,7 @@ function draw(): void {
     : state.page === "sources" ? mapping.html()
     : settingsPage(v);
   // Side menu (DECISIONS 66): the journey of a gift. A module is one entry and its pages are tabs above the page. Setup is behind the gear.
-  const entries = menuEntries(permissions());
+  const entries = menuEntries(permissions(), featureOn);
   const work = entries.filter((e) => e.section === "Work");
   const link = (e: (typeof entries)[number]) => `<a data-page="${(e.pages[0] as { id: string }).id}" class="${e.pages.some((p) => p.id === state.page) ? "on" : ""}"><span class="ico">${e.icon}</span>${e.label}</a>`;
   const dataEntries = entries.filter((e) => e.section === "Data");
@@ -1034,7 +1037,7 @@ document.addEventListener("change", (e) => {
   }
   if (t.id === "role") {
     state.roleId = t.value;
-    state.page = landingPage(permissions()) ?? state.page;
+    state.page = landingPage(permissions(), featureOn) ?? state.page;
   } else if (t.dataset.assign !== undefined && t.value !== "") {
     sortItem(t.dataset.assign, t.value);
   } else if (t.dataset.rename) {

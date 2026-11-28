@@ -34,6 +34,7 @@ import { poolMessage, settlePool } from "../07-beneficiaries/waiting.js";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf } from "../07-beneficiaries/enrolments.js";
 import { handlePartner } from "./partner-handler.js";
 import { autoRulesOf, setAutoRule } from "../18-automation/rules.js";
+import { resolvedFeatures, setFeature } from "../20-platform/features.js";
 import { addMessages } from "../18-automation/messages.js";
 import { newBatchMessages, sentBackFor } from "../18-automation/input.js";
 import { sweepRecords } from "../18-automation/run.js";
@@ -80,7 +81,7 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
   let confirmations = config.confirmations ?? emptyConfirmations(); // the partners' answers to those assignments (DECISIONS 231)
   let progress = config.progress ?? emptyProgress(); // the steps taken after allocation, and the batches closed (DECISIONS 232)
   // Rule: every answer carries the whole picture (all the records the page draws from), so a page never has to ask twice. The few things an answer changes are passed in `over`.
-  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, outcomeAllocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, allocations, locations: config.locations ?? [], priorityGifts: config.priorityGifts ?? [], allocationSteps: normaliseSteps(config.allocationSteps), partnerCosts: config.partnerCosts?.records ?? [], itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, itemTimelines: config.itemTimelines ?? {}, autoRules: config.autoRules ?? {}, ...(config.autoLast ? { autoLast: config.autoLast } : {}), kindFeatures: config.kindFeatures ?? {}, ...over });
+  const reply = (over: Record<string, unknown> = {}) => json(200, { outcomes, outcomeAllocations, projects, giftProjects, nodes, graceDays, requireRef, partnerTypes, partnerFields, outcomeTypes, idCounters, beneficiaries, enrolments, assignments, confirmations, progress, allocations, locations: config.locations ?? [], priorityGifts: config.priorityGifts ?? [], allocationSteps: normaliseSteps(config.allocationSteps), partnerCosts: config.partnerCosts?.records ?? [], itemIcons: config.itemIcons ?? {}, itemKinds: config.itemKinds ?? {}, itemUnits: config.itemUnits ?? {}, itemTimelines: config.itemTimelines ?? {}, features: resolvedFeatures(config.features), autoRules: config.autoRules ?? {}, ...(config.autoLast ? { autoLast: config.autoLast } : {}), kindFeatures: config.kindFeatures ?? {}, ...over });
   // Rule (DECISIONS 105): every outcome and allocation has an ID. Any without one are given one here, so older ones get theirs too.
   const settle = (): boolean => {
     const r = ensureRefs({ outcomes, outcomeAllocations, counters: idCounters }, outcomeTypes, config.allocationPrefix);
@@ -325,6 +326,14 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       return reply(pooled ? { warning: pooled } : {});
     }
     // The automatic work (DECISIONS 326). auto-rule sets one setting. auto-sweep reminds partners and moves unanswered gifts. auto-note keeps what the last run did. auto-run does all of it (see runAutomation below).
+    // A feature switch (DECISIONS 332): switching a feature on or off for this organisation.
+    if (b["action"] === "feature-set") {
+      const r = setFeature(config.features, b["id"], b["on"]);
+      if ("error" in r) return fail(r.error);
+      await save({ ...config, features: r.value });
+      Object.assign(config, { features: r.value });
+      return reply({ features: resolvedFeatures(r.value) });
+    }
     if (b["action"] === "auto-rule") {
       const r = setAutoRule(config.autoRules, b["key"], b["value"]);
       if ("error" in r) return fail(r.error);

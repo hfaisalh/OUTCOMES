@@ -29,3 +29,16 @@ describe("the partner dashboard", () => {
     expect(html).not.toContain('id="tr-target"');
   });
 });
+
+import { partnerHomeHtml } from "./partner-home";
+describe("the partner's screen when the feature is off (decision 332)", () => {
+  const ui = { open: [], details: [], lastOpened: "", refusing: null, form: null, csv: null, message: "", error: "" } as never;
+  it("shows the dashboard and the bell when it is on, and neither when it is off", () => {
+    const on = partnerHomeHtml({ ...slice([asg("a", "2026-11-20")]), features: { partnerDashboard: true } } as PartnerSlice, "Who", "v", ui);
+    const off = partnerHomeHtml({ ...slice([asg("a", "2026-11-20")]), features: { partnerDashboard: false } } as PartnerSlice, "Who", "v", ui);
+    expect(on).toContain("Your work at a glance");
+    expect(on).toContain("phome-bell");
+    expect(off).not.toContain("Your work at a glance");
+    expect(off).not.toContain("phome-bell");
+  });
+});

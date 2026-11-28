@@ -58,6 +58,7 @@ export interface PartnerSlice {
   gifts: Record<string, GiftDetail>; // only for the gifts assigned to this partner
   costs?: PartnerCost[]; // only this partner's own recorded costs
   messages?: PartnerMessage[]; // only this partner's own messages, newest first
+  features?: Record<string, boolean>; // which features are on for the organisation (DECISIONS 332)
 }
 
 // --- The rule ---

@@ -35,6 +35,7 @@ export interface MenuItem {
   permission: string;
   section: "Work" | "Data" | "Set up";
   module?: string; // the module (one menu entry with tabs) this page belongs to, if any
+  feature?: string; // the feature switch this page needs (DECISIONS 332). Off: the page is not in the menu
 }
 
 // A module is one menu entry that holds several pages as tabs (DECISIONS 54).
@@ -56,7 +57,7 @@ export const MODULES: ModuleInfo[] = [
 // sits behind the Settings gear. Gifts holds both the payments and the commitments (a switch on the page), since they are one thing seen two ways.
 export const MENU: MenuItem[] = [
   // Rule (DECISIONS 328): Home is first, so it is where a person lands: the doors into OUTCOMES.
-  { id: "home", label: "Home", icon: "⌂", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
+  { id: "home", label: "Home", icon: "⌂", permission: PERMISSIONS.viewWorkOrders, section: "Work", feature: "home" },
   { id: "work-orders", label: "Gifts", icon: "☰", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "projects", label: "Projects", icon: "▥", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "partners", label: "Partners", icon: "▤", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
@@ -82,13 +83,13 @@ export const MENU: MenuItem[] = [
 ];
 
 // Rule: a person must hold the access permission, then each item needs its own permission.
-export function visibleMenu(permissions: string[]): MenuItem[] {
+export function visibleMenu(permissions: string[], featureOn: (id: string) => boolean = () => true): MenuItem[] {
   if (!permissions.includes(PERMISSIONS.access)) return [];
-  return MENU.filter((m) => permissions.includes(m.permission));
+  return MENU.filter((m) => permissions.includes(m.permission) && (m.feature === undefined || featureOn(m.feature)));
 }
 
 // The first page a person lands on: the first item they may see, or null when they have none.
-export const landingPage = (permissions: string[]): PageId | null => visibleMenu(permissions)[0]?.id ?? null;
+export const landingPage = (permissions: string[], featureOn?: (id: string) => boolean): PageId | null => visibleMenu(permissions, featureOn)[0]?.id ?? null;
 
 // One entry in the side menu: a plain page, or a module with its pages (shown as tabs).
 export interface MenuEntry {
@@ -101,9 +102,9 @@ export interface MenuEntry {
 }
 
 // Rule: pages of a module collapse into one entry allocated where its first allowed page was. A module with no allowed page does not appear.
-export function menuEntries(permissions: string[]): MenuEntry[] {
+export function menuEntries(permissions: string[], featureOn?: (id: string) => boolean): MenuEntry[] {
   const out: MenuEntry[] = [];
-  for (const m of visibleMenu(permissions)) {
+  for (const m of visibleMenu(permissions, featureOn)) {
     const mod = m.module ? MODULES.find((x) => x.id === m.module) : undefined;
     if (!mod) {
       out.push({ id: m.id, label: m.label, icon: m.icon, section: m.section, pages: [m] });

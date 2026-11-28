@@ -141,6 +141,7 @@ document.addEventListener("change", (e) => {
   if (t.dataset?.assignWf !== undefined) { if (t.value !== "") moveItem(t.dataset.assignWf, t.value); return; }
   // How a unit supports an outcome (DECISIONS 131).
   if (t.dataset?.itemUnits !== undefined) { void shell.outcomeChange({ action: "item-units", itemId: t.dataset.itemUnits, units: (t as HTMLInputElement).value }); return; }
+  if (t.dataset?.feature !== undefined) { void shell.outcomeChange({ action: "feature-set", id: t.dataset.feature, on: (t as HTMLInputElement).checked }); return; }
   if (t.dataset?.autoRule !== undefined) {
     const key = t.dataset.autoRule;
     void shell.outcomeChange({ action: "auto-rule", key, value: key === "remindBefore" ? (t as HTMLInputElement).value : (t as HTMLInputElement).checked });

@@ -124,6 +124,7 @@ export const state = {
   kindSel: "", // the kind the Benefits page shows (DECISIONS 146)
   kindFeatures: {} as Record<string, unknown>, // the features of the kinds a person changed (DECISIONS 146)
   home: { door: "", step: "" } as { door: string; step: string }, // the door and the setup step open on the Home page (DECISIONS 328)
+  features: {} as Record<string, boolean>, // which features are on for this organisation (DECISIONS 332), from the server
   autoRules: {} as Partial<import("../modules/18-automation/rules").AutoRules>, // the automatic work's settings (DECISIONS 326)
   autoLast: undefined as { at: string; by: string; text: string } | undefined, // the last run
   partnerMessages: [] as import("../modules/18-automation/messages").PartnerMessage[], // the partners' inboxes (demo)

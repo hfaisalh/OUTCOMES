@@ -14,6 +14,8 @@ import type { Place } from "../../modules/14-locations/locations";
 import { accountsCard } from "../accounts-card";
 import type { AttentionItem } from "../../modules/04-triage/triage";
 import { hasSample } from "../../modules/07-beneficiaries/sample-setup";
+import { FEATURES, featureOn } from "../../modules/20-platform/features";
+import { switchHtml } from "./switch";
 import type { BeneficiaryFilter, Register } from "../../modules/07-beneficiaries/beneficiaries";
 import type { Enrolments } from "../../modules/07-beneficiaries/enrolments";
 import type { Assignments } from "../../modules/08-assignment/assignment";
@@ -90,6 +92,7 @@ export interface View {
   categories: Category[];
   frameworks?: FrameworkTemplate[]; // framework templates (DECISIONS 59)
   itemIcons?: Record<string, string>; // the icon chosen for an item (DECISIONS 107)
+  features?: Record<string, boolean>; // which features are on (DECISIONS 332)
   autoRules?: Partial<import("../../modules/18-automation/rules").AutoRules>; // the automatic work's settings (DECISIONS 326)
   autoLast?: { at: string; by: string; text: string }; // the last run of the automatic work
   itemTimelines?: import("../../modules/02-project-rules/timeline").ItemTimelines; // the timeline of an item, by item (DECISIONS 314)
@@ -315,7 +318,16 @@ export const settingsPage = (v: View): string => `
     <p class="muted">${v.live ? "These settings are read-only here. Gifts come from the CRM exports or the feed you loaded." : "In this demo the settings are read-only and the feed is the invented sample."}</p></div>
     ${accountsCard(v)}
     ${sampleCard(v)}
-    ${scenarioCard(v)}`;
+    ${scenarioCard(v)}
+    ${featuresCard(v)}`;
+
+// The feature switches card (DECISIONS 332): which features are on for this organisation. There is one version of OUTCOMES for every organisation, so a new feature is built off and switched on here, for the test organisation first. Only on a live organisation, since the choice is saved.
+function featuresCard(v: View): string {
+  if (!v.live) return "";
+  const rows = FEATURES.map((f) => `<div class="ot-check">${switchHtml({ label: f.label, on: featureOn(v.features, f.id), attrs: `data-feature="${esc(f.id)}"` })}<p class="muted">${esc(f.what)}</p></div>`).join("");
+  return `<div class="card"><h2>Features</h2>
+    <p class="muted">Every organisation runs the same version of OUTCOMES, so a new feature reaches all of them at once. A feature is switched here instead: build it off, switch it on for the test organisation, and on for the real one when you are happy. Switching a feature off hides it and changes none of your data.</p>${rows}</div>`;
+}
 
 // The sample scenario card (DECISIONS 329): the records of a working organisation, dated back from today, on top of the sample world and the sample setup. Only on a live organisation, since it works on the saved gifts.
 function scenarioCard(v: View): string {

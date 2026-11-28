@@ -29,6 +29,7 @@ import { autoCreateProjects } from "../06-projects/projects.js";
 import { PARTNER_PERMISSIONS } from "../13-partner-portal/scope.js";
 import { publicOf } from "./logins.js";
 import { autoRulesOf } from "../18-automation/rules.js";
+import { featureOn } from "../20-platform/features.js";
 import { runAutomation } from "./outcomes-handler.js";
 import { SESSION_COOKIE } from "./launch-token.js";
 import { json, need, nowSeconds, sessionOf, text, type Deps, type HttpRequest, type HttpResponse } from "./http.js";
@@ -164,7 +165,7 @@ async function pickupOne(org: string, d: Deps) {
 async function automateOne(org: string, d: Deps): Promise<{ ran: boolean; text?: string; error?: string }> {
   try {
     const config = await d.store.getConfig(org);
-    if (!config || !autoRulesOf(config.autoRules).daily) return { ran: false };
+    if (!config || !autoRulesOf(config.autoRules).daily || !featureOn(config.features, "automation")) return { ran: false }; // Rule (DECISIONS 332): the feature switch comes first
     const now = nowSeconds(d);
     const claims: Claims = { typ: "session", jti: d.newId(), sub: "automation", name: "Automation", org, perms: [P.access, P.mapFrameworks, P.viewWorkOrders], iat: now, exp: now + 600 };
     const cookie = `${SESSION_COOKIE}=${signToken(d.secrets.session, claims)}`;
