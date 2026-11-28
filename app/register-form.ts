@@ -55,7 +55,7 @@ export function registerFormHtml(rec: Partial<Beneficiary>, id: string, kind: Be
 
   // --- The window ---
   return `<div class="pf-overlay" role="dialog" aria-modal="true" aria-label="Beneficiary"><div class="pf-box">
-    <header class="gw-head"><div><h2>${id ? esc(rec.name ?? "Beneficiary") : `New ${KIND_LABEL[kind].toLowerCase()}`}</h2>${sub}</div><button data-bn="cancel" aria-label="Close">Close</button></header>
+    <header role="none" class="gw-head"><div><h2>${id ? esc(rec.name ?? "Beneficiary") : `New ${KIND_LABEL[kind].toLowerCase()}`}</h2>${sub}</div><button data-bn="cancel" aria-label="Close">Close</button></header>
     <div class="pf-body gw rg-body"><div class="gw-cols rg-cols">
       ${person ? `<div class="rg-col">${identity}${family}</div><div class="rg-col">${admission}${where}</div>` : `<div class="rg-col">${householdIdentity}${membersCard}</div><div class="rg-col">${where}</div>`}
     </div>

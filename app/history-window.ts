@@ -26,7 +26,7 @@ export interface HistoryData {
 }
 
 const frame = (title: string, sub: string, body: string): string => `<div class="pf-overlay" role="dialog" aria-modal="true" aria-label="Allocation history"><div class="pf-box">
-    <header><h2>${title}</h2><button data-hist="close" aria-label="Close">Close</button></header>
+    <header role="none"><h2>${title}</h2><button data-hist="close" aria-label="Close">Close</button></header>
     <div class="pf-body">${sub ? `<p class="muted">${sub}</p>` : ""}${body}</div>
     <footer><button data-hist="close">Close</button></footer>
   </div></div>`;

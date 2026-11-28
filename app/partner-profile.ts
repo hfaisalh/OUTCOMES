@@ -28,7 +28,7 @@ export function profileFormHtml(f: ProfileForm): string {
     <label class="pe-f"><span class="pe-l">Phone</span><input id="pp-c${i}-phone" type="tel" value="${esc(c.phone)}" autocomplete="off"></label>
     <label class="pe-f"><span class="pe-l">Email</span><input id="pp-c${i}-email" type="email" value="${esc(c.email)}" autocomplete="off"></label></fieldset>`;
   return `<div class="pf-overlay${f.fresh ? " pe-in" : ""}" role="dialog" aria-modal="true" aria-labelledby="pp-title"><div class="pf-box">
-    <header class="gw-head"><div><h2 id="pp-title">Change your profile</h2><div class="gw-sub muted">The part of your profile that is yours to say. MWF keeps the rest, such as due diligence and funding.</div></div><button type="button" data-action="pt-profile-cancel" aria-label="Close">Close</button></header>
+    <header role="none" class="gw-head"><div><h2 id="pp-title">Change your profile</h2><div class="gw-sub muted">The part of your profile that is yours to say. MWF keeps the rest, such as due diligence and funding.</div></div><button type="button" data-action="pt-profile-cancel" aria-label="Close">Close</button></header>
     <form class="pf-body gw pe" id="pp-form" novalidate>
       <h3 class="pp-h">Who to contact</h3><div class="pp-contacts">${rows.map(contact).join("")}</div>
       <h3 class="pp-h">How you report</h3><div class="pe-grid">

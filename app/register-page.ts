@@ -132,7 +132,7 @@ export function registerPage(v: View): string {
     const more = r.gifts.length > 1 ? ` <span class="muted">+${r.gifts.length - 1}</span>` : "";
     const donor = first ? `${icon(first.once ? "one" : "rec", first.once ? SYMBOL.one : SYMBOL.recurring, first.once ? "One payment" : "Recurring gift")} ${esc(first.donor)}${more}` : "";
     // Status is the beneficiary's own: active (green) or inactive (red), set in the profile. A gift can pause, a beneficiary does not.
-    const status = b.status === "active" ? `<span class="dot on" title="Active" aria-label="Active"></span>` : `<span class="dot off" title="Inactive" aria-label="Inactive"></span>`;
+    const status = b.status === "active" ? `<span class="dot on" role="img" title="Active" aria-label="Active"></span>` : `<span class="dot off" role="img" title="Inactive" aria-label="Inactive"></span>`;
     const lead = `<td class="nm" title="${esc([b.id, b.area].filter((x) => x !== "").join(" \u00B7 "))}"><b>${esc(b.name)}</b></td><td>${esc(sex)}</td><td class="num">${age === null ? "" : age}</td><td>${esc(partner)}</td>`;
     const rest = r.enrolmentId === ""
       ? `<td colspan="${months.length + 5}" class="muted">Not enrolled in any benefit yet</td>`

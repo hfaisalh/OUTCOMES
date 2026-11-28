@@ -20,7 +20,7 @@ describe("the partner's costs card", () => {
     const html = costsCardHtml(slice, ui(), "2026-11-28");
     expect(html).toContain("PKR 9,000.00 · GBP 100.00");
     expect(html).toContain("Flyers &lt;b&gt;");
-    expect(html).toContain('aria-label="Change cost PC-0001"');
+    expect(html).toContain('aria-label="Edit cost PC-0001"');
     expect(html).toContain("Nothing is paid from here");
   });
   it("is calm when there are none, and has a Record a cost button", () => {

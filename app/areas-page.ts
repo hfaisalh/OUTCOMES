@@ -67,7 +67,7 @@ export function areasCard(v: View, view: AreasView = noAreasView()): string {
 export function areasWindowHtml(v: View, ui: AreasUi): string {
   const n = uncheckedAreas(v.beneficiaries ?? EMPTY).length;
   return `<div class="pf-overlay" role="dialog" aria-modal="true" aria-labelledby="ar-title"><div class="pf-box">
-    <header class="gw-head"><div><h2 id="ar-title">Fix anomalies <span class="muted">(${n})</span></h2><div class="gw-sub muted">Areas that were typed, not chosen. Find the place for one, and everyone who typed it is fixed at once.</div></div><button type="button" id="ar-close" data-action="ar-close" aria-label="Close">Close</button></header>
+    <header role="none" class="gw-head"><div><h2 id="ar-title">Fix anomalies <span class="muted">(${n})</span></h2><div class="gw-sub muted">Areas that were typed, not chosen. Find the place for one, and everyone who typed it is fixed at once.</div></div><button type="button" id="ar-close" data-action="ar-close" aria-label="Close">Close</button></header>
     <div class="pf-body gw">${v.message ? `<div class="note" role="status">${esc(v.message)}</div>` : ""}${checkList(v, ui)}</div>
     <footer><button type="button" data-action="ar-close">Done</button></footer></div></div>`;
 }

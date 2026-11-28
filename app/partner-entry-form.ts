@@ -25,7 +25,7 @@ export function entryFormHtml(f: EntryForm, projects: { id: string; name: string
   const project = `<label class="pe-f"><span class="pe-l">Meant for project <abbr title="required" aria-hidden="true">*</abbr></span><select id="pe-targetProjectId" required><option value="">Choose a project</option>${projects.map((p) => `<option value="${esc(p.id)}"${val(withProject, "targetProjectId") === p.id ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</select><span class="muted pe-hint">A project you deliver. They wait for a vacancy in it.</span></label>`;
   const title = f.id ? "Complete this beneficiary" : "Add a beneficiary";
   return `<div class="pf-overlay${f.fresh ? " pe-in" : ""}" role="dialog" aria-modal="true" aria-labelledby="pe-title"><div class="pf-box">
-    <header class="gw-head"><div><h2 id="pe-title">${title}</h2><div class="gw-sub muted">${f.id ? `${esc(f.id)}. ` : ""}A record with a date of birth, a guardian and an ID number is complete, and joins the waiting list for the project.</div></div><button type="button" data-action="pt-form-cancel" aria-label="Close">Close</button></header>
+    <header role="none" class="gw-head"><div><h2 id="pe-title">${title}</h2><div class="gw-sub muted">${f.id ? `${esc(f.id)}. ` : ""}A record with a date of birth, a guardian and an ID number is complete, and joins the waiting list for the project.</div></div><button type="button" data-action="pt-form-cancel" aria-label="Close">Close</button></header>
     <form class="pf-body gw pe" id="pe-form" novalidate>
       <div class="pe-grid">
         ${field(f, "name", "Name", "", "", true)}${field(f, "dob", "Date of birth", ' type="date"', "")}

@@ -56,7 +56,7 @@ export function csvWindowHtml(s: CsvState, projects: { id: string; name: string 
   const intro = rows.length === 0 && s.result ? "" : `${rows.length > 0 ? "" : steps}${pick}`; // once there are rows the three steps are done, so they make way for the list
 
   return `<div class="pf-overlay${s.fresh ? " pe-in" : ""}" role="dialog" aria-modal="true" aria-labelledby="pc-title"><div class="pf-box pc-box">
-    <header class="gw-head"><div><h2 id="pc-title">Add beneficiaries from a CSV</h2><div class="gw-sub muted">Up to 500 at a time. Contact details, health records and documents are not kept here.</div></div><button type="button" data-action="pt-csv-close" aria-label="Close">Close</button></header>
+    <header role="none" class="gw-head"><div><h2 id="pc-title">Add beneficiaries from a CSV</h2><div class="gw-sub muted">Up to 500 at a time. Contact details, health records and documents are not kept here.</div></div><button type="button" data-action="pt-csv-close" aria-label="Close">Close</button></header>
     <div class="pf-body gw pe">${banner}${intro}${list}</div>
     <footer><span id="pc-error" class="pf-error" role="alert" tabindex="-1">${esc(s.error)}</span>${rows.length === 0 && s.result ? `<button type="button" class="primary" data-action="pt-csv-close">Done</button>` : `<button type="button" data-action="pt-csv-close">${s.result ? "Close" : "Cancel"}</button><button type="button" class="primary" data-action="pt-csv-send"${canSend ? "" : " disabled"}>${s.busy ? "Adding..." : sendable.length > 0 ? `Add ${plural(sendable.length, "beneficiary", "beneficiaries")}` : "Add"}</button>`}</footer>
   </div></div>`;
