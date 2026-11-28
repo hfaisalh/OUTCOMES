@@ -60,10 +60,6 @@ describe("the sample scenario on the sample world", () => {
     expect(c.progress!.records.some((r) => r.kind === "stage" && r.id === "complete")).toBe(true);
     expect(c.partnerMessages!.length).toBeGreaterThanOrEqual(4);
     expect(c.priorityGifts!.length).toBe(1);
-    expect(c.autoRules).toMatchObject({ remindBefore: 2, assign: true });
-    expect(c.itemTimelines).toMatchObject({ "MWF-WAT-001": { days: 45 } });
-    const orphan = c.frameworks!.find((f) => f.id === "orphan-sponsorship")!;
-    expect(orphan).toMatchObject({ cycle: "quarterly", loopMonths: 12, moveAfterDays: 5 });
   });
 
   it("gives a partner a dashboard with late work, work sent back and messages", async () => {
@@ -90,5 +86,29 @@ describe("the sample scenario on the sample world", () => {
     expect((await post({ action: "sample-scenario-remove" })).status).toBe(200);
     const c = (await d.store.getConfig("demo"))!;
     expect([c.assignments!.records.length, c.confirmations!.records.length, c.progress!.records.length, c.partnerMessages!.length]).toEqual([0, 0, 0, 0]);
+  });
+
+  it("never touches a real gift, the workflows, the benefit connections, the days to fulfil or the automatic settings, and Remove clears only its own records (decision 330)", async () => {
+    const { d, post } = await world();
+    const real = { key: "REAL1", lineId: "REAL1", status: "ready", itemId: "MWF-ORP-001", itemName: "Orphan Sponsorship Monthly", supporterName: "Real Person", subscriptionId: "", instalmentCount: "", instalmentNumber: "", paidDate: "2026-11-10", frameworkId: "orphan-sponsorship", quantity: 1, amount: 30 } as never;
+    await d.store.saveWorkOrders("demo", [...(await d.store.listWorkOrders("demo")), real]);
+    const before = (await d.store.getConfig("demo"))!;
+    const realAssignment = { key: "REAL1", partnerId: "real-partner", giftProjectId: "g", itemId: "MWF-ORP-001", parts: 1, how: "auto" as const, at: "2026-11-11T00:00:00Z", batch: 1 };
+    const myFw = before.frameworks!.map((f) => (f.id === "orphan-sponsorship" ? { ...f, moveAfterDays: 9, cycle: "monthly" as const } : f));
+    await d.store.putConfig("demo", { ...before, frameworks: myFw, assignments: { records: [realAssignment] }, autoRules: { remindBefore: 5 }, itemTimelines: { "MWF-ORP-001": { days: 77 } }, itemKinds: { "MWF-ORP-001": "person" }, partnerMessages: [{ id: "real-msg", partnerId: "real-partner", at: "2026-11-12T00:00:00Z", kind: "reminder", title: "t", text: "x", read: false }] } as never);
+    await post({ action: "sample-load" });
+    await post({ action: "sample-scenario-load" });
+    const c = (await d.store.getConfig("demo"))!;
+    expect(c.assignments!.records.find((x) => x.key === "REAL1")).toEqual(realAssignment); // the real gift keeps its own record
+    expect(c.assignments!.records.some((x) => x.key !== "REAL1")).toBe(true); // and the sample gifts got theirs
+    expect(c.frameworks!.find((f) => f.id === "orphan-sponsorship")).toMatchObject({ moveAfterDays: 9, cycle: "monthly" }); // your workflow settings
+    expect(c.autoRules).toEqual({ remindBefore: 5 });
+    expect(c.itemTimelines).toEqual({ "MWF-ORP-001": { days: 77 } });
+    expect(c.itemKinds).toEqual({ "MWF-ORP-001": "person" });
+    expect(c.partnerMessages!.some((m) => m.id === "real-msg")).toBe(true);
+    await post({ action: "sample-scenario-remove" });
+    const after = (await d.store.getConfig("demo"))!;
+    expect(after.assignments!.records.map((x) => x.key)).toEqual(["REAL1"]); // only the sample gifts' records went
+    expect(after.partnerMessages!.map((m) => m.id)).toEqual(["real-msg"]);
   });
 });

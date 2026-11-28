@@ -38,7 +38,7 @@ import { addMessages } from "../18-automation/messages.js";
 import { newBatchMessages, sentBackFor } from "../18-automation/input.js";
 import { sweepRecords } from "../18-automation/run.js";
 import { standings, stepsFor } from "../12-progress/context.js";
-import { buildScenario, SCENARIO_AUTO, SCENARIO_TIMELINES, scenarioWorkflows } from "../07-beneficiaries/sample-scenario.js";
+import { buildScenario } from "../07-beneficiaries/sample-scenario.js";
 import { handlePlaces } from "./places-handler.js";
 import { acceptPlace, upsertPlace } from "../14-locations/locations.js";
 import { resolveArea } from "../14-locations/areas.js";
@@ -196,37 +196,49 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       await save({ ...config, confirmations });
       return reply({ ...(r.message ? { warning: r.message } : {}) });
     }
-    // The sample scenario (DECISIONS 329): the records of a working organisation on top of the sample world and the sample setup, dated back from today. It uses the same engines the buttons use. sample-scenario-remove clears those records.
+    // The sample scenario (DECISIONS 329, made safe in 330): records for the SAMPLE gifts only (donors named Sample Supporter), merged with what is there. It never touches a real gift, the workflows, the benefit connections, the days to fulfil or the automatic settings. sample-scenario-remove clears only the records of the sample gifts and the sample partners' messages.
+    const isSampleGift = (w: { supporterName?: string }): boolean => (w.supporterName ?? "").startsWith("Sample Supporter");
+    const sampleKeysOf = (wos: { key: string; subscriptionId?: string; supporterName?: string }[]): Set<string> => new Set(wos.filter(isSampleGift).flatMap((w) => [w.key, ...((w.subscriptionId ?? "") !== "" ? [`sub:${w.subscriptionId}`] : [])]));
+    const samplePartnerIds = new Set(projects.filter((p) => (p.reference ?? "").startsWith("SAMPLE-")).map((p) => p.id));
     if (b["action"] === "sample-scenario-remove") {
-      assignments = emptyAssignments(); confirmations = emptyConfirmations(); allocations = { ...emptyAllocations(), ...(allocations.stock ? { stock: allocations.stock } : {}) }; progress = emptyProgress();
-      await save({ ...config, assignments, confirmations, allocations, progress, partnerMessages: [], priorityGifts: [] });
-      return reply({ warning: "The sample scenario was removed: assignments, answers, allocations, steps and messages are cleared." });
+      const mine = sampleKeysOf(await d.store.listWorkOrders(org));
+      assignments = { records: assignments.records.filter((x) => !mine.has(x.key)) };
+      confirmations = { records: confirmations.records.filter((x) => !mine.has(x.key)) };
+      allocations = { ...allocations, records: allocations.records.filter((x) => !mine.has(x.key)) };
+      progress = { records: progress.records.filter((x) => !mine.has(x.key)) };
+      await save({ ...config, assignments, confirmations, allocations, progress, partnerMessages: (config.partnerMessages ?? []).filter((m) => !samplePartnerIds.has(m.partnerId)), priorityGifts: (config.priorityGifts ?? []).filter((k) => !mine.has(k)) });
+      return reply({ warning: "The sample scenario was removed: only the records of the sample gifts, and the sample partners' messages. Nothing else was touched." });
     }
     if (b["action"] === "sample-scenario-load") {
       if (!hasSample({ giftProjects, register: beneficiaries })) return fail("Load the sample setup first.");
-      const wosS = await d.store.listWorkOrders(org);
+      const all = await d.store.listWorkOrders(org);
+      const wosS = all.filter(isSampleGift); // Rule: the scenario sees only the sample gifts, so no real gift is assigned, answered, allocated or followed
+      if (wosS.length === 0) return fail("There are no sample gifts. Upload the files in samples/world first.");
       if (fw.length === 0 || !wosS.some((w) => (w.frameworkId ?? "") !== "")) return fail("Set up the workflows first: on Workflows, add the standard workflows, suggest them from the item names, and apply them to the gifts.");
       const today = at.slice(0, 10);
       const namesS = new Map(wosS.map((w) => [w.itemId, w.itemName]));
-      const frameworksS = scenarioWorkflows(fw);
-      const ctxAt = (now: string, over: Record<string, unknown> = {}) => contextFrom({ urgent: new Set<string>(), workOrders: wosS, partners: projects, giftProjects, frameworks: frameworksS, outcomeTypes, today: now.slice(0, 10), now, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId: string) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesS.get(itemId) ?? ""), itemUnits: config.itemUnits, ...over });
+      const ctxAt = (now: string) => contextFrom({ urgent: new Set<string>(), workOrders: wosS, partners: projects, giftProjects, frameworks: fw, outcomeTypes, today: now.slice(0, 10), now, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId: string) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesS.get(itemId) ?? ""), itemUnits: config.itemUnits });
       const units = assignables(ctxAt(at));
+      const base = { ...emptyAllocations(), counter: allocations.counter }; // new outcome IDs carry on from the real ones, so none repeats
       const made = buildScenario({
         today, units: units.map((u) => ({ key: u.key, itemName: u.w.itemName, frameworkId: u.w.frameworkId ?? "" })),
         assign: (now) => runAssignment(ctxAt(now), emptyAssignments()).value,
         allocate: (given, now) => {
-          const actxA = ctxAt(now);
-          const ctx = allocateContext({ steps: normaliseSteps(config.allocationSteps), urgent: new Set<string>(), assignments: given.records, assignables: assignables(actxA), workOrders: wosS, enrolments: enrolments.records, beneficiaries: beneficiaries.records, giftProjects, frameworks: frameworksS, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesS.get(itemId) ?? ""), now, ...(config.itemUnits ? { itemUnits: config.itemUnits } : {}) });
-          const r = applyAllocationAction(ctx, emptyAllocations(), { action: "alc-run" });
-          return r && "value" in r ? r.value : emptyAllocations();
+          const ctx = allocateContext({ steps: normaliseSteps(config.allocationSteps), urgent: new Set<string>(), assignments: given.records, assignables: assignables(ctxAt(now)), workOrders: wosS, enrolments: enrolments.records, beneficiaries: beneficiaries.records, giftProjects, frameworks: fw, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesS.get(itemId) ?? ""), now, ...(config.itemUnits ? { itemUnits: config.itemUnits } : {}) });
+          const r = applyAllocationAction(ctx, base, { action: "alc-run" });
+          return r && "value" in r ? r.value : base;
         },
-        stepsOf: (id) => { const s = stepsFor(frameworksS.find((f) => f.id === id)); return { phases: s.phases.map((p) => ({ id: p.id, days: p.days })), review: s.review }; },
+        stepsOf: (id) => { const s = stepsFor(fw.find((f) => f.id === id)); return { phases: s.phases.map((p) => ({ id: p.id, days: p.days })), review: s.review }; },
       });
-      assignments = made.assignments; confirmations = made.confirmations; allocations = made.allocations; progress = made.progress;
-      const next = { ...config, frameworks: frameworksS, itemTimelines: { ...(config.itemTimelines ?? {}), ...SCENARIO_TIMELINES }, autoRules: { ...SCENARIO_AUTO }, assignments, confirmations, allocations, progress, partnerMessages: made.partnerMessages, priorityGifts: made.priorityGifts };
-      await save(next);
-      Object.assign(config, next);
-      return reply({ warning: `Sample scenario loaded: ${assignments.records.length} gifts assigned, ${confirmations.records.length} answers, ${allocations.records.length} allocations, ${progress.records.length} steps, ${made.partnerMessages.length} messages. The loop, moving and days to fulfil are set on the sample workflows.` });
+      const mine = new Set(units.map((u) => u.key));
+      // Merge: whatever the sample gifts had is replaced, every other record stays exactly as it was.
+      assignments = { records: [...assignments.records.filter((x) => !mine.has(x.key)), ...made.assignments.records] };
+      confirmations = { records: [...confirmations.records.filter((x) => !mine.has(x.key)), ...made.confirmations.records] };
+      allocations = { ...allocations, records: [...allocations.records.filter((x) => !mine.has(x.key)), ...made.allocations.records], counter: Math.max(allocations.counter, made.allocations.counter) };
+      progress = { records: [...progress.records.filter((x) => !mine.has(x.key)), ...made.progress.records] };
+      const messages = addMessages((config.partnerMessages ?? []).filter((m) => !samplePartnerIds.has(m.partnerId)), made.partnerMessages.map(({ read: _r, ...m }) => m)).value;
+      await save({ ...config, assignments, confirmations, allocations, progress, partnerMessages: messages, priorityGifts: [...new Set([...(config.priorityGifts ?? []), ...made.priorityGifts])] });
+      return reply({ warning: `Sample scenario loaded for ${units.length} sample gifts: ${made.assignments.records.length} assigned, ${made.confirmations.records.length} answers, ${made.allocations.records.length} allocations, ${made.progress.records.length} steps, ${made.partnerMessages.length} messages. Your real gifts, workflows and settings were not touched.` });
     }
     // The sample setup (DECISIONS 168): invented partners, projects, clusters, beneficiaries and enrolments, loaded and removed as one.
     if (b["action"] === "sample-load" || b["action"] === "sample-remove") {

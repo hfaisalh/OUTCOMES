@@ -1,7 +1,7 @@
 /**
  * sample-scenario.ts
  *
- * What it does: the sample scenario (DECISIONS 329): on top of the sample world's gifts and the sample setup, it makes the records of a working organisation, dated back from today, so every part of the journey and every new feature has something to show: gifts assigned long ago and just now, answers on time, late, refused and missing, allocations, phases done on time and late, work waiting for review, work sent back, a repeating report, messages in a partner's inbox, a gift marked Priority. It also sets the workflow decisions (loop, moving, days to fulfil) and the automatic settings.
+ * What it does: the sample scenario (DECISIONS 329): on top of the sample world's gifts and the sample setup, it makes the records of a working organisation, dated back from today, so every part of the journey and every new feature has something to show: gifts assigned long ago and just now, answers on time, late, refused and missing, allocations, phases done on time and late, work waiting for review, work sent back, a repeating report, messages in a partner's inbox, a gift marked Priority.
  * Who calls it: the server (modules/00-platform/outcomes-handler.ts, sample-scenario-load). Depends on: the assignment, allocation, confirmation and progress records, the partner inbox, and the workflow type. Pure: the engines that assign and allocate are passed in, so this file reads no store.
  * Data flow: the assignable gifts + a function that assigns and one that allocates -> the records. Every date is counted back from `today`, so the lateness is real whenever it is loaded.
  *
@@ -9,9 +9,9 @@
  * - Rule: everything is invented and marked by where it came from: the gifts are the sample world's, the partners are the sample setup's. Nothing real is touched.
  * - Rule: the scenario uses the same engines a person's buttons use (assign, allocate), then only moves their dates back, so the records are ones the app could have made.
  * - Rule: a step is only recorded if its date is not in the future.
+ * - Rule (DECISIONS 330): it sets nothing in the setup: not the workflows, the benefit connections, the days to fulfil or the automatic settings. A person switches on the loop, moving and reminders on the Workflows and Rules pages, as for real use.
  */
 
-import type { FrameworkTemplate } from "../02-project-rules/categories.js";
 import type { Assignments } from "../08-assignment/assignment.js";
 import type { Allocations } from "../09-allocation/allocation.js";
 import { addDays, type Confirmations } from "../11-confirmation/confirmation.js";
@@ -83,16 +83,3 @@ export function buildScenario(i: ScenarioInput): ScenarioRecords {
   ];
   return { assignments, confirmations, allocations, progress: { records: progress }, partnerMessages: messagesOf(messages), priorityGifts: records[0] ? [records[0].key] : [] };
 }
-
-// --- The workflow decisions and settings the scenario sets, so each new feature is on ---
-// Sponsorships report on a quarterly loop for a year, an orphan gift unanswered 5 days past its deadline moves, a pump gift after 3.
-export function scenarioWorkflows(fws: FrameworkTemplate[]): FrameworkTemplate[] {
-  return fws.map((f) => {
-    if (f.id === "orphan-sponsorship") return { ...f, cycle: "quarterly", loopMonths: 12, moveAfterDays: 5 };
-    if (f.id === "student-sponsorship") return { ...f, cycle: "quarterly", moveAfterDays: 7 };
-    if (f.id === "water-pump") return { ...f, moveAfterDays: 3, fulfilled: "complete" };
-    return f;
-  });
-}
-export const SCENARIO_TIMELINES: Record<string, { days: number }> = { "MWF-WAT-001": { days: 45 }, "MWF-ORP-001": { days: 30 }, "MWF-FAM-001": { days: 120 } };
-export const SCENARIO_AUTO = { daily: true, remind: true, assign: true, allocate: false, remindBefore: 2, remindLate: true } as const;

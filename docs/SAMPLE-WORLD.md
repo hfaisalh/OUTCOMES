@@ -10,6 +10,15 @@ Three parts, loaded in this order:
 2. **The sample setup** (Settings, Organisation, Load sample setup): partners, projects with clusters, beneficiaries, households and enrolments. This is the existing sample, built from the items that exist.
 3. **The sample scenario** (Settings, Organisation, Load sample scenario): the records of a working organisation, dated back from today.
 
+## Safe for your own setup (DECISIONS 330)
+
+- **Back up first.** `node --env-file=.env.local scripts/db-backup.mjs --org mwf` saves your setup and records to `real-data/` (kept out of git). `scripts/db-restore-config.mjs` puts the setup back. The setup is the workflows and their settings, the benefit connections and types, partners, projects, rules and automatic settings.
+- **Remove all data** (`db-reset-records.mjs`) clears only the records (register, enrolments, assignments, allocations, answers, steps). It does not clear the setup or the gifts.
+- **Uploading the world files** adds sample gifts beside the real ones. An upload counts as a complete read for its dates, so real gifts paid in that window and not in the files are flagged "no longer in the CRM feed" and held for review. Nothing is deleted. Restore them from Needs attention, or test on a separate database.
+- **Add the standard workflows** only adds the ones that are missing. It never replaces yours.
+- **Load sample scenario** touches only the sample gifts. It does not change your real gifts, records, workflows, benefit connections, days to fulfil or automatic settings. To see the report loop, moving and reminders at work, switch them on yourself on Workflows and Rules (they are settings, so you can).
+- **Best of all:** test on a separate database (a Neon branch), so nothing real is near it.
+
 ## To reload from nothing
 
 1. Remove all data.
@@ -36,8 +45,6 @@ Three parts, loaded in this order:
 | Assignments dated 2 to 60 days ago | fresh, due soon, late for an answer |
 | Answers | on time, late, refused (with a reason) and missing |
 | Allocations and steps | complete, work sent back at review, waiting for review, late on a phase, not started |
-| Workflows | quarterly report loop for a year, moving an unanswered gift after 5 days (orphan) or 3 (pump), days to fulfil for three benefits |
-| Rules | reminders 2 days before a deadline, scheduled Assign on, Allocate off |
 | A partner's inbox | a new batch, a reminder, a late notice, a gift moved away, work sent back |
 | Priority | one gift |
 
@@ -45,9 +52,9 @@ Three parts, loaded in this order:
 
 - Home: the setup guide, and its steps ticked.
 - Dashboard: the journey with Reviewed, the age chart, trends and the review tiles.
-- Rules: Run now. An unanswered gift past its days moves, and reminders go to the partners' inboxes.
+- Rules: set Days after the deadline on a workflow (for example 5), then Run now. An unanswered gift past its days moves, and reminders go to the partners' inboxes.
 - Progress: open a row, review it, reject one with a reason.
 - Sign in as a sample partner (Settings, Organisation, test sign-ins): the bell, the dashboard and the sent-back note.
 - Workflows: the loop on a sponsorship, and the fulfilled stage.
 
-Remove sample scenario clears the assignments, answers, allocations, steps and messages it made. It leaves the workflow settings as they are.
+Remove sample scenario clears only the assignments, answers, allocations, steps and messages of the sample gifts. Everything else stays.
