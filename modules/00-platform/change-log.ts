@@ -31,6 +31,7 @@ const SECTIONS: [string, (c: OrgConfig) => unknown[]][] = [
   ["progress", (c) => c.progress?.records ?? []],
   ["enrolments", (c) => c.enrolments?.records ?? []],
   ["beneficiaries", (c) => c.beneficiaries?.records ?? []],
+  ["partnerCosts", (c) => c.partnerCosts?.records ?? []],
 ];
 
 const keyOf = (r: unknown): string => {

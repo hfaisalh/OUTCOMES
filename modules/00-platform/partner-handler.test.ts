@@ -218,3 +218,26 @@ describe("staff: places in the register and the Areas page (DECISIONS 275)", () 
     expect((await handleOutcomes(as(staff, { method: "POST", body: { action: "ben-area", area: "Kasur", location: { id: "bad" } } }), d)).status).toBe(400);
   });
 });
+
+describe("partner costs (DECISIONS 280)", () => {
+  const cost = { action: "cost-add", date: "2026-11-20", category: "Marketing", amount: "100", currency: "GBP", projectId: "g1", note: "Flyers" };
+  it("lets a partner record, correct and remove its own costs, and see only those", async () => {
+    const c1 = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
+    const c2 = cookieOf(await handleDemoLogin(req({ query: { partner: "p2" } }), d));
+    const post = (c: string, body: unknown) => handleOutcomes(as(c, { method: "POST", body }), d);
+    const added = await post(c1, cost);
+    expect(added.body).toMatchObject({ message: "Cost recorded.", costs: [{ id: "PC-0001", partnerId: "p1", amount: 100 }] });
+    expect((await post(c1, { ...cost, id: "PC-0001", action: "cost-set", amount: "250" })).body).toMatchObject({ costs: [{ amount: 250 }] });
+    expect((await post(c2, { ...cost, projectId: "g2" })).body).toMatchObject({ costs: [{ id: "PC-0002", partnerId: "p2" }] }); // the other partner sees only its own
+    expect(JSON.stringify((await handleOutcomes(as(c1), d)).body)).not.toContain("PC-0002");
+    expect((await post(c2, { action: "cost-remove", id: "PC-0001" })).status).toBe(400); // not its own
+    expect((await post(c1, { ...cost, projectId: "g2" })).status).toBe(400); // not its own project
+    expect((await post(c1, { action: "cost-remove", id: "PC-0001" })).body).toMatchObject({ message: "Cost removed.", costs: [] });
+  });
+  it("shows staff every partner's costs", async () => {
+    const c1 = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
+    await handleOutcomes(as(c1, { method: "POST", body: cost }), d);
+    const staff = cookieOf(await handleDemoLogin(req(), d));
+    expect((await handleOutcomes(as(staff), d)).body).toMatchObject({ partnerCosts: [{ id: "PC-0001" }] });
+  });
+});

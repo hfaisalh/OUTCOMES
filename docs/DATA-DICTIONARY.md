@@ -267,3 +267,17 @@ Stored on the organisation's setup as `itemUnits`, by CRM item id.
 | `partnerId`, `giftProjectId`, `clusterId`, `itemId` | The partner that will deliver it, and the project, cluster and benefit it is parked in |
 | `name` | What the partner calls it, for example the village or the site |
 | `stockId` (on a placement) | The parked outcome an outcome took. Absent when the outcome was made new from the gift |
+
+
+## Partner cost (DECISIONS 280)
+
+| Field | Meaning |
+|---|---|
+| `id` | PC-0001, permanent |
+| `partnerId` | The partner that recorded it |
+| `date` | When it was spent, YYYY-MM-DD |
+| `category` | Administration, Staff, Marketing, Media, Travel, Equipment or Other |
+| `amount`, `currency` | Above zero, 2 decimals; 3 capital letters. Never added across currencies |
+| `projectId` | The project it was for, empty for the partner's work in general |
+| `note` | A few words |
+| `by`, `at` | Who recorded or last changed it, and when |

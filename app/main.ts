@@ -74,6 +74,8 @@ import { csvChange } from "./partner-csv-session";
 import { initPlacePicker } from "./place-picker";
 import { areasCard, areasWindowHtml } from "./areas-page";
 import { mountAreasMap } from "./areas-map";
+import { costsCard } from "./costs-card";
+import type { PartnerCost } from "../modules/15-partner-costs/costs";
 import { areasAction, areasUi, areasView } from "./areas-session";
 import { acceptPlace, upsertPlace, type Place } from "../modules/14-locations/locations";
 import { resolveArea } from "../modules/14-locations/areas";
@@ -140,6 +142,7 @@ const state = {
   benFilter: { ...NO_BEN_FILTER } as BenFilter, // the filters on the Outcomes list page
   beneficiaries: emptyRegister() as Register, // the Beneficiary register (DECISIONS 163)
   locations: [] as Place[], // the checked places in use, for the Areas page (DECISIONS 275)
+  partnerCosts: [] as PartnerCost[], // what partners recorded as spent (DECISIONS 280)
   histWin: { open: false, kind: "gift" as "gift" | "enrolment", id: "" }, // the allocation history window (DECISIONS 186)
   allocations: emptyAllocations() as Allocations, // which place each assigned gift fills (DECISIONS 175)
   allocFilter: "all", // the filter on the Allocate page
@@ -222,7 +225,7 @@ async function reloadLive(): Promise<void> {
     state.review = r.review;
     state.run = r.run;
     state.attention = (await loadAttention().catch(() => ({ items: [] as AttentionItem[] }))).items;
-    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.outcomeAllocations = o.outcomeAllocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.locations = o.locations ?? state.locations; state.itemUnits = o.itemUnits ?? state.itemUnits; state.enrolments = o.enrolments ?? state.enrolments; state.assignments = o.assignments ?? state.assignments; state.allocations = o.allocations ?? state.allocations; state.itemIcons = o.itemIcons ?? state.itemIcons; state.itemKinds = o.itemKinds ?? state.itemKinds; state.kindFeatures = o.kindFeatures ?? state.kindFeatures;
+    await loadOutcomes().then((o) => { state.outcomes = o.outcomes; state.outcomeAllocations = o.outcomeAllocations; state.projects = o.projects ?? []; state.giftProjects = o.giftProjects ?? []; state.nodes = o.nodes ?? []; state.graceDays = o.graceDays ?? 15; state.requireRef = o.requireRef === true; state.partnerTypes = o.partnerTypes ?? []; state.partnerFields = o.partnerFields ?? []; state.outcomeTypes = o.outcomeTypes ?? state.outcomeTypes; state.idCounters = o.idCounters ?? state.idCounters; state.beneficiaries = o.beneficiaries ?? state.beneficiaries; state.locations = o.locations ?? state.locations; state.partnerCosts = o.partnerCosts ?? state.partnerCosts; state.itemUnits = o.itemUnits ?? state.itemUnits; state.enrolments = o.enrolments ?? state.enrolments; state.assignments = o.assignments ?? state.assignments; state.allocations = o.allocations ?? state.allocations; state.itemIcons = o.itemIcons ?? state.itemIcons; state.itemKinds = o.itemKinds ?? state.itemKinds; state.kindFeatures = o.kindFeatures ?? state.kindFeatures;
       // Rule (DECISIONS 258): the answers and the steps taken are read when the page loads too, so a partner's answer is on the Confirmation list without anyone pressing anything first.
       state.confirmations = o.confirmations ?? state.confirmations; state.progress = o.progress ?? state.progress; }).catch(() => undefined);
     state.audits = (await loadAudits().catch(() => ({ audits: [] as AuditRecord[] }))).audits;
@@ -300,7 +303,7 @@ function view(): View {
   else for (const l of readFeed(state.feedRows, MWF_CRM_CONFIG).lines.filter((x) => x.needsFeedback)) items.set(l.itemId, { id: l.itemId, name: l.itemName, count: (items.get(l.itemId)?.count ?? 0) + 1 });
   const flaggedItems = [...items.values()];
   return {
-    locations: state.locations, workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, confirmations: state.confirmations, progress: state.progress, prgFilter: state.prgFilter, assignFilter: state.assignFilter, allocations: state.allocations, allocFilter: state.allocFilter, cnfFilter: state.cnfFilter, pjFilter: state.pjFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, outcomeAllocations: state.outcomeAllocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), message: state.message, config: MWF_CRM_CONFIG,
+    locations: state.locations, partnerCosts: state.partnerCosts, workOrders: state.workOrders, review: state.review, itemCategories: state.itemCategories, flaggedItems, filter: state.filter, criteria: state.criteria, scopeCriteria: state.scopeCriteria, selected: state.selected, openAttn: state.openAttn, outcomes: state.outcomes, beneficiaries: state.beneficiaries, enrolments: state.enrolments, assignments: state.assignments, confirmations: state.confirmations, progress: state.progress, prgFilter: state.prgFilter, assignFilter: state.assignFilter, allocations: state.allocations, allocFilter: state.allocFilter, cnfFilter: state.cnfFilter, pjFilter: state.pjFilter, registerFilter: state.registerFilter, giftSort: state.giftSort, giftColFilters: state.giftColFilters, giftFiltOpen: state.giftFiltOpen, giftHidden: state.giftHidden, giftColsOpen: state.giftColsOpen, registerSort: state.registerSort, outcomeRecFilter: state.outcomeRecFilter, outcomeRecSort: state.outcomeRecSort, outcomeAllocations: state.outcomeAllocations, projects: state.projects, giftProjects: state.giftProjects, benFilter: state.benFilter, nodes: state.nodes, graceDays: state.graceDays, requireRef: state.requireRef, openProject: state.openProject, today: new Date().toISOString().slice(0, 10), message: state.message, config: MWF_CRM_CONFIG,
     categories: state.categories, frameworks: state.frameworks, outcomeTypes: state.outcomeTypes, itemIcons: state.itemIcons, itemKinds: state.itemKinds, kindFeatures: state.kindFeatures, kindSel: state.kindSel, itemUnits: state.itemUnits, workflowSel: state.workflowSel, workflowSuggestions: Object.fromEntries(flaggedItems.filter((i) => resolveFrameworkId(setupNow(), i.id) === "").map((i) => [i.id, suggestWorkflowFor(i.name, state.frameworks.map((f) => f.id))]).filter(([, w]) => w !== "")), itemFramework: state.itemFramework, itemFrameworkSuggestions: suggestItemFrameworks(flaggedItems, setupNow()), suggestions: suggestAll(flaggedItems, state.itemCategories, state.categories), selectedItem: state.selectedItem,
     pendingFiles: state.pendingFiles.map((f) => f.name), loadNote: state.loadNote, loading: state.loading, ownerNote: state.ownerNote, ...(state.me?.logins ? { logins: state.me.logins } : {}), attention: state.live() ? state.attention : buildAttention({ workOrders: state.workOrders, review: state.review, notes: [], marks: {} }), audits: state.audits, upload: state.me?.upload === true, live: state.live(), canPickup: permissions().includes(PERMISSIONS.settings), run: state.run,
   };
@@ -337,6 +340,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       state.idCounters = r.idCounters ?? state.idCounters;
       state.beneficiaries = r.beneficiaries ?? state.beneficiaries;
       state.locations = r.locations ?? state.locations;
+      state.partnerCosts = r.partnerCosts ?? state.partnerCosts;
       state.itemUnits = r.itemUnits ?? state.itemUnits;
       state.enrolments = r.enrolments ?? state.enrolments;
       state.assignments = r.assignments ?? state.assignments;
@@ -541,7 +545,7 @@ function draw(): void {
     : state.page === "progress" ? progressPage(v)
     : state.page === "outcome-list" ? beneficiariesPage(v)
     : state.page === "audit" ? auditPage(v)
-    : state.page === "dashboard" ? dashboardPage(v) + areasCard(v, areasView)
+    : state.page === "dashboard" ? dashboardPage(v) + areasCard(v, areasView) + costsCard(v)
     : state.page === "categories" ? categoriesPage(v)
     : state.page === "sources" ? mapping.html()
     : settingsPage(v);

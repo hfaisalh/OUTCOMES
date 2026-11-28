@@ -10,6 +10,7 @@ import { partnerOutcomes } from "../modules/13-partner-portal/outcomes";
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 import { batchesHtml } from "./partner-batches";
 import { beneficiariesCardHtml } from "./partner-beneficiaries";
+import { costsCardHtml } from "./partner-costs";
 import { journeyHtml, type PartnerUi } from "./partner-outcomes";
 
 // --- Helpers ---
@@ -21,6 +22,7 @@ const clusterCount = (cs: { status: string }[]): string => { const n = cs.filter
 // --- The screen ---
 export function partnerHomeHtml(slice: PartnerSlice, who: string, version: string, ui: PartnerUi, canReturn = false): string {
   const gifts = partnerOutcomes(slice);
+  const today = new Date().toISOString().slice(0, 10); // the date a new cost starts with
   const p = slice.partner;
   // Rule: a beneficiary is a person or a household. Both are counted and listed, so Enrolled can never be more than Beneficiaries. Waiting and Need details are about people only (a household has no admission decision).
   const all = slice.beneficiaries;
@@ -41,7 +43,8 @@ export function partnerHomeHtml(slice: PartnerSlice, who: string, version: strin
       <div class="metrics">${tile(all.length, "Beneficiaries")}${tile(enrolled.size, "Enrolled")}${tile(waiting, "Waiting for a vacancy")}${tile(review, "Need details")}</div>
       <div class="phome-grid">
         <div class="phome-col">${batchesHtml(gifts, ui)}
-          ${beneficiariesCardHtml(slice, ui)}</div>
+          ${beneficiariesCardHtml(slice, ui)}
+          ${costsCardHtml(slice, ui, today)}</div>
         <aside class="phome-side">
           <section class="card"><h2>Your projects</h2>${projects ? `<ul class="phome-list">${projects}</ul>` : `<div class="empty">No project has been given to you yet.</div>`}</section>
           <section class="card"><h2>Your profile</h2>${facts.length ? `<table><tbody>${facts.map(([k, v]) => `<tr><td class="muted">${esc(k as string)}</td><td>${esc(v as string)}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">Your profile has no details yet.</div>`}</section>

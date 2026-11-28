@@ -21,6 +21,7 @@ import { addMany, MAX_ROWS } from "../13-partner-portal/import.js";
 import { giftDetails } from "../13-partner-portal/gift-details.js";
 import { partnerSlice, PARTNER_PERMISSION } from "../13-partner-portal/scope.js";
 import { acceptPlace, upsertPlace } from "../14-locations/locations.js";
+import { applyCostAction, COST_CATEGORIES, emptyCosts } from "../15-partner-costs/costs.js";
 import { changesBetween } from "./change-log.js";
 import { defaultConfig, setupOf } from "./store.js";
 import { json, need, text, type Deps, type HttpRequest, type HttpResponse } from "./http.js";
@@ -77,6 +78,17 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
       message = entryMessage(settled.register, settled.enrolments, migrated.giftProjects, r.id, r.added);
       Object.assign(config, next);
     }
+  } else if (req.method === "POST" && typeof body["action"] === "string" && body["action"].startsWith("cost-")) {
+    // Rule (DECISIONS 280): a partner records, corrects and removes its own costs. Record only: nothing is paid or approved.
+    const mineProjects = migrated.giftProjects.filter((g) => g.partnerIds.includes(a.claims.partner as string)).map((g) => g.id);
+    const r = applyCostAction(config.partnerCosts ?? emptyCosts(), a.claims.partner as string, body, COST_CATEGORIES, mineProjects, `${a.claims.name}`, at);
+    if (!r) return json(400, { error: "That request is not open to a partner." });
+    if ("error" in r) return json(400, { error: r.error });
+    const next = { ...config, partnerCosts: r.value };
+    await d.store.putConfig(a.claims.org, next);
+    try { await d.store.addChanges(a.claims.org, changesBetween(config, next, a.claims.name, String(body["action"]), at)); } catch (e) { console.error("change log not written", e); }
+    message = r.message ?? "";
+    Object.assign(config, next);
   } else if (req.method === "POST") {
     const r = partnerAnswer(config.confirmations ?? emptyConfirmations(), (config.assignments ?? emptyAssignments()).records, a.claims.partner as string, body, a.claims.name, at);
     if ("error" in r) return json(400, { error: r.error });
@@ -103,6 +115,7 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
     confirmations: config.confirmations ?? emptyConfirmations(),
     progress: config.progress ?? emptyProgress(),
     allocations: config.allocations ?? emptyAllocations(),
+    costs: config.partnerCosts?.records ?? [],
   }, a.claims.partner as string);
   return slice ? json(200, message ? { ...slice, message, ...(upload ? { upload } : {}) } : slice, { "cache-control": "no-store" }) : json(404, { error: "This partner was not found." });
 }
