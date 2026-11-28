@@ -527,6 +527,7 @@ let lastListSig = "";
 function settleConfirmations(): void {
   state.confirmations = confirmOnBehalf(state.confirmations, state.assignments.records, state.allocations.stock ?? [], state.allocations.records, new Date().toISOString()).value;
 }
+let lastFocusedPage = ""; // the page focus was last moved to, so a redraw of the same page does not steal focus
 function draw(): void {
   // Rule (DECISIONS 91): until a session is found, or the demo is chosen, only the sign-in screen is shown.
   if (state.gate !== "app") {
@@ -583,13 +584,20 @@ function draw(): void {
     ? `<div class="modhead"><b>${esc(current.module.label)}</b><span class="muted">${esc(current.module.blurb)}</span></div><div class="modtabs">${current.pages.map((p) => `<button data-page="${p.id}" class="${p.id === state.page ? "on" : ""}">${esc(p.label)}${p.id === "attention" && openCount > 0 ? ` <span class="pill review">${openCount}</span>` : ""}</button>`).join("")}</div>`
     : "";
   const shell = document.getElementById("shell") as HTMLElement;
-  shell.innerHTML = `<div class="app">
+  shell.innerHTML = `<a class="skip" href="#main">Skip to the page</a><div class="app">
     <aside class="side"><div class="brand"><img class="brand-mark" src="/brand/mark-light.svg" alt="" width="30" height="30"><span>OUTCOMES<small>Minhaj Welfare Foundation</small></span></div><nav class="nav">${sections}</nav><div class="foot">${state.me ? "Live data from your CRM." : "Demo with invented data. Nothing is saved."}</div></aside>
     <header class="top">${state.me ? `<span class="badge-demo">Signed in from the CRM${state.me.storage === "memory" ? " · TEMPORARY STORAGE, nothing is kept" : ""}</span>` : `<span class="badge-demo">Demo with invented data</span>`}
       <span class="ver" title="The version of this page. If it is not the latest, refresh the page.">${esc(typeof __BUILD_LABEL__ === "string" ? __BUILD_LABEL__ : "dev")}</span>
       <div class="who">${gear}${person}</div></header>
-    <main class="content">${moduleTabs}${frameLists(body)}</main></div>`;
+    <main class="content" id="main" tabindex="-1">${moduleTabs}${frameLists(body)}</main></div>`;
   void role;
+  // Moving between pages (DECISIONS 297): the tab says where the person is, and focus goes to the page so a screen reader starts at its title and a keyboard user is not left in the menu.
+  const here = entries.flatMap((e) => e.pages).find((p) => p.id === state.page);
+  document.title = here ? `${here.label} \u00B7 OUTCOMES` : "OUTCOMES";
+  if (lastFocusedPage !== state.page) {
+    if (lastFocusedPage !== "") (document.getElementById("main") as HTMLElement | null)?.focus({ preventScroll: true });
+    lastFocusedPage = state.page;
+  }
   void mountAreasMap(); // the real map on the Dashboard card, when it is on the page (DECISIONS 279)
   // Motion (DECISIONS 220): the visual indicators (bars, meters, pies, tile figures) draw in, and the first rows of the Gifts list ease in, when the list itself changes (page, tab, tile, column filter or sort), not on every redraw or keystroke.
   const sig = `${state.page}|${state.filter}|${JSON.stringify(state.giftColFilters)}|${JSON.stringify(state.giftSort ?? "")}`;
