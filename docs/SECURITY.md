@@ -33,7 +33,8 @@ How OUTCOMES protects its data and its users, what is done, and what is still op
 4. **Backups and retention.** Agree the backup schedule, how long the change log is kept, and the process for erasing a beneficiary (the erase action exists, DECISIONS 240; the policy around it is the organisation's).
 5. **Framing by the CRM.** If OUTCOMES is shown inside the CRM in a frame, change `frame-ancestors` in `vercel.json` to name the CRM.
 6. **Penetration test** by a third party before the first live organisation.
-7. **Secrets rotation** schedule for `LAUNCH_SECRET`, `SESSION_SECRET` and the CRM tokens.
+7. **Preview deployments share the production database.** On Vercel, `DATABASE_URL` and the `POSTGRES_*` variables are set for the Preview scope too, so a preview deployment of any branch would connect to the live database (the sign-in secrets are Production-only, so such a preview answers 503 and cannot sign anyone in, which is why this has not been a leak). Give the Preview scope its own database (a Neon branch) or remove the variable from it.
+8. **Secrets rotation** schedule for `LAUNCH_SECRET`, `SESSION_SECRET` and the CRM tokens.
 
 ## Reporting a problem
 
