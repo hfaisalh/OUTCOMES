@@ -23,10 +23,9 @@ Three parts, loaded in this order:
 
 Everything OUTCOMES keeps is kept by organisation, so a second organisation, `mwf-test`, has its own setup, gifts and records, apart from the real one. It runs on the same site and database.
 
-1. Set `OWNER_TEST_PASSPHRASE` in Vercel (16 or more characters, different from the owner's) and redeploy.
-2. Copy your rules and configuration into it: `node --env-file=.env.local scripts/db-copy-setup.mjs --from mwf --to mwf-test` (a dry run), then add `--yes`. It copies the workflows and their settings, the benefit connections and types, the days to fulfil, the rules and the automatic settings. It copies no gifts, records, partners, projects or accounts, and it sets the test organisation to take uploaded files, so it can never read the real CRM.
-3. Open the site and sign in with the test passphrase. A red badge says TEST ORGANISATION.
-4. Upload the files in `samples/world/`, set up the workflows (already copied, so just apply them to the gifts), load the sample setup and the sample scenario.
+1. Copy your rules and configuration into it: `node --env-file=.env.local scripts/db-copy-setup.mjs --from mwf --to mwf-test` (a dry run), then add `--yes`. It copies the workflows and their settings, the benefit connections and types, the days to fulfil, the rules and the automatic settings. It copies no gifts, records, partners, projects or accounts, and it sets the test organisation to take uploaded files, so it can never read the real CRM.
+2. Make a first administrator for it: `node --env-file=.env.local scripts/create-account.mjs --org mwf-test --email you@example.org --name "Your Name"` (it asks for the password with hidden typing). Or sign in as a platform administrator and switch to `mwf-test` from the account menu, which needs no account of its own. A red badge says TEST ORGANISATION.
+3. Upload the files in `samples/world/`, set up the workflows (already copied, so just apply them to the gifts), load the sample setup and the sample scenario.
 
 Your real organisation is never touched. If you want a different copy of your setup later, run the copy again.
 

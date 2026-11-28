@@ -40,6 +40,8 @@ export interface Me {
   upload?: boolean; // true when the organisation takes uploaded CRM export files
   partner?: string; // set when this is a partner's sign-in (DECISIONS 249)
   partners?: { id: string; name: string }[]; // the partners a person who may change settings can look at the app as (DECISIONS 255)
+  platform?: boolean; // true for a platform administrator (DECISIONS 333)
+  orgs?: string[]; // the organisations a platform administrator may switch to
   canReturn?: boolean; // true while a staff person is looking at the app as a partner
   logins?: { email: string; name: string; role: string; partnerId?: string }[]; // the test accounts, for a person who may change settings (DECISIONS 250)
 }
@@ -86,6 +88,7 @@ export const loadPartner = () => call<PartnerSlice>("/api/outcomes");
 // A partner accepts or refuses its own gifts (DECISIONS 254). The answer is the partner's fresh slice with a message.
 export const partnerAnswer = (body: Record<string, unknown>) => call<PartnerSlice & { message?: string }>("/api/outcomes", { method: "POST", body });
 // Switch between the staff view and a partner's view, for testing (DECISIONS 255). An empty id goes back to staff.
+export const switchOrg = (org: string) => call<{ ok: boolean }>("/api/owner-login", { method: "POST", body: { action: "switch-org", org } });
 export const viewAs = (partner: string) => call<{ ok: boolean }>("/api/owner-login", { method: "POST", body: { action: "view-as", partner } });
 export const signOut = () => call<{ ok: boolean }>("/api/logout", { method: "POST", body: {} });
 export const loadConfig = () => call<ServerConfig>("/api/config");

@@ -25,6 +25,7 @@ export interface Claims {
   org: string; // the organisation. Every record belongs to one (DECISIONS 23)
   perms: string[]; // OUTCOMES permissions from the person's CRM role (menu.ts PERMISSIONS)
   staff?: { sub: string; name: string; perms: string[] }; // set only while a staff person is testing as a partner (DECISIONS 255): who they really are, so they can switch back. Never accepted from a launch token
+  platform?: boolean; // set only for a platform administrator (DECISIONS 333): the person runs OUTCOMES as a product and may switch between organisations. Never accepted from a CRM launch token
   partner?: string; // set only for a partner's sign-in: the one partner whose data this person may see (DECISIONS 249). Staff have none
   iat: number; // issued at, seconds
   exp: number; // expires at, seconds
@@ -90,7 +91,7 @@ export function verifyToken(secret: string, token: string, expected: TokenType, 
 
 // Rule: a session carries the same person, organisation and permissions, with its own id and a longer life.
 export function sessionFrom(launch: Claims, sessionId: string, nowSeconds: number): Claims {
-  return { typ: "session", jti: sessionId, sub: launch.sub, name: launch.name, org: launch.org, perms: launch.perms, ...(launch.partner ? { partner: launch.partner } : {}), iat: nowSeconds, exp: nowSeconds + SESSION_SECONDS };
+  return { typ: "session", jti: sessionId, sub: launch.sub, name: launch.name, org: launch.org, perms: launch.perms, ...(launch.partner ? { partner: launch.partner } : {}), ...(launch.platform ? { platform: true } : {}), iat: nowSeconds, exp: nowSeconds + SESSION_SECONDS };
 }
 
 export const SESSION_COOKIE = "outcomes_session";

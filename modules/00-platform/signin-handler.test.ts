@@ -7,6 +7,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { handleConfig, handleMe, handleOutcomes, type Deps, type HttpRequest } from "./handlers";
 import { handleSignIn } from "./signin-handler";
+import { hashPassword } from "./logins";
 import { addBeneficiary, emptyRegister } from "../07-beneficiaries/beneficiaries";
 import { defaultConfig, memoryStore } from "./store";
 
@@ -163,5 +164,56 @@ describe("switching between the staff view and a partner's view (DECISIONS 255)"
     const me = (await handleMe(as(own), d)).body as { partners?: unknown; canReturn?: unknown };
     expect(me.partners).toBeUndefined();
     expect(me.canReturn).toBeUndefined();
+  });
+});
+
+describe("the platform administrator signs in on the same screen (decision 333)", () => {
+  const platformLogin = (email: string, password: string, over: Record<string, unknown> = {}) => ({ email, name: "Pat Platform", role: "platform", hash: hashPassword(password), ...over });
+  const putPlatform = (logins: unknown[]) => d.store.putConfig("_platform", { ...defaultConfig(), logins } as never);
+  const signIn = (email: string, password: string) => handleSignIn(post({ email, password }), d);
+
+  it("signs in with an email and password, holds every permission, and is told it may switch organisation", async () => {
+    await d.store.putConfig("beta", { ...defaultConfig() });
+    await putPlatform([platformLogin("pat@platform.org", "a-long-platform-password")]);
+    const r = await signIn("pat@platform.org", "a-long-platform-password");
+    expect(r.status).toBe(200);
+    const me = (await handleMe(as(cookieOf(r)), d)).body as { platform: boolean; orgs: string[]; org: string; perms: string[] };
+    expect(me.platform).toBe(true);
+    expect(me.orgs.sort()).toEqual(["beta", "mwf"]); // every organisation, never the reserved place itself
+    expect(me.org).toBe("mwf");
+    expect(me.perms.length).toBeGreaterThan(5);
+  });
+
+  it("switches organisation in one step, keeps the same person, and leaves a note in that organisation's change log", async () => {
+    await d.store.putConfig("beta", { ...defaultConfig() });
+    await putPlatform([platformLogin("pat@platform.org", "a-long-platform-password")]);
+    const c = cookieOf(await signIn("pat@platform.org", "a-long-platform-password"));
+    const sw = await handleSignIn(by(c, { action: "switch-org", org: "beta" }), d);
+    expect(sw.status).toBe(200);
+    const me = (await handleMe(as(cookieOf(sw)), d)).body as { org: string; platform: boolean; name: string };
+    expect(me).toMatchObject({ org: "beta", platform: true, name: "Pat Platform" });
+    expect((await d.store.listChanges("beta", 50)).some((x) => x.by === "Pat Platform (platform)" && x.action === "platform-enter")).toBe(true);
+    expect((await handleSignIn(by(c, { action: "switch-org", org: "nowhere" }), d)).status).toBe(400);
+    expect((await handleSignIn(by(c, { action: "switch-org", org: "_platform" }), d)).status).toBe(400); // the reserved place is not an organisation
+  });
+
+  it("is refused to everyone else: an organisation's own administrator cannot switch organisation", async () => {
+    expect((await handleSignIn(by(owner, { action: "switch-org", org: "mwf" }), d)).status).toBe(403);
+  });
+
+  it("makes nobody a platform administrator but an account kept in the reserved place", async () => {
+    // an organisation's own config says role platform, but it is not in the reserved place, so it is refused
+    await d.store.putConfig("mwf", { ...(await d.store.getConfig("mwf"))!, logins: [platformLogin("fake@alpha.org", "a-long-fake-password-1")] } as never);
+    expect((await signIn("fake@alpha.org", "a-long-fake-password-1")).status).toBe(401);
+    // and an organisation's administrator cannot make one through the accounts page
+    const add = await handleSignIn(by(owner, { action: "login-add", email: "x@alpha.org", name: "X", role: "platform", password: "a-long-password-123" }), d);
+    expect(add.status).toBe(400);
+  });
+
+  it("looks at every organisation, so a person of a second organisation signs in on the same screen", async () => {
+    await d.store.putConfig("beta", { ...defaultConfig(), logins: [{ email: "ben@beta.org", name: "Ben", role: "viewer", hash: hashPassword("a-long-beta-password-1") }] } as never);
+    const r = await signIn("ben@beta.org", "a-long-beta-password-1");
+    expect(r.status).toBe(200);
+    expect(((await handleMe(as(cookieOf(r)), d)).body as { org: string }).org).toBe("beta");
   });
 });

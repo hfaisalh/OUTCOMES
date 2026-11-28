@@ -11,6 +11,7 @@
 
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { PARTNER_PERMISSIONS } from "../13-partner-portal/scope.js";
+import { PERMISSIONS as P } from "../../app/menu.js";
 import { roleById, ROLES } from "./roles.js";
 
 // --- Types ---
@@ -23,6 +24,8 @@ export interface Login {
 }
 export type PublicLogin = Omit<Login, "hash">;
 export const PARTNER_ROLE = "partner";
+export const PLATFORM_ROLE = "platform"; // a platform administrator (DECISIONS 333): made only by the command line, never by an organisation
+export const PLATFORM_ORG = "_platform"; // the reserved place the platform administrators are kept, apart from every organisation
 export const MIN_PASSWORD = 10;
 
 // --- Password ---
@@ -74,6 +77,8 @@ export function findLogin(existing: Login[], email: unknown, password: unknown):
 }
 
 // What the account holds when signed in. Partner: only the partner's own permissions and its id. Staff: the example role's permissions.
-export function sessionPartsFor(l: Login): { perms: string[]; partner?: string } {
+export function sessionPartsFor(l: Login): { perms: string[]; partner?: string; platform?: true } {
+  // Rule (DECISIONS 333): a platform administrator holds every permission and may switch organisation; it is checked by the account being in the reserved platform place, not by what the role says.
+  if (l.role === PLATFORM_ROLE) return { perms: Object.values(P), platform: true };
   return l.role === PARTNER_ROLE && l.partnerId ? { perms: PARTNER_PERMISSIONS, partner: l.partnerId } : { perms: roleById(l.role).permissions };
 }

@@ -9,7 +9,7 @@
 
 import { accountLimit, callerOf, signInLimit, tooMany } from "./guard.js";
 import { PERMISSIONS as P } from "../../app/menu.js";
-import { addLogin, findLogin, removeLogin, sessionPartsFor } from "./logins.js";
+import { addLogin, findLogin, PLATFORM_ORG, removeLogin, sessionPartsFor } from "./logins.js";
 import { sessionCookie, sessionFrom, SESSION_SECONDS, signToken, type Claims } from "./launch-token.js";
 import { defaultConfig } from "./store.js";
 import { handleOwnerLogin, DEMO_ORG, OWNER_ORG } from "./handlers.js";
@@ -54,22 +54,42 @@ async function signInWithAccount(req: HttpRequest, d: Deps): Promise<HttpRespons
     const wait = Math.max(signInLimit.retrySeconds(addr, now0), accountLimit.retrySeconds(acct, now0));
     return isForm(req) ? back("/app/?signin=wait") : tooMany(wait);
   }
-  const orgs = d.demoLogin ? [OWNER_ORG, DEMO_ORG] : [OWNER_ORG];
+  // Rule (DECISIONS 333): the platform administrators are looked for first, then every organisation, so everyone signs in on this one screen. The demo organisation is only looked at when the test sign-in is on.
+  const known = (await d.store.listOrgs()).filter((o) => o !== PLATFORM_ORG && (o !== DEMO_ORG || d.demoLogin));
+  const orgs = [PLATFORM_ORG, ...new Set([OWNER_ORG, ...known])];
   for (const org of orgs) {
     const config = await d.store.getConfig(org);
     const login = findLogin(config?.logins ?? [], b["email"], b["password"]);
     if (!login) continue;
+    const parts0 = sessionPartsFor(login);
+    if ((parts0.platform === true) !== (org === PLATFORM_ORG)) continue; // Rule: only the reserved platform place makes a platform administrator, and nothing else is kept there
     signInLimit.clear(addr);
     accountLimit.clear(acct);
     const now = nowSeconds(d);
-    const parts = sessionPartsFor(login);
-    const claims: Claims = { typ: "launch", jti: d.newId(), sub: `login-${login.email}`, name: login.name, org, perms: parts.perms, ...(parts.partner ? { partner: parts.partner } : {}), iat: now, exp: now + 60 };
+    const parts = parts0;
+    // A platform administrator opens the first organisation it may switch to: the owner's, else the first there is.
+    const home = parts.platform ? (known.includes(OWNER_ORG) || known.length === 0 ? OWNER_ORG : (known[0] as string)) : org;
+    const claims: Claims = { typ: "launch", jti: d.newId(), sub: `login-${login.email}`, name: login.name, org: home, perms: parts.perms, ...(parts.partner ? { partner: parts.partner } : {}), ...(parts.platform ? { platform: true } : {}), iat: now, exp: now + 60 };
     const headers = { "set-cookie": sessionCookie(signToken(d.secrets.session, sessionFrom(claims, d.newId(), now)), SESSION_SECONDS), "cache-control": "no-store" };
     return isForm(req) ? { status: 302, headers: { ...headers, location: "/app/" } } : json(200, { ok: true }, headers);
   }
   signInLimit.fail(addr, now0);
   accountLimit.fail(acct, now0);
   return isForm(req) ? back("/app/?signin=wrong-login") : json(401, { error: "That email or password is not right." });
+}
+
+// --- A platform administrator switches organisation (DECISIONS 333) ---
+// Rule: only a platform session may do it, only to an organisation that exists, and it keeps the same person and expiry. Every switch is written to that organisation's change log, so its administrators can see a platform administrator was there.
+async function switchOrg(req: HttpRequest, d: Deps): Promise<HttpResponse> {
+  const c = sessionOf(req, d);
+  if (!c) return json(401, { error: "Please sign in first." });
+  if (c.platform !== true) return json(403, { error: "Your account may not switch organisation." });
+  const want = typeof (req.body as { org?: unknown } | undefined)?.org === "string" ? (req.body as { org: string }).org : "";
+  if (want === PLATFORM_ORG || !(await d.store.listOrgs()).includes(want)) return json(400, { error: "That organisation was not found." });
+  const now = nowSeconds(d);
+  const next: Claims = { ...c, jti: d.newId(), org: want, iat: now };
+  try { await d.store.addChanges(want, [{ at: new Date(d.nowMs()).toISOString(), by: `${c.name} (platform)`, action: "platform-enter", section: "platform", key: "", change: "added", record: { note: "A platform administrator opened this organisation" } }]); } catch (e) { console.error("platform entry not logged", e); }
+  return json(200, { ok: true }, { "set-cookie": sessionCookie(signToken(d.secrets.session, next), Math.max(1, c.exp - now)), "cache-control": "no-store" });
 }
 
 // --- Switch between staff and a partner's view, for testing (DECISIONS 255) ---
@@ -96,6 +116,7 @@ export async function handleSignIn(req: HttpRequest, d: Deps): Promise<HttpRespo
   if (req.method !== "POST") return text(404, "Not found.");
   const b = (req.body ?? {}) as Record<string, unknown>;
   if (b["action"] === "view-as") return viewAs(req, d);
+  if (b["action"] === "switch-org") return switchOrg(req, d);
   if (typeof b["action"] === "string") return withConflictRetry(manage, req, d);
   if (typeof b["email"] === "string") return signInWithAccount(req, d);
   return handleOwnerLogin(req, d);
