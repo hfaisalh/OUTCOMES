@@ -9,6 +9,7 @@
  * Who calls it: app/clusters-tab.ts. Depends on: modules 06 (clusters) and 07 (beneficiaries, enrolments) and esc from pages.ts.
  */
 
+import { switchHtml } from "./switch";
 import { ELIGIBILITY_LABEL, type Beneficiary } from "../modules/07-beneficiaries/beneficiaries";
 import { activeIn, masterOf, type Enrolment } from "../modules/07-beneficiaries/enrolments";
 import { countOfEnrolment } from "../modules/09-allocation/history";
@@ -90,7 +91,7 @@ export function clusterStockHtml(state: ClusterState, c: Cluster, ctx: PeopleCon
   const refOf = (id: string): string => (ctx.allocations ?? []).find((p) => p.stockId === id && p.to === undefined)?.outcomeRef ?? "";
   const here = stockHere(state, ctx, c.id);
   const partnerName = (id: string): string => ctx.partners?.find((p) => p.id === id)?.name ?? id;
-  const rows = here.map((s) => `<tr><td class="nm"><b>${esc(s.name)}</b> <span class="muted">${esc(s.id)}</span>${s.priority ? ' <span class="pill review">Priority</span>' : ""}</td><td>${esc(itemName(s.itemId))}</td><td>${esc(partnerName(s.partnerId))}</td><td class="muted">${esc(s.clusterId === c.id ? "Here" : where(s.clusterId))}</td><td>${used.has(s.id) ? `<span class="pill">Used by ${esc(refOf(s.id))}</span>` : '<span class="pill ready">Free</span>'}</td><td class="actcol">${used.has(s.id) ? "" : rowMenu(`<button type="button" data-cl="stock-pri" data-id="${esc(s.id)}" data-on="${s.priority ? "" : "1"}">${s.priority ? "Take away priority" : "Give priority: gifts take it first"}</button><button type="button" class="danger" data-cl="stock-rm" data-id="${esc(s.id)}">Remove this outcome</button>`)}</td></tr>`).join("");
+  const rows = here.map((s) => `<tr><td class="nm"><b>${esc(s.name)}</b> <span class="muted">${esc(s.id)}</span></td><td>${esc(itemName(s.itemId))}</td><td>${esc(partnerName(s.partnerId))}</td><td class="muted">${esc(s.clusterId === c.id ? "Here" : where(s.clusterId))}</td><td>${used.has(s.id) ? `<span class="pill">Used by ${esc(refOf(s.id))}</span>` : '<span class="pill ready">Free</span>'}</td><td>${switchHtml({ label: `Priority for ${s.name}`, on: s.priority === true, attrs: `data-stock-priority="${esc(s.id)}"`, hint: used.has(s.id) ? "A gift has taken this outcome, so its priority cannot change" : "On: gifts take this outcome before older ones", disabled: used.has(s.id), compact: true })}</td><td class="actcol">${used.has(s.id) ? "" : rowMenu(`<button type="button" class="danger" data-cl="stock-rm" data-id="${esc(s.id)}">Remove this outcome</button>`)}</td></tr>`).join("");
   const form = (ctx.stockItems ?? []).length === 0 ? "" : (ctx.partners ?? []).length === 0 ? '<p class="muted">Add a partner to this project first, on its Details tab.</p>' :
     `<div class="cl-add"><select id="st-item" aria-label="Benefit">${(ctx.stockItems ?? []).map((i) => `<option value="${esc(i.id)}">${esc(i.name)}</option>`).join("")}</select>
       <select id="st-partner" aria-label="Partner">${(ctx.partners ?? []).map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("")}</select>
@@ -100,5 +101,5 @@ export function clusterStockHtml(state: ClusterState, c: Cluster, ctx: PeopleCon
     <h4 class="wf-h">Park an outcome in ${esc(c.name)}</h4>
     <p class="muted small">A partner can load the outcomes it is ready to deliver, so a gift assigned to it takes one straight away.</p>
     ${form}
-    ${here.length ? `<div class="tablewrap listframe"><table class="subtable"><thead><tr><th>Outcome</th><th>Benefit</th><th>Partner</th><th>Where</th><th>State</th><th class="actcol"></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">Nothing is parked here yet.</p>'}</section>`;
+    ${here.length ? `<div class="tablewrap listframe"><table class="subtable"><thead><tr><th>Outcome</th><th>Benefit</th><th>Partner</th><th>Where</th><th>State</th><th>Priority</th><th class="actcol"></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">Nothing is parked here yet.</p>'}</section>`;
 }

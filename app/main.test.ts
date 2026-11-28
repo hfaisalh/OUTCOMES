@@ -220,13 +220,13 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     click({ wfSelect: "water-pump" }, "data-wf-select");
     stageClick("2");
     fire("change", { target: { id: "", dataset: { wfFlag: "urgent", wf: "water-pump" }, checked: false, value: "" } });
-    expect(shell.innerHTML).not.toMatch(/data-wf-flag="urgent" data-wf="water-pump" checked/);
+    expect(shell.innerHTML).not.toMatch(/checked[^>]*data-wf-flag="urgent" data-wf="water-pump"/);
     stageClick("5");
     fire("change", { target: { id: "", dataset: { wfFlag: "approve", wf: "water-pump" }, checked: false, value: "" } });
     expect(shell.innerHTML).not.toMatch(/data-wf-flag="approve" data-wf="water-pump" checked/);
     stageClick("7");
     expect(shell.innerHTML).toContain("Decision: ask the donor for feedback");
-    expect(shell.innerHTML).toMatch(/data-wf-flag="feedback" data-wf="water-pump" checked/);
+    expect(shell.innerHTML).toMatch(/checked[^>]*data-wf-flag="feedback" data-wf="water-pump"/);
     stageClick("3");
     fire("change", { target: { id: "", dataset: { wfConfirm: "days", wf: "water-pump" }, checked: false, value: "9" } });
     expect(shell.innerHTML).toContain('data-wf-confirm="days" data-wf="water-pump" value="9"');

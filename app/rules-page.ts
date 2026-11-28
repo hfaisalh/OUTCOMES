@@ -7,6 +7,7 @@
  * UX: a 2D grid, rules on the left and their settings on the right (one column on a phone); every setting has a visible label; rules are ordered lists because order matters; each rule names the decision it comes from, so a developer can find it.
  */
 
+import { switchHtml } from "./switch";
 import { automationRules, type RuleSection } from "../modules/16-rules/rules";
 import { assignOf, confirmDaysOf, flagOf } from "../modules/02-project-rules/workflows";
 import { batchSizeOf } from "../modules/08-assignment/batches";
@@ -22,14 +23,14 @@ function assignSettings(v: View): string {
   const own = partners.filter((p) => p.batchSize !== undefined);
   return `<h3>Each workflow</h3><div class="tablewrap"><table class="ru-table"><thead><tr><th>Workflow</th><th>Assign</th><th>Priority gifts first</th><th>Move to another partner</th><th class="num">Days to confirm</th></tr></thead><tbody>${fws.map((f) => `<tr><th scope="row">${esc(f.name)}</th>
     <td><select data-wf-assign="${esc(f.id)}" aria-label="How ${esc(f.name)} is assigned"><option value="auto"${assignOf(f, undefined) === "auto" ? " selected" : ""}>Automatically</option><option value="suggest"${assignOf(f, undefined) === "suggest" ? " selected" : ""}>Suggest only</option></select></td>
-    <td><input type="checkbox" data-wf-flag="urgent" data-wf="${esc(f.id)}" aria-label="A gift marked Priority goes first in ${esc(f.name)}"${flagOf(f, "urgent") ? " checked" : ""}></td>
-    <td><input type="checkbox" data-wf-flag="reassign" data-wf="${esc(f.id)}" aria-label="A person may move a ${esc(f.name)} gift to another partner"${flagOf(f, "reassign") ? " checked" : ""}></td>
+    <td>${switchHtml({ label: `Priority gifts first in ${f.name}`, on: flagOf(f, "urgent"), attrs: `data-wf-flag="urgent" data-wf="${esc(f.id)}"`, compact: true })}</td>
+    <td>${switchHtml({ label: `Move ${f.name} gifts to another partner`, on: flagOf(f, "reassign"), attrs: `data-wf-flag="reassign" data-wf="${esc(f.id)}"`, compact: true })}</td>
     <td class="num"><input type="number" min="0" max="60" data-wf-confirm="days" data-wf="${esc(f.id)}" value="${confirmDaysOf(f)}" aria-label="Days the partner has to confirm ${esc(f.name)}"></td></tr>`).join("")}</tbody></table></div>
     <p class="muted">A batch is ${batchSizeOf(undefined)} gifts unless a partner has its own size${own.length ? ` (${own.map((p) => `${esc(p.name)} ${p.batchSize}`).join(", ")})` : ""}. Set a partner's on its page.</p>`;
 }
 
 function allocateSettings(v: View): string {
-  return `<h3>Setting</h3><label class="ot-check"><input type="checkbox" data-require-ref="1"${v.requireRef ? " checked" : ""}> Allocate only to beneficiaries that have an ID</label>`;
+  return `<h3>Setting</h3>${switchHtml({ label: "Allocate only to beneficiaries that have an ID", on: v.requireRef === true, attrs: 'data-require-ref="1"' })}`;
 }
 
 function waitingSettings(v: View): string {

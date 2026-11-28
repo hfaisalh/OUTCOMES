@@ -656,8 +656,6 @@ document.addEventListener("click", (e) => {
   // The small log window inside the gift window.
   const lg = t.closest("[data-gift-log]") as HTMLElement | null;
   if (lg && (lg.dataset.giftLog !== "overlay" || t === lg)) { state.giftWin.log = lg.dataset.giftLog === "open"; return renderGiftWindow(); }
-  const pri = t.closest("[data-gift-priority]") as HTMLElement | null;
-  if (pri) { void outcomeChange({ action: "gift-priority", key: pri.dataset.giftPriority ?? "", on: pri.dataset.on === "1" }).then(() => { renderGiftWindow(); }); return; }
   const close = t.closest("[data-gift-close]") as HTMLElement | null;
   if (close && (close.dataset.giftClose !== "overlay" || t === close)) { state.giftWin.key = ""; state.giftWin.log = false; return renderGiftWindow(); }
   // A click on a row opens it, unless the click was on a tick box, a drop-down or a button of its own.
@@ -1042,6 +1040,9 @@ document.addEventListener("input", (e) => {
 document.addEventListener("change", (e) => {
   const el = e.target as HTMLInputElement;
   if (el.dataset?.f) return onFilterInput(e);
+  // The Priority switches (DECISIONS 285): a gift in its window, and a parked outcome in its row.
+  if (el.dataset?.giftPriority !== undefined) return void outcomeChange({ action: "gift-priority", key: el.dataset.giftPriority, on: el.checked }).then(() => { renderGiftWindow(); });
+  if (el.dataset?.stockPriority !== undefined) return clusterRequestThen(el.checked ? "Marked as priority: gifts take it first." : "Priority taken away.", { action: "alc-stock-priority", id: el.dataset.stockPriority, priority: el.checked });
   // The setting that places gifts only on beneficiaries that have an ID (DECISIONS 75).
   if (el.dataset?.requireRef !== undefined) return void outcomeChange({ action: "set-require-ref", on: el.checked });
   // Tick boxes: one work order, or all shown in a list. Only the lists are redrawn.
@@ -1703,7 +1704,6 @@ document.addEventListener("click", (e) => {
     case "enr-add": return clusterRequestThen("Enrolled.", { action: "enr-add", beneficiaryId: val("en-ben"), clusterId: id, itemId: val("en-item"), role: val("en-role") });
     case "enr-end": return clusterRequestThen("Enrolment ended.", { action: "enr-end", id });
     case "stock-add": return clusterRequestThen("Parked outcome added.", { action: "alc-stock-add", clusterId: id, itemId: val("st-item"), partnerId: val("st-partner"), name: val("st-name") });
-    case "stock-pri": return clusterRequestThen(b.dataset["on"] === "1" ? "Marked as priority: gifts take it first." : "Priority taken away.", { action: "alc-stock-priority", id, priority: b.dataset["on"] === "1" });
     case "stock-rm": return clusterRequestThen("Parked outcome removed.", { action: "alc-stock-remove", id });
     case "node-tab": clusterUi.nodeTab = b.dataset.tab === "inside" ? "inside" : b.dataset.tab === "people" ? "people" : b.dataset.tab === "outcomes" ? "outcomes" : "details"; clusterUi.adding = ""; return clusterView();
     case "node-save": return clusterRequestThen("Saved.", { action: "cluster-set", clusterId: id, name: val("cn-name"), label: val("cn-label"), place: val("cn-place"), ...placeOfWindow(), roles: val("cn-roles"), status: val("cn-status"), ...(document.getElementById("cn-capacity") ? { capacity: val("cn-capacity") } : {}) });

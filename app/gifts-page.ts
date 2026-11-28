@@ -9,6 +9,7 @@
  * Who calls it: app/main.ts. Depends on: Modules 4b and 5 and 6, and the helpers in pages.ts. Pure: it takes a View and returns HTML.
  */
 
+import { switchHtml } from "./switch";
 import { siteChip } from "./site-chip";
 import { filterWorkOrders, isFiltering } from "../modules/01c-crm-connector/filter";
 import { lineValue, partsOf, periodsOf, sentPartsOf, type WorkOrder } from "../modules/01c-crm-connector/work-orders";
@@ -487,7 +488,7 @@ export function giftDetailHtml(v: View, giftKey: string, logOpen = false): strin
   const partFix = g.partFixes.map((x) => `<div class="suggest-box"><b>The quantity looks wrong.</b> ${esc(x.reason)} unit${x.parts === 1 ? "" : "s"}.
       <div class="actions"><button class="primary" data-parts-set="${esc(x.key)}" data-n="${x.parts}">Yes, count it as ${x.parts} unit${x.parts === 1 ? "" : "s"}</button><button data-parts-set="${esc(x.key)}" data-n="${x.sent}">No, ${x.sent} is right</button></div></div>`).join("");
   return `<div class="pf-overlay" data-gift-close="overlay"><div class="pf-box" role="dialog" aria-label="Gift details">
-    <header class="gw-head"><div><h2>${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span></h2><div class="gw-sub">${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""} <span class="muted">${esc(kindName)}</span></div>${(() => { const pk = giftAllocationKey(g); const on = pk !== "" && (v.priorityGifts ?? []).includes(pk); return `${on ? ' <span class="pill review">Priority</span>' : ""}`; })()}</div><span class="gw-acts">${(() => { const pk = giftAllocationKey(g); if (pk === "" || g.kind === "excluded") return ""; const on = (v.priorityGifts ?? []).includes(pk); return `<button type="button" data-gift-priority="${esc(pk)}" data-on="${on ? "" : "1"}" aria-pressed="${on}" title="${on ? "Take away priority" : "Assign and allocate this gift before the others"}">${on ? "Priority on" : "Make priority"}</button>`; })()}<button data-gift-close="x" aria-label="Close">Close</button></span></header>
+    <header class="gw-head"><div><h2>${esc(g.supporterName)} <span class="muted">${esc(g.supporterId)}</span></h2><div class="gw-sub">${giftIcon(v, g)} ${esc(g.itemName)}${g.parts > 1 ? ` <span class="muted">\u00D7${g.parts}</span>` : ""} <span class="muted">${esc(kindName)}</span></div></div><span class="gw-acts">${(() => { const pk = giftAllocationKey(g); if (pk === "" || g.kind === "excluded") return ""; const on = (v.priorityGifts ?? []).includes(pk); return switchHtml({ label: "Priority", on, attrs: `data-gift-priority="${esc(pk)}"`, hint: "On: this gift is assigned and allocated before the others" }); })()}<button data-gift-close="x" aria-label="Close">Close</button></span></header>
     <div class="pf-body compact gw">${manualBox}${catchUp}${partFix}
       <div class="fgrid gw-hero">
         ${row("Value (reference)", money(g.payments.reduce((t, w) => t + (Number.isFinite(lineValue(w)) ? lineValue(w) : 0), 0), currencyOf(g)))}

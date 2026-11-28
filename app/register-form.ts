@@ -8,6 +8,7 @@
  * Who calls it: app/main.ts. Depends on: modules/07-beneficiaries/beneficiaries.ts and esc from pages.ts.
  */
 
+import { switchHtml } from "./switch";
 import { placeFieldHtml } from "./place-picker";
 import { ELIGIBILITY_LABEL, KIND_LABEL, type Beneficiary, type BeneficiaryKind, type Eligibility } from "../modules/07-beneficiaries/beneficiaries";
 import { esc } from "./pages";
@@ -33,7 +34,7 @@ export function registerFormHtml(rec: Partial<Beneficiary>, id: string, kind: Be
     ${input("rg-guardian", "Parent or guardian", rec.guardian ?? "")}${input("rg-guardianrel", "Guardian's relation to the beneficiary", rec.guardianRelation ?? "", ' placeholder="For example mother, uncle"')}`);
   const admission = card("Admission", `<label>Decision<select id="rg-eligibility">${(["", "ready", "review", "declined"] as Eligibility[]).map((e) => `<option value="${e}"${(rec.eligibility ?? "") === e ? " selected" : ""}>${esc(ELIGIBILITY_LABEL[e])}</option>`).join("")}</select></label>
     ${input("rg-eligibilitynote", "Reason for the decision", rec.eligibilityNote ?? "")}
-    <label class="w tick"><input type="checkbox" id="rg-priority"${rec.priority ? " checked" : ""}> Priority: go to the front of the waiting list</label>
+    <div class="w">${switchHtml({ label: "Priority", id: "rg-priority", on: rec.priority === true, hint: "On: goes to the front of the waiting list, and is funded first among the partner's own beneficiaries" })}</div>
     ${input("rg-prioritynote", "Why they have priority", rec.priorityNote ?? "", ' placeholder="For example both parents deceased"', true)}`);
   // --- Cards of a household ---
   const householdIdentity = card("Household", `${input("rg-name", "Family or household name", rec.name ?? "", "", true)}${input("rg-size", "Number of people (if the persons are not listed)", rec.size === undefined ? "" : String(rec.size), ' type="number" min="1" max="60"', true)}`);

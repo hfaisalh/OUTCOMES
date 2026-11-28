@@ -549,15 +549,14 @@ describe("giftsPage", () => {
   });
 });
 
-describe("marking a gift Priority from its window (DECISIONS 284)", () => {
-  it("offers Make priority, and shows the Priority pill and Priority on once marked", () => {
+describe("marking a gift Priority from its window (DECISIONS 284, 285)", () => {
+  it("is an on/off switch named Priority, off until marked and on once marked", () => {
     const orders = [{ ...base, key: "o1", subscriptionId: "", instalmentNumber: "", instalmentCount: "" }];
     const off = giftDetailHtml(view({ workOrders: orders }), "once-o1");
-    expect(off).toContain('data-gift-priority="o1" data-on="1" aria-pressed="false"');
-    expect(off).toContain(">Make priority<");
+    expect(off).toMatch(/<input type="checkbox" role="switch" class="tg-in"( id="[^"]*")? data-gift-priority="o1">/);
+    expect(off).not.toMatch(/checked[^>]*data-gift-priority/);
+    expect(off).toContain('<span class="tg-text">Priority</span>');
     const on = giftDetailHtml(view({ workOrders: orders, priorityGifts: ["o1"] }), "once-o1");
-    expect(on).toContain('<span class="pill review">Priority</span>');
-    expect(on).toContain('data-on="" aria-pressed="true"');
-    expect(on).toContain(">Priority on<");
+    expect(on).toMatch(/checked[^>]*data-gift-priority="o1"/);
   });
 });

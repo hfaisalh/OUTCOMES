@@ -27,7 +27,7 @@ describe("the Automation rules page", () => {
     expect(html).toContain('<option value="auto" selected>Automatically</option>');
     expect(html).toContain('data-wf-flag="urgent" data-wf="wf-orphan"');
     expect(html).toContain('data-wf-confirm="days" data-wf="wf-orphan" value="5"');
-    expect(html).toContain('data-require-ref="1" checked');
+    expect(html).toMatch(/checked[^>]*data-require-ref="1"/);
     expect(html).toContain('data-grace="1" value="30"');
   });
   it("escapes names, shows enrol automatically by project and a partner's own batch size", () => {

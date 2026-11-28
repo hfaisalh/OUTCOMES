@@ -55,8 +55,8 @@ describe("the Workflows page", () => {
     expect(at(2)).toContain('data-wf-assign="water-pump"');
     expect(at(2)).toContain('<option value="suggest" selected>'); // a pump is assigned by a person
     expect(at(2, "orphan-sponsorship")).toContain('<option value="auto" selected>');
-    expect(at(2)).toMatch(/data-wf-flag="reassign" data-wf="water-pump" checked/);
-    expect(at(2)).toMatch(/data-wf-flag="urgent" data-wf="water-pump" checked/);
+    expect(at(2)).toMatch(/checked[^>]*data-wf-flag="reassign" data-wf="water-pump"/);
+    expect(at(2)).toMatch(/checked[^>]*data-wf-flag="urgent" data-wf="water-pump"/);
     expect(at(3)).toContain("Decision: the partner confirms the batch");
     expect(at(3)).toContain('data-wf-confirm="days"');
     expect(at(3)).toContain('data-wf-confirm="tell"');
@@ -65,7 +65,7 @@ describe("the Workflows page", () => {
     expect(at(4)).toContain("Basic details");
     expect(at(4)).toContain("Tell the donor that it is done");
     expect(at(5)).toContain("Decision: approval");
-    expect(at(5)).toMatch(/data-wf-flag="approve" data-wf="water-pump" checked/);
+    expect(at(5)).toMatch(/checked[^>]*data-wf-flag="approve" data-wf="water-pump"/);
     expect(at(5)).toContain("Installation update with GPS and photos"); // the checks
     expect(at(5)).toContain('data-wf-act="task-add"');
     expect(at(6)).toContain("Decision: reporting protocol");

@@ -7,6 +7,7 @@
  * Who calls it: app/main.ts. Depends on: modules/02-project-rules/workflows.ts, app/outcome-types-card.ts, app/icons.ts and the helpers in pages.ts. Pure: it takes a View and returns HTML.
  */
 
+import { switchHtml } from "./switch";
 import { CYCLE_LABELS, type Cycle, type FrameworkTemplate } from "../modules/02-project-rules/categories";
 import { assignOf, confirmDaysOf, flagOf, totalDays, unitModeOf } from "../modules/02-project-rules/workflows";
 import { typeForFramework, type OutcomeType } from "../modules/05-outcomes/outcome-types";
@@ -45,14 +46,14 @@ function stagePanel(f: FrameworkTemplate, type: OutcomeType | undefined, stage: 
       ${(f.tasks ?? []).map((k) => `<tr><td><input data-wf-task="label" data-wf="${esc(f.id)}" data-task="${esc(k.id)}" value="${esc(k.label)}"></td><td class="num"><input type="number" min="0" max="120" data-wf-task="after" data-wf="${esc(f.id)}" data-task="${esc(k.id)}" value="${k.afterMonths}"></td><td class="c"><input type="checkbox" data-wf-task="photo" data-wf="${esc(f.id)}" data-task="${esc(k.id)}"${k.photo ? " checked" : ""} aria-label="Asks for a photo"></td><td class="actcol"><div class="actbox"><button class="iconact" data-wf-act="task-remove" data-wf="${esc(f.id)}" data-task="${esc(k.id)}" title="Remove this check" aria-label="Remove this check">${BIN}</button></div></td></tr>`).join("") || `<tr><td colspan="4" class="muted">No checks yet.</td></tr>`}
     </tbody></table>
     <div class="ot-add"><input id="wf-task-label" placeholder="New check, for example 3 month basic check"><input id="wf-task-after" type="number" min="0" max="120" value="3" aria-label="Due after months" style="width:90px"><label class="ot-check"><input type="checkbox" id="wf-task-photo"> photo</label><button class="iconact ok" data-wf-act="task-add" data-wf="${esc(f.id)}" title="Add the check" aria-label="Add the check">${TICK}</button></div>`;
-  const flag = (k: "reassign" | "urgent" | "approve" | "feedback", text: string): string => `<label class="ot-check"><input type="checkbox" data-wf-flag="${k}" data-wf="${esc(f.id)}"${flagOf(f, k) ? " checked" : ""}> ${text}</label>`;
+  const flag = (k: "reassign" | "urgent" | "approve" | "feedback", text: string): string => `<div class="ot-check">${switchHtml({ label: text, on: flagOf(f, k), attrs: `data-wf-flag="${k}" data-wf="${esc(f.id)}"` })}</div>`;
   if (stage === 2) {
     const how = assignOf(f, type);
     return `<h3>Assignment</h3>
     <h4 class="wf-h">Decision: assignment for implementation</h4>
     <label class="wf-field"><span>A released work order is assigned to a partner</span><select data-wf-assign="${esc(f.id)}"><option value="auto"${how === "auto" ? " selected" : ""}>Automatically, to a partner with capacity</option><option value="suggest"${how === "suggest" ? " selected" : ""}>By a person, dragging it to a partner</option></select></label>
     ${flag("reassign", "A person can move a work order from one partner to another")}
-    ${flag("urgent", "An urgent gift jumps to high priority")}
+    ${flag("urgent", "Priority gifts are assigned first")}
     <p class="muted">Only partners approved for the item are considered. The work order lands in the partner's waiting list as a batch. Priority when several are waiting: urgent first, then a donor's directed project or partner, then a deadline, then the oldest first. Each partner sets its capacity on its own profile.</p>`;
   }
   if (stage === 3) return `<h3>Confirmation</h3>
