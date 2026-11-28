@@ -1695,6 +1695,7 @@ document.addEventListener("click", (e) => {
     case "enr-add": return clusterRequestThen("Enrolled.", { action: "enr-add", beneficiaryId: val("en-ben"), clusterId: id, itemId: val("en-item"), role: val("en-role") });
     case "enr-end": return clusterRequestThen("Enrolment ended.", { action: "enr-end", id });
     case "stock-add": return clusterRequestThen("Parked outcome added.", { action: "alc-stock-add", clusterId: id, itemId: val("st-item"), partnerId: val("st-partner"), name: val("st-name") });
+    case "stock-pri": return clusterRequestThen(b.dataset["on"] === "1" ? "Marked as priority: gifts take it first." : "Priority taken away.", { action: "alc-stock-priority", id, priority: b.dataset["on"] === "1" });
     case "stock-rm": return clusterRequestThen("Parked outcome removed.", { action: "alc-stock-remove", id });
     case "node-tab": clusterUi.nodeTab = b.dataset.tab === "inside" ? "inside" : b.dataset.tab === "people" ? "people" : b.dataset.tab === "outcomes" ? "outcomes" : "details"; clusterUi.adding = ""; return clusterView();
     case "node-save": return clusterRequestThen("Saved.", { action: "cluster-set", clusterId: id, name: val("cn-name"), label: val("cn-label"), place: val("cn-place"), ...placeOfWindow(), roles: val("cn-roles"), status: val("cn-status"), ...(document.getElementById("cn-capacity") ? { capacity: val("cn-capacity") } : {}) });

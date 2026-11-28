@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { freeStock, setStockPriority } from "./stock";
 import type { Assignment } from "../08-assignment/assignment";
 import type { FrameworkTemplate } from "../02-project-rules/categories";
 import type { GiftProject } from "../06-projects/projects";
@@ -355,3 +356,27 @@ describe("parked outcomes, the partner's own stock (DECISIONS 209)", () => {
   });
 });
 
+
+describe("priority (DECISIONS 282)", () => {
+  it("fills a beneficiary marked Priority first among the partner's own children", () => {
+    const c = ctx({ beneficiaries: [child("B1", "Amina", { partnerId: "trust" }), child("B2", "Bilal", { partnerId: "trust", priority: true })], assignments: [asg("G1")] });
+    expect(optionsFor(c, asg("G1"), []).map((o) => o.name)).toEqual(["Bilal", "Amina"]);
+    expect(suggestAllocations(c, emptyAllocations())[0]?.enrolmentId).toBe("EN-2");
+  });
+  it("does not let priority beat the partner's own children: a partner's room is its own children", () => {
+    const c = ctx({ beneficiaries: [child("B1", "Amina", { partnerId: "backup", priority: true }), child("B2", "Bilal", { partnerId: "trust" })], assignments: [asg("G1")] });
+    expect(optionsFor(c, asg("G1"), []).map((o) => o.name)).toEqual(["Bilal", "Amina"]);
+  });
+  it("a gift takes a parked outcome marked Priority before an older one, and priority can be given or taken away until a gift takes it", () => {
+    const stock = [{ id: "STK-0001", partnerId: "trust", giftProjectId: "aghosh", clusterId: "", itemId: "I20", name: "Old site", at: "2026-01-01T00:00:00Z" }, { id: "STK-0002", partnerId: "trust", giftProjectId: "aghosh", clusterId: "", itemId: "I20", name: "Urgent site", at: "2026-02-01T00:00:00Z" }];
+    expect(freeStock(stock, new Set(), "trust", "I20", "aghosh")?.id).toBe("STK-0001");
+    const on = setStockPriority({ stock }, "STK-0002", true, new Set());
+    if ("error" in on) throw new Error(on.error);
+    expect(freeStock(on.value.stock ?? [], new Set(), "trust", "I20", "aghosh")?.id).toBe("STK-0002");
+    const off = setStockPriority(on.value, "STK-0002", false, new Set());
+    if ("error" in off) throw new Error(off.error);
+    expect(off.value.stock?.[1]).not.toHaveProperty("priority");
+    expect(setStockPriority(on.value, "STK-0002", false, new Set(["STK-0002"]))).toEqual({ error: "A gift has taken that outcome, so its priority cannot change." });
+    expect(setStockPriority(on.value, "nope", true, new Set())).toEqual({ error: "That parked outcome was not found." });
+  });
+});

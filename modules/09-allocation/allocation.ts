@@ -13,7 +13,7 @@
  *   Its capacity is the units that make one whole beneficiary in the gift's workflow (3 parts for an orphan, 1 for a scholarship).
  * - Rule: which project. A gift that carries a project fills that project's places only. A gift with no project goes to a place in any project that offers the benefit and has the gift's assigned partner among
  *   its partners, so the partner that delivers is the partner for that place.
- * - Rule: which place (DECISIONS 183). The assigned partner's own children first, since a partner's room is its own children. Then the place with the lowest fill first, so more beneficiaries are sponsored, then the earliest enrolled. A gift goes whole into one place when it fits. When no single place can take all of it, it is
+ * - Rule: which place (DECISIONS 183). The assigned partner's own children first, since a partner's room is its own children. Then (DECISIONS 282) a beneficiary marked Priority. Then the place with the lowest fill first, so more beneficiaries are sponsored, then the earliest enrolled. A gift goes whole into one place when it fits. When no single place can take all of it, it is
  *   spread over several (a gift of 2 units for a scholarship that needs 1 unit sponsors two children; 6 parts for an orphan who needs 3 sponsors two), each taking what it has free (DECISIONS 181).
  * - Rule: gift first. A gift for a gift-first type, or for a type with no beneficiary, creates an outcome (OUT-0001). It needs no place. Recipients are enrolled afterwards.
  * - Rule (DECISIONS 186): nothing is deleted. An allocation has a start (when it was made) and, once it ends, an end date and a reason (the plan paused, cancelled or completed; the child left; a person moved or took it back).
@@ -27,7 +27,7 @@ import type { Assignable, Assignment } from "../08-assignment/assignment.js";
 import type { FrameworkTemplate } from "../02-project-rules/categories.js";
 import { unitsOfItem } from "../02-project-rules/benefits.js";
 import type { GiftProject } from "../06-projects/projects.js";
-import { addStock, freeStock, removeStock, usedStock, type StockItem } from "./stock.js";
+import { addStock, freeStock, removeStock, setStockPriority, usedStock, type StockItem } from "./stock.js";
 import type { Beneficiary } from "../07-beneficiaries/beneficiaries.js";
 import type { Enrolment, ItemRules } from "../07-beneficiaries/enrolments.js";
 
@@ -121,8 +121,8 @@ export function optionsFor(ctx: AllocationContext, a: Assignment, records: Alloc
     .filter((e) => e.status === "active" && e.role === "" && e.itemId === a.itemId && inProject(e.giftProjectId))
     .filter((e) => { const b = byId.get(e.beneficiaryId); return !!b && b.status === "active" && (b.kind !== "person" || b.eligibility === "ready"); })
     .map((e): AllocationOption => { const u = used(records, e.id, ctx.live); return { enrolmentId: e.id, beneficiaryId: e.beneficiaryId, name: byId.get(e.beneficiaryId)?.name ?? e.beneficiaryId, giftProjectId: e.giftProjectId, clusterId: e.clusterId, used: u, capacity: whole, fits: u + a.parts <= whole }; })
-    // Rule (DECISIONS 186): a plan that runs again is offered its previous child first. Rule (DECISIONS 183): then the assigned partner's own children, since a partner's room is its own children. Then the lowest fill, then the earliest enrolled.
-    .sort((x, y) => Number(prefer.has(y.enrolmentId)) - Number(prefer.has(x.enrolmentId)) || Number(byId.get(y.beneficiaryId)?.partnerId === a.partnerId) - Number(byId.get(x.beneficiaryId)?.partnerId === a.partnerId) || x.used - y.used || x.enrolmentId.localeCompare(y.enrolmentId));
+    // Rule (DECISIONS 186): a plan that runs again is offered its previous child first. Rule (DECISIONS 183): then the assigned partner's own children, since a partner's room is its own children. Rule (DECISIONS 282): then a beneficiary marked Priority. Then the lowest fill, then the earliest enrolled.
+    .sort((x, y) => Number(prefer.has(y.enrolmentId)) - Number(prefer.has(x.enrolmentId)) || Number(byId.get(y.beneficiaryId)?.partnerId === a.partnerId) - Number(byId.get(x.beneficiaryId)?.partnerId === a.partnerId) || Number(byId.get(y.beneficiaryId)?.priority === true) - Number(byId.get(x.beneficiaryId)?.priority === true) || x.used - y.used || x.enrolmentId.localeCompare(y.enrolmentId));
 }
 
 /**
@@ -275,6 +275,7 @@ export function applyAllocationAction(ctx: AllocationContext, existing: Allocati
     case "alc-undo": return unplace(existing, str("key"), ctx.now.slice(0, 10));
     case "alc-reset": return { value: { ...emptyAllocations(), ...(existing.stock ? { stock: existing.stock, stockCounter: existing.stockCounter ?? 0 } : {}) }, message: `All allocations were cleared, history included.${existing.stock?.length ? " Parked outcomes were kept." : ""}` };
     case "alc-stock-add": { const r = addStock(existing, { partnerId: str("partnerId"), giftProjectId: str("giftProjectId"), clusterId: str("clusterId"), itemId: str("itemId"), name: str("name") }, ctx.now); return "error" in r ? r : { value: r.value, message: "Parked outcome added." }; }
+    case "alc-stock-priority": { const r = setStockPriority(existing, str("id"), body["priority"] === true, usedStock(existing.records.filter((p) => p.to === undefined))); return "error" in r ? r : { value: r.value, message: body["priority"] === true ? "Marked as priority: gifts take it first." : "Priority taken away." }; }
     case "alc-stock-remove": { const r = removeStock(existing, str("id"), usedStock(existing.records.filter((p) => p.to === undefined))); return "error" in r ? r : { value: r.value, message: "Parked outcome removed." }; }
     default: return null;
   }
