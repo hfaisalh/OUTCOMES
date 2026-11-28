@@ -6,6 +6,7 @@
  * Data flow: main.ts calls `Object.assign(shell, {...})` with the real functions as the page starts. Until then each is a harmless stand-in, so a feature file can be loaded and tested alone.
  */
 
+import type { Setup } from "../modules/02-project-rules/categories";
 import type { View } from "./shared/pages";
 
 export const shell = {
@@ -14,4 +15,7 @@ export const shell = {
   outcomeChange: async (_body: Record<string, unknown>): Promise<void> => undefined,
   view: (): View => ({}) as View,
   lastError: (): string => "",
+  afterConfig: (_rerun?: boolean): void => undefined, // after the setup changed: save it (live) or run the demo again
+  changed: (): void => undefined, // the setup changed: save it and load it again
+  setupNow: (): Setup => ({ categories: [], itemMap: {}, frameworks: [], itemFramework: {} }) as Setup,
 };
