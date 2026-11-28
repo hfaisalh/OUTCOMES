@@ -11,6 +11,7 @@ import type { DashData } from "./dashboard-data";
 import { dashboardData } from "./dashboard-data";
 import { donutHtml, dashIcon, kpiHtml, paint, ringHtml, type Kpi } from "./dash-charts";
 import type { Stage } from "../../modules/17-dashboard/facts";
+import { noTrendsView, trendsCard, type TrendsView } from "./trends-card";
 import { esc, type View } from "../shared/pages";
 
 const plural = (n: number, one: string, many: string): string => `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;
@@ -103,11 +104,11 @@ function splitsHtml(d: DashData): string {
     ${donutHtml({ title: "By partner", centre: String(sum(s.partners)), centreLabel: "enrolled", parts: paint(s.partners, "categorical") })}</div></section>`;
 }
 
-export function dashboardPage(v: View): string {
-  return dashboardHtml(dashboardData(v));
+export function dashboardPage(v: View, trends: TrendsView = noTrendsView()): string {
+  return dashboardHtml(dashboardData(v), trendsCard(v, trends));
 }
 
 // The page from its figures, so it can be tested and looked at with any numbers.
-export function dashboardHtml(d: DashData): string {
-  return `<h1>Dashboard</h1><p class="sub">The work at a glance: where gifts are on their way to an outcome, who and what is funded, and what needs a person.</p>${journeyCard(d)}${benefitsHtml(d)}${tilesHtml(d)}${splitsHtml(d)}`;
+export function dashboardHtml(d: DashData, trends = ""): string {
+  return `<h1>Dashboard</h1><p class="sub">The work at a glance: where gifts are on their way to an outcome, who and what is funded, and what needs a person.</p>${journeyCard(d)}${benefitsHtml(d)}${trends}${tilesHtml(d)}${splitsHtml(d)}`;
 }

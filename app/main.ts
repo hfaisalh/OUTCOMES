@@ -81,6 +81,7 @@ import { mountAreasMap } from "./dashboard/areas-map";
 import { costsCard } from "./dashboard/costs-card";
 import { withSetupCard } from "./dashboard/setup-card";
 import { dashboardPage } from "./dashboard/dashboard-page";
+import { trendsAction, trendsView } from "./dashboard/trends-session";
 import { areasAction, areasView } from "./dashboard/areas-session";
 import { acceptPlace, upsertPlace } from "../modules/14-locations/locations";
 import { resolveArea } from "../modules/14-locations/areas";
@@ -459,7 +460,7 @@ function draw(): void {
     : state.page === "progress" ? progressPage(v)
     : state.page === "outcome-list" ? beneficiariesPage(v)
     : state.page === "audit" ? auditPage(v)
-    : state.page === "dashboard" ? withSetupCard(dashboardPage(v), v) + areasCard(v, areasView) + costsCard(v)
+    : state.page === "dashboard" ? withSetupCard(dashboardPage(v, trendsView), v) + areasCard(v, areasView) + costsCard(v)
     : state.page === "categories" ? categoriesPage(v)
     : state.page === "sources" ? mapping.html()
     : settingsPage(v);
@@ -655,6 +656,7 @@ document.addEventListener("click", (e) => {
     if (k && k in NO_CRITERIA && scope === "main") state.criteria = { ...state.criteria, [k]: NO_CRITERIA[k] };
   }
   if (action === "view-as") return void switchView(el.dataset["partner"] ?? "");
+  if (action?.startsWith("tr-")) return trendsAction(action, el, draw);
   if (action?.startsWith("ar-")) return void areasAction(action, el, outcomeChange, () => { draw(); renderAreasWindow(); });
   if (action?.startsWith("pt-")) return void handlePartnerAction(action, el, state.partnerSlice, (slice) => { state.partnerSlice = slice; }, draw);
   if (action === "show-signin") { state.topMenu = ""; state.gate = "signin"; return draw(); }

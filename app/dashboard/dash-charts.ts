@@ -35,6 +35,9 @@ const ICONS: Record<string, string> = {
   partner: '<path d="M4.5 20.5v-12l7.5-4 7.5 4v12M4 20.5h16M9 20.5v-5h6v5M9 11h.1M15 11h.1"/>',
   pin: '<path d="M12 20.5s6-5.2 6-10a6 6 0 0 0-12 0c0 4.8 6 10 6 10z"/><circle cx="12" cy="10.5" r="2.2"/>',
   coins: '<circle cx="9.5" cy="9.5" r="5"/><path d="M14.5 13.5a5 5 0 1 0 0-8M9.5 7.5v4M8 9.5h3"/>',
+  up: '<path d="M12 19V6M6.5 11.5 12 6l5.5 5.5"/>',
+  down: '<path d="M12 5v13M6.5 12.5 12 18l5.5-5.5"/>',
+  flat: '<path d="M5 12h14"/>',
   plus: '<circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/>',
   cross: '<circle cx="12" cy="12" r="8.5"/><path d="m9 9 6 6M15 9l-6 6"/>',
 };
