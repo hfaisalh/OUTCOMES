@@ -11,7 +11,7 @@
 - A text under 3 letters is not searched. Answers are kept a day (`search.ts`) so the free service is not hammered; a failure gives an empty list and the person can keep what they typed (an unchecked area).
 - A place sent from a screen is cleaned and checked (`acceptPlace`) before it is kept.
 
-**Areas page (DECISIONS 275).** `areas.ts` lists typed areas still to check, gives one chosen place to everyone who typed it (`ben-area`), counts by place and country, and lays the places out for a plain map. Page: `app/areas-page.ts`, `app/areas-session.ts`.
+**Areas page (DECISIONS 275).** `areas.ts` lists typed areas still to check, gives one chosen place to everyone who typed it (`ben-area`), counts by place and country, and lays the places out for a plain map. Shown as a Dashboard card with a "Fix anomalies" window (DECISIONS 276): `app/areas-page.ts`, `app/areas-session.ts`.
 
 **Files.** `locations.ts` (rules), `search.ts` (the search, with an injected fetch), `modules/00-platform/places-handler.ts` (`GET /api/outcomes?places=`, any signed-in person), `app/place-picker.ts` (the Area field).
 

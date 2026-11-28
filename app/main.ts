@@ -72,7 +72,7 @@ import { partnerHomeHtml } from "./partner-home";
 import { handlePartnerAction, partnerKeys, partnerUi, switchView } from "./partner-session";
 import { csvChange } from "./partner-csv-session";
 import { initPlacePicker } from "./place-picker";
-import { areasPage } from "./areas-page";
+import { areasCard, areasWindowHtml } from "./areas-page";
 import { areasAction, areasUi } from "./areas-session";
 import { acceptPlace, upsertPlace, type Place } from "../modules/14-locations/locations";
 import { resolveArea } from "../modules/14-locations/areas";
@@ -533,7 +533,6 @@ function draw(): void {
     : state.page === "projects" ? projectsPage(v)
     : state.page === "partners" ? partnersPage(v)
     : state.page === "beneficiaries" ? registerPage(v)
-    : state.page === "areas" ? areasPage(v, areasUi)
     : state.page === "outcome-records" ? outcomeRecordsPage(v)
     : state.page === "assignment" ? assignmentPage(v)
     : state.page === "allocate" ? allocatePage(v)
@@ -541,7 +540,7 @@ function draw(): void {
     : state.page === "progress" ? progressPage(v)
     : state.page === "outcome-list" ? beneficiariesPage(v)
     : state.page === "audit" ? auditPage(v)
-    : state.page === "dashboard" ? dashboardPage(v)
+    : state.page === "dashboard" ? dashboardPage(v) + areasCard(v)
     : state.page === "categories" ? categoriesPage(v)
     : state.page === "sources" ? mapping.html()
     : settingsPage(v);
@@ -739,7 +738,7 @@ document.addEventListener("click", (e) => {
     if (k && k in NO_CRITERIA && scope === "main") state.criteria = { ...state.criteria, [k]: NO_CRITERIA[k] };
   }
   if (action === "view-as") return void switchView(el.dataset["partner"] ?? "");
-  if (action?.startsWith("ar-")) return void areasAction(action, el, outcomeChange, draw);
+  if (action?.startsWith("ar-")) return void areasAction(action, el, outcomeChange, () => { draw(); renderAreasWindow(); });
   if (action?.startsWith("pt-")) return void handlePartnerAction(action, el, state.partnerSlice, (slice) => { state.partnerSlice = slice; }, draw);
   if (action === "show-signin") { state.topMenu = ""; state.gate = "signin"; return draw(); }
   if (action === "sign-out") {
@@ -1784,6 +1783,14 @@ document.addEventListener("click", (e) => {
 
 // ---- The Beneficiaries page and its window (DECISIONS 163) ----
 // The window that adds or changes one beneficiary, drawn outside the page that is redrawn. `draft` keeps what was typed when a save is refused.
+// The window that fixes typed areas (DECISIONS 276). It lives apart from the page, so a redraw of the page does not close it.
+function renderAreasWindow(): void {
+  let root = document.getElementById("area-root");
+  if (!areasUi.open) { dropWindow(root); return; }
+  if (!root) { root = document.createElement("div"); root.id = "area-root"; document.body.appendChild(root); }
+  putWindow(root, areasWindowHtml(view(), areasUi));
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && areasUi.open) { areasUi.open = false; renderAreasWindow(); } });
 function renderBenWindow(error = "", draft?: Partial<Beneficiary>): void {
   const w = state.benWin;
   let root = document.getElementById("ben-root");

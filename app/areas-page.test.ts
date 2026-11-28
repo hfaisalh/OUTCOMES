@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { addBeneficiary, emptyRegister } from "../modules/07-beneficiaries/beneficiaries";
-import { areasPage, noAreasUi } from "./areas-page";
+import { areasCard, areasWindowHtml, noAreasUi } from "./areas-page";
 import type { View } from "./pages";
 
 const kasur = { id: "osm:N1", name: "Kasur", district: "Kasur District", region: "Punjab", country: "Pakistan", countryCode: "PK", lat: 31.1, lon: 74.4 };
@@ -20,11 +20,13 @@ function view(): View {
   return { beneficiaries: r, locations: [kasur] } as unknown as View;
 }
 
-describe("the Areas page", () => {
+describe("the Dashboard areas card and its fix window", () => {
   it("counts checked, typed and empty areas, lists each typed area once with Find place, and tables the places", () => {
-    const html = areasPage(view(), noAreasUi());
+    const html = areasCard(view()) + areasWindowHtml(view(), noAreasUi(true));
     expect(html).toContain("<b>4</b><span>Beneficiaries");
     expect(html).toContain("<b>1</b><span>With a checked place");
+    expect(html).toContain("Fix anomalies (1)");
+    expect(html).toContain('role="dialog"');
     expect(html).toContain("<b>2</b><span>Typed, to check");
     expect(html).toContain('data-action="ar-find"');
     expect(html.match(/data-action="ar-find"/g)).toHaveLength(1); // both spellings are one area
@@ -33,12 +35,12 @@ describe("the Areas page", () => {
   });
   it("shows the matches under the row being looked at, and says so while searching or when none is found", () => {
     const key = "swat valley";
-    expect(areasPage(view(), { finding: key, results: [kasur], searching: false })).toContain('data-action="ar-choose"');
-    expect(areasPage(view(), { finding: key, results: [], searching: true })).toContain("Searching...");
-    expect(areasPage(view(), { finding: key, results: [], searching: false })).toContain("No place found");
+    expect(areasWindowHtml(view(), { open: true, finding: key, results: [kasur], searching: false })).toContain('data-action="ar-choose"');
+    expect(areasWindowHtml(view(), { open: true, finding: key, results: [], searching: true })).toContain("Searching...");
+    expect(areasWindowHtml(view(), { open: true, finding: key, results: [], searching: false })).toContain("No place found");
   });
   it("is calm when there is nothing to show", () => {
-    const html = areasPage({ beneficiaries: emptyRegister(), locations: [] } as unknown as View, noAreasUi());
+    const html = areasCard({ beneficiaries: emptyRegister(), locations: [] } as unknown as View) + areasWindowHtml({ beneficiaries: emptyRegister(), locations: [] } as unknown as View, noAreasUi(true));
     expect(html).toContain("Nothing to do here");
     expect(html).toContain("The map appears when");
   });
