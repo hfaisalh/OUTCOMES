@@ -65,6 +65,12 @@ describe("partnerProfileHtml", () => {
   });
   it("makes a benefit line with its name made safe", () => {
     expect(benefitRow("I9", "<b>x</b>")).not.toContain("<b>x</b>");
+    const row = benefitRow("I9", "Pump", { costPerUnit: 250, currency: "GBP", inclusive: false, note: "Plus transport" });
+    expect(row).toContain('class="pf-cur" data-item="I9" maxlength="3" placeholder="GBP" aria-label="Currency of the rate for Pump" value="GBP"');
+    expect(row).toContain('value="Plus transport"');
+    expect(row).toContain('role="switch"');
+    expect(row).not.toMatch(/checked[^>]*data-pf-inclusive/); // not inclusive: off
+    expect(benefitRow("I9", "Pump")).toMatch(/checked[^>]*data-pf-inclusive="I9"/); // all inclusive is the usual case: on
     expect(benefitRow("I9", "Pump", { capacity: 3 })).toContain('value="3"');
   });
 });

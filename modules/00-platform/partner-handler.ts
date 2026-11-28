@@ -92,7 +92,10 @@ export async function handlePartner(req: HttpRequest, d: Deps): Promise<HttpResp
   } else if (req.method === "POST" && typeof body["action"] === "string" && body["action"].startsWith("cost-")) {
     // Rule (DECISIONS 280): a partner records, corrects and removes its own costs. Record only: nothing is paid or approved.
     const mineProjects = migrated.giftProjects.filter((g) => g.partnerIds.includes(a.claims.partner as string)).map((g) => g.id);
-    const r = applyCostAction(config.partnerCosts ?? emptyCosts(), a.claims.partner as string, body, COST_CATEGORIES, mineProjects, `${a.claims.name}`, at);
+    // The benefits a partner has activated on its profile, and those its projects offer.
+    const me = migrated.partners.find((x) => x.id === a.claims.partner);
+    const benefitIds = [...new Set([...(me?.itemIds ?? []), ...migrated.giftProjects.filter((g) => g.partnerIds.includes(a.claims.partner as string)).flatMap((g) => g.itemIds ?? [])])];
+    const r = applyCostAction(config.partnerCosts ?? emptyCosts(), a.claims.partner as string, body, COST_CATEGORIES, mineProjects, benefitIds, `${a.claims.name}`, at);
     if (!r) return json(400, { error: "That request is not open to a partner." });
     if ("error" in r) return json(400, { error: r.error });
     const next = { ...config, partnerCosts: r.value };

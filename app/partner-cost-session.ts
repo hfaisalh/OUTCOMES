@@ -11,7 +11,7 @@ import type { CostForm } from "./partner-costs";
 import { partnerUi } from "./partner-state";
 import type { PartnerSlice } from "../modules/13-partner-portal/scope";
 
-const FIELDS = ["date", "category", "amount", "currency", "projectId", "note"] as const;
+const FIELDS = ["date", "category", "amount", "currency", "projectId", "itemId", "note"] as const;
 const read = (): Record<string, string> => Object.fromEntries(FIELDS.map((f) => [f, (document.getElementById(`pk-${f}`) as HTMLInputElement | null)?.value ?? ""]));
 
 export async function costAction(action: string, el: HTMLElement, current: PartnerSlice | null, apply: (s: PartnerSlice) => void): Promise<void> {
@@ -19,7 +19,7 @@ export async function costAction(action: string, el: HTMLElement, current: Partn
   if (action === "pt-cost-add") partnerUi.cost = { id: "", values: {}, error: "", fresh: true } satisfies CostForm;
   else if (action === "pt-cost-edit") {
     const c = current?.costs?.find((x) => x.id === el.dataset["id"]);
-    if (c) partnerUi.cost = { id: c.id, values: { date: c.date, category: c.category, amount: String(c.amount), currency: c.currency, projectId: c.projectId, note: c.note }, error: "", fresh: true };
+    if (c) partnerUi.cost = { id: c.id, values: { date: c.date, category: c.category, amount: String(c.amount), currency: c.currency, projectId: c.projectId, itemId: c.itemId ?? "", note: c.note }, error: "", fresh: true };
   } else if (action === "pt-cost-cancel") partnerUi.cost = null;
   else if (action === "pt-cost-save" && partnerUi.cost) {
     const form = partnerUi.cost;

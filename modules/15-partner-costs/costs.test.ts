@@ -8,9 +8,9 @@ import { describe, expect, it } from "vitest";
 import { addCost, applyCostAction, COST_CATEGORIES, costRows, emptyCosts, ownCosts, removeCost, setCost, totalText } from "./costs";
 
 const AT = "2026-11-28T10:00:00Z";
-const good = { date: "2026-11-20", category: "Marketing", amount: "1,250.50", currency: "gbp", projectId: "g1", note: "  Flyers   for the drive " };
+const good = { date: "2026-11-20", category: "Marketing", amount: "1,250.50", currency: "gbp", projectId: "g1", itemId: "I10", note: "  Flyers   for the drive " };
 const add = (s = emptyCosts(), partner = "p1", raw: Record<string, unknown> = good) => {
-  const r = addCost(s, partner, raw, COST_CATEGORIES, ["g1"], "Amina (Alpha Trust)", AT);
+  const r = addCost(s, partner, raw, COST_CATEGORIES, ["g1"], ["I10"], "Amina (Alpha Trust)", AT);
   if ("error" in r) throw new Error(r.error);
   return r;
 };
@@ -19,14 +19,14 @@ describe("adding a cost", () => {
   it("cleans what was typed and gives it a permanent ID", () => {
     const r = add();
     expect(r.id).toBe("PC-0001");
-    expect(r.value.records[0]).toEqual({ id: "PC-0001", partnerId: "p1", date: "2026-11-20", category: "Marketing", amount: 1250.5, currency: "GBP", projectId: "g1", note: "Flyers for the drive", by: "Amina (Alpha Trust)", at: AT });
+    expect(r.value.records[0]).toEqual({ id: "PC-0001", partnerId: "p1", date: "2026-11-20", category: "Marketing", amount: 1250.5, currency: "GBP", projectId: "g1", itemId: "I10", note: "Flyers for the drive", by: "Amina (Alpha Trust)", at: AT });
     expect(add(r.value).id).toBe("PC-0002");
   });
   it.each([
     [{ date: "20/11/2026" }, "date"], [{ date: "2026-02-30" }, "date"], [{ category: "Fun" }, "category"], [{ amount: "0" }, "amount"], [{ amount: "-5" }, "amount"],
-    [{ amount: "12.345" }, "amount"], [{ amount: "abc" }, "amount"], [{ amount: "" }, "amount"], [{ currency: "pounds" }, "currency"], [{ projectId: "g9" }, "project"],
+    [{ amount: "12.345" }, "amount"], [{ amount: "abc" }, "amount"], [{ amount: "" }, "amount"], [{ currency: "pounds" }, "currency"], [{ projectId: "g9" }, "project"], [{ itemId: "I99" }, "benefit"],
   ])("refuses %j in plain words", (bad, word) => {
-    const r = addCost(emptyCosts(), "p1", { ...good, ...bad }, COST_CATEGORIES, ["g1"], "x", AT);
+    const r = addCost(emptyCosts(), "p1", { ...good, ...bad }, COST_CATEGORIES, ["g1"], ["I10"], "x", AT);
     expect(r).toHaveProperty("error");
     expect((r as { error: string }).error.toLowerCase()).toContain(word);
   });
@@ -38,20 +38,20 @@ describe("adding a cost", () => {
 describe("correcting and removing", () => {
   it("changes only the partner's own cost, keeping its ID and partner", () => {
     const s = add().value;
-    const r = setCost(s, "p1", "PC-0001", { ...good, amount: "900" }, COST_CATEGORIES, ["g1"], "Amina", "2026-11-29T00:00:00Z");
+    const r = setCost(s, "p1", "PC-0001", { ...good, amount: "900" }, COST_CATEGORIES, ["g1"], ["I10"], "Amina", "2026-11-29T00:00:00Z");
     if ("error" in r) throw new Error(r.error);
     expect(r.value.records[0]).toMatchObject({ id: "PC-0001", partnerId: "p1", amount: 900, at: "2026-11-29T00:00:00Z" });
   });
   it("never touches another partner's cost, and says it was not found", () => {
     const s = add().value;
-    expect(setCost(s, "p2", "PC-0001", good, COST_CATEGORIES, ["g1"], "x", AT)).toEqual({ error: "That cost was not found." });
+    expect(setCost(s, "p2", "PC-0001", good, COST_CATEGORIES, ["g1"], ["I10"], "x", AT)).toEqual({ error: "That cost was not found." });
     expect(removeCost(s, "p2", "PC-0001")).toEqual({ error: "That cost was not found." });
     expect(removeCost(s, "p1", "PC-0001")).toMatchObject({ value: { records: [] } });
   });
   it("is reached through one request that says what happened, and ignores other requests", () => {
-    const r = applyCostAction(emptyCosts(), "p1", { action: "cost-add", ...good }, COST_CATEGORIES, ["g1"], "x", AT);
+    const r = applyCostAction(emptyCosts(), "p1", { action: "cost-add", ...good }, COST_CATEGORIES, ["g1"], ["I10"], "x", AT);
     expect(r).toMatchObject({ message: "Cost recorded.", id: "PC-0001" });
-    expect(applyCostAction(emptyCosts(), "p1", { action: "ben-add" }, COST_CATEGORIES, [], "x", AT)).toBeNull();
+    expect(applyCostAction(emptyCosts(), "p1", { action: "ben-add" }, COST_CATEGORIES, [], [], "x", AT)).toBeNull();
   });
 });
 
@@ -73,5 +73,17 @@ describe("reporting", () => {
   it("writes a total as text, a figure for each currency", () => {
     expect(totalText(s.records)).toBe("PKR 9,000.00 · GBP 160.25");
     expect(totalText([])).toBe("None");
+  });
+});
+
+describe("costs for a benefit (DECISIONS 290)", () => {
+  it("accepts a benefit the partner delivers, or none, and adds up by benefit", () => {
+    let s = emptyCosts();
+    s = add(s, "p1", { ...good, itemId: "", amount: "10" }).value;
+    s = add(s, "p1", { ...good, itemId: "I10", amount: "30", currency: "GBP" }).value;
+    s = add(s, "p1", { ...good, itemId: "I10", amount: "20", currency: "GBP" }).value;
+    const rows = costRows(s.records, "benefit");
+    expect(rows[0]).toEqual({ key: "I10", count: 2, totals: [{ currency: "GBP", amount: 50 }] });
+    expect(rows.find((r) => r.key === "")?.totals).toEqual([{ currency: "GBP", amount: 10 }]);
   });
 });

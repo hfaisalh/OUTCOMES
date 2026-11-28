@@ -334,3 +334,18 @@ describe("a partner's batch size (DECISIONS 203)", () => {
     expect(save(empty(), { batchSize: "2.5" })!.error).toContain("Batch size");
   });
 });
+
+describe("the rate agreed with a partner for a benefit (DECISIONS 290)", () => {
+  const empty = (): ProjectState => ({ projects: [], nodes: [], outcomes: [], partnerTypes: [], partnerFields: [], giftProjects: [] });
+  const save = (profile: Record<string, unknown>) => applyProjectAction(empty(), [], { action: "save-partner", projectId: "", copyFrom: "", profile: { name: "Sample Care Partners", type: "Institute", itemIds: ["PUMP"], ...profile } }, "2026-11-25")!;
+  it("keeps the rate with its currency, whether it is all inclusive, and a note; all inclusive is the usual case so it is not stored", () => {
+    const r = save({ terms: { PUMP: { costPerUnit: "250", currency: "gbp", inclusive: false, note: " Plus transport " } } });
+    expect(r.state.projects[0]?.benefitTerms).toEqual({ PUMP: { costPerUnit: 250, currency: "GBP", inclusive: false, note: "Plus transport" } });
+    const inc = save({ terms: { PUMP: { costPerUnit: "250", currency: "PKR", inclusive: true } } });
+    expect(inc.state.projects[0]?.benefitTerms?.["PUMP"]).toEqual({ costPerUnit: 250, currency: "PKR" });
+  });
+  it("refuses a currency that is not 3 letters, and keeps nothing for a benefit with no rate or capacity", () => {
+    expect(save({ terms: { PUMP: { costPerUnit: "250", currency: "pounds" } } }).error).toContain("3 letters");
+    expect(save({ terms: { PUMP: { currency: "GBP", note: "x" } } }).state.projects[0]?.benefitTerms ?? {}).toEqual({});
+  });
+});

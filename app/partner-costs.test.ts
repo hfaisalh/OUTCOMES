@@ -63,3 +63,26 @@ describe("the staff Dashboard card", () => {
     expect(costsCard({ projects: [], partnerCosts: [] } as unknown as View)).toContain("No partner has recorded a cost yet.");
   });
 });
+
+describe("costs for a benefit and the agreed rates (DECISIONS 290)", () => {
+  const withRates = { giftProjects: [{ id: "g1", name: "Orphan care", itemIds: ["PUMP"] }], itemNames: { PUMP: "Hand pump <x>" }, costs: [{ ...cost("PC-0001", "p1", 40), itemId: "PUMP" }], partner: { itemIds: ["PUMP", "WELL"], benefitTerms: { PUMP: { costPerUnit: 250, currency: "GBP", inclusive: false, note: "Plus transport" }, WELL: { costPerUnit: 100, currency: "PKR" } } } } as unknown as PartnerSlice;
+  it("shows the partner its agreed rates, and says where extra costs may be added", () => {
+    const html = costsCardHtml(withRates, ui(), "2026-11-28");
+    expect(html).toContain("Your agreed rates");
+    expect(html).toContain("Hand pump &lt;x&gt;");
+    expect(html).toContain("GBP 250.00");
+    expect(html).toContain("Extra costs may be added");
+    expect(html).toContain("All inclusive");
+    expect(html).toContain("Plus transport");
+  });
+  it("offers the benefits the partner delivers in the form, and keeps the chosen one", () => {
+    const html = costsCardHtml(withRates, ui({ cost: { id: "", values: { itemId: "PUMP" }, error: "" } }), "2026-11-28");
+    expect(html).toContain('<option value="PUMP" selected>Hand pump &lt;x&gt;</option>');
+    expect(html).toContain('<option value="WELL">WELL</option>'); // on the profile, even with no name known
+  });
+  it("shows no rates block when none is agreed, and an old cost with no benefit still draws", () => {
+    const html = costsCardHtml({ giftProjects: [], itemNames: {}, costs: [cost("PC-0009", "p1", 5)], partner: {} } as unknown as PartnerSlice, ui(), "2026-11-28");
+    expect(html).not.toContain("Your agreed rates");
+    expect(html).toContain("PC-0009");
+  });
+});

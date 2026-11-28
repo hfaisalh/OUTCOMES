@@ -55,7 +55,8 @@ export interface PartnerContact {
 
 // Rule (DECISIONS 149): what is specific to a partner and a benefit (a gift item): how many it can take at once, and the cost per unit agreed with it. The cost is kept for reference
 // only: OUTCOMES does not manage money. Both are optional.
-export interface BenefitTerms { capacity?: number; costPerUnit?: number }
+// Rule (DECISIONS 290): the agreement is also kept with a currency, whether the rate is all inclusive (the usual case: the partner's delivery costs are in it) and a note. When it is not all inclusive, the partner may record the additional delivery costs against the benefit (modules/15-partner-costs).
+export interface BenefitTerms { capacity?: number; costPerUnit?: number; currency?: string; inclusive?: boolean; note?: string }
 
 // Rule (DECISIONS 151): how money is sent to a partner, from the VerifiAid risk page. Kept only as information here: OUTCOMES does not manage money.
 export type FundingMethod = "banking" | "intermediary" | "cash";
@@ -492,7 +493,11 @@ export function savePartner(s: ProjectState, raw: Record<string, unknown>, id: s
     const c = capT === "" ? undefined : Number(capT), k = costT === "" ? undefined : Number(costT);
     if (c !== undefined && (!Number.isInteger(c) || c < 0 || c > 100000)) return { value: s, error: "The capacity for an item is a whole number, or leave it empty." };
     if (k !== undefined && (!Number.isFinite(k) || k < 0 || k > 100000000)) return { value: s, error: "The cost per unit is a number, or leave it empty." };
-    if (c !== undefined || k !== undefined) benefitTerms[itemId] = { ...(c !== undefined ? { capacity: c } : {}), ...(k !== undefined ? { costPerUnit: k } : {}) };
+    const currency = text(t["currency"], 10).toUpperCase();
+    if (currency !== "" && !/^[A-Z]{3}$/.test(currency)) return { value: s, error: "The currency for an item is 3 letters, for example GBP or PKR." };
+    const note = text(t["note"], 200);
+    const inclusive = t["inclusive"] === false || t["inclusive"] === "false" ? false : undefined; // all inclusive is the usual case, so only "not inclusive" is kept
+    if (c !== undefined || k !== undefined) benefitTerms[itemId] = { ...(c !== undefined ? { capacity: c } : {}), ...(k !== undefined ? { costPerUnit: k } : {}), ...(k !== undefined && currency !== "" ? { currency } : {}), ...(k !== undefined && inclusive === false ? { inclusive: false } : {}), ...(note !== "" ? { note } : {}) };
   }
   const customIn = (raw["custom"] ?? {}) as Record<string, unknown>;
   const custom = Object.fromEntries(s.partnerFields.map((f) => [f, text(customIn[f], 300)]).filter(([, v]) => v !== ""));

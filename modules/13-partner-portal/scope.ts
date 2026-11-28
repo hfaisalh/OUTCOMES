@@ -5,7 +5,7 @@
  * Who calls it: the server (modules/00-platform/partner-handler.ts) for the partner's own screens, and the demo. Depends on: the record types of modules 6, 7, 8, 9, 11 and 12. Pure: no database, no screen, so it can be ported (CLAUDE.md rule 4).
  *
  * Rules:
- * - Rule: a partner sees only its own profile, with a short list of fields. Money terms, due diligence, funding and MWF's notes are never sent.
+ * - Rule: a partner sees only its own profile, with a short list of fields. Due diligence, funding and MWF's notes are never sent. Rule (DECISIONS 290): the rate agreed with the partner for each benefit it delivers is sent, since it is the partner's own agreement; it is only that partner's.
  * - Rule: a partner sees only the projects it delivers, and only the beneficiaries it gave (the record's partner is that partner), their enrolments in those projects, and the gifts assigned to it.
  * - Rule: the slice carries no donor details at all. The work order details a partner needs (what to deliver, the tribute) are a separate, later step, and only for gifts assigned to it.
  * - Rule: a household shows only the members the partner itself gave.
@@ -41,7 +41,7 @@ export interface PartnerState {
 }
 
 // The profile fields a partner may see. Everything else on the record stays with MWF.
-const PROFILE_FIELDS = ["id", "name", "officialName", "reference", "type", "status", "contacts", "countries", "regions", "itemIds", "capacity", "batchSize", "reportVia", "reportContact", "language", "media"] as const;
+const PROFILE_FIELDS = ["id", "name", "officialName", "reference", "type", "status", "contacts", "countries", "regions", "itemIds", "capacity", "batchSize", "reportVia", "reportContact", "language", "media", "benefitTerms"] as const;
 
 export interface PartnerSlice {
   partner: Partial<Project> & { id: string; name: string };

@@ -275,3 +275,16 @@ describe("several gifts marked Priority at once (DECISIONS 288)", () => {
     expect((await post({ action: "gift-priority", keys: ["B"], on: false })).body).toMatchObject({ priorityGifts: ["sub:A"], warning: "Priority taken away." });
   });
 });
+
+describe("costs for a benefit, and the agreed rate (DECISIONS 290)", () => {
+  it("accepts a benefit on the partner's profile and refuses one it does not deliver, and sends the partner its own rate", async () => {
+    const cfg = (await d.store.getConfig("demo"))!;
+    await d.store.putConfig("demo", { ...cfg, projects: cfg.projects!.map((p) => (p.id === "p1" ? { ...p, itemIds: ["PUMP"], benefitTerms: { PUMP: { costPerUnit: 250, currency: "GBP", inclusive: false } } } : p.id === "p2" ? { ...p, itemIds: ["WELL"], benefitTerms: { WELL: { costPerUnit: 999 } } } : p)) as never });
+    const c1 = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
+    const cost = { action: "cost-add", date: "2026-11-20", category: "Travel", amount: "40", currency: "GBP", projectId: "g1", itemId: "PUMP", note: "Transport" };
+    const ok = await handleOutcomes(as(c1, { method: "POST", body: cost }), d);
+    expect(ok.body).toMatchObject({ costs: [{ itemId: "PUMP" }], partner: { benefitTerms: { PUMP: { costPerUnit: 250, currency: "GBP", inclusive: false } } } });
+    expect(JSON.stringify(ok.body)).not.toContain("999"); // another partner's rate
+    expect((await handleOutcomes(as(c1, { method: "POST", body: { ...cost, itemId: "WELL" } }), d)).status).toBe(400);
+  });
+});

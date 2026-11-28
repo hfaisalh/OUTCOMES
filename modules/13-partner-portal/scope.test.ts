@@ -66,11 +66,17 @@ describe("what a partner sees", () => {
     expect(JSON.stringify(s)).not.toContain("Amina");
   });
 
-  it("sends only the short profile, never funding, due diligence, terms or MWF's notes", () => {
+  it("sends only the short profile and its own agreed rates, never funding, due diligence or MWF's notes", () => {
     const s = partnerSlice(state(), "p1")!;
-    expect(Object.keys(s.partner).sort()).toEqual(["id", "name", "reference"]);
+    expect(Object.keys(s.partner).sort()).toEqual(["benefitTerms", "id", "name", "reference"]); // the agreed rates are the partner's own (DECISIONS 290)
+    expect(s.partner.benefitTerms).toEqual({ SPONSOR: { capacity: 5, costPerUnit: 20 } });
     const all = JSON.stringify(s);
-    for (const secret of ["Pays on the 5th", "DD-9", "costPerUnit", "MWF private note"]) expect(all).not.toContain(secret);
+    for (const secret of ["Pays on the 5th", "DD-9", "MWF private note"]) expect(all).not.toContain(secret);
+  });
+  it("never sends another partner's agreed rates", () => {
+    const st = state();
+    st.partners = st.partners.map((p) => (p.id === "p2" ? ({ ...p, benefitTerms: { SPONSOR: { costPerUnit: 99 } } } as never) : p));
+    expect(JSON.stringify(partnerSlice(st, "p1"))).not.toContain("99");
   });
 
   it("shows a household only the members the partner gave", () => {
