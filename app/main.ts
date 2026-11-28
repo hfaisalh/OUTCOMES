@@ -80,6 +80,7 @@ import { areasCard } from "./dashboard/areas-page";
 import { mountAreasMap } from "./dashboard/areas-map";
 import { costsCard } from "./dashboard/costs-card";
 import { withSetupCard } from "./dashboard/setup-card";
+import { dashboardPage } from "./dashboard/dashboard-page";
 import { areasAction, areasView } from "./dashboard/areas-session";
 import { acceptPlace, upsertPlace } from "../modules/14-locations/locations";
 import { resolveArea } from "../modules/14-locations/areas";
@@ -90,7 +91,7 @@ import { DEMO_ROLES, suggestItemFrameworks } from "./demo-data";
 import { setItemKind, setItemUnits } from "../modules/02-project-rules/benefits";
 import { applyKindAction, type SavedFeatures } from "../modules/02-project-rules/kind-features";
 import { landingPage, menuEntries, visibleMenu, type PageId } from "./menu";
-import { listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, dashboardPage, esc, categoriesPage, settingsPage, type Filter, type View } from "./shared/pages";
+import { listBlock, listHtml, listBase, attentionPage, auditPage, signinNote, esc, categoriesPage, settingsPage, type Filter, type View } from "./shared/pages";
 
 declare const __BUILD_LABEL__: string; // set at build time in vite.config.ts: version, commit and build time
 import "./shared/list-controls";
