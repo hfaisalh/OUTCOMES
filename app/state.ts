@@ -55,7 +55,7 @@ export function pageFromAddress(): PageId {
     const id = typeof location !== "undefined" ? location.hash.replace(/^#/, "") : "";
     if (isPageId(id)) return id;
   } catch { /* no address to read, for example in a test */ }
-  return "work-orders";
+  return "home"; // Rule (DECISIONS 328): the front door, unless the address names a page
 }
 export function keepPageInAddress(page: PageId): void {
   try {
@@ -123,6 +123,7 @@ export const state = {
   itemIcons: {} as Record<string, string>, // the icon chosen for an item (DECISIONS 107)
   kindSel: "", // the kind the Benefits page shows (DECISIONS 146)
   kindFeatures: {} as Record<string, unknown>, // the features of the kinds a person changed (DECISIONS 146)
+  home: { door: "", step: "" } as { door: string; step: string }, // the door and the setup step open on the Home page (DECISIONS 328)
   autoRules: {} as Partial<import("../modules/18-automation/rules").AutoRules>, // the automatic work's settings (DECISIONS 326)
   autoLast: undefined as { at: string; by: string; text: string } | undefined, // the last run
   partnerMessages: [] as import("../modules/18-automation/messages").PartnerMessage[], // the partners' inboxes (demo)

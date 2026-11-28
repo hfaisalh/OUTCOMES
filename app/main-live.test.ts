@@ -15,6 +15,7 @@ const handlers: Record<string, Handler[]> = {};
 const shell = { innerHTML: "" };
 const calls: { path: string; method: string; body: unknown }[] = [];
 
+const goTo = (page: string): void => { const node = { dataset: { page }, classList: { add() {}, remove() {} }, closest: (sel: string) => (sel.includes("data-page") ? node : null) }; fire("click", { target: node }); }; // the front door is Home (decision 328), so a test that looks at a page goes there first
 const order = (key: string, itemId: string, itemName: string, status: string, categoryId: string) => ({ key, lineId: key, transactionRef: "T", paidDate: "2026-11-02", supporterId: "D1", supporterName: "Sample Supporter", group: "", itemId, itemName, amount: 10, quantity: 1, intention: "", subscriptionId: "", instalmentNumber: "", instalmentCount: "", categoryId, status });
 
 beforeAll(async () => {
@@ -43,6 +44,7 @@ const settle = () => new Promise((r) => setTimeout(r, 20));
 
 describe("live mode", () => {
   it("switches from demo to live and shows the server's work orders and last pick-up", () => {
+    goTo("work-orders");
     expect(shell.innerHTML).toContain("Real Person");
     expect(shell.innerHTML).toContain("Signed in from the CRM");
     expect(shell.innerHTML).toContain("Water Pump");

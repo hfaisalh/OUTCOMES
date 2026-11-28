@@ -32,7 +32,9 @@ const fire = (type: string, e: unknown) => (handlers[type] ?? []).forEach((h) =>
 const click = (attrs: Record<string, string>, match: string) => fire("click", { target: el(attrs, [match]) });
 
 describe("the shell", () => {
-  it("opens on the Gifts list with every flagged line unrouted, each with a workflow to choose", () => {
+  it("opens on Home, and the Gifts list has every flagged line unrouted, each with a workflow to choose", () => {
+    expect(shell.innerHTML).toContain("<h1>Home</h1>");
+    goTo("work-orders");
     expect(shell.innerHTML).toContain("<h1>Gifts</h1>");
     expect(shell.innerHTML).toContain("Unrouted");
     expect(shell.innerHTML).toContain('data-assign-wf="I14"');
@@ -40,7 +42,9 @@ describe("the shell", () => {
     expect(shell.innerHTML).not.toContain("All categories"); // no category on the list (DECISIONS 131)
   });
 
-  const toggle = (item: string, wf: string, on: boolean) => fire("change", { target: { id: "", dataset: { wfToggle: item, wf }, checked: on, value: "" } });
+  const el = (attrs: Record<string, string>, match: string) => ({ dataset: attrs, classList: { add() {}, remove() {} }, closest: (sel: string) => (sel.includes(match) ? el(attrs, match) : null) });
+const goTo = (page: string): void => fire("click", { target: el({ page }, "data-page") }); // the front door is Home (decision 328), so a test that looks at a page goes there first
+const toggle = (item: string, wf: string, on: boolean) => fire("change", { target: { id: "", dataset: { wfToggle: item, wf }, checked: on, value: "" } });
 
   it("lists every item with a switch on the Workflows page, off for items with no workflow", () => {
     click({ page: "workflows" }, "data-page");

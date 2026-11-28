@@ -106,6 +106,8 @@ import { placeOfWindow, renderBenWindow } from "./beneficiaries/beneficiary-wind
 import { renderAreasWindow } from "./dashboard/areas-window";
 import "./dashboard/scatter-open";
 import { renderPrgWindow } from "./allocation/progress-window-session";
+import { homePage } from "./home/home-page";
+import "./home/home-events";
 import { state, keepPageInAddress } from "./state";
 
 
@@ -469,6 +471,7 @@ function draw(): void {
   const v = view();
   const body = menu.length === 0
     ? `<h1>No access</h1><p class="sub">Your CRM role has no OUTCOMES permission. In the live product you would not have been shown the OUTCOMES button.</p>`
+    : state.page === "home" ? homePage(v, state.home)
     : state.page === "work-orders" ? giftsPage(v)
     : state.page === "data-feed" ? dataFeedPage(v)
     : state.page === "data-files" ? dataFilesPage(v)

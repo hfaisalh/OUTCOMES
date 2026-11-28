@@ -22,10 +22,10 @@ export const PERMISSIONS = {
   approveRelease: "outcomes.approve_release", // a manager may approve releasing a sponsor's place after a missed payment (DECISIONS 74)
 } as const;
 
-export type PageId = "workflows" | "benefits" | "data-feed" | "data-files" | "work-orders" | "attention" | "projects" | "partners" | "beneficiaries" | "outcome-records" | "outcome-list" | "assignment" | "confirmation" | "allocate" | "progress" | "audit" | "categories" | "dashboard" | "sources" | "settings" | "rules";
+export type PageId = "home" | "workflows" | "benefits" | "data-feed" | "data-files" | "work-orders" | "attention" | "projects" | "partners" | "beneficiaries" | "outcome-records" | "outcome-list" | "assignment" | "confirmation" | "allocate" | "progress" | "audit" | "categories" | "dashboard" | "sources" | "settings" | "rules";
 
 // Rule: the pages a link or a reload may open. Anything else (a mistyped or old address) is ignored and the usual first page is used.
-export const PAGE_IDS: readonly PageId[] = ["workflows", "benefits", "data-feed", "data-files", "work-orders", "attention", "projects", "partners", "beneficiaries", "outcome-records", "outcome-list", "assignment", "confirmation", "allocate", "progress", "audit", "categories", "dashboard", "sources", "settings", "rules"];
+export const PAGE_IDS: readonly PageId[] = ["home", "workflows", "benefits", "data-feed", "data-files", "work-orders", "attention", "projects", "partners", "beneficiaries", "outcome-records", "outcome-list", "assignment", "confirmation", "allocate", "progress", "audit", "categories", "dashboard", "sources", "settings", "rules"];
 export const isPageId = (x: string): x is PageId => (PAGE_IDS as readonly string[]).includes(x);
 
 export interface MenuItem {
@@ -55,6 +55,8 @@ export const MODULES: ModuleInfo[] = [
 // Rule (DECISIONS 66, 76): the side menu has the gifts, then the three registers (Projects, Partners, Beneficiaries), then Allocation, which matches gifts to beneficiaries. Everything about setting up and checking
 // sits behind the Settings gear. Gifts holds both the payments and the commitments (a switch on the page), since they are one thing seen two ways.
 export const MENU: MenuItem[] = [
+  // Rule (DECISIONS 328): Home is first, so it is where a person lands: the doors into OUTCOMES.
+  { id: "home", label: "Home", icon: "⌂", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "work-orders", label: "Gifts", icon: "☰", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "projects", label: "Projects", icon: "▥", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
   { id: "partners", label: "Partners", icon: "▤", permission: PERMISSIONS.viewWorkOrders, section: "Work" },
