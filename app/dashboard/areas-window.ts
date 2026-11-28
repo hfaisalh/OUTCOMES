@@ -19,5 +19,5 @@ export function renderAreasWindow(): void {
   if (!root) { root = document.createElement("div"); root.id = "area-root"; document.body.appendChild(root); }
   putWindow(root, areasWindowHtml(shell.view(), areasUi));
 }
-document.addEventListener("change", (e) => { const t = e.target as HTMLSelectElement | null; if (t?.id === "tr-benefit" || t?.id === "tr-partner" || t?.id === "tr-metric") { trendsChoose(t.id, t.value, shell.draw); return; } if (t?.id === "ar-project") { areasView.project = t.value; shell.draw(); } });
+document.addEventListener("change", (e) => { const t = e.target as HTMLSelectElement | null; if (t?.id === "tr-benefit" || t?.id === "tr-partner" || t?.id === "tr-metric" || t?.id === "tr-target") { trendsChoose(t.id, t.value, shell.draw); return; } if (t?.id === "ar-project") { areasView.project = t.value; shell.draw(); } });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && areasUi.open) { areasUi.open = false; renderAreasWindow(); } });

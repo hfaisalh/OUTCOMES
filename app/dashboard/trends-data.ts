@@ -13,7 +13,7 @@ import { improvements, lastMonths, monthlyTrends, type GiftLife, type Improvemen
 import type { View } from "../shared/pages";
 
 export interface PartnerTrend { id: string; name: string; gifts: number; points: MonthPoint[]; improvements: Improvement[] }
-export interface TrendsData { points: MonthPoint[]; improvements: Improvement[]; benefits: { id: string; name: string }[]; partners: { id: string; name: string }[]; byPartner: PartnerTrend[]; gifts: number }
+export interface TrendsData { points: MonthPoint[]; improvements: Improvement[]; benefits: { id: string; name: string }[]; partners: { id: string; name: string }[]; byPartner: PartnerTrend[]; gifts: number; lives?: GiftLife[]; today?: string }
 
 export function trendsData(v: View, itemId = "", months = 12, partnerId = ""): TrendsData {
   const today = v.today ?? new Date().toISOString().slice(0, 10);
@@ -57,5 +57,5 @@ export function trendsData(v: View, itemId = "", months = 12, partnerId = ""): T
   const per = new Map<string, GiftLife[]>();
   for (const l of lives) if (l.partnerId) per.set(l.partnerId, [...(per.get(l.partnerId) ?? []), l]);
   const byPartner: PartnerTrend[] = [...per].map(([id, ls]) => ({ id, name: partnerNames.get(id) ?? id, gifts: ls.length, ls })).sort((a, b) => b.gifts - a.gifts).slice(0, 8).sort((a, b) => a.name.localeCompare(b.name)).map(({ ls, ...p }) => { const pts = monthlyTrends(ls, range); return { ...p, points: pts, improvements: improvements(pts) }; });
-  return { points, improvements: improvements(points), benefits, partners: [...per.keys()].map((id) => ({ id, name: partnerNames.get(id) ?? id })).sort((a, b) => a.name.localeCompare(b.name)), byPartner, gifts: chosen.length };
+  return { points, improvements: improvements(points), benefits, partners: [...per.keys()].map((id) => ({ id, name: partnerNames.get(id) ?? id })).sort((a, b) => a.name.localeCompare(b.name)), byPartner, gifts: chosen.length, lives: chosen, today };
 }

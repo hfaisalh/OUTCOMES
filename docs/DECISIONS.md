@@ -1133,3 +1133,6 @@ The intro paragraph under each page title was capped at 96 characters, leaving t
 
 ## 310 (28/11/26): one look and motion for the summary tiles
 Tiles on every page are now small cards with a coloured top edge that draws across on hover or when on, a larger figure, a hairline above the small counts (number and label side by side), a lift on hover, a spring press, a ring and tick when a tile filter is on, and a staggered entrance. Reduced motion turns it all off. Reason: Faisal did not like how the old boxes looked or behaved.
+
+## 311 (28/11/26): gift age against stage
+A scatter on the Dashboard trends: down the side the stage a gift has reached, across its age in quarters of ONE target (days to complete, 90 by default, 30 to 180 to choose), each bubble the number of gifts there. A dashed pace line (Paid at the start, Complete at the target) shows what is behind. Counts of on pace, behind pace, past target and completed late sit beside it, with a table view. Age against stage, not days per project, so every benefit reads the same way. It follows the Benefit and Partner choices. Reason: Faisal asked for a scatter that scores timeline from start to end and counts gifts, as a blanket measure. Open: the 90-day default target and per-benefit targets, to be confirmed.

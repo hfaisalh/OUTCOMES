@@ -10,10 +10,11 @@
 import { METRICS, type Improvement, type MetricId, type MonthPoint } from "../../modules/17-dashboard/trends";
 import { CATEGORICAL, dashIcon } from "./dash-charts";
 import { lineChartHtml } from "./line-chart";
+import { scatterHtml } from "./scatter-chart";
 import { trendsData, type PartnerTrend, type TrendsData } from "./trends-data";
 import { esc, type View } from "../shared/pages";
 
-export interface TrendsView { benefit: string; partner: string; months: 6 | 12; metric: MetricId }
+export interface TrendsView { benefit: string; partner: string; months: 6 | 12; metric: MetricId; target?: number }
 export const noTrendsView = (): TrendsView => ({ benefit: "", partner: "", months: 12, metric: "score" });
 
 // --- What changed ---
@@ -61,7 +62,7 @@ export function trendsHtml(d: TrendsData, view: TrendsView): string {
   const controls = `<div class="ar-controls"><label class="ar-proj"><span class="muted">Benefit</span><select id="tr-benefit" aria-label="Benefit"><option value="">All benefits</option>${d.benefits.map((b) => `<option value="${esc(b.id)}"${b.id === view.benefit ? " selected" : ""}>${esc(b.name)}</option>`).join("")}</select></label><label class="ar-proj"><span class="muted">Partner</span><select id="tr-partner" aria-label="Partner"><option value="">All partners</option>${d.partners.map((b) => `<option value="${esc(b.id)}"${b.id === view.partner ? " selected" : ""}>${esc(b.name)}</option>`).join("")}</select></label><div class="ar-segs" role="group" aria-label="Range">${seg(6)}${seg(12)}</div></div>`;
   const body = d.gifts === 0
     ? `<div class="ar-empty"><span class="dash-badge" style="--hue:#2a78d6">${dashIcon("clock", 20)}</span><div><b>No gifts to chart yet</b><p class="muted">The trends are built from the dates on every step of a gift. Once gifts are routed, assigned and moving, each month appears here, with what improved.</p></div></div>`
-    : `<div class="dash-grid tr-tiles">${d.improvements.map(changeTile).join("")}</div>${charts(d.points)}${partnerCompare(d, view)}<p class="muted dash-note">Each month is rebuilt from the dates on the steps, so there is nothing to switch on and the past does not change. A speed is the middle number of days for the gifts that took the step that month; a month with none shows a gap, not zero.</p>`;
+    : `<div class="dash-grid tr-tiles">${d.improvements.map(changeTile).join("")}</div>${charts(d.points)}<div class="tr-scatter-row">${scatterHtml(d.lives ?? [], d.today ?? new Date().toISOString().slice(0, 10), view.target ?? 90)}</div>${partnerCompare(d, view)}<p class="muted dash-note">Each month is rebuilt from the dates on the steps, so there is nothing to switch on and the past does not change. A speed is the middle number of days for the gifts that took the step that month; a month with none shows a gap, not zero.</p>`;
   return `<section class="dash-group tr-section" aria-labelledby="tr-h"><h2 id="tr-h" class="dash-h2">Is delivery improving?</h2>${controls}${body}</section>`;
 }
 

@@ -17,6 +17,7 @@ export function trendsAction(action: string, el: HTMLElement, redraw: () => void
 export function trendsChoose(id: string, value: string, redraw: () => void): void {
   if (id === "tr-benefit") trendsView.benefit = value;
   else if (id === "tr-partner") trendsView.partner = value;
+  else if (id === "tr-target") trendsView.target = Number(value) > 0 ? Number(value) : 90;
   else if (id === "tr-metric") trendsView.metric = (["score", "completed", "onTime", "answer", "complete"].includes(value) ? value : "score") as TrendsView["metric"];
   redraw();
 }
