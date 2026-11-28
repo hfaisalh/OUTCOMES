@@ -320,3 +320,16 @@ describe("the allocation order is a setting (DECISIONS 293)", () => {
     expect((await post(partner, { action: "alloc-steps", steps: [] })).status).toBe(400);
   });
 });
+
+describe("place searches are limited per person (DECISIONS 295)", () => {
+  it("answers 429 after 40 searches in a minute from one person, and not for another person", async () => {
+    const found = { features: [] };
+    const dd: Deps = { ...d, fetch: async () => ({ ok: true, json: async () => found }) };
+    const a = cookieOf(await handleDemoLogin(req({ query: { partner: "p1" } }), d));
+    const b = cookieOf(await handleDemoLogin(req({ query: { partner: "p2" } }), d));
+    let last = 200;
+    for (let i = 0; i < 41; i++) last = (await handleOutcomes(as(a, { query: { places: `Kas${i}x` } }), dd)).status;
+    expect(last).toBe(429);
+    expect((await handleOutcomes(as(b, { query: { places: "Kasur" } }), dd)).status).toBe(200);
+  });
+});
