@@ -61,7 +61,7 @@ export function guideView(m: Model): string {
     .join("");
   return `<details class="card"${m.headers.length > 0 ? "" : " open"}><summary><b>Expected format of the upload file</b></summary>
     <p class="empty">Use these column names and every column matches automatically. Other names are matched as far as possible and you fix the rest. Contact details are not needed. Use Download template for a ready file.</p>
-    <table><thead><tr><th>Column</th><th>Field</th><th></th><th>Example</th><th>Note</th></tr></thead><tbody>${rows}</tbody></table></details>`;
+    <table><thead><tr><th>Column</th><th>Field</th><th><span class="sr-only">Match</span></th><th>Example</th><th>Note</th></tr></thead><tbody>${rows}</tbody></table></details>`;
 }
 
 export function mappingView(m: Model): string {

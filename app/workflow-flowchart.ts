@@ -70,5 +70,5 @@ export function flowChart(_fw: FrameworkTemplate, _type: OutcomeType | undefined
   const back = (from: number, to: number, label: string): string => `<path d="M${from} ${Y + H + 6} V${ly} H${to} V${Y + H + 6}" class="fc-edge dashed" marker-end="url(#fc-arrow)"/>${badge((from + to) / 2, ly, false)}<text x="${(from + to) / 2}" y="${ly + 20}" text-anchor="middle" class="fc-lbl">${esc(label)}</text>`;
   const extra = back(confirmX, assignX, "Reject: reassign") + back(reviewX, allocX, "Reject: back to the partner");
   const height = ly + 28 + 8;
-  return `<svg class="fc" viewBox="0 0 ${width} ${height}" width="${width}" role="img" aria-label="The flow of this workflow"><defs><marker id="fc-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" class="fc-head"/></marker></defs>${edges.join("")}${parts.join("")}${extra}</svg>`;
+  return `<svg class="fc" viewBox="0 0 ${width} ${height}" width="${width}" role="group" aria-label="The flow of this workflow"><defs><marker id="fc-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" class="fc-head"/></marker></defs>${edges.join("")}${parts.join("")}${extra}</svg>`;
 }

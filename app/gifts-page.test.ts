@@ -318,7 +318,7 @@ describe("giftsPage", () => {
     expect(win).not.toContain(">Exclude<");
     expect(win).not.toContain("<th>Category</th><th>Status</th>");
     // aligned (DECISIONS 121): the header sits over its column, and both icon buttons are the small size
-    expect(win).toContain('<th class="num">Units</th><th class="num">Value</th><th class="actcol"></th><th class="actcol"></th>'); // each button has its own column
+    expect(win).toContain('<th class="num">Units</th><th class="num">Value</th><th class="actcol"><span class="sr-only">Actions</span></th><th class="actcol"><span class="sr-only">Actions</span></th>'); // each button has its own column
     expect(win).toContain('<td class="date" title="2026-09-07">'); // the date is left aligned, under its header
     expect(win).toContain('<summary class="iconact sm"');
     expect(win).toContain('class="iconact" data-excl=');

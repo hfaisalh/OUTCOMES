@@ -76,9 +76,9 @@ export function clusterPeopleHtml(state: ClusterState, c: Cluster, ctx: PeopleCo
       <button type="button" class="iconact ok" data-cl="enr-add" data-id="${esc(c.id)}" title="Enrol in ${esc(c.name)}" aria-label="Enrol in ${esc(c.name)}">+</button></div>
       <p class="muted small">A person must have the admission decision Ready before being enrolled where a beneficiary comes first. The benefit's type decides whether it takes a person or a household. A role holder does not use up capacity.</p>`;
   return `<section>${capacity}
-    <h4 class="wf-h">Enrol someone in ${esc(c.name)}</h4>
+    <h3 class="wf-h">Enrol someone in ${esc(c.name)}</h3>
     ${form}
-    ${here.length ? `<div class="tablewrap listframe"><table class="subtable"><thead><tr><th>Beneficiary</th><th>Benefit</th><th>Role</th><th>Where</th><th>Since</th><th class="actcol"></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">Nobody is enrolled here yet.</p>'}</section>`;
+    ${here.length ? `<div class="tablewrap listframe"><table class="subtable"><thead><tr><th>Beneficiary</th><th>Benefit</th><th>Role</th><th>Where</th><th>Since</th><th class="actcol"><span class="sr-only">Actions</span></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">Nobody is enrolled here yet.</p>'}</section>`;
 }
 
 // The parked outcomes in a cluster and inside it (DECISIONS 209): outcomes a partner has loaded ahead of any gift. A gift assigned to the partner takes one.
@@ -98,8 +98,8 @@ export function clusterStockHtml(state: ClusterState, c: Cluster, ctx: PeopleCon
       <input id="st-name" type="text" maxlength="120" placeholder="Name, for example the village or site" aria-label="Name of the outcome" />
       <button type="button" class="iconact ok" data-cl="stock-add" data-id="${esc(c.id)}" title="Park an outcome in ${esc(c.name)}" aria-label="Park an outcome in ${esc(c.name)}">+</button></div>`;
   return `<section>
-    <h4 class="wf-h">Park an outcome in ${esc(c.name)}</h4>
+    <h3 class="wf-h">Park an outcome in ${esc(c.name)}</h3>
     <p class="muted small">A partner can load the outcomes it is ready to deliver, so a gift assigned to it takes one straight away.</p>
     ${form}
-    ${here.length ? `<div class="tablewrap listframe"><table class="subtable"><thead><tr><th>Outcome</th><th>Benefit</th><th>Partner</th><th>Where</th><th>State</th><th>Priority</th><th class="actcol"></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">Nothing is parked here yet.</p>'}</section>`;
+    ${here.length ? `<div class="tablewrap listframe"><table class="subtable"><thead><tr><th>Outcome</th><th>Benefit</th><th>Partner</th><th>Where</th><th>State</th><th>Priority</th><th class="actcol"><span class="sr-only">Actions</span></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">Nothing is parked here yet.</p>'}</section>`;
 }

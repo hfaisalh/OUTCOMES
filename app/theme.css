@@ -3,7 +3,7 @@
 :root{--primary-rgb:40,74,160;--brand-mid:48,86,182;--brand-bright:74,112,214;--brand-deep:22,42,100;
 --menu-gradient:linear-gradient(170deg,rgb(var(--primary-rgb)) 0%,rgb(32,60,134) 55%,rgb(var(--brand-deep)) 100%);
 --header-gradient:linear-gradient(90deg,rgb(var(--primary-rgb)) 0%,rgb(var(--brand-mid)) 55%,rgb(var(--brand-bright)) 100%);
---page:#ecf0f8;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e3e8f2;--accent:rgb(var(--primary-rgb));--accent-bg:#e8eefb;
+--page:#ecf0f8;--card:#fff;--text:#1f2937;--muted:#566070;--line:#e3e8f2;--accent:rgb(var(--primary-rgb));--accent-bg:#e8eefb;
 --ok:#1f7a45;--ok-bg:#e3f4ea;--warn:#8a5a00;--warn-bg:#fdf1d8;--bad:#a32d2d;--bad-bg:#fcebeb}
 *{box-sizing:border-box}
 body{margin:0;background:var(--page);color:var(--text);font:13px/1.5 "Inter",system-ui,sans-serif}
@@ -636,3 +636,6 @@ tr.rowlink[data-cnfwin]{cursor:pointer}tr.rowlink[data-cnfwin]:hover td{backgrou
 .brand,.phome-brand,.signin-brand{gap:10px}.brand-mark{flex:none;border-radius:7px;display:block}.brand>span,.phome-brand>span,.signin-brand>span{display:flex;flex-direction:column;line-height:1.15}.brand small,.phome-brand small{margin-left:0;margin-top:2px}.signin-brand{display:flex;align-items:center}.signin-brand .brand-mark{border-radius:10px}
 /* The order of steps on the Automation rules page (DECISIONS 293) */
 .ru-steps{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:8px}.ru-step{display:flex;gap:10px;align-items:center;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;transition:box-shadow .15s,border-color .15s,opacity .15s}.ru-step[draggable="true"]{cursor:grab}.ru-step[draggable="true"]:active{cursor:grabbing}.ru-grip,.ru-lock{flex:none;color:var(--muted,#667085);display:grid;place-items:center;width:22px}.ru-sbody{flex:1;min-width:0;display:grid;gap:2px;font-size:13px}.ru-sbody .muted{font-size:12px;line-height:1.35}.ru-sctl{flex:none;display:flex;align-items:center;gap:4px}.ru-mv{width:32px;height:32px;display:grid;place-items:center;padding:0;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;cursor:pointer}.ru-mv:hover:not(:disabled){background:var(--accent-soft,#eef2fb)}.ru-mv:disabled{opacity:.35;cursor:not-allowed}.ru-mv:focus-visible{outline:2px solid var(--accent,#2f4b9a);outline-offset:1px}.ru-fixed{background:transparent;border-style:dashed;color:var(--muted,#475467)}.ru-off .ru-sbody{opacity:.55}.ru-drag{opacity:.45}.ru-over{border-color:var(--accent,#2f4b9a);box-shadow:0 -3px 0 0 var(--accent,#2f4b9a)}.ru-hint{margin:0 0 4px}@media (pointer:coarse){.ru-mv{width:44px;height:44px}}@media (prefers-reduced-motion:reduce){.ru-step{transition:none}}
+/* Touch targets of at least 24px for the small buttons in column headings (WCAG 2.2, target size) */
+.fbtn{min-width:24px;min-height:24px;display:inline-grid;place-items:center}.sortbtn{display:inline-flex;align-items:center;min-height:24px}
+.wbtn.on small,.wbtn.on .muted{color:inherit;opacity:.85}

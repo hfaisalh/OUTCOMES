@@ -20,7 +20,7 @@ export function accountsCard(v: View): string {
   return `<div class="card"><h2>Sign-in accounts</h2>
     <p class="muted">For testing the staff and partner journeys. A person signs in with an email and password and sees only what the account was made as. In the live product people come from the CRM.</p>
     ${v.ownerNote ? `<div class="note warnnote">${esc(v.ownerNote)}</div>` : ""}
-    ${rows.length === 0 ? `<div class="empty">No accounts yet.</div>` : `<table><thead><tr><th>Email</th><th>Name</th><th>Signs in as</th><th></th></tr></thead><tbody>${rows.join("")}</tbody></table>`}
+    ${rows.length === 0 ? `<div class="empty">No accounts yet.</div>` : `<table><thead><tr><th>Email</th><th>Name</th><th>Signs in as</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>${rows.join("")}</tbody></table>`}
     <form method="post" action="/api/owner-login" class="account-form">
       <input type="hidden" name="action" value="login-add">
       <label class="signin-field"><span>Email</span><input type="email" name="email" required autocomplete="off"></label>

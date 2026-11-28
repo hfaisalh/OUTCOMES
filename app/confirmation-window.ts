@@ -59,7 +59,7 @@ export function confirmationWindowHtml(v: View, id: string): string {
     <div class="pf-body gw cw-body">
       <section class="cw-hero">${answerBar(b)}<div class="cw-stats">${b.late ? stat(b.late, "late", " warn") : ""}${b.waiting - b.late > 0 || (b.waiting === 0 && b.late === 0) ? stat(b.waiting - b.late, "waiting") : ""}${stat(b.confirmed, "confirmed")}${b.rejected ? stat(b.rejected, "rejected", " warn") : ""}</div></section>
       <section class="gw-card"><h3>Answer for the whole batch</h3>${bulk}</section>
-      <section class="gw-card"><h3>Gifts in this batch</h3><div class="cw-list"><table><thead><tr><th>Gift</th><th class="num">Assigned</th><th class="num">Answer by</th><th>Answer</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></section>
+      <section class="gw-card"><h3>Gifts in this batch</h3><div class="cw-list"><table><thead><tr><th>Gift</th><th class="num">Assigned</th><th class="num">Answer by</th><th>Answer</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>${rows}</tbody></table></div></section>
     </div>
   </div></div>`;
 }

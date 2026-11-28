@@ -52,7 +52,7 @@ function treeHtml(state: ClusterState, rootId: string, adding: string): string {
   }).join("");
   const anyFolder = rows.some((r) => kids(r.cluster.id) > 0);
   return `${anyFolder ? '<div class="cl-bar"><button type="button" data-cl="expand-all">Expand all</button><button type="button" data-cl="collapse-all">Collapse all</button></div>' : ""}
-    <div class="tablewrap"><table class="subtable cl-table cl-tree"><thead><tr><th>Cluster</th><th>Called</th><th>Location</th><th class="num">Capacity</th><th>Status</th><th class="actcol"></th></tr></thead><tbody>${body}</tbody></table></div>`;
+    <div class="tablewrap"><table class="subtable cl-table cl-tree"><thead><tr><th>Cluster</th><th>Called</th><th>Location</th><th class="num">Capacity</th><th>Status</th><th class="actcol"><span class="sr-only">Actions</span></th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 // ---- The list: every cluster as a tree ----

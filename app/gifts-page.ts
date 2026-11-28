@@ -142,7 +142,7 @@ function paymentsTable(g: GiftRow, v: View): string {
       <td class="actcol"><div class="actbox">${monthsCell}</div></td>
       <td class="actcol"><div class="actbox">${lastCell}</div></td></tr>`;
   };
-  return `<div class="paywrap"><table class="subtable"><thead><tr><th class="c"></th><th>Reference</th><th>Paid</th><th>Instalment</th><th class="num">Units</th><th class="num">Value</th><th class="actcol"></th><th class="actcol"></th></tr></thead><tbody>${g.payments.map(row).join("")}</tbody></table></div>`;
+  return `<div class="paywrap"><table class="subtable"><thead><tr><th class="c"><span class="sr-only">Symbol</span></th><th>Reference</th><th>Paid</th><th>Instalment</th><th class="num">Units</th><th class="num">Value</th><th class="actcol"><span class="sr-only">Actions</span></th><th class="actcol"><span class="sr-only">Actions</span></th></tr></thead><tbody>${g.payments.map(row).join("")}</tbody></table></div>`;
 }
 
 // Everything the list needs, worked out once: the gifts after the filters, and where each is allocated.
@@ -434,7 +434,7 @@ export function giftListHtml(v: View): string {
   const funnel = (id: string): string => (FILTER_COLUMNS.some(([c0]) => c0 === id) ? `<button type="button" class="fbtn${(v.giftColFilters?.[id] ?? []).length ? " on" : ""}" data-gfilt="${id}" aria-pressed="${v.giftFiltOpen === id ? "true" : "false"}" aria-label="Filter ${esc(FILTER_COLUMNS.find(([c0]) => c0 === id)?.[1] ?? id)} by its values" title="Filter by value">${SYM.funnel}</button>` : "");
   const th = (id: string, label: string, cls = ""): string => `<th${cls ? ` class="${cls}"` : ""} aria-sort="${sort?.key === id ? (sort.dir === "desc" ? "descending" : "ascending") : "none"}"><button type="button" class="sortbtn" data-gsort="${id}">${label}${sort?.key === id ? (sort.dir === "desc" ? SYM.sortDown : SYM.sortUp) : ""}</button>${funnel(id)}</th>`;
   const heads: [string, string][] = [
-    ["select", `<th><input type="checkbox" data-selall="main" title="Tick all shown" aria-label="Select all shown"${allTicked ? " checked" : ""}></th>`], ["kind", "<th></th>"], ["recid", "<th>Rec. ID</th>"],
+    ["select", `<th><input type="checkbox" data-selall="main" title="Tick all shown" aria-label="Select all shown"${allTicked ? " checked" : ""}></th>`], ["kind", `<th><span class="sr-only">Type and warnings</span></th>`], ["recid", "<th>Rec. ID</th>"],
     ["site", `<th class="c">Site${funnel("site")}</th>`], ["donor", th("donor", "Donor")], ["item", th("item", "Item")], ["project", th("project", "Project")], ["origin", `<th class="c">Old site${funnel("origin")}</th>`], ["plan", th("plan", "Plan", "num")], ["value", th("value", "Value", "num")], ["paid", th("paid", "Paid", "num")], ["next", th("next", "Next", "num")],
     ["stage", `<th>Stage${funnel("stage")}</th>`], ["assigned", `<th>Assigned to${funnel("assigned")}</th>`], ["alloc", `<th>Allocated to${funnel("alloc")}</th>`], ["status", "<th>Status</th>"],
   ];

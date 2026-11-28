@@ -162,7 +162,7 @@ export function signinNote(search: string): string {
 // Two steps so it is clear what happens: choose the files, then press the button.
 export const loadCard = (v: View): string => `<div class="card"><h2>Use your own CRM export files</h2>
   <p class="muted">Choose the Donation lines, Catalogue items and (optionally) Recurring plans, Catalogue prices and Legacy donations files from the CRM Export Centre, all at once, then press Load. The Legacy donations file lets a plan carried over from the old site show what it already paid there. ${v.live ? "They are read in this browser. Only the lines needed for work orders and the audit are sent to your saved data, with no contact details." : "They are read in this browser only. Nothing is uploaded or saved, so sign in above first if you want to keep the result."}</p>
-  <div class="filebox"><input type="file" id="feedfile" multiple accept=".csv,text/csv"${v.loading ? " disabled" : ""}></div>
+  <div class="filebox"><input type="file" id="feedfile" aria-label="Choose the CRM export files" multiple accept=".csv,text/csv"${v.loading ? " disabled" : ""}></div>
   ${v.pendingFiles?.length ? `<p>Chosen: ${v.pendingFiles.map(esc).join(", ")}</p>` : ""}
   <div class="actions loadbox"><button class="primary" data-action="load-files"${v.loading ? " disabled" : ""}>Load the chosen files</button></div>
   ${v.loading ? `<div class="progress"><span class="spinner"></span><span>${esc(v.loading)}</span></div>` : ""}
@@ -211,12 +211,12 @@ export function filterBar(v: View, id: string, base: WorkOrder[]): string {
   const d = `data-scope="${esc(id)}"`;
   return `<div class="card filters">
     <span class="searchbox">${SYM.search}<input type="search" data-f="text" ${d} placeholder="Search donor, item, reference, subscription" title="Search line id, order reference, supporter, item or subscription" aria-label="Search" value="${esc(c.text)}"></span>
-    <select data-f="itemId" ${d}><option value="">All items</option>${[...items].sort((a, b) => a[1].localeCompare(b[1])).map(([k, name]) => opt(k, name, c.itemId)).join("")}</select>
+    <select data-f="itemId" aria-label="Item" ${d}><option value="">All items</option>${[...items].sort((a, b) => a[1].localeCompare(b[1])).map(([k, name]) => opt(k, name, c.itemId)).join("")}</select>
     ${id === "main" ? "" : `<select data-f="status" ${d}>${opt("", "Any status", c.status)}${opt("unrouted", "Unrouted", c.status)}${opt("ready", "Ready", c.status)}${opt("excluded", "Excluded", c.status)}</select>`}
-    <select data-f="legacy" ${d}>${opt("", "Legacy: included", c.legacy)}${opt("only", "Legacy only", c.legacy)}${opt("hide", "No legacy", c.legacy)}</select>
-    <select data-f="kind" ${d}>${opt("any", "All types", c.kind)}${opt("recurring", "Recurring", c.kind)}${opt("oneoff", "One-off", c.kind)}${opt("custom", "Custom amount", c.kind)}</select>
-    <input type="date" data-f="from" ${d} value="${esc(c.from)}" title="Paid from">
-    <input type="date" data-f="to" ${d} value="${esc(c.to)}" title="Paid to">
+    <select data-f="legacy" aria-label="Legacy payments" ${d}>${opt("", "Legacy: included", c.legacy)}${opt("only", "Legacy only", c.legacy)}${opt("hide", "No legacy", c.legacy)}</select>
+    <select data-f="kind" aria-label="Type of gift" ${d}>${opt("any", "All types", c.kind)}${opt("recurring", "Recurring", c.kind)}${opt("oneoff", "One-off", c.kind)}${opt("custom", "Custom amount", c.kind)}</select>
+    <input type="date" data-f="from" ${d} value="${esc(c.from)}" title="Paid from" aria-label="Paid from">
+    <input type="date" data-f="to" ${d} value="${esc(c.to)}" title="Paid to" aria-label="Paid to">
     <button data-action="clear-filters" data-scope="${esc(id)}" title="Clear the filters">Clear</button></div>`;
 }
 
@@ -244,7 +244,7 @@ export function listHtml(v: View, id: string): string {
   return `${bulk}${note}${
     rows.length === 0
       ? `<div class="empty">No work orders match the filters.</div>`
-      : `<table><thead><tr><th><input type="checkbox" data-selall="${esc(id)}" title="Tick all shown"${allTicked ? " checked" : ""}></th><th>Reference</th><th>Supporter</th><th>Item</th><th>Instalment</th><th>Category</th><th>Status</th><th></th></tr></thead><tbody>${shown
+      : `<table><thead><tr><th><input type="checkbox" data-selall="${esc(id)}" title="Tick all shown"${allTicked ? " checked" : ""}></th><th>Reference</th><th>Supporter</th><th>Item</th><th>Instalment</th><th>Category</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>${shown
           .map(
             (w) => `<tr><td><input type="checkbox" data-sel="${esc(w.key)}"${picked.has(w.key) ? " checked" : ""}></td>
             <td>${esc(w.transactionRef) || `<span class="muted">no reference</span>`}<div class="muted">Line ${esc(w.key)} · ${w.legacyUpload ? `${esc(shortDate(w.paidDate))} <span class="pill review" title="Uploaded from the old system. This date is the day it was loaded, not the real payment date.">Legacy upload</span>` : esc(shortDate(w.paidDate))}</div></td>
