@@ -29,7 +29,7 @@ export interface GiftDetail {
   cause: string;
   intention: string;
   tribute: string;
-  phases: { label: string; days: number }[]; // what delivering it involves, in order
+  phases: { id?: string; label: string; days: number }[]; // what delivering it involves, in order. The id is the key the steps taken are recorded under, so the partner's own screen can work out what is late (DECISIONS 327)
   review: boolean; // MWF reviews the work before it is reported
   feedback: boolean; // the donor is asked for feedback
   answerBy: string; // YYYY-MM-DD, the last day to accept or refuse
@@ -60,7 +60,7 @@ export function giftDetails(i: GiftDetailInput): Record<string, GiftDetail> {
       ...(recurring && planned > 0 ? { planned } : {}),
       ...(recurring ? { paid: first?.planPaid ?? group.length } : {}),
       cause: first?.cause ?? "", intention: first?.intention ?? "", tribute: group.find((w) => (w.tribute ?? "") !== "")?.tribute ?? "",
-      phases: steps.phases.map((p) => ({ label: p.label, days: p.days })), review: steps.review, feedback: steps.feedback,
+      phases: steps.phases.map((p) => ({ id: p.id, label: p.label, days: p.days })), review: steps.review, feedback: steps.feedback,
       completeWithin, ...(own && began ? { completeBy: addDays(began, own) } : !own && allocatedAt && completeWithin > 0 ? { completeBy: addDays(allocatedAt, completeWithin) } : {}),
       answerBy: addDays(a.at.slice(0, 10), fw ? confirmDaysOf(fw) : 3),
     };

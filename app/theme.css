@@ -795,3 +795,15 @@ tr.clickrow{cursor:pointer}tr.clickrow:hover{background:color-mix(in srgb,var(--
 .pm-list{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}.pm{padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:13.5px;line-height:1.45}
 .pm.new{background:var(--accent-bg);border-color:#c5d0ea}.pm-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:2px}.pm-d{margin-left:auto;font-size:12px}
 .ru-side .wf-field input[type=number]{max-width:120px}
+
+/* --- The partner's dashboard (DECISIONS 327) --- */
+.pd{margin:6px 0 18px}.pd-title{font-size:15px;font-weight:600;margin:0 0 10px}
+.pd-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:16px;align-items:start}@media (max-width:1100px){.pd-grid{grid-template-columns:1fr}}
+.pd-col{display:grid;gap:16px;min-width:0;align-content:start}.pd-card h2{font-size:14px;margin:0 0 8px}
+.pd-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.pd-item{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-size:13px}
+.pd-item.late{background:var(--warn-bg);border-color:#f0d9a4}.pd-what{display:grid;gap:1px;min-width:0}.pd-what span{color:var(--muted);overflow-wrap:anywhere}
+.pd-st{display:grid;justify-items:end;gap:2px;flex:none}.pd-d{font-size:12px}
+.pd-score{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}.pd-score b{font-size:34px;line-height:1;font-weight:650}.pd-score span{font-weight:600;color:var(--muted)}
+.pd-q{display:grid;gap:3px;margin:8px 0}.pd-q-h{display:flex;justify-content:space-between;font-size:13px}.pd-hint{font-size:12px}
+.sc-dot:not([role]){cursor:default}

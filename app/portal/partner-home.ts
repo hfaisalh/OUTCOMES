@@ -14,6 +14,7 @@ import { costsCardHtml } from "./partner-costs";
 import { profileCardHtml } from "./partner-profile";
 import { journeyHtml, type PartnerUi } from "./partner-outcomes";
 import { bellHtml, inboxHtml } from "./partner-inbox";
+import { partnerDashboardHtml } from "./partner-dashboard";
 
 // --- Helpers ---
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -41,6 +42,7 @@ export function partnerHomeHtml(slice: PartnerSlice, who: string, version: strin
     <main class="phome-main">
       <h1>Welcome, ${esc(p.name)}</h1><p class="sub">Your gifts, beneficiaries and outcomes. You see only your own.</p>
       ${inboxHtml(slice, ui)}
+      ${partnerDashboardHtml(slice, today)}
       ${journeyHtml(gifts)}
       <div class="metrics">${tile(all.length, "Beneficiaries")}${tile(enrolled.size, "Enrolled")}${tile(waiting, "Waiting for a vacancy")}${tile(review, "Need details")}</div>
       <div class="phome-grid">

@@ -37,7 +37,7 @@ describe("what a partner may know about a gift", () => {
   it("describes a one-off gift: the facts, the tribute from the start, what delivering it involves, and when to answer by", () => {
     const d = run([asg("G1", 2)], [wo("G1", { tribute: "For my late mother, Aisha" })])["G1"]!;
     expect(d).toMatchObject({ reference: "G1", recurring: false, units: 2, cause: "Water", intention: "In memory of", tribute: "For my late mother, Aisha", review: true, feedback: true });
-    expect(d.phases).toEqual([{ label: "Survey the site", days: 7 }, { label: "Build the pump", days: 21 }]);
+    expect(d.phases).toEqual([{ id: "survey", label: "Survey the site", days: 7 }, { id: "build", label: "Build the pump", days: 21 }]);
     expect(d.answerBy).toBe("2026-11-07"); // assigned 2 Nov, the workflow gives 5 days
     expect(d.planned).toBeUndefined();
   });

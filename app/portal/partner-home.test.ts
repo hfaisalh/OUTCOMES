@@ -177,7 +177,7 @@ describe("the batch list opens to show what is in a batch (DECISIONS 256)", () =
     expect(one.indexOf('id="pt-reason"')).toBeLessThan(one.indexOf("</tbody>", rowOne)); // and still inside the table, before the next gift ends it
     expect(one.match(/id="pt-reason"/g)).toHaveLength(1);
     const all = partnerHomeHtml(two(), "Sara", "dev", { ...QUIET, refusing: ["sub:1", "sub:2"] });
-    expect(all.indexOf('id="pt-reason"')).toBeLessThan(all.indexOf("<table"));
+    expect(all.indexOf('id="pt-reason"')).toBeLessThan(all.indexOf("<table", all.indexOf('id="pb-body-'))); // the batch's own table, not the chart's table view
     expect(all).not.toContain('<tr class="refusing">');
   });
   it("opens the batch a refusal belongs to, so its reason box is never out of sight", () => {
