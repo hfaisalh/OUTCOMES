@@ -28,7 +28,8 @@ describe("the sign-in screen", () => {
   });
   it("shows what went wrong, safely", () => {
     expect(signinHtml("That passphrase is not right.")).toContain("That passphrase is not right.");
-    expect(signinHtml("<img src=x>")).not.toContain("<img");
+    expect(signinHtml("<img src=x>")).not.toContain("<img src=x>"); // the typed text is shown as text; the only image is our own logo mark
+    expect(signinHtml("<img src=x>")).toContain("&lt;img src=x&gt;");
   });
   it("has a short waiting screen while the session is checked", () => {
     expect(checkingHtml()).toContain("Checking your sign-in");

@@ -35,7 +35,7 @@ export function partnerHomeHtml(slice: PartnerSlice, who: string, version: strin
   const projects = slice.giftProjects.map((g) => `<li><b>${esc(g.name)}</b><span class="muted"> ${clusterCount(g.clusters ?? [])}</span></li>`).join("");
 
   return `<div class="phome">
-    <header class="phome-bar"><div class="phome-brand">OUTCOMES<small>${esc(p.name)}</small></div>
+    <header class="phome-bar"><div class="phome-brand"><img class="brand-mark" src="/brand/mark-light.svg" alt="" width="30" height="30"><span>OUTCOMES<small>${esc(p.name)}</small></span></div>
       <div class="phome-who"><span class="badge-demo">${canReturn ? "Testing as partner" : "Partner"}</span><span class="ver" title="The version of this page. If it is not the latest, refresh the page.">${esc(version)}</span><span>${esc(who)}</span>${canReturn ? `<button data-action="view-as" data-partner="">Back to staff</button>` : ""}<button data-action="sign-out">Sign out</button></div></header>
     <main class="phome-main">
       <h1>Welcome, ${esc(p.name)}</h1><p class="sub">Your gifts, beneficiaries and outcomes. You see only your own.</p>
