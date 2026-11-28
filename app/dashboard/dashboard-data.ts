@@ -16,13 +16,15 @@ import { emptyRegister } from "../../modules/07-beneficiaries/beneficiaries";
 import { emptyEnrolments, itemRulesOf } from "../../modules/07-beneficiaries/enrolments";
 import { missingFor } from "../../modules/07-beneficiaries/waiting";
 import type { SavedFeatures } from "../../modules/02-project-rules/kind-features";
-import { byAgeBand, fulfilmentScore, fundingLevels, journey, topParts, type JourneyCounts, type Part, type Stage } from "../../modules/17-dashboard/facts";
+import { benefitShares, byAgeBand, fulfilmentScore, fundingLevels, journey, topParts, type BenefitShare, type JourneyCounts, type Part, type Stage } from "../../modules/17-dashboard/facts";
 import { totalText } from "../../modules/15-partner-costs/costs";
 import { isLate, rowsOf } from "../allocation/confirmation-rows";
 import { standingsOf } from "../allocation/progress-page";
 import { valueByCurrency } from "../gifts/gifts-page";
+import { iconHtml, itemIcon } from "../shared/icons";
 import type { View } from "../shared/pages";
 
+export interface BenefitView extends BenefitShare { icon: string; value: string }
 export interface DashData {
   stages: Stage[];
   score: number | null;
@@ -44,6 +46,7 @@ export interface DashData {
   batchesWaiting: number;
   costs: string;
   costCount: number;
+  benefits: BenefitView[];
   splits: { funding: Part[]; clusters: Part[]; ages: Part[]; where: Part[]; plans: Part[]; partners: Part[] };
 }
 
@@ -116,6 +119,27 @@ export function dashboardData(v: View): DashData {
     { label: "In review and report", value: allocated.filter((s) => s.stage === "review" || s.stage === "report").length },
     { label: "Complete", value: counts.complete },
   ];
+  // --- Each benefit's own journey (DECISIONS 302): the same steps, counted for the gifts of one benefit ---
+  const rowByKey = new Map(rows.map((r) => [r.key, r]));
+  const standByKey = new Map(stand.map((s) => [s.key, s]));
+  const assignedKeys = new Set(mine.map((a) => a.key));
+  const blank = (): JourneyCounts => ({ paymentsIn30: 0, gifts: 0, assigned: 0, confirmed: 0, lateAnswers: 0, allocated: 0, delivered: 0, lateDelivery: 0, complete: 0 });
+  const per = new Map<string, { name: string; framework: string; counts: JourneyCounts }>();
+  for (const u of units) {
+    const e = per.get(u.w.itemId) ?? { name: u.w.itemName, framework: u.w.frameworkId ?? "", counts: blank() };
+    const c = e.counts, r = rowByKey.get(u.key), s = standByKey.get(u.key);
+    c.gifts++;
+    if (assignedKeys.has(u.key)) c.assigned++;
+    if (r?.st.state === "confirmed") c.confirmed++;
+    if (r && isLate(r)) c.lateAnswers++;
+    if (s?.allocated) { c.allocated++; if (s.stage !== "allocation") c.delivered++; if ((s.next?.lateDays ?? 0) > 0) c.lateDelivery++; if (s.complete) c.complete++; }
+    per.set(u.w.itemId, e);
+  }
+  const benefits: BenefitView[] = benefitShares([...per].map(([itemId, e]) => ({ itemId, name: e.name || itemId, counts: e.counts }))).map((b) => ({
+    ...b,
+    icon: iconHtml(itemIcon(b.itemId, b.name, v.itemIcons, (v.outcomeTypes ?? []).find((t) => (per.get(b.itemId)?.framework ?? "") !== "" && t.frameworkIds.includes(per.get(b.itemId)?.framework ?? ""))?.icon ?? ""), b.name, "sm"),
+    value: valueByCurrency(live.filter((w) => w.itemId === b.itemId)).text,
+  }));
   const partnerCosts = v.partnerCosts ?? [];
   return {
     stages, score: fulfilmentScore(stages), counts,
@@ -130,6 +154,7 @@ export function dashboardData(v: View): DashData {
     partnersActive: partners.filter((p) => (p.status ?? "pending") === "active").length,
     batchesWaiting: new Set(rows.filter((r) => r.st.state === "waiting").map((r) => `${r.partnerId}|${r.batch ?? ""}`)).size,
     costs: totalText(partnerCosts), costCount: partnerCosts.length,
+    benefits,
     splits: {
       funding,
       clusters: topParts(tally((e) => clusterName.get(`${e.giftProjectId}|${e.clusterId}`) ?? "No cluster"), 5),

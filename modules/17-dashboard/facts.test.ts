@@ -5,7 +5,7 @@
  * Who calls it: vitest. Depends on: facts.ts.
  */
 import { describe, expect, it } from "vitest";
-import { ageOn, byAgeBand, fulfilmentScore, fundingLevels, journey, topParts, type JourneyCounts } from "./facts";
+import { ageOn, benefitShares, byAgeBand, fulfilmentScore, fundingLevels, journey, topParts, type JourneyCounts } from "./facts";
 
 const counts = (over: Partial<JourneyCounts> = {}): JourneyCounts => ({ paymentsIn30: 12, gifts: 100, assigned: 80, confirmed: 60, lateAnswers: 5, allocated: 30, delivered: 15, lateDelivery: 2, complete: 6, ...over });
 
@@ -49,5 +49,18 @@ describe("splits", () => {
   it("counts how funded each place is", () => {
     expect(fundingLevels([{ used: 0, capacity: 3 }, { used: 1, capacity: 3 }, { used: 3, capacity: 3 }, { used: 0, capacity: 3 }])).toEqual([{ label: "Not funded yet", value: 2 }, { label: "Partly funded", value: 1 }, { label: "Fully funded", value: 1 }]);
     expect(fundingLevels([])).toEqual([{ label: "Not funded yet", value: 0 }, { label: "Partly funded", value: 0 }, { label: "Fully funded", value: 0 }]);
+  });
+});
+
+describe("each benefit's share (DECISIONS 302)", () => {
+  it("gives each benefit its share of all gifts, the largest first then by name, with its own journey and late count", () => {
+    const r = benefitShares([{ itemId: "B", name: "Water Pump", counts: counts({ gifts: 25, lateAnswers: 1, lateDelivery: 2 }) }, { itemId: "A", name: "Orphan Sponsorship", counts: counts({ gifts: 75 }) }, { itemId: "C", name: "Another", counts: counts({ gifts: 25 }) }]);
+    expect(r.map((x) => [x.name, x.gifts, x.share])).toEqual([["Orphan Sponsorship", 75, 60], ["Another", 25, 20], ["Water Pump", 25, 20]]);
+    expect(r[2]?.late).toBe(3);
+    expect(r[0]?.stages).toHaveLength(6);
+  });
+  it("gives every benefit 0% when there are no gifts, and nothing for no benefits", () => {
+    expect(benefitShares([{ itemId: "A", name: "A", counts: counts({ gifts: 0 }) }])[0]?.share).toBe(0);
+    expect(benefitShares([])).toEqual([]);
   });
 });

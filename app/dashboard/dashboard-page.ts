@@ -31,6 +31,34 @@ function journeyCard(d: DashData): string {
     <div class="dash-stages">${d.stages.map((s, i) => stageHtml(s, i + 1, d.counts.paymentsIn30)).join("")}</div></div></section>`;
 }
 
+// --- Benefits in the journey (DECISIONS 302): each benefit's share of the gifts, and how far its own gifts have got ---
+const MAX_BARS = 8;
+function shareBars(d: DashData): string {
+  const top = d.benefits.slice(0, MAX_BARS);
+  const rest = d.benefits.slice(MAX_BARS);
+  const restGifts = rest.reduce((t, b) => t + b.gifts, 0);
+  const max = Math.max(1, ...top.map((b) => b.gifts), restGifts);
+  const total = d.benefits.reduce((t, b) => t + b.gifts, 0);
+  const bar = (name: string, icon: string, gifts: number, share: number): string => `<li><span class="dash-bname">${icon}<span>${esc(name)}</span></span><span class="dash-btrack" aria-hidden="true"><i style="width:${gifts > 0 ? Math.max(1, Math.round((gifts / max) * 100)) : 0}%"></i></span><b class="dash-bval">${gifts.toLocaleString("en-GB")}</b><span class="dash-bpct">${share}%</span></li>`;
+  return `<section class="dash-card dash-shares" aria-labelledby="ds-h"><h3 id="ds-h" class="dash-h">Share of gifts by benefit</h3>
+    <ol class="dash-bars">${top.map((b) => bar(b.name, b.icon, b.gifts, b.share)).join("")}${restGifts > 0 ? bar(`${rest.length} other benefits`, "", restGifts, total === 0 ? 0 : Math.round((restGifts / total) * 100)) : ""}</ol>
+    <p class="muted dash-note">${total.toLocaleString("en-GB")} gifts to fulfil in all. A recurring gift counts once.</p></section>`;
+}
+function cell(s: Stage): string {
+  if (s.pct === null) return `<td class="dash-mini"><span class="muted" title="Nothing to measure yet">\u2013</span></td>`;
+  return `<td class="dash-mini" title="${s.done.toLocaleString("en-GB")} of ${s.of.toLocaleString("en-GB")}"><span class="dash-mbar" aria-hidden="true"><i style="width:${s.pct}%"></i></span><span class="dash-mpct">${s.pct}%</span></td>`;
+}
+function benefitJourney(d: DashData): string {
+  const rows = d.benefits.slice(0, 25).map((b) => `<tr><th scope="row"><span class="dash-bname">${b.icon}<span>${esc(b.name)}</span></span></th><td class="num">${b.gifts.toLocaleString("en-GB")}</td>${["assigned", "confirmed", "allocated", "delivered", "complete"].map((id) => cell(b.stages.find((s) => s.id === id) as Stage)).join("")}<td class="num">${b.late > 0 ? `<span class="dash-pill dash-pill-bad">${dashIcon("clock", 12)}${b.late} late</span>` : `<span class="muted">0</span>`}</td></tr>`).join("");
+  return `<section class="dash-card dash-bj" aria-labelledby="db-h"><h3 id="db-h" class="dash-h">Each benefit's journey</h3>
+    <div class="tablewrap"><table class="dash-table"><thead><tr><th>Benefit</th><th class="num">Gifts</th><th>Assigned</th><th>Confirmed</th><th>Allocated</th><th>Delivered</th><th>Complete</th><th class="num">Late</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="muted dash-note">Each figure is the share of the step before it, as in the journey above. Hover a figure for the count.${d.benefits.length > 25 ? ` Showing the largest 25 of ${d.benefits.length}.` : ""}</p></section>`;
+}
+function benefitsHtml(d: DashData): string {
+  if (d.benefits.length === 0) return `<section class="dash-group" aria-label="Benefits"><h2 class="dash-h2">Benefits in the journey</h2><div class="dash-card"><p class="muted">No gift has been routed to a benefit yet. Once gifts are routed, each benefit's share and its journey appear here.</p></div></section>`;
+  return `<section class="dash-group" aria-label="Benefits"><h2 class="dash-h2">Benefits in the journey</h2><div class="dash-two">${shareBars(d)}${benefitJourney(d)}</div></section>`;
+}
+
 // --- The figure tiles ---
 function groups(d: DashData): { title: string; tiles: Kpi[] }[] {
   return [
@@ -81,5 +109,5 @@ export function dashboardPage(v: View): string {
 
 // The page from its figures, so it can be tested and looked at with any numbers.
 export function dashboardHtml(d: DashData): string {
-  return `<h1>Dashboard</h1><p class="sub">The work at a glance: where gifts are on their way to an outcome, who and what is funded, and what needs a person.</p>${journeyCard(d)}${tilesHtml(d)}${splitsHtml(d)}`;
+  return `<h1>Dashboard</h1><p class="sub">The work at a glance: where gifts are on their way to an outcome, who and what is funded, and what needs a person.</p>${journeyCard(d)}${benefitsHtml(d)}${tilesHtml(d)}${splitsHtml(d)}`;
 }

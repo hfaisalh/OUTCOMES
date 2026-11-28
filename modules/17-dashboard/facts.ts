@@ -95,3 +95,14 @@ export function fundingLevels(fills: { used: number; capacity: number }[]): Part
   const full = fills.filter((f) => f.capacity > 0 && f.used >= f.capacity).length;
   return [{ label: "Not funded yet", value: none }, { label: "Partly funded", value: fills.length - none - full }, { label: "Fully funded", value: full }];
 }
+
+// --- Benefits in the journey (DECISIONS 302) ---
+export interface BenefitCounts { itemId: string; name: string; counts: JourneyCounts }
+export interface BenefitShare { itemId: string; name: string; gifts: number; share: number; counts: JourneyCounts; stages: Stage[]; late: number }
+
+// Every benefit with its share of all gifts (a whole number, a benefit with no gift has 0), the largest first, then by name so the order is always the same. `late` is every late answer and late delivery for that benefit.
+export function benefitShares(list: BenefitCounts[]): BenefitShare[] {
+  const total = list.reduce((t, b) => t + b.counts.gifts, 0);
+  return list.map((b) => ({ itemId: b.itemId, name: b.name, gifts: b.counts.gifts, share: total === 0 ? 0 : Math.round((b.counts.gifts / total) * 100), counts: b.counts, stages: journey(b.counts), late: b.counts.lateAnswers + b.counts.lateDelivery }))
+    .sort((a, b) => b.gifts - a.gifts || a.name.localeCompare(b.name));
+}

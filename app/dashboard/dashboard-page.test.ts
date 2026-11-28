@@ -17,6 +17,7 @@ const stages = journey(counts);
 const data = (over: Partial<DashData> = {}): DashData => ({
   stages, score: fulfilmentScore(stages), counts, value: "£88,187", recurringActive: 271, plansStopped: 27, needAttention: 54, unallocated: 40, beneficiaries: 300, enrolled: 300, waiting: 12, needDetails: 54,
   funding: [{ label: "Not funded yet", value: 148 }, { label: "Partly funded", value: 123 }, { label: "Fully funded", value: 29 }], fully: 29, unfunded: 148, partlyFunded: 123, partnersActive: 6, batchesWaiting: 4, costs: "GBP 10.00", costCount: 1,
+  benefits: [],
   splits: { funding: [{ label: "Not funded yet", value: 148 }, { label: "Partly funded", value: 123 }, { label: "Fully funded", value: 29 }], clusters: [{ label: "Lahore <home>", value: 20 }, { label: "Other", value: 3 }], ages: byAgeBand(["2016-01-01", ""], "2026-11-28"), where: [{ label: "Complete", value: 3 }], plans: [{ label: "Active", value: 5 }], partners: [] },
   ...over });
 
@@ -91,5 +92,30 @@ describe("the figures gathered from a View", () => {
     expect(d.splits.funding.map((p) => p.value)).toEqual([0, 0, 0]);
     expect(d.stages).toHaveLength(6);
     expect(() => dashboardHtml(d)).not.toThrow();
+  });
+});
+
+describe("benefits in the journey (DECISIONS 302)", () => {
+  const b = (itemId: string, name: string, gifts: number, c: Partial<typeof counts> = {}) => {
+    const k = { ...counts, gifts, assigned: gifts, confirmed: gifts, allocated: Math.floor(gifts / 2), delivered: 1, complete: 0, lateAnswers: 0, lateDelivery: 2, ...c };
+    return { itemId, name, gifts, share: 0, counts: k, stages: journey(k), late: k.lateAnswers + k.lateDelivery, icon: "<svg></svg>", value: "\u00A310" };
+  };
+  it("shows each benefit's share as ranked bars with the count and the percentage, and folds the tail into one bar", () => {
+    const many = Array.from({ length: 10 }, (_, i) => ({ ...b(`I${i}`, `Benefit <${i}>`, 100 - i * 5), share: 10 }));
+    const html = dashboardHtml(data({ benefits: many }));
+    expect(html).toContain("Share of gifts by benefit");
+    expect(html).toContain("Benefit &lt;0&gt;");
+    expect(html.match(/<li><span class="dash-bname">/g)).toHaveLength(9); // eight bars and "2 other benefits"
+    expect(html).toContain("2 other benefits");
+  });
+  it("tables each benefit's own journey, with the count in the tooltip, a dash for a stage with nothing before it, and late in words", () => {
+    const html = dashboardHtml(data({ benefits: [b("I1", "Orphan Sponsorship", 40), b("I2", "Water Pump", 0)] }));
+    expect(html).toContain("Each benefit's journey");
+    expect(html).toContain('title="20 of 40"'); // allocated of confirmed? 20 of 40
+    expect(html).toContain("2 late");
+    expect(html).toContain('title="Nothing to measure yet"');
+  });
+  it("says so calmly when no gift is routed to a benefit yet", () => {
+    expect(dashboardHtml(data({ benefits: [] }))).toContain("No gift has been routed to a benefit yet");
   });
 });
