@@ -6,6 +6,7 @@
  * Who calls it: app/main.ts. Depends on: Module 6 (GiftProject) and esc from pages.ts.
  */
 
+import { switchHtml } from "./switch";
 import type { GiftProject, Project } from "../modules/06-projects/projects";
 import { clustersTabHtml } from "./clusters-tab";
 import { clusterStateOf } from "../modules/06-projects/clusters";
@@ -41,7 +42,7 @@ export function projectFormHtml(g: Partial<GiftProject>, id: string, ctx: Projec
         <div class="pf-items">${(ctx.items ?? []).length ? (ctx.items ?? []).map((i) => `<label class="tick"><input type="checkbox" class="pr-item" value="${esc(i.id)}"${items.has(i.id) ? " checked" : ""} /> ${esc(i.name)}</label>`).join("") : '<span class="muted">No items yet. They appear when gifts arrive from the CRM.</span>'}</div></section>
       <section><h3>Partners / vendors</h3><p class="muted">Tick the partners (vendors) that deliver this project. They take work in the order shown: the first until it is full, then the next. Use the arrows to change the order. With none ticked, its gifts wait for a person to decide.</p>
         <div class="pf-vendors" id="pr-vendors">${ordered.length ? ordered.map((p) => `<div class="pf-vendor"><label class="tick"><input type="checkbox" class="pr-partner" value="${esc(p.id)}"${partners.has(p.id) ? " checked" : ""} /> ${esc(p.name)}</label><span class="pf-vbtns"><button type="button" data-pj="vup" aria-label="Move up" title="Move up">&uarr;</button><button type="button" data-pj="vdown" aria-label="Move down" title="Move down">&darr;</button></span></div>`).join("") : '<span class="muted">No partners yet. Add them on the Partners page.</span>'}</div></section>
-      <section><h3>Enrolment</h3><label class="tick"><input type="checkbox" id="pr-enrolauto"${g.enrolAuto ? " checked" : ""} /> Enrol automatically</label><p class="muted">When ticked, the next beneficiary waiting for this project (ready; people with priority first, then first in first out) is enrolled by itself, in the cluster with the most vacancies, whenever there is room. Leave it unticked to enrol by hand.</p></section>
+      <section><h3>Enrolment</h3>${switchHtml({ label: "Enrol automatically", id: "pr-enrolauto", on: g.enrolAuto === true })}<p class="muted">When on, the next beneficiary waiting for this project (ready; people with priority first, then first in first out) is enrolled by itself, in the cluster with the most vacancies, whenever there is room. Leave it off to enrol by hand.</p></section>
       <section><label class="pf-field wide"><span>Notes</span><textarea id="pr-notes" rows="2">${esc(g.notes ?? "")}</textarea></label></section>
     </div>`}
     ${id && tab === "clusters" ? '<footer><button data-pj="cancel">Close</button></footer>' : `    <footer><span id="pr-error" class="pf-error" role="alert">${esc(error)}</span>${id ? '<button data-pj="remove" title="Remove this project. Gifts that carried its CRM project name then have no project">Remove project</button>' : ""}<button data-pj="cancel">Cancel</button><button class="primary" data-pj="save">Save project</button></footer>`}

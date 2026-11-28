@@ -39,7 +39,7 @@ function stagePanel(f: FrameworkTemplate, type: OutcomeType | undefined, stage: 
     const full = unitModeOf(f) === "once";
     return `<h3>Work orders: gift into units and shares</h3>
     <label class="wf-field"><span>Units in one outcome</span><input type="number" min="1" max="100" step="1" data-wf-shares="${esc(f.id)}" value="${f.unitsPerBeneficiary}"${full ? " disabled" : ""}></label>
-    <label class="ot-check"><input type="checkbox" data-wf-full="${esc(f.id)}"${full ? " checked" : ""}> Release only when fully paid</label>
+    <div class="ot-check">${switchHtml({ label: "Release only when fully paid", on: full, attrs: `data-wf-full="${esc(f.id)}"` })}</div>
     <p class="muted">How units are allocated to one outcome in this workflow. With 1, a unit is a whole outcome. With more, the outcome is made of that many units. This is mostly automatic once set: a paid gift becomes work order units, and they are released to be assigned for implementation.</p>`;
   }
   const tasksTable = `<table class="wf-tasks"><thead><tr><th>Check for the partner or caseworker</th><th class="num">Due after (months)</th><th>Photo</th><th class="actcol"></th></tr></thead><tbody>

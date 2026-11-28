@@ -7,6 +7,7 @@
  * Who calls it: app/main.ts. Depends on: modules/02-project-rules/benefits.ts, app/icons.ts and the helpers in pages.ts. Pure: it takes a View and returns HTML.
  */
 
+import { switchHtml } from "./switch";
 import { KINDS, kindOf } from "../modules/02-project-rules/benefits";
 import { itemReadiness, readySummary } from "../modules/06-projects/readiness";
 import { featuresOf, FIRSTS, isCustomised, ON_END, PROP_LABELS, RECEIVERS, type SavedFeatures } from "../modules/02-project-rules/kind-features";
@@ -49,12 +50,12 @@ export function benefitsPage(v: View): string {
     <p class="hint muted">Choose a type to see and change its features. Micro finance is a fund and is dealt with separately.</p></div>`;
   const ft = featuresOf(saved, sel.id);
   const fieldRows = ft.fields.map((x, i) => `<tr><td><input data-kf="label" data-kind="${sel.id}" data-field-id="${esc(x.id)}" value="${esc(x.label)}" aria-label="Field name"></td><td><select data-kf="type" data-kind="${sel.id}" data-field-id="${esc(x.id)}" aria-label="Field format">${FIELD_KINDS.map((k) => `<option value="${k.id}"${k.id === x.type ? " selected" : ""}>${esc(k.label)}</option>`).join("")}</select>${x.type === "choice" ? ` <input data-kf="options" data-kind="${sel.id}" data-field-id="${esc(x.id)}" value="${esc((x.options ?? []).join(", "))}" placeholder="Choices, separated by commas" aria-label="Choices">` : ""}</td>
-      <td class="c"><input type="checkbox" data-kf="required" data-kind="${sel.id}" data-field-id="${esc(x.id)}"${x.required ? " checked" : ""} aria-label="Needed first"></td><td class="c"><input type="checkbox" data-kf="inreport" data-kind="${sel.id}" data-field-id="${esc(x.id)}"${x.inReport ? " checked" : ""} aria-label="In the donor report"></td>
+      <td class="c">${switchHtml({ label: `Needed first: ${x.label}`, on: x.required === true, attrs: `data-kf="required" data-kind="${sel.id}" data-field-id="${esc(x.id)}"`, compact: true })}</td><td class="c">${switchHtml({ label: `In the donor report: ${x.label}`, on: x.inReport === true, attrs: `data-kf="inreport" data-kind="${sel.id}" data-field-id="${esc(x.id)}"`, compact: true })}</td>
       <td class="actcol"><div class="actbox"><button class="iconact" data-kf-act="up" data-kind="${sel.id}" data-field-id="${esc(x.id)}"${i === 0 ? " disabled" : ""} title="Move up" aria-label="Move up">&uarr;</button><button class="iconact" data-kf-act="down" data-kind="${sel.id}" data-field-id="${esc(x.id)}"${i === ft.fields.length - 1 ? " disabled" : ""} title="Move down" aria-label="Move down">&darr;</button><button class="iconact" data-kf-act="field-remove" data-kind="${sel.id}" data-field-id="${esc(x.id)}" title="Remove this field" aria-label="Remove this field">&times;</button></div></td></tr>`).join("");
   const kindDetail = `<div class="card"><h2>${esc(sel.label)}</h2>
     <label class="wf-field"><span>What this type is</span><textarea data-kf="what" data-kind="${sel.id}" rows="3" aria-label="What this type is">${esc(ft.what)}</textarea></label>
     <h4 class="wf-h">Properties</h4>
-    <div class="ot-props">${PROP_LABELS.map((p) => `<label class="ot-check" title="${esc(p.hint)}"><input type="checkbox" data-kf="prop" data-prop="${p.id}" data-kind="${sel.id}"${ft.props[p.id] ? " checked" : ""}> ${esc(p.label)}</label>`).join("")}
+    <div class="ot-props">${PROP_LABELS.map((p) => `<div class="ot-check">${switchHtml({ label: p.label, on: ft.props[p.id] === true, attrs: `data-kf="prop" data-prop="${p.id}" data-kind="${sel.id}"`, hint: p.hint })}</div>`).join("")}
       <label class="ot-check">Who receives <select data-kf="prop" data-prop="receiver" data-kind="${sel.id}" aria-label="Who receives">${RECEIVERS.map((r) => `<option value="${r.id}"${ft.props.receiver === r.id ? " selected" : ""}>${esc(r.label)}</option>`).join("")}</select></label>
       <label class="ot-check">Who comes first <select data-kf="prop" data-prop="first" data-kind="${sel.id}" aria-label="Who comes first">${FIRSTS.map((r) => `<option value="${r.id}"${ft.props.first === r.id ? " selected" : ""}>${esc(r.label)}</option>`).join("")}</select></label></div>
     <h4 class="wf-h">Rules for every beneficiary of this type</h4>

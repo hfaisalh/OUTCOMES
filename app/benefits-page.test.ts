@@ -43,17 +43,17 @@ describe("the Benefits page", () => {
     const html = benefitsPage(view({ kindSel: "build" }));
     expect(html).toContain("<h2>Build</h2>");
     expect(html).toContain('data-kf="what"');
-    expect(html).toMatch(/data-kf="prop" data-prop="location" data-kind="build" checked/); // a build needs a location
-    expect(html).not.toMatch(/data-kf="prop" data-prop="sensitive" data-kind="build" checked/);
+    expect(html).toMatch(/checked[^>]*data-kf="prop" data-prop="location" data-kind="build"/); // a build needs a location
+    expect(html).not.toMatch(/checked[^>]*data-kf="prop" data-prop="sensitive" data-kind="build"/);
     expect(html).toContain('data-prop="receiver"');
     expect(html).toContain('data-prop="first"');
     expect(html).toContain('<option value="gift" selected>The gift: it creates the outcome, recipients come after</option>'); // a build: the gift comes first
     expect(benefitsPage(view({ kindSel: "person" }))).toContain('<option value="beneficiary" selected>The beneficiary: enrolled first, waits for a sponsor</option>'); // a person type: the beneficiary comes first
     expect(html).toContain('value="GPS location"'); // a profile field
-    expect(html).toMatch(/data-kf="required" data-kind="build" data-field-id="location" checked/);
+    expect(html).toMatch(/checked[^>]*data-kf="required" data-kind="build" data-field-id="location"/);
     expect(html).toContain('data-kf-act="field-add"');
     expect(html).not.toContain('data-kf-act="reset"'); // nothing changed yet
-    expect(benefitsPage(view({ kindSel: "person" }))).toMatch(/data-kf="prop" data-prop="sensitive" data-kind="person" checked/);
+    expect(benefitsPage(view({ kindSel: "person" }))).toMatch(/checked[^>]*data-kf="prop" data-prop="sensitive" data-kind="person"/);
   });
   it("shows the rules of a type: its ID prefix, what makes a duplicate, and what happens when a beneficiary ends (DECISIONS 148)", () => {
     const html = benefitsPage(view({ kindSel: "person" }));

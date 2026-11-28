@@ -39,10 +39,10 @@ describe("the Workflows page", () => {
     expect(orphan).toContain('data-wf-shares="orphan-sponsorship" value="3"'); // units that make one orphan
     expect(orphan).toContain("data-wf-shares");
     expect(orphan).not.toContain("<select data-wf-mode"); // no dropdown any more
-    expect(orphan).not.toContain("data-wf-full=\"orphan-sponsorship\" checked");
+    expect(orphan).not.toMatch(/checked[^>]*data-wf-full="orphan-sponsorship"/);
     expect(at("student-sponsorship")).toContain('data-wf-shares="student-sponsorship" value="1"');
     const pump = at("water-pump");
-    expect(pump).toContain('data-wf-full="water-pump" checked'); // release only when fully paid
+    expect(pump).toMatch(/checked[^>]*data-wf-full="water-pump"/); // release only when fully paid
     expect(pump).toContain('data-wf-shares="water-pump" value="1" disabled');
     expect(pump).not.toMatch(/Unit(s)? support/i);
     expect(pump.replace(/<[^>]*>/g, " ").match(/PUMP/g)).toBeNull(); // generic wording: no kind of outcome named in the rule

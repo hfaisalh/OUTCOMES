@@ -9,6 +9,7 @@
  * Rule: nothing is sent to a server. Files are read in this browser and the setup is kept in this browser (DECISIONS 22).
  */
 
+import { switchHtml } from "./switch";
 import { getPreset, PRESETS } from "../modules/01-data-mapping/presets";
 import { guideView, mappingView, resultsView, valuesView, esc, type Model } from "../modules/01-data-mapping/ui/views";
 
@@ -49,7 +50,7 @@ function sourceStep(ms: MappingState): string {
         <option value="lines-column"${s.layout === "lines-column" ? " selected" : ""}>One row per transaction, lines in one column</option>
         <option value="one-row-per-line"${s.layout === "one-row-per-line" ? " selected" : ""}>One row per line, rows with the same reference are one transaction</option>
         <option value="one-line-per-transaction"${s.layout === "one-line-per-transaction" ? " selected" : ""}>One row per transaction, one line</option></select></label>
-      <label class="mp-check"><input type="checkbox" id="mp-feedback"${s.feedbackItemsOnly ? " checked" : ""}> The file holds only some lines of each transaction</label>
+      <div class="mp-check">${switchHtml({ label: "The file holds only some lines of each transaction", id: "mp-feedback", on: s.feedbackItemsOnly === true })}</div>
       <details class="mp-more"><summary>Lookup lists and saved setup</summary>
         <p class="muted">${funds + outcomes > 0 ? `Saved in this browser: ${funds} fund names and ${outcomes} outcome names. Replace them only when they change.` : "No lookup lists yet. They are optional: a file that carries names directly does not need them."}</p>
         <label class="mp-field"><span>Lookup lists (CSV, names for fund and outcome IDs)</span><input type="file" id="mp-meta" accept=".csv"></label>

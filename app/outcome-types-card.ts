@@ -7,6 +7,7 @@
  * Who calls it: app/pages.ts (categoriesPage). Depends on: modules/05-outcomes/outcome-types.ts. Pure: it takes types and returns HTML.
  */
 
+import { switchHtml } from "./switch";
 import { FIELD_KINDS, type OutcomeType } from "../modules/05-outcomes/outcome-types";
 import { ICONS, iconHtml } from "./icons";
 import type { FrameworkTemplate } from "../modules/02-project-rules/categories";
@@ -28,8 +29,8 @@ export function outcomeTypeEditor(t: OutcomeType, frameworks: FrameworkTemplate[
     ${o.frameworks ? `<div class="ot-fw"><span class="muted">Frameworks that use this type:</span> ${frameworks.length ? frameworks.map((f) => `<label class="ot-check"><input type="checkbox" data-ot="framework" data-type-id="${esc(t.id)}" data-framework-id="${esc(f.id)}"${t.frameworkIds.includes(f.id) ? " checked" : ""}> ${esc(f.name)}</label>`).join(" ") : `<span class="muted">Add a framework first.</span>`}</div>` : ""}
     <table class="ot-fields"><thead><tr><th>Profile field</th><th>Kind</th><th>Needed first</th><th>In the report</th><th></th></tr></thead><tbody>
       ${t.fields.map((f, i) => `<tr><td>${esc(f.label)}</td><td>${esc(kindName(f.kind))}${f.kind === "choice" ? ` <input data-ot="options" data-type-id="${esc(t.id)}" data-field-id="${esc(f.id)}" value="${esc((f.options ?? []).join(", "))}" placeholder="Options, separated by commas">` : ""}</td>
-        <td><input type="checkbox" data-ot="required" data-type-id="${esc(t.id)}" data-field-id="${esc(f.id)}"${f.required ? " checked" : ""} aria-label="Needed before a partner takes it"></td>
-        <td><input type="checkbox" data-ot="inreport" data-type-id="${esc(t.id)}" data-field-id="${esc(f.id)}"${f.inReport ? " checked" : ""} aria-label="In the donor report"></td>
+        <td>${switchHtml({ label: `Needed before a partner takes it: ${f.label}`, on: f.required === true, attrs: `data-ot="required" data-type-id="${esc(t.id)}" data-field-id="${esc(f.id)}"`, compact: true })}</td>
+        <td>${switchHtml({ label: `In the donor report: ${f.label}`, on: f.inReport === true, attrs: `data-ot="inreport" data-type-id="${esc(t.id)}" data-field-id="${esc(f.id)}"`, compact: true })}</td>
         <td class="ot-actions"><button data-ot-act="up" data-type-id="${esc(t.id)}" data-field-id="${esc(f.id)}"${i === 0 ? " disabled" : ""} aria-label="Move up">\u2191</button><button data-ot-act="down" data-type-id="${esc(t.id)}" data-field-id="${esc(f.id)}"${i === t.fields.length - 1 ? " disabled" : ""} aria-label="Move down">\u2193</button><button data-ot-act="field-remove" data-type-id="${esc(t.id)}" data-field-id="${esc(f.id)}" aria-label="Remove the field">\u00D7</button></td></tr>`).join("") || `<tr><td colspan="5" class="muted">No fields yet.</td></tr>`}
     </tbody></table>
     <div class="ot-add"><input id="otf-label-${esc(t.id)}" placeholder="New field, for example GPS location"><select id="otf-kind-${esc(t.id)}">${FIELD_KINDS.map((k) => `<option value="${k.id}">${esc(k.label)}</option>`).join("")}</select><button data-ot-act="field-add" data-type-id="${esc(t.id)}">Add field</button></div>

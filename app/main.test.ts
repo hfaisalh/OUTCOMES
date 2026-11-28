@@ -91,7 +91,7 @@ describe("the shell", () => {
     click({ page: "workflows" }, "data-page");
     fire("change", { target: { id: "", dataset: { wfFull: "sponsorship-shared-parts" }, checked: true, value: "" } });
     click({ wfSelect: "sponsorship-shared-parts" }, "data-wf-select");
-    expect(shell.innerHTML).toContain('data-wf-full="sponsorship-shared-parts" checked');
+    expect(shell.innerHTML).toMatch(/checked[^>]*data-wf-full="sponsorship-shared-parts"/);
   });
 });
 
@@ -272,10 +272,10 @@ describe("the Workflows page (DECISIONS 130, 131)", () => {
     click({ kindSelect: "build" }, "data-kind-select");
     expect(shell.innerHTML).toContain("<h2>Build</h2>");
     fire("change", { target: { id: "", dataset: { kf: "prop", prop: "sensitive", kind: "build" }, checked: true, value: "" } });
-    expect(shell.innerHTML).toMatch(/data-kf="prop" data-prop="sensitive" data-kind="build" checked/);
+    expect(shell.innerHTML).toMatch(/checked[^>]*data-kf="prop" data-prop="sensitive" data-kind="build"/);
     expect(shell.innerHTML).toContain(", changed");
     fire("change", { target: { id: "", dataset: { kf: "required", kind: "build", fieldId: "gps-location" }, checked: true, value: "" } });
-    expect(shell.innerHTML).toMatch(/data-kf="required" data-kind="build" data-field-id="gps-location" checked/);
+    expect(shell.innerHTML).toMatch(/checked[^>]*data-kf="required" data-kind="build" data-field-id="gps-location"/);
     click({ kfAct: "field-remove", kind: "build", fieldId: "handover-date" }, "data-kf-act");
     expect(shell.innerHTML).not.toContain('data-field-id="handover-date"');
     fire("change", { target: { id: "", dataset: { kf: "prefix", kind: "build" }, checked: false, value: "bld2" } });
