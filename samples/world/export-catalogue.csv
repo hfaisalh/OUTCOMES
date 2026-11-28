@@ -1,0 +1,10 @@
+Item SKU,Item,Cause SKU,Cause,Feedback type,Subscription,Instalments,Continues until cancelled
+MWF-ORP-001,Orphan Sponsorship Monthly,ORP,Orphans,Feedback report,Yes,,Yes
+MWF-HIF-001,Hifz Sponsorship Monthly,HIF,Hifz,Feedback report,Yes,,Yes
+MWF-ALM-001,Aalim Scholarship,SCH,Scholarships,Feedback report,Yes,12,No
+MWF-WAT-001,Small Pump,WAT,Water,Feedback report,No,,
+MWF-WAT-002,Large Pump,WAT,Water,Feedback report,Yes,4,No
+MWF-BLD-001,Build A Home,HOU,Housing,Feedback report,Yes,6,No
+MWF-FAM-001,Family Startup,LIV,Livelihood,Feedback report,No,,
+MWF-MED-001,Medical Camp (One Day),HEA,Health,Feedback report,No,,
+MWF-GEN-001,General Donation,GEN,General,Acknowledgement only,No,,

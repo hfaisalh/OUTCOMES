@@ -1551,7 +1551,10 @@ document.addEventListener("change", (e) => {
 document.addEventListener("click", (e) => {
   const b = (e.target as HTMLElement).closest?.("[data-sample]") as HTMLElement | null;
   if (!b) return;
-  void outcomeChange({ action: b.dataset.sample === "remove" ? "sample-remove" : "sample-load" });
+  const which = b.dataset.sample ?? "";
+  const action = which === "remove" ? "sample-remove" : which === "scenario" ? "sample-scenario-load" : which === "scenario-remove" ? "sample-scenario-remove" : "sample-load";
+  // The scenario changes the saved workflows too, so a live organisation reads its setup again afterwards.
+  void outcomeChange({ action }).then(() => (which.startsWith("scenario") && state.live() ? reloadLive().then(draw) : undefined));
 });
 
 // ---- Events of the lists: sort, filter, columns, tiles, the drop-down panel, and the buttons of Confirmation and Progress (app/shared/list-events.ts) ----

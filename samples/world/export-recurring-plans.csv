@@ -1,0 +1,17 @@
+Plan ID,Plan status,Instalments planned,Until cancelled,Instalments paid,Gateway reference,Opening order ID,Next due
+601,active,,Yes,5,sub_world_601,7601,28/11/2026
+602,active,,Yes,4,sub_world_602,7602,23/12/2026
+603,active,,Yes,2,sub_world_603,7603,28/11/2026
+604,active,,Yes,1,sub_world_604,7604,16/12/2026
+605,paused,,Yes,3,sub_world_605,7605,29/10/2026
+606,cancelled,,Yes,2,sub_world_606,7606,
+607,active,,Yes,2,sub_world_607,7607,08/11/2026
+608,active,,Yes,1,sub_world_608,7608,25/12/2026
+609,active,,Yes,3,sub_world_609,7609,18/12/2026
+610,active,,Yes,1,sub_world_610,7610,08/12/2026
+611,active,,Yes,1,sub_world_611,7611,23/12/2026
+612,completed,12,No,12,sub_world_612,7612,
+613,active,12,No,3,sub_world_613,7613,13/12/2026
+614,completed,4,No,4,sub_world_614,7614,
+615,active,4,No,2,sub_world_615,7615,13/12/2026
+616,completed,6,No,6,sub_world_616,7616,

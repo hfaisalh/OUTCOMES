@@ -1,0 +1,66 @@
+Line ID,Item Name,Item Code,Project,Cause,Intention,Instalment no,Subscription ID,Order Quantity,Order Reference,Order Status,Source,Currency,Item Cost,Payment Gateway,Merchant,Donor ID,Payment Date,Period,First Name (Billing),Last Name (Billing),Item Bundle,Total Amount
+30001,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,1,601,1,REF-3001,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D200,01/07/2026 16:30,Monthly,Sample,Supporter A,,30
+30002,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,2,601,1,REF-3002,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D200,31/07/2026 10:00,Monthly,Sample,Supporter A,,30
+30003,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,3,601,1,REF-3003,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D200,30/08/2026 12:30,Monthly,Sample,Supporter A,,30
+30004,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,4,601,1,REF-3004,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D200,29/09/2026 14:00,Monthly,Sample,Supporter A,,30
+30005,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,5,601,1,REF-3005,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D200,29/10/2026 16:30,Monthly,Sample,Supporter A,,30
+30006,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,1,602,1,REF-3006,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D201,25/08/2026 17:05,Monthly,Sample,Supporter B,,30
+30007,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,2,602,1,REF-3007,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D201,24/09/2026 11:35,Monthly,Sample,Supporter B,,30
+30008,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,3,602,1,REF-3008,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D201,24/10/2026 13:05,Monthly,Sample,Supporter B,,30
+30009,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,4,602,1,REF-3009,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D201,23/11/2026 15:35,Monthly,Sample,Supporter B,,30
+30010,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,1,603,1,REF-3010,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D202,29/09/2026 14:00,Monthly,Sample,Supporter C,,30
+30011,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,2,603,1,REF-3011,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D202,29/10/2026 16:30,Monthly,Sample,Supporter C,,30
+30012,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,1,604,1,REF-3012,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D203,16/11/2026 14:24,Monthly,Sample,Supporter D,,30
+30013,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,1,605,1,REF-3013,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D204,31/07/2026 10:00,Monthly,Sample,Supporter E,,30
+30014,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,2,605,1,REF-3014,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D204,30/08/2026 12:30,Monthly,Sample,Supporter E,,30
+30015,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,3,605,1,REF-3015,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D204,29/09/2026 14:00,Monthly,Sample,Supporter E,,30
+30016,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,1,606,1,REF-3016,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D205,20/08/2026 14:40,Monthly,Sample,Supporter F,,30
+30017,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,2,606,1,REF-3017,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D205,19/09/2026 16:10,Monthly,Sample,Supporter F,,30
+30018,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,1,607,1,REF-3018,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D206,19/10/2026 10:40,Monthly,Sample,Supporter G,,30
+30019,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,2,607,1,REF-3019,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D206,18/11/2026 12:10,Monthly,Sample,Supporter G,,30
+30020,Orphan Sponsorship Monthly,MWF-ORP-001,Aghosh Orphan Home,Orphans,Sadaqah,1,608,1,REF-3020,Paid,Website,GBP,30,Credit / Debit Card,Stripe,D207,25/11/2026 13:21,Monthly,Sample,Supporter H,,30
+30021,Hifz Sponsorship Monthly,MWF-HIF-001,Hifz Academy,Hifz,Sadaqah,1,609,1,REF-3021,Paid,Website,GBP,25,Credit / Debit Card,Stripe,D208,19/09/2026 16:10,Monthly,Sample,Supporter I,,25
+30022,Hifz Sponsorship Monthly,MWF-HIF-001,Hifz Academy,Hifz,Sadaqah,2,609,1,REF-3022,Paid,Website,GBP,25,Credit / Debit Card,Stripe,D208,19/10/2026 10:40,Monthly,Sample,Supporter I,,25
+30023,Hifz Sponsorship Monthly,MWF-HIF-001,Hifz Academy,Hifz,Sadaqah,3,609,1,REF-3023,Paid,Website,GBP,25,Credit / Debit Card,Stripe,D208,18/11/2026 12:10,Monthly,Sample,Supporter I,,25
+30024,Hifz Sponsorship Monthly,MWF-HIF-001,Hifz Academy,Hifz,Sadaqah,1,610,1,REF-3024,Paid,Website,GBP,25,Credit / Debit Card,Stripe,D209,08/11/2026 14:20,Monthly,Sample,Supporter J,,25
+30025,Hifz Sponsorship Monthly,MWF-HIF-001,Hifz Academy,Hifz,Sadaqah,1,611,1,REF-3025,Paid,Website,GBP,25,Credit / Debit Card,Stripe,D210,23/11/2026 15:35,Monthly,Sample,Supporter K,,25
+30026,Aalim Scholarship,MWF-ALM-001,Scholarship Programme,Scholarships,Sadaqah,1,612,1,REF-3026,Paid,Website,GBP,40,Credit / Debit Card,Stripe,D211,28/12/2025 17:05,Recurring,Sample,Supporter L,,40
+30027,Aalim Scholarship,MWF-ALM-001,Scholarship Programme,Scholarships,Sadaqah,2,612,1,REF-3027,Paid,Website,GBP,40,Credit / Debit Card,Stripe,D211,27/01/2026 11:35,Recurring,Sample,Supporter L,,40
+30028,Aalim Scholarship,MWF-ALM-001,Scholarship Programme,Scholarships,Sadaqah,3,612,1,REF-3028,Paid,Website,GBP,40,Credit / Debit Card,Stripe,D211,26/02/2026 13:05,Recurring,Sample,Supporter L,,40
+30029,Aalim Scholarship,MWF-ALM-001,Scholarship Programme,Scholarships,Sadaqah,4,612,1,REF-3029,Paid,Website,GBP,40,Credit / Debit Card,Stripe,D211,28/03/2026 15:35,Recurring,Sample,Supporter L,,40
+30030,Aalim Scholarship,MWF-ALM-001,Scholarship Programme,Scholarships,Sadaqah,5,612,1,REF-3030,Paid,Website,GBP,40,Credit / Debit Card,Stripe,D211,27/04/2026 17:05,Recurring,Sample,Supporter L,,40
+30031,Aalim Scholarship,MWF-ALM-001,Scholarship Programme,Scholarships,Sadaqah,6,612,1,REF-3031,Paid,Website,GBP,40,Credit / Debit Card,Stripe,D211,27/05/2026 11:35,Recurring,Sample,Supporter L,,40
+30032,Aalim Scholarship,MWF-ALM-001,Scholarship Programme,Scholarships,Sadaqah,7,612,1,REF-3032,Paid,Website,GBP,40,Credit / Debit Card,Stripe,D211,26/06/2026 13:05,Recurring,Sample,Supporter L,,40
+30033,Aalim Scholarship,MWF-ALM-001,Scholarship Programme,Scholarships,Sadaqah,8,612,1,REF-3033,Paid,Website,GBP,40,Credit / Debit Card,Stripe,D211,26/07/2026 15:35,Recurring,Sample,Supporter L,,40
+30034,Aalim Scholarship,MWF-ALM-001,Scholarship Programme,Scholarships,Sadaqah,9,612,1,REF-3034,Paid,Website,GBP,40,Credit / Debit Card,Stripe,D211,25/08/2026 17:05,Recurring,Sample,Supporter L,,40
+30035,Aalim Scholarship,MWF-ALM-001,Scholarship Programme,Scholarships,Sadaqah,10,612,1,REF-3035,Paid,Website,GBP,40,Credit / Debit Card,Stripe,D211,24/09/2026 11:35,Recurring,Sample,Supporter L,,40
+30036,Aalim Scholarship,MWF-ALM-001,Scholarship Programme,Scholarships,Sadaqah,11,612,1,REF-3036,Paid,Website,GBP,40,Credit / Debit Card,Stripe,D211,24/10/2026 13:05,Recurring,Sample,Supporter L,,40
+30037,Aalim Scholarship,MWF-ALM-001,Scholarship Programme,Scholarships,Sadaqah,12,612,1,REF-3037,Paid,Website,GBP,40,Credit / Debit Card,Stripe,D211,23/11/2026 15:35,Recurring,Sample,Supporter L,,40
+30038,Aalim Scholarship,MWF-ALM-001,Scholarship Programme,Scholarships,Sadaqah,1,613,1,REF-3038,Paid,Website,GBP,40,Credit / Debit Card,Stripe,D212,14/09/2026 13:45,Recurring,Sample,Supporter M,,40
+30039,Aalim Scholarship,MWF-ALM-001,Scholarship Programme,Scholarships,Sadaqah,2,613,1,REF-3039,Paid,Website,GBP,40,Credit / Debit Card,Stripe,D212,14/10/2026 15:15,Recurring,Sample,Supporter M,,40
+30040,Aalim Scholarship,MWF-ALM-001,Scholarship Programme,Scholarships,Sadaqah,3,613,1,REF-3040,Paid,Website,GBP,40,Credit / Debit Card,Stripe,D212,13/11/2026 17:45,Recurring,Sample,Supporter M,,40
+30041,Large Pump,MWF-WAT-002,Water for Villages,Water,Sadaqah Jariyah,1,614,1,REF-3041,Paid,Website,GBP,150,Credit / Debit Card,Stripe,D213,30/08/2026 12:30,Recurring,Sample,Supporter N,,150
+30042,Large Pump,MWF-WAT-002,Water for Villages,Water,Sadaqah Jariyah,2,614,1,REF-3042,Paid,Website,GBP,150,Credit / Debit Card,Stripe,D213,29/09/2026 14:00,Recurring,Sample,Supporter N,,150
+30043,Large Pump,MWF-WAT-002,Water for Villages,Water,Sadaqah Jariyah,3,614,1,REF-3043,Paid,Website,GBP,150,Credit / Debit Card,Stripe,D213,29/10/2026 16:30,Recurring,Sample,Supporter N,,150
+30044,Large Pump,MWF-WAT-002,Water for Villages,Water,Sadaqah Jariyah,4,614,1,REF-3044,Paid,Website,GBP,150,Credit / Debit Card,Stripe,D213,28/11/2026 10:00,Recurring,Sample,Supporter N,,150
+30045,Large Pump,MWF-WAT-002,Water for Villages,Water,Sadaqah Jariyah,1,615,1,REF-3045,Paid,Website,GBP,150,Credit / Debit Card,Stripe,D200,14/10/2026 15:15,Recurring,Sample,Supporter A,,150
+30046,Large Pump,MWF-WAT-002,Water for Villages,Water,Sadaqah Jariyah,2,615,1,REF-3046,Paid,Website,GBP,150,Credit / Debit Card,Stripe,D200,13/11/2026 17:45,Recurring,Sample,Supporter A,,150
+30047,Build A Home,MWF-BLD-001,Homes for Families,Housing,Sadaqah Jariyah,1,616,1,REF-3047,Paid,Website,GBP,500,Credit / Debit Card,Stripe,D201,12/05/2026 10:20,Recurring,Sample,Supporter B,,500
+30048,Build A Home,MWF-BLD-001,Homes for Families,Housing,Sadaqah Jariyah,2,616,1,REF-3048,Paid,Website,GBP,500,Credit / Debit Card,Stripe,D201,11/06/2026 12:50,Recurring,Sample,Supporter B,,500
+30049,Build A Home,MWF-BLD-001,Homes for Families,Housing,Sadaqah Jariyah,3,616,1,REF-3049,Paid,Website,GBP,500,Credit / Debit Card,Stripe,D201,11/07/2026 14:20,Recurring,Sample,Supporter B,,500
+30050,Build A Home,MWF-BLD-001,Homes for Families,Housing,Sadaqah Jariyah,4,616,1,REF-3050,Paid,Website,GBP,500,Credit / Debit Card,Stripe,D201,10/08/2026 16:50,Recurring,Sample,Supporter B,,500
+30051,Build A Home,MWF-BLD-001,Homes for Families,Housing,Sadaqah Jariyah,5,616,1,REF-3051,Paid,Website,GBP,500,Credit / Debit Card,Stripe,D201,09/09/2026 10:20,Recurring,Sample,Supporter B,,500
+30052,Build A Home,MWF-BLD-001,Homes for Families,Housing,Sadaqah Jariyah,6,616,1,REF-3052,Paid,Website,GBP,500,Credit / Debit Card,Stripe,D201,09/10/2026 12:50,Recurring,Sample,Supporter B,,500
+30053,Small Pump,MWF-WAT-001,Water for Villages,Water,Sadaqah Jariyah,,0,1,REF-3053,Paid,Website,GBP,150,Credit / Debit Card,Stripe,D202,25/11/2026 13:21,One-time,Sample,Supporter C,,150
+30054,Small Pump,MWF-WAT-001,Water for Villages,Water,Sadaqah Jariyah,,0,1,REF-3054,Paid,Website,GBP,150,Credit / Debit Card,Stripe,D203,19/11/2026 11:03,One-time,Sample,Supporter D,,150
+30055,Small Pump,MWF-WAT-001,Water for Villages,Water,Sadaqah Jariyah,,0,1,REF-3055,Paid,Website,GBP,150,Credit / Debit Card,Stripe,D204,10/11/2026 12:06,One-time,Sample,Supporter E,,150
+30056,Small Pump,MWF-WAT-001,Water for Villages,Water,Sadaqah Jariyah,,0,1,REF-3056,Paid,Website,GBP,150,Credit / Debit Card,Stripe,D205,19/10/2026 10:40,One-time,Sample,Supporter F,,150
+30057,Small Pump,MWF-WAT-001,Water for Villages,Water,Sadaqah Jariyah,,0,1,REF-3057,Paid,Website,GBP,150,Credit / Debit Card,Stripe,D206,14/09/2026 13:45,One-time,Sample,Supporter G,,150
+30058,Small Pump,MWF-WAT-001,Water for Villages,Water,Sadaqah Jariyah,,0,1,REF-3058,Paid,Website,GBP,150,Credit / Debit Card,Stripe,D207,21/07/2026 12:10,One-time,Sample,Supporter H,,150
+30059,Family Startup,MWF-FAM-001,Livelihood Fund,Livelihood,Sadaqah,,0,1,REF-3059,Paid,Website,GBP,250,Credit / Debit Card,Stripe,D208,22/11/2026 16:42,One-time,Sample,Supporter I,,250
+30060,Family Startup,MWF-FAM-001,Livelihood Fund,Livelihood,Sadaqah,,0,1,REF-3060,Paid,Website,GBP,250,Credit / Debit Card,Stripe,D209,24/10/2026 13:05,One-time,Sample,Supporter J,,250
+30061,Family Startup,MWF-FAM-001,Livelihood Fund,Livelihood,Sadaqah,,0,1,REF-3061,Paid,Website,GBP,250,Credit / Debit Card,Stripe,D210,30/08/2026 12:30,One-time,Sample,Supporter K,,250
+30062,Medical Camp (One Day),MWF-MED-001,Medical Camps,Health,Sadaqah,,0,1,REF-3062,Paid,Website,GBP,100,Credit / Debit Card,Stripe,D211,14/11/2026 16:38,One-time,Sample,Supporter L,,100
+30063,Medical Camp (One Day),MWF-MED-001,Medical Camps,Health,Sadaqah,,0,1,REF-3063,Paid,Website,GBP,100,Credit / Debit Card,Stripe,D212,29/09/2026 14:00,One-time,Sample,Supporter M,,100
+30064,General Donation,MWF-GEN-001,Where Needed Most,General,Sadaqah,,0,1,REF-3064,Paid,Website,GBP,20,Credit / Debit Card,Stripe,D213,24/11/2026 14:28,One-time,Sample,Supporter N,,20
+30065,General Donation,MWF-GEN-001,Where Needed Most,General,Sadaqah,,0,1,REF-3065,Paid,Website,GBP,20,Credit / Debit Card,Stripe,D200,06/11/2026 16:34,One-time,Sample,Supporter A,,20

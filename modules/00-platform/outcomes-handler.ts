@@ -22,14 +22,14 @@ import { setItemTimeline } from "../02-project-rules/timeline.js";
 import { applyKindAction, type SavedFeatures } from "../02-project-rules/kind-features.js";
 import { applyBeneficiaryAction, emptyRegister } from "../07-beneficiaries/beneficiaries.js";
 import { applyAllocationAction, emptyAllocations, allocateContext } from "../09-allocation/allocation.js";
-import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments } from "../08-assignment/assignment.js";
+import { applyAssignmentAction, assignables, contextFrom, demandByItem, emptyAssignments, runAssignment } from "../08-assignment/assignment.js";
 import { applyConfirmationAction, confirmOnBehalf, emptyConfirmations, refusedBy } from "../11-confirmation/confirmation.js";
 import { applyProgressAction, emptyProgress } from "../12-progress/progress.js";
 import { applyErasure } from "../07-beneficiaries/erasure.js";
 import { changesBetween } from "./change-log.js";
 import { progressContext } from "../12-progress/context.js";
 import { batchSizeOf } from "../08-assignment/batches.js";
-import { loadSampleSetup, realProjectsFor, wholeByItem, type SampleState, removeSampleSetup, sampleSummaryText, removedSummaryText } from "../07-beneficiaries/sample-setup.js";
+import { hasSample, loadSampleSetup, realProjectsFor, wholeByItem, type SampleState, removeSampleSetup, sampleSummaryText, removedSummaryText } from "../07-beneficiaries/sample-setup.js";
 import { poolMessage, settlePool } from "../07-beneficiaries/waiting.js";
 import { applyEnrolmentAction, emptyEnrolments, heldByBeneficiary, heldInCluster, itemRulesOf } from "../07-beneficiaries/enrolments.js";
 import { handlePartner } from "./partner-handler.js";
@@ -37,7 +37,8 @@ import { autoRulesOf, setAutoRule } from "../18-automation/rules.js";
 import { addMessages } from "../18-automation/messages.js";
 import { newBatchMessages, sentBackFor } from "../18-automation/input.js";
 import { sweepRecords } from "../18-automation/run.js";
-import { standings } from "../12-progress/context.js";
+import { standings, stepsFor } from "../12-progress/context.js";
+import { buildScenario, SCENARIO_AUTO, SCENARIO_TIMELINES, scenarioWorkflows } from "../07-beneficiaries/sample-scenario.js";
 import { handlePlaces } from "./places-handler.js";
 import { acceptPlace, upsertPlace } from "../14-locations/locations.js";
 import { resolveArea } from "../14-locations/areas.js";
@@ -194,6 +195,38 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
       confirmations = r.value;
       await save({ ...config, confirmations });
       return reply({ ...(r.message ? { warning: r.message } : {}) });
+    }
+    // The sample scenario (DECISIONS 329): the records of a working organisation on top of the sample world and the sample setup, dated back from today. It uses the same engines the buttons use. sample-scenario-remove clears those records.
+    if (b["action"] === "sample-scenario-remove") {
+      assignments = emptyAssignments(); confirmations = emptyConfirmations(); allocations = { ...emptyAllocations(), ...(allocations.stock ? { stock: allocations.stock } : {}) }; progress = emptyProgress();
+      await save({ ...config, assignments, confirmations, allocations, progress, partnerMessages: [], priorityGifts: [] });
+      return reply({ warning: "The sample scenario was removed: assignments, answers, allocations, steps and messages are cleared." });
+    }
+    if (b["action"] === "sample-scenario-load") {
+      if (!hasSample({ giftProjects, register: beneficiaries })) return fail("Load the sample setup first.");
+      const wosS = await d.store.listWorkOrders(org);
+      if (fw.length === 0 || !wosS.some((w) => (w.frameworkId ?? "") !== "")) return fail("Set up the workflows first: on Workflows, add the standard workflows, suggest them from the item names, and apply them to the gifts.");
+      const today = at.slice(0, 10);
+      const namesS = new Map(wosS.map((w) => [w.itemId, w.itemName]));
+      const frameworksS = scenarioWorkflows(fw);
+      const ctxAt = (now: string, over: Record<string, unknown> = {}) => contextFrom({ urgent: new Set<string>(), workOrders: wosS, partners: projects, giftProjects, frameworks: frameworksS, outcomeTypes, today: now.slice(0, 10), now, enrolments: enrolments.records, beneficiaries: beneficiaries.records, rulesOf: (itemId: string) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesS.get(itemId) ?? ""), itemUnits: config.itemUnits, ...over });
+      const units = assignables(ctxAt(at));
+      const made = buildScenario({
+        today, units: units.map((u) => ({ key: u.key, itemName: u.w.itemName, frameworkId: u.w.frameworkId ?? "" })),
+        assign: (now) => runAssignment(ctxAt(now), emptyAssignments()).value,
+        allocate: (given, now) => {
+          const actxA = ctxAt(now);
+          const ctx = allocateContext({ steps: normaliseSteps(config.allocationSteps), urgent: new Set<string>(), assignments: given.records, assignables: assignables(actxA), workOrders: wosS, enrolments: enrolments.records, beneficiaries: beneficiaries.records, giftProjects, frameworks: frameworksS, rulesOf: (itemId) => itemRulesOf(config.itemKinds ?? {}, (config.kindFeatures ?? {}) as SavedFeatures, itemId, namesS.get(itemId) ?? ""), now, ...(config.itemUnits ? { itemUnits: config.itemUnits } : {}) });
+          const r = applyAllocationAction(ctx, emptyAllocations(), { action: "alc-run" });
+          return r && "value" in r ? r.value : emptyAllocations();
+        },
+        stepsOf: (id) => { const s = stepsFor(frameworksS.find((f) => f.id === id)); return { phases: s.phases.map((p) => ({ id: p.id, days: p.days })), review: s.review }; },
+      });
+      assignments = made.assignments; confirmations = made.confirmations; allocations = made.allocations; progress = made.progress;
+      const next = { ...config, frameworks: frameworksS, itemTimelines: { ...(config.itemTimelines ?? {}), ...SCENARIO_TIMELINES }, autoRules: { ...SCENARIO_AUTO }, assignments, confirmations, allocations, progress, partnerMessages: made.partnerMessages, priorityGifts: made.priorityGifts };
+      await save(next);
+      Object.assign(config, next);
+      return reply({ warning: `Sample scenario loaded: ${assignments.records.length} gifts assigned, ${confirmations.records.length} answers, ${allocations.records.length} allocations, ${progress.records.length} steps, ${made.partnerMessages.length} messages. The loop, moving and days to fulfil are set on the sample workflows.` });
     }
     // The sample setup (DECISIONS 168): invented partners, projects, clusters, beneficiaries and enrolments, loaded and removed as one.
     if (b["action"] === "sample-load" || b["action"] === "sample-remove") {

@@ -314,7 +314,19 @@ export const settingsPage = (v: View): string => `
       <tr><td>How the feed is read</td><td>Database view or API (chosen per organisation)</td></tr></tbody></table>
     <p class="muted">${v.live ? "These settings are read-only here. Gifts come from the CRM exports or the feed you loaded." : "In this demo the settings are read-only and the feed is the invented sample."}</p></div>
     ${accountsCard(v)}
-    ${sampleCard(v)}`;
+    ${sampleCard(v)}
+    ${scenarioCard(v)}`;
+
+// The sample scenario card (DECISIONS 329): the records of a working organisation, dated back from today, on top of the sample world and the sample setup. Only on a live organisation, since it works on the saved gifts.
+function scenarioCard(v: View): string {
+  if (!v.live) return "";
+  const ready = hasSample({ giftProjects: v.giftProjects ?? [], register: v.beneficiaries ?? { records: [], counters: {} } });
+  return `<div class="card"><h2>Sample scenario</h2>
+    <p class="muted">Makes the records of a working organisation from the sample world's gifts, dated back from today, so every part can be tried: gifts assigned long ago and just now, answers on time, late, refused and missing, allocations, partner steps on time and late, work waiting for review and sent back, a repeating report, messages in a partner's inbox and a Priority gift. It also switches on the sample workflows' loop, moving and days to fulfil, and the automatic settings.</p>
+    <p class="muted">First: upload the three files in samples/world on Upload files, add the standard workflows on Workflows (suggest them from the item names, then apply them to the gifts), and load the sample setup above.</p>
+    <div class="actions"><button class="primary" data-sample="scenario"${ready ? "" : " disabled"}>Load sample scenario</button><button data-sample="scenario-remove">Remove sample scenario</button></div>
+    <p class="muted">${ready ? "The sample setup is loaded, so the scenario can be made." : "Load the sample setup first."}</p></div>`;
+}
 
 // The sample setup card (DECISIONS 168): one button loads invented partners, projects, clusters, beneficiaries and enrolments so the whole chain can be tried, and one removes exactly those.
 function sampleCard(v: View): string {
