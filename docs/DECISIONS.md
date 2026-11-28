@@ -1127,3 +1127,6 @@ The Beneficiaries and Outcomes lists showed the key in a collapsible two-row blo
 
 ## 308 (28/11/26): key beside Columns, and tabs on Assignment and Allocate
 The one-line key now joins the list tools row, left, beside the Columns button (Beneficiaries, Outcomes and Gifts), so it takes no row of its own. Assignment (Gifts, Capacity, Batches) and Allocate (Gifts, Beneficiaries to fund) show one table per screen through tabs, so nobody scrolls past one table to reach another. Every panel is drawn and the others hidden, so a list keeps its sort and filters between tabs. A tile opens the Gifts tab. Reason: Faisal asked for less empty space and one table per screen.
+
+## 309 (28/11/26): page intro text spans the page
+The intro paragraph under each page title was capped at 96 characters, leaving the right of the page empty. The cap is removed on every page. Reason: Faisal asked for less empty space.
