@@ -23,11 +23,12 @@ function view(): View {
 describe("the Dashboard areas card and its fix window", () => {
   it("counts checked, typed and empty areas, lists each typed area once with Find place, and tables the places", () => {
     const html = areasCard(view()) + areasWindowHtml(view(), noAreasUi(true));
-    expect(html).toContain("<b>4</b><span>Beneficiaries");
-    expect(html).toContain("<b>1</b><span>From a checked place");
+    expect(html).toMatch(/dash-kpi-val">4<\/b>/);
+    expect(html).toContain("Beneficiaries");
+    expect(html).toMatch(/dash-kpi-label">From a checked place<[\s\S]*?dash-kpi-val">1<\/b>/);
     expect(html).toContain("Fix anomalies (1)");
     expect(html).toContain('role="dialog"');
-    expect(html).toContain("<b>2</b><span>Typed, to check");
+    expect(html).toMatch(/dash-kpi-label">Typed, to check<[\s\S]*?dash-kpi-val">2<\/b>/);
     expect(html).toContain('data-action="ar-find"');
     expect(html.match(/data-action="ar-find"/g)).toHaveLength(1); // both spellings are one area
     expect(html).toContain("Kasur District, Punjab");
@@ -45,7 +46,8 @@ describe("the Dashboard areas card and its fix window", () => {
   it("is calm when there is nothing to show", () => {
     const html = areasCard({ beneficiaries: emptyRegister(), locations: [] } as unknown as View) + areasWindowHtml({ beneficiaries: emptyRegister(), locations: [] } as unknown as View, noAreasUi(true));
     expect(html).toContain("Nothing to do here");
-    expect(html).toContain("The map and the table appear once one does."); // one calm message, not two
+    expect(html).toContain("No place is checked yet"); // one calm, guiding message, not two
+    expect(html).toContain("Give a beneficiary an area");
   });
 });
 
@@ -65,12 +67,26 @@ describe("the two views and the project filter (DECISIONS 278)", () => {
   });
   it("shows where it is served: enrolled beneficiaries at the cluster's place, though they are from elsewhere", () => {
     const html = areasCard(v(), { mode: "served", project: "" });
-    expect(html).toContain("<b>2</b><span>Served at a checked place");
+    expect(html).toMatch(/dash-kpi-label">Served at a checked place<[\s\S]*?dash-kpi-val">2<\/b>/);
     expect(html).toContain("<td>Lahore</td>");
     expect(html).not.toContain("<td>Kasur</td>"); // Kasur is where one is from, not where anything is served
   });
   it("limits the view to one project", () => {
-    expect(areasCard(v(), { mode: "served", project: "g2" })).toContain("<b>0</b><span>Enrolled");
-    expect(areasCard(v(), { mode: "from", project: "g2" })).toContain("<b>0</b><span>Beneficiaries");
+    expect(areasCard(v(), { mode: "served", project: "g2" })).toMatch(/dash-kpi-label">Enrolled<[\s\S]*?dash-kpi-val">0<\/b>/);
+    expect(areasCard(v(), { mode: "from", project: "g2" })).toMatch(/dash-kpi-label">Beneficiaries<[\s\S]*?dash-kpi-val">0<\/b>/);
+  });
+});
+
+describe("the map card's empty state and coverage bar (DECISIONS 303)", () => {
+  it("offers the way forward when areas are typed but none is checked", () => {
+    const html = areasCard({ ...view(), locations: [] } as unknown as View);
+    expect(html).toContain("No place is checked yet");
+    expect(html).toContain('data-action="ar-open">Check typed areas (');
+  });
+  it("shows how the beneficiaries split between checked, typed and no area, with the numbers beside the names", () => {
+    const html = areasCard(view());
+    expect(html).toContain('class="ar-cover" role="img"');
+    expect(html).toMatch(/From a checked place <b>1<\/b>/);
+    expect(html).toMatch(/Typed, to check <b>2<\/b>/);
   });
 });

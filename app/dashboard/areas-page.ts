@@ -10,6 +10,7 @@
 import { areaReport, mapPoints, projectBeneficiaries, servedReport, uncheckedAreas } from "../../modules/14-locations/areas";
 import type { Place } from "../../modules/14-locations/locations";
 import { label } from "../../modules/14-locations/locations";
+import { dashIcon, kpiHtml } from "./dash-charts";
 import { esc, type View } from "../shared/pages";
 
 export interface AreasUi { open: boolean; finding: string; results: Place[]; searching: boolean }
@@ -38,7 +39,16 @@ const EMPTY = { records: [], counters: {} };
 // mode "from": where beneficiaries are from (their Area). mode "served": where the benefit is served (the place of the cluster they are enrolled in). `project` "" is all projects (DECISIONS 278).
 export interface AreasView { mode: "from" | "served"; project: string }
 export const noAreasView = (): AreasView => ({ mode: "from", project: "" });
-const tile = (n: number, text: string, cls = ""): string => `<div class="metric${cls}"><b>${n}</b><span>${esc(text)}</span></div>`;
+// A figure tile in the same look as the rest of the Dashboard (DECISIONS 303): icon badge, one number, its words.
+const tile = (n: number, text: string, icon: string, hue: number, sub = ""): string => kpiHtml({ label: text, value: String(n), icon, hue, ...(sub ? { sub } : {}) });
+// One whole split into parts (DECISIONS 303): a thin segmented bar with a 2px gap between parts and the numbers listed under it, so no meaning rests on colour.
+function coverage(parts: { label: string; value: number; color: string }[]): string {
+  const total = parts.reduce((t, p) => t + p.value, 0);
+  if (total === 0) return "";
+  const shown = parts.filter((p) => p.value > 0);
+  return `<div class="ar-cover-wrap"><div class="ar-cover" role="img" aria-label="${esc(parts.map((p) => `${p.label} ${p.value}`).join(", "))}">${shown.map((p) => `<i style="flex:${p.value};background:${p.color}"></i>`).join("")}</div>
+    <ul class="ar-cover-key">${parts.map((p) => `<li><span class="dash-sw" style="background:${p.color}" aria-hidden="true"></span>${esc(p.label)} <b>${p.value}</b> <span class="muted">${Math.round((p.value / total) * 100)}%</span></li>`).join("")}</ul></div>`;
+}
 const placeTable = (rows: ReturnType<typeof areaReport>["places"], countLabel: string): string => rows.length === 0 ? `<p class="muted">Nothing to show yet.</p>` : `<div class="tablewrap"><table><thead><tr><th>Place</th><th>Region</th><th>Country</th><th class="num">${countLabel}</th></tr></thead><tbody>${rows.map((p) => `<tr><td>${esc(p.name)}</td><td>${esc([p.district, p.region].filter((x) => x).join(", "))}</td><td>${esc(p.country)}</td><td class="num">${p.count}</td></tr>`).join("")}</tbody></table></div>`;
 
 export function areasCard(v: View, view: AreasView = noAreasView()): string {
@@ -50,16 +60,23 @@ export function areasCard(v: View, view: AreasView = noAreasView()): string {
   const rep = areaReport(reg, v.locations ?? [], only);
   const srv = servedReport(projects, v.enrolments?.records ?? [], v.locations ?? [], view.project);
   const rows = from ? rep.places : srv.places;
+  const total = rep.checked + rep.unchecked + rep.none;
   const tiles = from
-    ? `${tile(rep.checked + rep.unchecked + rep.none, "Beneficiaries")}${tile(rep.checked, "From a checked place")}${tile(rep.unchecked, "Typed, to check", rep.unchecked ? " warn" : "")}${tile(rep.none, "No area")}`
-    : `${tile(srv.served + srv.unplaced, "Enrolled")}${tile(srv.served, "Served at a checked place")}${tile(srv.unplaced, "At a cluster with no location", srv.unplaced ? " warn" : "")}`;
+    ? `${tile(total, "Beneficiaries", "people", 0)}${tile(rep.checked, "From a checked place", "pin", 2, total ? `${Math.round((rep.checked / total) * 100)}% of beneficiaries` : "")}${tile(rep.unchecked, "Typed, to check", "alert", 1, rep.unchecked ? "typed, not matched to a place" : "")}${tile(rep.none, "No area", "doc", 5, "nothing typed yet")}`
+    : `${tile(srv.served + srv.unplaced, "Enrolled", "people", 0)}${tile(srv.served, "Served at a checked place", "pin", 2)}${tile(srv.unplaced, "At a cluster with no location", "alert", 1, srv.unplaced ? "set it on the cluster" : "")}`;
+  const split = from
+    ? coverage([{ label: "From a checked place", value: rep.checked, color: "#2a78d6" }, { label: "Typed, to check", value: rep.unchecked, color: "#eb6834" }, { label: "No area", value: rep.none, color: "#a8a7a0" }])
+    : coverage([{ label: "Served at a checked place", value: srv.served, color: "#2a78d6" }, { label: "At a cluster with no location", value: srv.unplaced, color: "#eb6834" }]);
+  const empty = from
+    ? `<div class="ar-empty"><span class="dash-badge" style="--hue:#eb6834">${dashIcon("pin", 20)}</span><div><b>No place is checked yet</b><p class="muted">${anomalies > 0 ? `${anomalies} typed ${anomalies === 1 ? "area is" : "areas are"} waiting. Match each to a real place and the map and the table fill in. One choice fixes everyone who typed it.` : "Give a beneficiary an area, and choose a place from the list, and the map and the table fill in."}</p></div>${anomalies > 0 ? `<button type="button" class="primary" data-action="ar-open">Check typed areas (${anomalies})</button>` : ""}</div>`
+    : `<div class="ar-empty"><span class="dash-badge" style="--hue:#eb6834">${dashIcon("pin", 20)}</span><div><b>No cluster has a checked location yet</b><p class="muted">Set the location on a cluster's Details tab. Then the map shows where each benefit is served.</p></div></div>`;
   const mode = (m: "from" | "served", text: string): string => `<button type="button" class="ar-seg" data-action="ar-mode" data-mode="${m}" aria-pressed="${view.mode === m}">${text}</button>`;
   return `<section class="card ar-card" aria-labelledby="ar-h"><div class="ar-head"><div><h2 id="ar-h">Where beneficiaries are</h2><p class="muted">${from ? "Where each beneficiary comes from, by village, town or district." : "Where the benefit is served: the location of the cluster each beneficiary is enrolled in. Set it on the cluster's Details tab."} A household address is never held.</p></div>
       <button type="button" data-action="ar-open"${anomalies ? ' class="primary"' : ""}>Fix anomalies${anomalies ? ` (${anomalies})` : ""}</button></div>
     <div class="ar-controls"><div class="ar-segs" role="group" aria-label="Map by">${mode("from", "Where they are from")}${mode("served", "Where it is served")}</div>
       <label class="ar-proj"><span class="muted">Project</span><select id="ar-project" aria-label="Project"><option value="">All projects</option>${projects.map((p) => `<option value="${esc(p.id)}"${p.id === view.project ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</select></label></div>
-    <div class="metrics">${tiles}</div>
-    ${rows.length === 0 ? `<div class="empty">${from ? "No beneficiary has a checked place yet." : "No cluster has a checked location yet. Set it on the cluster's Details tab."} The map and the table appear once one does.</div>` : `    <div class="ar-grid"><div><div id="ar-leaflet" class="ar-leaflet" data-rows="${esc(JSON.stringify(rows))}">${mapSvg(rows)}</div><p class="muted ar-note">Map data &copy; OpenStreetMap contributors. If the map cannot load, a plain layout by position is shown.</p></div>
+    <div class="dash-grid ar-tiles">${tiles}</div>${split}
+    ${rows.length === 0 ? empty : `    <div class="ar-grid"><div><div id="ar-leaflet" class="ar-leaflet" data-rows="${esc(JSON.stringify(rows))}">${mapSvg(rows)}</div><p class="muted ar-note">Map data &copy; OpenStreetMap contributors. If the map cannot load, a plain layout by position is shown.</p></div>
       <div>${placeTable(rows, from ? "Beneficiaries" : "Enrolled")}${from && rep.countries.length ? `<p class="muted">By country: ${rep.countries.map((c) => `${esc(c.country)} ${c.count}`).join(", ")}.</p>` : ""}</div></div>`}</section>`;
 }
 

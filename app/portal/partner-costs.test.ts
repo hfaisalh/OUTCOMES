@@ -60,7 +60,7 @@ describe("the staff Dashboard card", () => {
     expect(html).toContain("Beta Trust");
   });
   it("says so when nothing is recorded", () => {
-    expect(costsCard({ projects: [], partnerCosts: [] } as unknown as View)).toContain("No partner has recorded a cost yet.");
+    expect(costsCard({ projects: [], partnerCosts: [] } as unknown as View)).toContain("No partner has recorded a cost yet");
   });
 });
 
