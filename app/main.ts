@@ -459,7 +459,7 @@ let lastFocusedPage = ""; // the page focus was last moved to, so a redraw of th
 function draw(): void {
   // Rule (DECISIONS 91): until a session is found, or the demo is chosen, only the sign-in screen is shown.
   if (state.gate !== "app") {
-    const html = state.gate === "checking" ? checkingHtml() : state.gate === "partner" && state.partnerSlice && state.me ? partnerHomeHtml(state.partnerSlice, state.me.name, typeof __BUILD_LABEL__ === "string" ? __BUILD_LABEL__ : "dev", partnerUi, state.me.canReturn === true) : signinHtml(state.ownerNote);
+    const html = state.gate === "checking" ? checkingHtml() : state.gate === "partner" && state.partnerSlice && state.me ? partnerHomeHtml(state.partnerSlice, state.me.name, typeof __BUILD_LABEL__ === "string" ? __BUILD_LABEL__ : "dev", partnerUi, state.me.canReturn === true) : signinHtml(state.ownerNote, typeof __BUILD_LABEL__ === "string" ? __BUILD_LABEL__ : "dev");
     (document.getElementById("shell") as HTMLElement).innerHTML = html;
     return;
   }

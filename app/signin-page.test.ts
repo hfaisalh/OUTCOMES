@@ -35,3 +35,13 @@ describe("the sign-in screen", () => {
     expect(checkingHtml()).toContain("Checking your sign-in");
   });
 });
+
+describe("the version on the sign-in screen", () => {
+  it("shows the build label under the card, so a person can tell which version they are on before signing in", () => {
+    expect(signinHtml("", "v0.1.0 · abc1234 · 28/11/26 10:00 UTC")).toContain("Version v0.1.0 · abc1234 · 28/11/26 10:00 UTC");
+  });
+  it("shows nothing when there is no label, and escapes one", () => {
+    expect(signinHtml("")).not.toContain("signin-ver");
+    expect(signinHtml("", "<b>x</b>")).toContain("&lt;b&gt;x&lt;/b&gt;");
+  });
+});

@@ -831,3 +831,4 @@ tr.clickrow{cursor:pointer}tr.clickrow:hover{background:color-mix(in srgb,var(--
 @media (prefers-reduced-motion:reduce){.dr,.sg-tab,.sg-step{transition:none;animation:none}}
 .sg-rail .sg-tab.on,.sg-rail .sg-tab.on .sg-t{color:var(--text)}
 .badge-test{background:#e34948!important;color:#fff!important;font-weight:700}
+.signin-ver{margin:14px 0 0;font-size:12px;text-align:center}

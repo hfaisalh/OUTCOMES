@@ -13,7 +13,8 @@ import { ROLES } from "../modules/00-platform/roles";
 
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-export function signinHtml(note: string): string {
+// `version` is the build label of this page (version, commit and time), so a person can tell which version they are on before signing in, and whether a refresh is needed.
+export function signinHtml(note: string, version = ""): string {
   return `<main class="signin"><div class="signin-card">
     <div class="signin-brand"><img class="brand-mark" src="/brand/mark.svg" alt="" width="40" height="40"><span>OUTCOMES<small>Fulfilment and donor feedback</small></span></div>
     <h1>Sign in</h1>
@@ -39,6 +40,7 @@ export function signinHtml(note: string): string {
       </form>
     </details>
     <p class="muted"><a href="?demo=1">Look at the demo with invented data</a>. Nothing in it is saved.</p>
+    ${version ? `<p class="signin-ver muted" title="The version of this page. If it is not the latest, refresh the page.">Version ${esc(version)}</p>` : ""}
   </div></main>`;
 }
 
