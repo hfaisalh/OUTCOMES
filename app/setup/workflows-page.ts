@@ -9,7 +9,7 @@
 
 import { switchHtml } from "../shared/switch";
 import { CYCLE_LABELS, FULFILLED_LABELS, type Cycle, type Fulfilled, type FrameworkTemplate } from "../../modules/02-project-rules/categories";
-import { assignOf, confirmDaysOf, flagOf, fulfilledOf, totalDays, unitModeOf } from "../../modules/02-project-rules/workflows";
+import { assignOf, confirmDaysOf, flagOf, fulfilledOf, reportLoopOf, totalDays, unitModeOf } from "../../modules/02-project-rules/workflows";
 import { typeForFramework, type OutcomeType } from "../../modules/05-outcomes/outcome-types";
 import { flowChart } from "./workflow-flowchart";
 import { ICONS, iconHtml, itemIcon } from "../shared/icons";
@@ -86,11 +86,15 @@ function stagePanel(f: FrameworkTemplate, type: OutcomeType | undefined, stage: 
     ${flag("feedback", "Once the order is complete, the donor is asked for feedback")}
     <p class="muted">This improves the quality of delivery. When the donor is asked, how, and the questions come later.</p>`;
   const living = unitModeOf(f) !== "once";
+  const loop = reportLoopOf(f);
   return `<h3>Report and complete</h3>
     <h3 class="wf-h">Decision: reporting protocol</h3>
     <p class="muted">${living ? "A living order: it is not finished by one delivery. The donor hears back on the cycle below for as long as it runs, and it ends when the support ends." : "A transactional order: once it is complete the donor gets one completion report, and the order is closed."}</p>
     <div class="wf-two"><label class="wf-field"><span>The report the donor gets</span><input data-tpl="reportType" ${t} value="${esc(f.reportType)}" placeholder="Quarterly update"></label>
-    <label class="wf-field"><span>How often the donor hears back</span><select data-tpl="cycle" ${t}>${(Object.keys(CYCLE_LABELS) as Cycle[]).map((y) => `<option value="${y}"${y === f.cycle ? " selected" : ""}>${esc(CYCLE_LABELS[y])}</option>`).join("")}</select></label></div>
+${living ? `<div></div></div>
+    <div class="ot-check">${switchHtml({ label: "Repeat the report while payments keep coming", on: loop !== null, attrs: `data-wf-loop="${esc(f.id)}"` })}</div>
+    ${loop !== null ? `<div class="wf-two"><label class="wf-field"><span>The report repeats</span><select data-tpl="cycle" ${t}>${(Object.keys(CYCLE_LABELS) as Cycle[]).filter((y) => y !== "on_delivery").map((y) => `<option value="${y}"${y === f.cycle ? " selected" : ""}>${esc(CYCLE_LABELS[y])}</option>`).join("")}</select></label></div>
+    <p class="muted">After each report the gift goes back to the report step for the next round. It leaves the loop and goes on to feedback only when the gift stops (cancelled, paused or completed) or the term of its plan has ended. A plan with no end keeps going while its payments continue.</p>` : `<p class="muted">The report is sent once. Switch the loop on to keep reporting on a cycle for as long as the gift runs.</p>`}` : `<label class="wf-field"><span>How often the donor hears back</span><select data-tpl="cycle" ${t}>${(Object.keys(CYCLE_LABELS) as Cycle[]).map((y) => `<option value="${y}"${y === f.cycle ? " selected" : ""}>${esc(CYCLE_LABELS[y])}</option>`).join("")}</select></label></div>`}
     <p class="muted">Feedback from the donor after the order is complete comes later.</p>`;
 }
 

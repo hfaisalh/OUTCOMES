@@ -43,3 +43,14 @@ describe("the flow chart", () => {
     expect(svg).toContain("Feedback from the donor");
   });
 });
+
+describe("the reporting loop (decision 317)", () => {
+  it("draws the loop back to Report and the way out to Feedback for a living workflow, and not for a transactional one", () => {
+    const living = flowChart(fw({ instalment: "per_period", cycle: "monthly" }), undefined, 6);
+    expect(text(living)).toContain("Repeats monthly while payments continue");
+    expect(text(living)).toContain("When the gift stops or its plan ends");
+    const once = flowChart(fw({ instalment: "share_of_whole", cycle: "on_delivery" }), undefined, 6);
+    expect(text(once)).not.toContain("Repeats");
+    expect(text(flowChart(fw({ instalment: "per_period", cycle: "on_delivery" }), undefined, 6))).not.toContain("Repeats");
+  });
+});

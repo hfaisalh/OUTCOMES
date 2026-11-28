@@ -97,6 +97,15 @@ export const removeTask = (frameworks: FrameworkTemplate[], id: string, tid: str
     return left.length ? { ...f, tasks: left } : rest;
   });
 
+// ---- The reporting loop of a living gift (DECISIONS 317) ----
+// Rule: a living workflow (a unit is one period, a sponsorship) repeats its report on its cycle for as long as payments keep coming. After each report the gift goes back to the report step for the next round. It leaves the loop, and goes on to feedback, only when the gift stops (cancelled, paused or completed) or the term of its plan has ended. A workflow whose cycle is "on delivery" does not loop, and neither does one that releases only when fully paid.
+// Returns the cycle the report repeats on, or null when the workflow does not loop.
+export function reportLoopOf(fw: FrameworkTemplate): Cycle | null {
+  return unitModeOf(fw) !== "once" && fw.instalment !== undefined && fw.cycle !== "on_delivery" ? fw.cycle : null;
+}
+// Switching the loop on gives the report a monthly cycle when it had none; switching it off takes the report back to once, on delivery.
+export const setReportLoop = (frameworks: FrameworkTemplate[], id: string, on: boolean): Edited => editWf(frameworks, id, (f) => ({ ...f, cycle: on ? (f.cycle === "on_delivery" ? "monthly" : f.cycle) : "on_delivery" }));
+
 // ---- Fulfilled when (DECISIONS 316) ----
 // Rule: the stage at which a gift counts as fulfilled, for the Dashboard and the time to fulfil: the workflow's own setting, else allocated for a unit that is one period (a sponsorship is fulfilled once a beneficiary is funded, and the workflow carries on with its reports), else complete (a build).
 export const fulfilledOf = (fw: FrameworkTemplate | undefined): Fulfilled => fw?.fulfilled ?? (fw?.instalment === "per_period" ? "allocated" : "complete");

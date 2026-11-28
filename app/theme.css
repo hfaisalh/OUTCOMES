@@ -750,3 +750,10 @@ button.metric.tile:focus-visible{outline:2px solid var(--accent);outline-offset:
 .dash-card:has(> .dash-donut-body){display:flex;flex-direction:column}
 .dash-card:has(> .dash-donut-body) > .dash-donut-body{margin:auto 0}
 .dash-card:has(> .dash-donut-body) > .dash-tbl{margin-top:auto}
+
+/* --- The reporting loop on the workflow chart (DECISIONS 317) --- */
+.fc-sub{font-size:11px;fill:var(--muted)}
+.fc-edge.loop{stroke:var(--accent)}
+.fc-badge.loop circle{stroke:var(--accent)}
+.fc-badge.loop .fc-ri{stroke:var(--accent)}
+.fc-badge.loop.off .slash{stroke:#c0392b;stroke-width:2}

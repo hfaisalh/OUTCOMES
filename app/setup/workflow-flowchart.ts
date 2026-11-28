@@ -7,7 +7,8 @@
  * Who calls it: app/setup/workflows-page.ts. Depends on: the workflow and its outcome type (types only). Pure: it takes data and returns an SVG string.
  */
 
-import type { FrameworkTemplate } from "../../modules/02-project-rules/categories";
+import { CYCLE_LABELS, type FrameworkTemplate } from "../../modules/02-project-rules/categories";
+import { reportLoopOf } from "../../modules/02-project-rules/workflows";
 import type { OutcomeType } from "../../modules/05-outcomes/outcome-types";
 
 // Rule icons as line paths (24 by 24), the same set as the stage boxes use.
@@ -41,7 +42,7 @@ const ruleIcon = (key: string, x: number, y: number): string => { const r = RULE
  * Gift, Work order, Allocation, Report, Complete and Feedback are stages. Assignment, Confirmation and Review are processes. A rejected confirmation goes back to Assignment, a rejected
  * review goes back to Allocation. Clicking a box opens its panel: 1 Work order, 2 Assignment, 3 Confirmation, 4 Allocation, 5 Review, 6 Report, 7 Feedback. Gift and Complete have none.
  */
-export function flowChart(_fw: FrameworkTemplate, _type: OutcomeType | undefined, stage: number): string {
+export function flowChart(fw: FrameworkTemplate, _type: OutcomeType | undefined, stage: number): string {
   const mid = Y + H / 2;
   const parts: string[] = [];
   const edges: string[] = [];
@@ -61,14 +62,22 @@ export function flowChart(_fw: FrameworkTemplate, _type: OutcomeType | undefined
   const confirmX = place(W, (c) => diamond(3, c, "Confirmation", "confirm"));
   const allocX = place(W, (c) => rect(4, c, "Allocation", "deliver"), "Approve");
   const reviewX = place(W, (c) => diamond(5, c, "Review", "approve"));
-  place(W, (c) => rect(6, c, "Report", "report"), "Approve");
-  place(W, (c) => fixed(c, "Complete"));
-  place(W, (c) => rect(7, c, "Feedback", "feedback"));
+  const reportX = place(W, (c) => rect(6, c, "Report", "report"), "Approve");
+  const completeX = place(W, (c) => fixed(c, "Complete"));
+  const feedbackX = place(W, (c) => rect(7, c, "Feedback", "feedback"));
   const width = x - GAP + X0;
   // Rejected branches go back, under the row: a rejected confirmation to assignment, a rejected review to allocation.
   const ly = Y + H + 30;
   const back = (from: number, to: number, label: string): string => `<path d="M${from} ${Y + H + 6} V${ly} H${to} V${Y + H + 6}" class="fc-edge dashed" marker-end="url(#fc-arrow)"/>${badge((from + to) / 2, ly, false)}<text x="${(from + to) / 2}" y="${ly + 20}" text-anchor="middle" class="fc-lbl">${esc(label)}</text>`;
-  const extra = back(confirmX, assignX, "Reject: reassign") + back(reviewX, allocX, "Reject: back to the partner");
+  // Rule (DECISIONS 317): a living workflow loops from Complete back to Report on its cycle while payments keep coming (above the row), and goes on to Feedback only when the gift stops or its plan ends (under the row).
+  const every = reportLoopOf(fw);
+  const top = Y - 28;
+  const loopBadge = (cx: number, cy: number, broken: boolean): string => `<g transform="translate(${cx} ${cy})" class="fc-badge loop${broken ? " off" : ""}"><title>${broken ? "The loop ends" : "The report repeats"}</title><circle r="10"/><g transform="translate(-7.5 -7.5) scale(.62)" class="fc-ri">${RULE_PATHS["release"]?.[0] ?? ""}</g>${broken ? '<path d="M-8 8 L8 -8" class="slash"/>' : ""}</g>`;
+  const loop = every
+    ? `<path d="M${completeX} ${Y} V${top} H${reportX} V${Y - 2}" class="fc-edge loop" marker-end="url(#fc-arrow)"/>${loopBadge((reportX + completeX) / 2, top, false)}<text x="${(reportX + completeX) / 2}" y="${top - 14}" text-anchor="middle" class="fc-sub">Repeats ${esc(CYCLE_LABELS[every].toLowerCase())} while payments continue</text>`
+      + `<path d="M${completeX} ${Y + H} V${ly} H${feedbackX} V${Y + H + 2}" class="fc-edge loop" marker-end="url(#fc-arrow)"/>${loopBadge((completeX + feedbackX) / 2, ly, true)}<text x="${(completeX + feedbackX) / 2}" y="${ly + 28}" text-anchor="middle" class="fc-sub">When the gift stops or its plan ends</text>`
+    : "";
+  const extra = back(confirmX, assignX, "Reject: reassign") + back(reviewX, allocX, "Reject: back to the partner") + loop;
   const height = ly + 28 + 8;
   return `<svg class="fc" viewBox="0 0 ${width} ${height}" width="${width}" role="group" aria-label="The flow of this workflow"><defs><marker id="fc-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" class="fc-head"/></marker></defs>${edges.join("")}${parts.join("")}${extra}</svg>`;
 }

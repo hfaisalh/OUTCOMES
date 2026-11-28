@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { isFrameworkTemplate, type FrameworkTemplate } from "./categories";
 import { starterOutcomeTypes } from "../05-outcomes/outcome-types";
-import { mergeWorkflow, addStage, assignOf, confirmDaysOf, setConfirm, flagOf, setFlag, moveStage, removeStage, setAssign, setStage, totalDays, assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, setUnitRule, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, suggestWorkflowFor } from "./workflows";
+import { reportLoopOf, setReportLoop, mergeWorkflow, addStage, assignOf, confirmDaysOf, setConfirm, flagOf, setFlag, moveStage, removeStage, setAssign, setStage, totalDays, assignToWorkflow, itemsInWorkflow, removeWorkflow, setUnitMode, setUnitRule, unassignItem, unitModeLabels, outcomeName, addStarterWorkflows, addTask, removeTask, setTask, suggestWorkflowFor } from "./workflows";
 
 const fw = (over: Partial<FrameworkTemplate> = {}): FrameworkTemplate => ({ id: "w", name: "Orphan sponsorship", unit: "orphan", cycle: "quarterly", reportType: "Quarterly orphan update", instalment: "per_period", unitsPerBeneficiary: 3, ...over });
 const ok = (r: { frameworks: FrameworkTemplate[] } | { error: string }): FrameworkTemplate[] => { if ("error" in r) throw new Error(r.error); return r.frameworks; };
@@ -197,5 +197,20 @@ describe("merging two workflows that differ only in units per beneficiary (DECIS
   it("merges an empty workflow too, moving nothing", () => {
     const empty = { categories: [], itemMap: {}, frameworks: [parts, whole], itemFramework: {} } as import("./categories").Setup;
     expect(mergeWorkflow(empty, {}, "sponsorship-whole", "sponsorship-shared-parts").value.moved).toBe(0);
+  });
+});
+
+describe("the reporting loop of a living workflow (decision 317)", () => {
+  const f = (over = {}) => ({ id: "w", name: "Sponsorship", unit: "orphan", cycle: "monthly" as const, reportType: "Update", unitsPerBeneficiary: 1, instalment: "per_period" as const, ...over });
+  it("loops on its cycle when the workflow is living, and not when it releases on full payment or reports once", () => {
+    expect(reportLoopOf(f())).toBe("monthly");
+    expect(reportLoopOf(f({ instalment: "share_of_whole" }))).toBeNull();
+    expect(reportLoopOf(f({ cycle: "on_delivery" }))).toBeNull();
+  });
+  it("switching the loop on gives a monthly cycle, and off takes the report back to once", () => {
+    const off = setReportLoop([f()], "w", false) as { frameworks: { cycle: string }[] };
+    expect(off.frameworks[0]?.cycle).toBe("on_delivery");
+    const on = setReportLoop(off.frameworks as never, "w", true) as { frameworks: { cycle: string }[] };
+    expect(on.frameworks[0]?.cycle).toBe("monthly");
   });
 });
