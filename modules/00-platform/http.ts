@@ -32,6 +32,7 @@ export interface Deps {
   // The reader and reporter for an organisation's CRM, or null when it has none set up.
   connector: (config: OrgConfig) => { reader: CrmReader; reporter: CrmReporter } | null;
   storage: "database" | "memory"; // shown to staff, so nobody trusts the memory version with real work
+  testPassphrase?: string; // the sign-in passphrase of the TEST organisation (OWNER_TEST_PASSPHRASE): a separate organisation with its own setup and records, for trying things (DECISIONS 331). Empty or missing switches it off
   ownerPassphrase?: string; // the owner's sign-in passphrase (OWNER_PASSPHRASE). Empty or missing switches the owner sign-in off
   fetch?: (url: string, init?: { signal?: AbortSignal; headers?: Record<string, string> }) => Promise<{ ok: boolean; json(): Promise<unknown> }>; // the place search reaches the internet through this; tests pass a fake
   demoLogin: boolean; // true only where the test sign-in is switched on (DEMO_LOGIN=1). Never for a live organisation

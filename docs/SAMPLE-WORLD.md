@@ -17,7 +17,18 @@ Three parts, loaded in this order:
 - **Uploading the world files** adds sample gifts beside the real ones. An upload counts as a complete read for its dates, so real gifts paid in that window and not in the files are flagged "no longer in the CRM feed" and held for review. Nothing is deleted. Restore them from Needs attention, or test on a separate database.
 - **Add the standard workflows** only adds the ones that are missing. It never replaces yours.
 - **Load sample scenario** touches only the sample gifts. It does not change your real gifts, records, workflows, benefit connections, days to fulfil or automatic settings. To see the report loop, moving and reminders at work, switch them on yourself on Workflows and Rules (they are settings, so you can).
-- **Best of all:** test on a separate database (a Neon branch), so nothing real is near it.
+- **Best of all: a separate test organisation** (below), so nothing real is near it.
+
+## A separate test organisation (DECISIONS 331)
+
+Everything OUTCOMES keeps is kept by organisation, so a second organisation, `mwf-test`, has its own setup, gifts and records, apart from the real one. It runs on the same site and database.
+
+1. Set `OWNER_TEST_PASSPHRASE` in Vercel (16 or more characters, different from the owner's) and redeploy.
+2. Copy your rules and configuration into it: `node --env-file=.env.local scripts/db-copy-setup.mjs --from mwf --to mwf-test` (a dry run), then add `--yes`. It copies the workflows and their settings, the benefit connections and types, the days to fulfil, the rules and the automatic settings. It copies no gifts, records, partners, projects or accounts, and it sets the test organisation to take uploaded files, so it can never read the real CRM.
+3. Open the site and sign in with the test passphrase. A red badge says TEST ORGANISATION.
+4. Upload the files in `samples/world/`, set up the workflows (already copied, so just apply them to the gifts), load the sample setup and the sample scenario.
+
+Your real organisation is never touched. If you want a different copy of your setup later, run the copy again.
 
 ## To reload from nothing
 

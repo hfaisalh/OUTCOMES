@@ -194,28 +194,34 @@ export async function handlePickup(req: HttpRequest, d: Deps): Promise<HttpRespo
 // until the CRM sign-in exists. Rule: it answers 404 when no passphrase is set, compares without leaking timing, and can only
 // open the organisation named OWNER_ORG. Use a long passphrase (16 characters or more).
 export const OWNER_ORG = "mwf";
+export const TEST_ORG = "mwf-test"; // Rule (DECISIONS 331): a second organisation for testing. Everything is kept by organisation, so its setup, gifts and records are apart from the real one.
 const digest = (s: string) => createHash("sha256").update(s).digest();
 export async function handleOwnerLogin(req: HttpRequest, d: Deps): Promise<HttpResponse> {
   const secret = d.ownerPassphrase ?? "";
-  if (secret === "" || req.method !== "POST") return text(404, "Not found.");
+  const testSecret = d.testPassphrase ?? "";
+  if ((secret === "" && testSecret === "") || req.method !== "POST") return text(404, "Not found.");
   // A plain form post (the page's sign-in form) gets redirects back to the app. A script (JSON) gets JSON.
   const isForm = (req.headers["content-type"] ?? "").includes("application/x-www-form-urlencoded");
   const given = (req.body as { passphrase?: unknown } | undefined)?.passphrase;
   // Rule (DECISIONS 291): too many wrong tries from one address stops sign-in for a while, even for the right passphrase.
   const who = `owner|${callerOf(req)}`;
   if (signInLimit.blocked(who, d.nowMs())) return isForm ? { status: 302, headers: { location: "/app/?signin=wait", "cache-control": "no-store" } } : tooMany(signInLimit.retrySeconds(who, d.nowMs()));
-  if (typeof given !== "string" || !timingSafeEqual(digest(given), digest(secret))) {
+  // Rule (DECISIONS 331): which passphrase was given decides which organisation is opened. Both are compared (never short-cut), so the answer does not show which exists.
+  const isOwner = typeof given === "string" && secret !== "" && timingSafeEqual(digest(given), digest(secret));
+  const isTest = typeof given === "string" && testSecret !== "" && timingSafeEqual(digest(given), digest(testSecret));
+  const org = isOwner ? OWNER_ORG : TEST_ORG;
+  if (!isOwner && !isTest) {
     signInLimit.fail(who, d.nowMs());
     return isForm ? { status: 302, headers: { location: "/app/?signin=wrong", "cache-control": "no-store" } } : json(401, { error: "That passphrase is not right." });
   }
   signInLimit.clear(who);
   const now = nowSeconds(d);
-  const config = (await d.store.getConfig(OWNER_ORG)) ?? defaultConfig();
-  if (config.crm.kind === "none") await d.store.putConfig(OWNER_ORG, { ...config, crm: { kind: "upload" } });
+  const config = (await d.store.getConfig(org)) ?? defaultConfig();
+  if (config.crm.kind === "none") await d.store.putConfig(org, { ...config, crm: { kind: "upload" } });
   // Rule (DECISIONS 91): the test sign-in can be taken as any example role, so each kind of person can be tried. No role means the administrator, as before.
   const wanted = (req.body as { role?: unknown } | undefined)?.role;
   const role = typeof wanted === "string" && wanted !== "" ? roleById(wanted) : roleById("admin");
-  const claims: Claims = { typ: "launch", jti: d.newId(), sub: `test-${role.id}`, name: role.id === "admin" ? "Owner" : `Test: ${role.name}`, org: OWNER_ORG, perms: role.permissions, iat: now, exp: now + 60 };
+  const claims: Claims = { typ: "launch", jti: d.newId(), sub: `test-${role.id}`, name: role.id === "admin" ? (org === TEST_ORG ? "Owner (test organisation)" : "Owner") : `Test: ${role.name}`, org, perms: role.permissions, iat: now, exp: now + 60 };
   const session = signToken(d.secrets.session, sessionFrom(claims, d.newId(), now));
   const headers = { "set-cookie": sessionCookie(session, SESSION_SECONDS), "cache-control": "no-store" };
   return isForm ? { status: 302, headers: { ...headers, location: "/app/" } } : json(200, { ok: true }, headers);

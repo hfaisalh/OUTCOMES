@@ -7,7 +7,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { PERMISSIONS as P } from "../../app/menu";
 import { addBeneficiary, emptyRegister } from "../07-beneficiaries/beneficiaries";
-import { handleConfig, handleDemoLogin, handleLaunch, handleMe, handleOutcomes, handlePickup, handleWorkOrders, type Deps, type HttpRequest } from "./handlers";
+import { handleConfig, handleDemoLogin, handleLaunch, handleMe, handleOutcomes, handleOwnerLogin, handlePickup, handleWorkOrders, type Deps, type HttpRequest } from "./handlers";
 import { signToken, type Claims } from "./launch-token";
 import { defaultConfig, memoryStore } from "./store";
 
@@ -389,5 +389,22 @@ describe("the partner inbox and the automatic work (decision 326)", () => {
     expect((on.body as { results: { automation: { ran: boolean } }[] }).results[0]?.automation.ran).toBe(true);
     expect((await d.store.getConfig("demo"))!.assignments!.records).toHaveLength(0); // the unanswered gift moved
     expect((await d.store.getConfig("demo"))!.autoLast?.by).toBe("Automation");
+  });
+  it("opens a separate test organisation with its own passphrase, apart from the real one (decision 331)", async () => {
+    const dd: Deps = { ...d, ownerPassphrase: "owner-passphrase-123456", testPassphrase: "test-passphrase-7890123" };
+    const real = await handleOwnerLogin(req({ method: "POST", body: { passphrase: "owner-passphrase-123456" } }), dd);
+    const test = await handleOwnerLogin(req({ method: "POST", body: { passphrase: "test-passphrase-7890123" } }), dd);
+    expect(real.status).toBe(200);
+    expect(test.status).toBe(200);
+    const orgOf = async (r: { headers?: Record<string, string> }) => ((await handleMe(as(cookieOf(r)), dd)).body as { org: string; name: string });
+    expect((await orgOf(real)).org).toBe("mwf");
+    const t = await orgOf(test);
+    expect(t.org).toBe("mwf-test");
+    expect(t.name).toBe("Owner (test organisation)");
+    // each organisation keeps its own records: a gift saved in the test organisation is not in the real one
+    await dd.store.saveWorkOrders("mwf-test", [{ key: "T1", lineId: "T1", status: "ready", itemId: "I", itemName: "X", supporterName: "Sample Supporter A", paidDate: "2026-11-01" } as never]);
+    expect(await dd.store.listWorkOrders("mwf")).toHaveLength(0);
+    expect((await handleOwnerLogin(req({ method: "POST", body: { passphrase: "wrong-wrong-wrong-1" } }), dd)).status).toBe(401);
+    expect((await handleOwnerLogin(req({ method: "POST", body: { passphrase: "test-passphrase-7890123" } }), { ...d, ownerPassphrase: "owner-passphrase-123456" })).status).toBe(401); // the test passphrase is off unless it is set
   });
 });

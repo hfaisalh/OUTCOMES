@@ -515,7 +515,7 @@ function draw(): void {
   const shell = document.getElementById("shell") as HTMLElement;
   shell.innerHTML = `<a class="skip" href="#main">Skip to the page</a><div class="app">
     <aside class="side"><div class="brand"><img class="brand-mark" src="/brand/mark-light.svg" alt="" width="30" height="30"><span>OUTCOMES<small>Minhaj Welfare Foundation</small></span></div><nav class="nav">${sections}</nav><div class="foot">${state.me ? "Live data from your CRM." : "Demo with invented data. Nothing is saved."}</div></aside>
-    <header class="top">${state.me ? `<span class="badge-demo">Signed in from the CRM${state.me.storage === "memory" ? " · TEMPORARY STORAGE, nothing is kept" : ""}</span>` : `<span class="badge-demo">Demo with invented data</span>`}
+    <header class="top">${state.me ? `<span class="badge-demo${state.me.org === "mwf-test" ? " badge-test" : ""}">${state.me.org === "mwf-test" ? "TEST ORGANISATION · invented data only" : "Signed in from the CRM"}${state.me.storage === "memory" ? " · TEMPORARY STORAGE, nothing is kept" : ""}</span>` : `<span class="badge-demo">Demo with invented data</span>`}
       <span class="ver" title="The version of this page. If it is not the latest, refresh the page.">${esc(typeof __BUILD_LABEL__ === "string" ? __BUILD_LABEL__ : "dev")}</span>
       <div class="who">${gear}${person}</div></header>
     <main class="content" id="main" tabindex="-1">${moduleTabs}${frameLists(body)}</main></div>`;

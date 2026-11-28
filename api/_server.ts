@@ -69,6 +69,7 @@ export function deps(): Deps {
     connector,
     demoLogin: process.env["DEMO_LOGIN"] === "1",
     ownerPassphrase: process.env["OWNER_PASSPHRASE"] ?? "",
+    testPassphrase: process.env["OWNER_TEST_PASSPHRASE"] ?? "",
   };
 }
 

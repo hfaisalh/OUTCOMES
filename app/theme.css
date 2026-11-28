@@ -830,3 +830,4 @@ tr.clickrow{cursor:pointer}tr.clickrow:hover{background:color-mix(in srgb,var(--
 .sg-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 @media (prefers-reduced-motion:reduce){.dr,.sg-tab,.sg-step{transition:none;animation:none}}
 .sg-rail .sg-tab.on,.sg-rail .sg-tab.on .sg-t{color:var(--text)}
+.badge-test{background:#e34948!important;color:#fff!important;font-weight:700}

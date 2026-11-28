@@ -8,6 +8,7 @@ The server parts run as Vercel functions in `api/` (the logic is in `modules/00-
 | `SESSION_SECRET` | Only OUTCOMES. Signs the session cookie | Set |
 | `CRON_SECRET` | Lets Vercel's scheduled job call `/api/pickup` | Set |
 | `DATABASE_URL` | The Postgres database (Neon, set through the Vercel integration) | Set. The page says whether storage is the database or temporary |
+| `OWNER_TEST_PASSPHRASE` | The sign-in passphrase of the separate TEST organisation (`mwf-test`), 16 or more characters, different from the owner's. Unset switches it off. It opens an organisation with its own setup, gifts and records, marked TEST ORGANISATION in red (DECISIONS 331) | Optional. |
 | `OWNER_PASSPHRASE` | The owner's sign-in passphrase (16 or more characters) until the CRM sign-in exists (DECISIONS 43). Unset switches the owner sign-in off | **Not set yet.** Add it in Vercel (Settings, Environment Variables) or `vercel env add OWNER_PASSPHRASE production`, then redeploy |
 | `DEMO_LOGIN` | Test sign-in for the pretend CRM (Module 1d). Set to `1` on a protected test server only | Remove it to switch the test sign-in off |
 | `<TOKEN NAME>` | The read token for an organisation's CRM, named in that organisation's setup (`crm.tokenEnv`) | Not set |
