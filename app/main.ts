@@ -63,6 +63,7 @@ import { frameLists } from "./list-frames";
 import { dataFeedPage, dataFilesPage } from "./data-page";
 import { benefitsPage } from "./benefits-page";
 import { unitPie, workflowsPage } from "./workflows-page";
+import { rulesPage } from "./rules-page";
 import { mergeWorkflow, addStarterWorkflows, addTask, assignToWorkflow, linkStarterTypes, removeTask, removeWorkflow, setTask, setUnitRule, setFlag, setConfirm, addStage, setStage, removeStage, moveStage, setAssign, suggestWorkflowFor, unassignItem } from "../modules/02-project-rules/workflows";
 import { createMapping } from "./mapping-controller";
 import { applyOutcomeTypeAction, starterOutcomeTypes, type OutcomeType } from "../modules/05-outcomes/outcome-types";
@@ -533,6 +534,7 @@ function draw(): void {
     : state.page === "data-feed" ? dataFeedPage(v)
     : state.page === "data-files" ? dataFilesPage(v)
     : state.page === "workflows" ? workflowsPage(v)
+    : state.page === "rules" ? rulesPage(v)
     : state.page === "benefits" ? benefitsPage(v)
     : state.page === "attention" ? attentionPage(v)
     : state.page === "projects" ? projectsPage(v)

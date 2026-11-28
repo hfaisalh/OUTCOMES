@@ -22,10 +22,10 @@ export const PERMISSIONS = {
   approveRelease: "outcomes.approve_release", // a manager may approve releasing a sponsor's place after a missed payment (DECISIONS 74)
 } as const;
 
-export type PageId = "workflows" | "benefits" | "data-feed" | "data-files" | "work-orders" | "attention" | "projects" | "partners" | "beneficiaries" | "outcome-records" | "outcome-list" | "assignment" | "confirmation" | "allocate" | "progress" | "audit" | "categories" | "dashboard" | "sources" | "settings";
+export type PageId = "workflows" | "benefits" | "data-feed" | "data-files" | "work-orders" | "attention" | "projects" | "partners" | "beneficiaries" | "outcome-records" | "outcome-list" | "assignment" | "confirmation" | "allocate" | "progress" | "audit" | "categories" | "dashboard" | "sources" | "settings" | "rules";
 
 // Rule: the pages a link or a reload may open. Anything else (a mistyped or old address) is ignored and the usual first page is used.
-export const PAGE_IDS: readonly PageId[] = ["workflows", "benefits", "data-feed", "data-files", "work-orders", "attention", "projects", "partners", "beneficiaries", "outcome-records", "outcome-list", "assignment", "confirmation", "allocate", "progress", "audit", "categories", "dashboard", "sources", "settings"];
+export const PAGE_IDS: readonly PageId[] = ["workflows", "benefits", "data-feed", "data-files", "work-orders", "attention", "projects", "partners", "beneficiaries", "outcome-records", "outcome-list", "assignment", "confirmation", "allocate", "progress", "audit", "categories", "dashboard", "sources", "settings", "rules"];
 export const isPageId = (x: string): x is PageId => (PAGE_IDS as readonly string[]).includes(x);
 
 export interface MenuItem {
@@ -74,6 +74,7 @@ export const MENU: MenuItem[] = [
   { id: "sources", label: "Other sources", icon: "⇪", permission: PERMISSIONS.otherSources, section: "Data", module: "data" },
   { id: "attention", label: "Needs attention", icon: "!", permission: PERMISSIONS.viewWorkOrders, section: "Set up", module: "setup" },
   { id: "workflows", label: "Workflows", icon: "◈", permission: PERMISSIONS.mapFrameworks, section: "Set up", module: "setup" },
+  { id: "rules", label: "Automation rules", icon: "☰", permission: PERMISSIONS.mapFrameworks, section: "Set up", module: "setup" },
   { id: "benefits", label: "Benefits", icon: "◉", permission: PERMISSIONS.mapFrameworks, section: "Set up", module: "setup" },
   { id: "settings", label: "Organisation", icon: "⚙", permission: PERMISSIONS.settings, section: "Set up", module: "setup" },
 ];
