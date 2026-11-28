@@ -101,6 +101,7 @@ export const state = {
   confirmations: emptyConfirmations() as Confirmations, // the partners' answers to those assignments (DECISIONS 231)
   progress: emptyProgress() as Progress, // the steps taken after allocation, and the batches closed (DECISIONS 232)
   prgFilter: "all", // the tile chosen on the Progress page
+  pageTab: {} as Record<string, string>, // the tab open on Assignment and Allocate
   assignFilter: "all", // the filter on the Assignment page
   enrolments: emptyEnrolments() as Enrolments, // who is enrolled in which cluster (DECISIONS 167)
   outcomeRecFilter: { ...NO_OUTCOME_FILTER } as { text: string; project: string; type: string; show: "" | "underfunded" | "missed" | "ended" }, // the filters on the Outcomes list

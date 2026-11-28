@@ -18,6 +18,7 @@ import { emptyAllocations, fills, isActive, allocateContext, suggestAllocations,
 import { emptyRegister } from "../../modules/07-beneficiaries/beneficiaries";
 import type { SavedFeatures } from "../../modules/02-project-rules/kind-features";
 import { esc, type View } from "../shared/pages";
+import { pageTab, tabsHtml, panelAttrs, type PageTab } from "../shared/page-tabs";
 
 const MAX_ROWS = 150;
 // The filters say what they mean: ready to be allocated, waiting with no beneficiary to fund, or already allocated (DECISIONS 179).
@@ -107,6 +108,8 @@ export function allocatePage(v: View): string {
   const tile = (id: string, n: number, label: string, cls = ""): string => `<button type="button" class="metric tile${cls ? ` ${cls}` : ""}" data-tile="alloc:${id}" aria-pressed="${filter === id ? "true" : "false"}"><b>${n}</b><span>${esc(label)}</span></button>`;
   const filters = `<div class="filters"><select data-allocf="filter" aria-label="Show">${FILTERS.map((f) => `<option value="${f.id}"${f.id === filter ? " selected" : ""}>${f.label}</option>`).join("")}</select></div>`;
 
+  const tabList: PageTab[] = [{ id: "gifts", label: "Gifts", count: shown.length }, { id: "fund", label: "Beneficiaries to fund", count: fillList.length }];
+  const tab = pageTab(v.pageTab, "allocate", tabList);
   return `<h1>Allocate</h1>
     <p class="sub">An assigned gift is allocated. Where the beneficiary comes first (sponsorship), it supports a beneficiary who still needs funding: an approved beneficiary enrolled in a cluster of its project for its benefit, the one least funded first. Where the gift comes first (a pump, a camp), it creates an outcome and its recipients are enrolled after. A gift with no beneficiary to fund waits, and says why.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
@@ -116,7 +119,8 @@ export function allocatePage(v: View): string {
     <div class="actions"><button class="primary" data-alc="run"${ready || pendingEnds ? "" : " disabled"}>Allocate automatically</button><button data-alc="reset"${allocations.records.length ? "" : " disabled"}>Reset allocations</button></div>
     ${pendingEnds ? `<p class="muted">${pendingEnds} allocation${pendingEnds === 1 ? " has" : "s have"} ended (a plan was parked, a child left, or an assignment was withdrawn). Allocate automatically records it, and keeps it in the history.</p>` : ""}
     ${assignments.length === 0 ? '<div class="empty">No gift has been assigned yet. Assign gifts to partners on the Assignment tab first.</div>' : ""}
-    <div class="card"><h2>Beneficiaries to fund <span class="muted">(${fillList.length})</span></h2>${placeRows ? `<div class="tablewrap"><table><thead><tr><th>Beneficiary</th><th>Benefit</th><th>Where</th><th class="num">Units</th><th>State</th></tr></thead><tbody>${placeRows}</tbody></table></div>${fillList.length > MAX_ROWS ? `<p class="muted">The first ${MAX_ROWS} are shown.</p>` : ""}` : '<div class="empty">No beneficiary needs funding. Enrol approved beneficiaries in a cluster, on the cluster\'s Beneficiaries tab.</div>'}</div>
-    <div class="card"><h2>Gifts <span class="muted">(${shown.length})</span></h2>${filters}
-      ${rows ? `<div class="tablewrap"><table><thead><tr><th>Gift</th><th>Partner</th><th class="num">Units</th><th>Beneficiary</th><th>Why</th></tr></thead><tbody>${rows}</tbody></table></div>${shown.length > MAX_ROWS ? `<p class="muted">The first ${MAX_ROWS} are shown.</p>` : ""}` : '<div class="empty">No gifts here.</div>'}</div>`;
+    ${tabsHtml("allocate", tabList, tab)}
+    <div ${panelAttrs("allocate", "fund", tab)}><div class="card"><h2>Beneficiaries to fund <span class="muted">(${fillList.length})</span></h2>${placeRows ? `<div class="tablewrap"><table><thead><tr><th>Beneficiary</th><th>Benefit</th><th>Where</th><th class="num">Units</th><th>State</th></tr></thead><tbody>${placeRows}</tbody></table></div>${fillList.length > MAX_ROWS ? `<p class="muted">The first ${MAX_ROWS} are shown.</p>` : ""}` : '<div class="empty">No beneficiary needs funding. Enrol approved beneficiaries in a cluster, on the cluster\'s Beneficiaries tab.</div>'}</div></div>
+    <div ${panelAttrs("allocate", "gifts", tab)}><div class="card"><h2>Gifts <span class="muted">(${shown.length})</span></h2>${filters}
+      ${rows ? `<div class="tablewrap"><table><thead><tr><th>Gift</th><th>Partner</th><th class="num">Units</th><th>Beneficiary</th><th>Why</th></tr></thead><tbody>${rows}</tbody></table></div>${shown.length > MAX_ROWS ? `<p class="muted">The first ${MAX_ROWS} are shown.</p>` : ""}` : '<div class="empty">No gifts here.</div>'}</div></div>`;
 }

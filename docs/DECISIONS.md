@@ -1124,3 +1124,6 @@ Follow up to 269 (same day, from a gift whose first held payment is instalment 6
 
 ## 307 (28/11/26): the key to the symbols is one line
 The Beneficiaries and Outcomes lists showed the key in a collapsible two-row block that took more room than it saved. It is now a single small left-aligned line above the list tools. Reason: Faisal asked for it to sit like the Columns row.
+
+## 308 (28/11/26): key beside Columns, and tabs on Assignment and Allocate
+The one-line key now joins the list tools row, left, beside the Columns button (Beneficiaries, Outcomes and Gifts), so it takes no row of its own. Assignment (Gifts, Capacity, Batches) and Allocate (Gifts, Beneficiaries to fund) show one table per screen through tabs, so nobody scrolls past one table to reach another. Every panel is drawn and the others hidden, so a list keeps its sort and filters between tabs. A tile opens the Gifts tab. Reason: Faisal asked for less empty space and one table per screen.

@@ -362,13 +362,13 @@ describe("giftsPage", () => {
     expect(names(giftListHtml(view({ workOrders: rows, giftSort: { key: "donor", dir: "desc" } })))).toEqual(["Zara", "Amir"]);
     expect(giftListHtml(view({ workOrders: rows }))).toContain('aria-sort="none"');
   });
-  it("shows the bulk bar only once something is ticked, and keeps the key to the symbols in a disclosure (decision 214)", () => {
+  it("shows the bulk bar only once something is ticked, and keeps the key to the symbols on one line (decision 307)", () => {
     const rows = [sub(1)];
     expect(giftListHtml(view({ workOrders: rows }))).not.toContain('class="bulkbar"');
     const ticked = giftListHtml(view({ workOrders: rows, selected: [rows[0]!.key] }));
     expect(ticked).toContain('class="bulkbar"');
     expect(ticked).toContain('data-bulk="exclude">Exclude selected');
-    expect(giftListHtml(view({ workOrders: rows }))).toContain("Key to the symbols</summary>");
+    expect(giftListHtml(view({ workOrders: rows }))).toContain(`aria-label="Key to the symbols"`); // one line beside Columns (decision 307)
   });
 
   it("shows each filter that is on as a chip that can be removed alone, with a way to clear them all (decision 215)", () => {

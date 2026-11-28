@@ -694,3 +694,8 @@ tr.rowlink[data-cnfwin]{cursor:pointer}tr.rowlink[data-cnfwin]:hover td{backgrou
 /* One-line key to the symbols, left aligned above the list tools (DECISIONS 307) */
 .keyline{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:2px 0 4px;font-size:12px;line-height:1.5}
 .keyline .keyitem{display:inline-flex;align-items:center;gap:4px}
+.listtools.withkey{justify-content:flex-start}
+.listtools.withkey .toolbtns{order:-1;margin-left:0;display:flex;align-items:center;flex-wrap:wrap;gap:4px 12px}
+.listtools.withkey .keyline{margin:0}
+.page-tabs{margin:10px 0 12px;padding:0}
+.page-tabs button[aria-selected="true"]{color:var(--text)}

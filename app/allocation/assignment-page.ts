@@ -16,6 +16,7 @@ import { eligiblePartners } from "../../modules/06-projects/projects";
 import { itemRulesOf } from "../../modules/07-beneficiaries/enrolments";
 import type { SavedFeatures } from "../../modules/02-project-rules/kind-features";
 import { esc, type View } from "../shared/pages";
+import { pageTab, tabsHtml, panelAttrs, type PageTab } from "../shared/page-tabs";
 import { standingsOf } from "./progress-page";
 import { isClosed } from "../../modules/12-progress/progress";
 
@@ -91,14 +92,17 @@ export function assignmentPage(v: View): string {
   const tile = (id: string, n: number, label: string, cls = ""): string => `<button type="button" class="metric tile${cls ? ` ${cls}` : ""}" data-tile="asg:${id}" aria-pressed="${filter === id ? "true" : "false"}"><b>${n}</b><span>${esc(label)}</span></button>`;
   const filters = `<div class="filters"><select data-asgf="filter" aria-label="Show">${FILTERS.map((f) => `<option value="${f.id}"${f.id === filter ? " selected" : ""}>${f.label}</option>`).join("")}</select></div>`;
 
+  const tabList: PageTab[] = [{ id: "gifts", label: "Gifts", count: shown.length }, { id: "capacity", label: "Capacity with each partner", count: rooms.length }, ...(batchRows.length ? [{ id: "batches", label: "Batches", count: batchRows.length }] : [])];
+  const tab = pageTab(v.pageTab, "assignment", tabList);
   return `<h1>Assignment</h1>
     <p class="sub">Each released gift is handed to a partner. A gift for a project goes to that project's partners in its order, and the first that is active, in date, delivers the item and has room takes it. A gift with no project goes to any partner that delivers its item. A workflow set to automatic assigns at once, one set to suggest waits for a person.</p>
     ${v.message ? `<div class="note">${esc(v.message)}</div>` : ""}
     <div class="metrics">${metric(toAssign(ctx, existing).length, "Need a partner")}${tile("ready", toGo + suggested, "Have a partner ready")}${tile("assigned", existing.records.length, "Assigned")}${tile("waiting", waiting, "Wait, no partner with room", waiting ? "warn" : "")}</div>
     ${why.length ? `<p class="muted"><b>Why gifts wait:</b> ${why.map((x) => `${x.n} ${esc(x.label)}`).join(" · ")}.</p>` : ""}
     <div class="actions"><button class="primary" data-asg="run">Assign automatically</button><button data-asg="confirm"${suggested + toGo ? "" : " disabled"}>Confirm all suggestions</button><button data-asg="reset"${existing.records.length ? "" : " disabled"}>Reset assignments</button></div>
-    <div class="card"><h2>Capacity with each partner</h2>${rooms.length ? `<table><thead><tr><th>Partner</th><th>Benefit</th><th class="num">Registered</th><th class="num">Allowed</th><th class="num">Assigned</th><th class="num">Remaining</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>${roomRows}</tbody></table>` : '<div class="empty">No partner delivers a benefit yet. Add partners on the Partners page.</div>'}</div>
-    ${batchCard}
-    <div class="card"><h2>Gifts <span class="muted">(${shown.length})</span></h2>${filters}
-      ${rows ? `<div class="tablewrap"><table><thead><tr><th>Gift</th><th>Project</th><th class="num">Units</th><th>Partner</th><th class="num">Batch</th><th>Why</th></tr></thead><tbody>${rows}</tbody></table></div>${shown.length > MAX_ROWS ? `<p class="muted">The first ${MAX_ROWS} are shown.</p>` : ""}` : '<div class="empty">No gifts here. Gifts appear when they are released and have a workflow.</div>'}</div>`;
+    ${tabsHtml("assignment", tabList, tab)}
+    <div ${panelAttrs("assignment", "capacity", tab)}><div class="card"><h2>Capacity with each partner</h2>${rooms.length ? `<table><thead><tr><th>Partner</th><th>Benefit</th><th class="num">Registered</th><th class="num">Allowed</th><th class="num">Assigned</th><th class="num">Remaining</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>${roomRows}</tbody></table>` : '<div class="empty">No partner delivers a benefit yet. Add partners on the Partners page.</div>'}</div></div>
+    <div ${panelAttrs("assignment", "batches", tab)}>${batchCard}</div>
+    <div ${panelAttrs("assignment", "gifts", tab)}><div class="card"><h2>Gifts <span class="muted">(${shown.length})</span></h2>${filters}
+      ${rows ? `<div class="tablewrap"><table><thead><tr><th>Gift</th><th>Project</th><th class="num">Units</th><th>Partner</th><th class="num">Batch</th><th>Why</th></tr></thead><tbody>${rows}</tbody></table></div>${shown.length > MAX_ROWS ? `<p class="muted">The first ${MAX_ROWS} are shown.</p>` : ""}` : '<div class="empty">No gifts here. Gifts appear when they are released and have a workflow.</div>'}</div></div>`;
 }

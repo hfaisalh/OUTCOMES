@@ -118,6 +118,9 @@ export function enhanceTables(root: ParentNode, tt: TableToolsState, page: strin
     const bar = document.createElement("div");
     bar.className = "listtools tt";
     bar.innerHTML = `<div class="chips">${count}${chips}${any ? `<button type="button" class="chipbtn" data-tt-reset="${key}">Reset</button>` : ""}</div><div class="toolbtns"><button type="button" class="chipbtn" data-tt-cols="${key}" aria-expanded="${tt.open?.kind === "cols" && tt.open.key === key ? "true" : "false"}">${SYM.columns} Columns</button></div>${panel}`;
+    // Rule: a one-line key to the symbols that sits just above the list joins the bar, left, beside Columns, so it takes no row of its own.
+    const keyLine = [frame.previousElementSibling, frame.parentElement?.previousElementSibling].find((e) => e?.classList.contains("keyline"));
+    if (keyLine) { bar.classList.add("withkey"); bar.querySelector(".toolbtns")?.appendChild(keyLine); }
     frame.parentElement?.insertBefore(bar, frame);
   });
 }

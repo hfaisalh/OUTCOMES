@@ -134,3 +134,13 @@ describe("the Batches card (DECISIONS 203)", () => {
   });
 });
 
+
+describe("tabs on the Assignment page", () => {
+  it("opens on Gifts and hides the other tables until their tab is chosen", () => {
+    const html = assignmentPage(view({}));
+    expect(html).toContain('role="tablist"');
+    expect(html).toMatch(/id="pp-assignment-capacity"[^>]* hidden/);
+    expect(html).not.toMatch(/id="pp-assignment-gifts"[^>]* hidden/);
+    expect(assignmentPage(view({ pageTab: { assignment: "capacity" } }))).toMatch(/id="pp-assignment-gifts"[^>]* hidden/);
+  });
+});

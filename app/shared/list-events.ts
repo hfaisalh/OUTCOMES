@@ -17,6 +17,7 @@ export interface ListEventState {
   giftColsOpen: boolean;
   registerFilter: { show?: string };
   outcomeRecFilter: { show: string };
+  pageTab: Record<string, string>;
   assignFilter: string;
   allocFilter: string;
   prgFilter: string;
@@ -87,11 +88,14 @@ export function installListEvents({ state, draw, outcomeChange }: ListEventDeps)
   });
 
   document.addEventListener("click", (e) => {
+    const pt = (e.target as HTMLElement).closest?.("[data-ptab]") as HTMLElement | null;
+    if (pt) { const [pg, id] = (pt.dataset.ptab ?? "").split(":"); state.pageTab = { ...state.pageTab, [pg!]: id! }; draw(); return; }
     const b = (e.target as HTMLElement).closest?.("[data-tile]") as HTMLElement | null;
     if (!b) return;
     const [which, id] = (b.dataset.tile ?? "").split(":");
-    if (which === "asg") state.assignFilter = state.assignFilter === id ? "all" : id!;
-    else if (which === "alloc") state.allocFilter = state.allocFilter === id ? "all" : id!;
+    // Rule: a tile filters the gifts, so the Gifts tab opens with it.
+    if (which === "asg") { state.assignFilter = state.assignFilter === id ? "all" : id!; state.pageTab = { ...state.pageTab, assignment: "gifts" }; }
+    else if (which === "alloc") { state.allocFilter = state.allocFilter === id ? "all" : id!; state.pageTab = { ...state.pageTab, allocate: "gifts" }; }
     else if (which === "prg") state.prgFilter = state.prgFilter === id ? "all" : id!;
     else if (which === "pj") state.pjFilter = state.pjFilter === id ? "all" : (id as ProjectFilter);
     else if (which === "cnf") state.cnfFilter = state.cnfFilter === id ? "all" : (id as ConfirmFilter);

@@ -381,7 +381,7 @@ export function giftListHtml(v: View): string {
   const colPick = v.giftColsOpen ? popoverHtml({ title: "Columns", items: GIFT_COLUMNS.map(([id, label]) => ({ label, attrs: `data-gcol="${id}"`, checked: !hidden.has(id) })), clearAttrs: `data-gcols="reset"`, clearLabel: "Usual columns", doneAttrs: `data-gcols="toggle"` }) : "";
   if (base.length === 0) return `<div class="empty">No gifts in this list.</div>`;
   // Rule (DECISIONS 214): the key of symbols sits in a disclosure, so the list starts higher. Every symbol also has its own tooltip.
-  const key = `<details class="keydrop"><summary>${SYM.info} Key to the symbols</summary><p class="symbolkey muted">${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; ${SYMBOL.manual} allocate manually &nbsp; ${SYMBOL.waiting} waiting for allocation &nbsp; ${SYMBOL.ok} ready &nbsp; ${SYMBOL.look} needs a look &nbsp; ${SYMBOL.review} held for review &nbsp; ${SYMBOL.unrouted} unrouted &nbsp; ${SYMBOL.excluded} excluded. Click a row for its details.</p></details>`;
+  const key = `<p class="keyline muted" role="note" aria-label="Key to the symbols">${SYM.info} Key: ${SYMBOL.recurring} recurring &nbsp; ${SYMBOL.one} one payment &nbsp; ${SYMBOL.manual} allocate manually &nbsp; ${SYMBOL.waiting} waiting for allocation &nbsp; ${SYMBOL.ok} ready &nbsp; ${SYMBOL.look} needs a look &nbsp; ${SYMBOL.review} held for review &nbsp; ${SYMBOL.unrouted} unrouted &nbsp; ${SYMBOL.excluded} excluded. Click a row for its details.</p>`;
 
   // Rule: the plan column is the short form: paid/planned for a subscription, the months covered for a single payment.
   const planCell = (g: GiftRow): string => {
@@ -438,7 +438,7 @@ export function giftListHtml(v: View): string {
     ["site", `<th class="c">Site${funnel("site")}</th>`], ["donor", th("donor", "Donor")], ["item", th("item", "Item")], ["project", th("project", "Project")], ["origin", `<th class="c">Old site${funnel("origin")}</th>`], ["plan", th("plan", "Plan", "num")], ["value", th("value", "Value", "num")], ["paid", th("paid", "Paid", "num")], ["next", th("next", "Next", "num")],
     ["stage", `<th>Stage${funnel("stage")}</th>`], ["assigned", `<th>Assigned to${funnel("assigned")}</th>`], ["alloc", `<th>Allocated to${funnel("alloc")}</th>`], ["status", "<th>Status</th>"],
   ];
-  const tools = `<div class="listtools"><div class="chips">${chips}</div><div class="toolbtns"><button type="button" class="chipbtn" data-gcols="toggle" aria-expanded="${v.giftColsOpen ? "true" : "false"}">${SYM.columns} Columns</button>${key}</div></div>${colPick}${valuePanel}`;
+  const tools = `<div class="listtools withkey"><div class="chips">${chips}</div><div class="toolbtns"><button type="button" class="chipbtn" data-gcols="toggle" aria-expanded="${v.giftColsOpen ? "true" : "false"}">${SYM.columns} Columns</button>${key}</div></div>${colPick}${valuePanel}`;
   return `${bulk}${note}${tools}${rows.length === 0 ? `<div class="empty">No gifts match the filters.<br><button type="button" data-action="clear-filters" data-scope="main">Clear the filters</button></div>` : `<div class="tablewrap"><table class="giftlist"><thead><tr>${heads.filter(([id]) => !hidden.has(id)).map(([, html]) => html).join("")}</tr></thead><tbody>${shown.map(row).join("")}</tbody></table></div>`}`;
 }
 
