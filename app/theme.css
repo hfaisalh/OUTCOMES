@@ -761,3 +761,4 @@ button.metric.tile:focus-visible{outline:2px solid var(--accent);outline-offset:
 .fc-loopbtn{cursor:pointer}.fc-loopbtn:hover circle,.fc-loopbtn.on circle{fill:var(--accent-bg);stroke-width:2.6}
 .fc-step:focus-visible .fc-loopbtn circle{stroke-width:3}
 .rj{font-size:12px;padding:3px 6px;width:150px}.rj-note{margin-top:2px;font-size:12px}
+.pb-back{margin-top:4px;padding:6px 8px;border-radius:8px;background:var(--warn-bg);color:var(--warn);font-size:12.5px;line-height:1.4}.pb-back b{color:inherit}

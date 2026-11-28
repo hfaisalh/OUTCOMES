@@ -58,3 +58,24 @@ describe("following a gift", () => {
     expect(Object.keys(rows[0]!).sort()).toEqual(["batch", "benefit", "detail", "funds", "key", "project", "reason", "since", "standing", "step"]);
   });
 });
+
+describe("work sent back at review (decision 321)", () => {
+  const withReject = (extra: { key: string; kind: "phase"; id: string; at: string; by: string }[] = []): PartnerSlice => {
+    const s = slice();
+    s.gifts["sub:3"] = { ...s.gifts["sub:3"]!, phases: [{ label: "Site visit", days: 10 }, { label: "Photo update", days: 30 }] };
+    s.progress = [...s.progress.filter((r) => r.key !== "sub:3"), { key: "sub:3", kind: "phase", id: "visit", at: "2026-11-05T00:00:00Z", by: "A" }, { key: "sub:3", kind: "phase", id: "photo", at: "2026-11-10T00:00:00Z", by: "A" }, { key: "sub:3", kind: "reject", id: "review", at: "2026-11-12T10:00:00Z", by: "MWF", reason: "The photo is blurred" } as never, ...extra];
+    return s;
+  };
+  it("tells the partner why, which phase to put right and the last day", () => {
+    const row = partnerOutcomes(withReject()).find((r) => r.key === "sub:3")!;
+    expect(row.sentBack).toEqual({ reason: "The photo is blurred", phase: "Photo update", due: "2026-12-12" });
+    expect(row.step).not.toBe("Review"); // a rejection is not a step the partner took
+  });
+  it("stops telling it once the partner has done a phase again", () => {
+    const row = partnerOutcomes(withReject([{ key: "sub:3", kind: "phase", id: "photo", at: "2026-11-15T00:00:00Z", by: "A" }])).find((r) => r.key === "sub:3")!;
+    expect(row.sentBack).toBeUndefined();
+  });
+  it("says nothing to a gift that was not rejected", () => {
+    expect(partnerOutcomes(slice()).find((r) => r.key === "sub:3")!.sentBack).toBeUndefined();
+  });
+});

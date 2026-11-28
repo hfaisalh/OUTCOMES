@@ -11,6 +11,7 @@
  */
 
 import { STAGE_LABELS, type StageId } from "../12-progress/progress.js";
+import { addDays } from "../11-confirmation/confirmation.js";
 import type { GiftDetail } from "./gift-details.js";
 import type { PartnerSlice } from "./scope.js";
 
@@ -28,6 +29,7 @@ export interface PartnerOutcome {
   reason: string; // why it was refused
   since: string; // YYYY-MM-DD
   detail: GiftDetail | undefined; // what the partner may know about the gift (gift-details.ts)
+  sentBack?: { reason: string; phase: string; due: string }; // MWF rejected the work at review: why, the phase to put right, and the last day to do it (DECISIONS 321)
 }
 
 const words = (id: string): string => { const t = id.replace(/[-_]+/g, " ").trim(); return t.charAt(0).toUpperCase() + t.slice(1); };
@@ -37,13 +39,17 @@ export function partnerOutcomes(s: PartnerSlice): PartnerOutcome[] {
   return s.assignments.map((a): PartnerOutcome => {
     const answer = s.confirmations.find((c) => c.key === a.key);
     const held = s.allocations.filter((p) => p.key === a.key && p.to === undefined);
-    const steps = s.progress.filter((r) => r.key === a.key && r.kind !== "batch");
+    const steps = s.progress.filter((r) => r.key === a.key && r.kind !== "batch" && r.kind !== "reject");
+    // Rule (DECISIONS 321): a partner is told when MWF sent its work back, why, and the last day to put it right: the days of the last phase from the rejection. It is shown until a phase is done again after the rejection.
+    const rej = s.progress.filter((r) => r.key === a.key && r.kind === "reject").sort((x, y) => y.at.localeCompare(x.at))[0];
+    const lastPhase = s.gifts[a.key]?.phases.at(-1);
+    const back = rej && lastPhase && !steps.some((r) => r.kind === "phase" && r.at > rej.at) ? { reason: rej.reason ?? "", phase: lastPhase.label, due: lastPhase.days > 0 ? addDays(rej.at.slice(0, 10), lastPhase.days) : "" } : undefined;
     const last = steps[steps.length - 1];
     const standing: Standing = answer?.answer === "rejected" ? "refused" : steps.some((r) => r.kind === "stage" && r.id === "complete") ? "complete" : held.length > 0 ? "allocated" : answer ? "confirmed" : "to-answer";
     return {
       key: a.key, batch: a.batch, benefit: s.itemNames[a.itemId] ?? a.itemId, project: s.giftProjects.find((g) => g.id === a.giftProjectId)?.name ?? "",
       funds: held.map((p) => (p.kind === "beneficiary" ? nameOfEnrolment(p.enrolmentId) : p.outcomeRef)).filter((x) => x !== "").join(", "),
-      standing, step: last ? (last.kind === "stage" ? STAGE_LABELS[last.id as StageId] ?? words(last.id) : words(last.id)) : "", reason: answer?.reason ?? "", since: a.at.slice(0, 10), detail: s.gifts[a.key],
+      standing, step: last ? (last.kind === "stage" ? STAGE_LABELS[last.id as StageId] ?? words(last.id) : words(last.id)) : "", reason: answer?.reason ?? "", since: a.at.slice(0, 10), detail: s.gifts[a.key], ...(back ? { sentBack: back } : {}),
     };
   }).sort((x, y) => y.since.localeCompare(x.since) || x.key.localeCompare(y.key));
 }
