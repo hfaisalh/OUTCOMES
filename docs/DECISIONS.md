@@ -1139,3 +1139,6 @@ A scatter on the Dashboard trends: down the side the stage a gift has reached, a
 
 ## 312 (28/11/26): tiles like the journey tiles, scatter opens its gifts, chart grid fills
 Summary tiles were redone to match the stage tiles of the Gift journey (centred, quiet border, lift and soft shadow on hover, tinted with an accent border when on), replacing the first attempt (310). A click on a bubble of the age against stage chart opens the Gifts list with just those gifts and a chip that removes the filter. The chart tiles of the trends section sit in a grid of 1, 2 or 3 columns with the scatter filling the gap beside the last chart, so no space is left empty. Reason: Faisal asked for the journey tiles behaviour, a deep dive, and an orderly Dashboard.
+
+## 313 (28/11/26): paired Dashboard cards fill their row
+Two cards side by side (Benefits share and journey, Partners compared chart and table) are as tall as the taller one, and the shorter one spreads its bars or table rows to fill it. Chart cards taller than their content centre the chart and keep "View as a table" at the foot. Reason: Faisal asked for no empty blocks under a card on the Dashboard.

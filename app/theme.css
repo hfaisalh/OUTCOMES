@@ -736,3 +736,17 @@ button.metric.tile:focus-visible{outline:2px solid var(--accent);outline-offset:
 .fx .tr-scatter circle{animation:ind-pop .4s var(--spring) both}
 .sc-dot{cursor:pointer;outline:none}.sc-dot:focus-visible circle{stroke:var(--accent);stroke-width:3}
 .listtools.withkey .toolbtns{flex:1 1 auto}.listtools.withkey .keyline{flex:1 1 auto}
+
+/* --- Paired Dashboard cards fill their row (DECISIONS 313) ---
+   Rule: two cards side by side are as tall as the taller one, and the shorter one spreads its content (bars, table rows) to fill it, so no empty block is left under it. */
+.dash-two,.tr-pbody{align-items:stretch}
+.dash-shares{display:flex;flex-direction:column}
+.dash-shares .dash-bars{flex:1 1 auto;align-content:space-evenly}
+.tr-pbody > .dash-card{display:flex;flex-direction:column}
+.tr-pbody > .dash-card .tablewrap{flex:1 1 auto;display:flex;flex-direction:column}
+.tr-pbody > .dash-card .tablewrap > table,.tr-pbody > .dash-card .tablewrap .dash-table{flex:1 1 auto;height:100%}
+.tr-pbody > .dash-line{justify-content:space-between}
+/* A chart card taller than its content centres the chart and keeps the "View as a table" link at the foot (DECISIONS 313). */
+.dash-card:has(> .dash-donut-body){display:flex;flex-direction:column}
+.dash-card:has(> .dash-donut-body) > .dash-donut-body{margin:auto 0}
+.dash-card:has(> .dash-donut-body) > .dash-tbl{margin-top:auto}
