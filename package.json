@@ -12,7 +12,8 @@
     "check": "npm run typecheck && npm test",
     "feed:from-exports": "node scripts/export-to-feed.ts",
     "db:init": "node --env-file=.env.local scripts/db-init.mjs",
-    "db:reset-records": "node --env-file=.env.local scripts/db-reset-records.mjs"
+    "db:reset-records": "node --env-file=.env.local scripts/db-reset-records.mjs",
+    "a11y": "node scripts/a11y.mjs"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.23",
