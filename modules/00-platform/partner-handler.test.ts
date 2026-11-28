@@ -266,3 +266,12 @@ describe("a gift marked Priority (DECISIONS 284)", () => {
     expect((await handleOutcomes(as(partner, { method: "POST", body: { action: "gift-priority", key: "x", on: true } }), d)).status).toBe(400); // a partner cannot mark one
   });
 });
+
+describe("several gifts marked Priority at once (DECISIONS 288)", () => {
+  it("takes a list of keys, and says how many", async () => {
+    const staff = cookieOf(await handleDemoLogin(req(), d));
+    const post = (body: unknown) => handleOutcomes(as(staff, { method: "POST", body }), d);
+    expect((await post({ action: "gift-priority", keys: ["sub:A", "B", "", 7], on: true })).body).toMatchObject({ priorityGifts: ["sub:A", "B"], warning: "Marked 2 gifts as priority: assigned and allocated first." });
+    expect((await post({ action: "gift-priority", keys: ["B"], on: false })).body).toMatchObject({ priorityGifts: ["sub:A"], warning: "Priority taken away." });
+  });
+});

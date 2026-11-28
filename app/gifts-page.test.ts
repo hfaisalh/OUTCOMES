@@ -12,7 +12,7 @@ import { planWorkOrders, type WorkOrder } from "../modules/01c-crm-connector/wor
 import { suggestAll } from "../modules/02-project-rules/categories";
 import { demoCategories, demoFeedRows, starterFrameworks } from "./demo-data";
 import { SYM } from "./symbols";
-import { giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shortDate, shownGiftKeys, valueByCurrency } from "./gifts-page";
+import { giftDetailHtml, giftKeysOfPayments, giftListHtml, giftMetricsHtml, giftsPage, shortDate, shownGiftKeys, valueByCurrency } from "./gifts-page";
 import type { View } from "./pages";
 
 const lines = readFeed(demoFeedRows(), MWF_CRM_CONFIG).lines;
@@ -559,5 +559,21 @@ describe("marking a gift Priority from its window (DECISIONS 284, 285)", () => {
     expect(off).toContain('<span class="tg-text">Priority</span>');
     const on = giftDetailHtml(view({ workOrders: orders, priorityGifts: ["o1"] }), "once-o1");
     expect(on).toMatch(/checked[^>]*data-gift-priority="o1"/);
+  });
+});
+
+describe("priority for the ticked gifts (DECISIONS 288)", () => {
+  it("offers Make priority and Remove priority on the bulk bar once something is ticked", () => {
+    const orders = [{ ...base, key: "o1", subscriptionId: "", instalmentNumber: "", instalmentCount: "" }];
+    const html = giftListHtml(view({ workOrders: orders, selected: ["o1"] }));
+    expect(html).toContain('data-bulk="priority-on"');
+    expect(html).toContain('data-bulk="priority-off"');
+    expect(giftListHtml(view({ workOrders: orders }))).not.toContain("priority-on");
+  });
+  it("turns ticked payments into the gifts they belong to: one key for a recurring gift, none for an excluded payment", () => {
+    const rec = (k: string, n: number) => ({ ...base, key: k, subscriptionId: "SUB-9", instalmentNumber: String(n) });
+    const orders = [rec("r1", 1), rec("r2", 2), { ...base, key: "o1", subscriptionId: "", instalmentNumber: "", instalmentCount: "" }, { ...base, key: "x1", subscriptionId: "", instalmentNumber: "", instalmentCount: "", status: "excluded" as const }];
+    expect(giftKeysOfPayments(view({ workOrders: orders }), ["r1", "r2", "o1", "x1"]).sort()).toEqual(["o1", "sub:SUB-9"]);
+    expect(giftKeysOfPayments(view({ workOrders: orders }), [])).toEqual([]);
   });
 });

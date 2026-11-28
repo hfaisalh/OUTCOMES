@@ -22,3 +22,12 @@ describe("gifts marked Priority", () => {
     expect(prioritySet(undefined).size).toBe(0);
   });
 });
+
+describe("several gifts at once (DECISIONS 288)", () => {
+  it("marks and unmarks a list, ignoring empty keys and repeats", async () => {
+    const { setManyPriority } = await import("./priority-gifts");
+    expect(setManyPriority(["A"], ["B", "A", "", "C", "B"], true)).toEqual(["A", "B", "C"]);
+    expect(setManyPriority(["A", "B", "C"], ["B", "Z"], false)).toEqual(["A", "C"]);
+    expect(setManyPriority(undefined, [], true)).toEqual([]);
+  });
+});

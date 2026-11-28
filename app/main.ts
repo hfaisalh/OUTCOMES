@@ -10,12 +10,12 @@
  * menu follows a CRM role (DECISIONS 32). Nothing is saved and no real login happens.
  */
 
-import { prioritySet, setGiftPriority } from "../modules/08-assignment/priority-gifts";
+import { prioritySet, setManyPriority } from "../modules/08-assignment/priority-gifts";
 import { MWF_CRM_CONFIG, readFeed, type FeedRow } from "../modules/01c-crm-connector/feed";
 import { adoptLegacy, allocOptions, crmNamesOf, applyProjectAction, autoCreateProjects, clearLegacy, allocateInNode, allocateInPartner, samplePartnerProfile, type GiftProject, type Node, type Project } from "../modules/06-projects/projects";
 import { markCustomAmounts } from "../modules/04b-commitments/parts";
 import { enhanceTables, newTableTools } from "./table-tools";
-import { GIFT_COLUMNS, GIFT_HIDDEN_DEFAULT, giftDetailHtml, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts-page";
+import { GIFT_COLUMNS, GIFT_HIDDEN_DEFAULT, giftDetailHtml, giftKeysOfPayments, giftListHtml, giftMetricsHtml, giftsPage, shownGiftKeys } from "./gifts-page";
 import { partnersPage } from "./partners-page";
 import { projectsPage, type ProjectFilter } from "./projects-page";
 import { beneficiariesPage, NO_BEN_FILTER, type BenFilter } from "./beneficiaries-page";
@@ -369,7 +369,7 @@ async function outcomeChange(body: Record<string, unknown>): Promise<void> {
       if (kf) { if ("error" in kf) error = kf.error; else state.kindFeatures = kf.value; }
       const ot = typeof body["action"] === "string" && (body["action"] as string).startsWith("ot-") ? applyOutcomeTypeAction(state.outcomeTypes, state.frameworks.map((f) => f.id), [...new Set(state.outcomes.map((o) => o.outcomeTypeId ?? "").filter((x) => x !== ""))], body) : null;
       // The Beneficiary register (DECISIONS 163): the same pure rule the server uses.
-      if (body["action"] === "gift-priority") { state.priorityGifts = setGiftPriority(state.priorityGifts, String(body["key"] ?? ""), body["on"] === true); state.message = body["on"] === true ? "Marked as priority: assigned and allocated first." : "Priority taken away."; }
+      if (body["action"] === "gift-priority") { const ks = Array.isArray(body["keys"]) ? (body["keys"] as unknown[]).map(String) : [String(body["key"] ?? "")]; state.priorityGifts = setManyPriority(state.priorityGifts, ks, body["on"] === true); state.message = body["on"] === true ? "Marked as priority: assigned and allocated first." : "Priority taken away."; }
       if (body["action"] === "ben-area") { // the demo does the same as the server (DECISIONS 275)
         const place = acceptPlace(body["location"]);
         if (!place || typeof body["area"] !== "string") error = "Choose a place from the list.";
@@ -711,6 +711,12 @@ document.addEventListener("click", (e) => {
     if (how === "clear") {
       state.selected = [];
       return redrawLists();
+    }
+    // Priority for every ticked gift (DECISIONS 288): the ticked payments are turned into the gifts they belong to.
+    if (how === "priority-on" || how === "priority-off") {
+      const keys = giftKeysOfPayments(view(), state.selected);
+      if (keys.length === 0) { state.message = "None of the ticked gifts can be given priority."; return draw(); }
+      return void outcomeChange({ action: "gift-priority", keys, on: how === "priority-on" }).then(() => { state.selected = []; draw(); });
     }
     const restoring = (excl ? excl.dataset.exclAction : how) === "restore";
     const keys = excl ? [excl.dataset.excl as string] : [...state.selected];

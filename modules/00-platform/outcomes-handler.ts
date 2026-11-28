@@ -6,7 +6,7 @@
  * Rules: the organisation always comes from the signed session; a read needs to view work orders, a change needs to map frameworks; the rules themselves are the pure functions the demo uses too.
  */
 
-import { prioritySet, setGiftPriority } from "../08-assignment/priority-gifts.js";
+import { prioritySet, setManyPriority } from "../08-assignment/priority-gifts.js";
 import { PERMISSIONS as P } from "../../app/menu.js";
 import { applyOutcomeTypeAction, starterOutcomeTypes } from "../05-outcomes/outcome-types.js";
 import { ensureRefs, withPrefixes } from "../05-outcomes/refs.js";
@@ -212,12 +212,14 @@ export async function handleOutcomes(req: HttpRequest, d: Deps): Promise<HttpRes
     // The Beneficiary register (DECISIONS 163) and enrolments (DECISIONS 167): the same pure rules the demo uses. A beneficiary that is enrolled cannot be removed.
     // Rule (DECISIONS 284): a gift is marked Priority, or the mark is taken away. It only changes the order of assignment and allocation.
     if (b["action"] === "gift-priority") {
-      const key = str("key");
-      if (key === "") return fail("Choose a gift.");
-      const next = setGiftPriority(config.priorityGifts, key, b["on"] === true);
+      // One gift (key) or several at once (keys, from the bulk bar).
+      const keys = (Array.isArray(b["keys"]) ? (b["keys"] as unknown[]) : [str("key")]).filter((k): k is string => typeof k === "string" && k !== "").slice(0, 500);
+      if (keys.length === 0) return fail("Choose a gift.");
+      const next = setManyPriority(config.priorityGifts, keys, b["on"] === true);
       await save({ ...config, priorityGifts: next });
       config.priorityGifts = next;
-      return reply({ warning: b["on"] === true ? "Marked as priority: assigned and allocated first." : "Priority taken away." });
+      const one = keys.length === 1;
+      return reply({ warning: b["on"] === true ? (one ? "Marked as priority: assigned and allocated first." : `Marked ${keys.length} gifts as priority: assigned and allocated first.`) : (one ? "Priority taken away." : `Priority taken away from ${keys.length} gifts.`) });
     }
     // Rule (DECISIONS 275): one typed area is given a checked place for everyone who typed it.
     if (b["action"] === "ben-area") {

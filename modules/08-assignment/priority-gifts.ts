@@ -20,3 +20,6 @@ export function setGiftPriority(list: readonly string[] | undefined, key: string
   if (key === "" || has === on) return [...now];
   return on ? [...now, key] : now.filter((k) => k !== key);
 }
+
+// Marks or unmarks several gifts at once (the bulk bar). The same rules as one: empty keys are ignored and a gift is never listed twice.
+export const setManyPriority = (list: readonly string[] | undefined, keys: readonly string[], on: boolean): string[] => keys.reduce((acc, k) => setGiftPriority(acc, k, on), [...(list ?? [])]);

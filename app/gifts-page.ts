@@ -352,7 +352,7 @@ export function giftListHtml(v: View): string {
   // Rule (DECISIONS 214): the bulk bar appears only once something is ticked, so three greyed buttons do not take space all the time.
   const hidden = new Set(v.giftHidden ?? GIFT_HIDDEN_DEFAULT); // Rule (DECISIONS 215): the columns a person has hidden, with Rec. ID and Value hidden to begin with
   const bulk = picked.size === 0 ? "" : `<div class="bulkbar" role="status"><span><b>${picked.size}</b> selected</span>
-    <button data-bulk="exclude">Exclude selected</button><button data-bulk="restore">Restore selected</button><button data-bulk="clear">Clear selection</button></div>`;
+    <button data-bulk="priority-on" title="Assign and allocate the selected gifts before the others">Make priority</button><button data-bulk="priority-off">Remove priority</button><button data-bulk="exclude">Exclude selected</button><button data-bulk="restore">Restore selected</button><button data-bulk="clear">Clear selection</button></div>`;
   // Rule (DECISIONS 215): each filter that is on is a chip that can be removed on its own, with a count of what is shown and a way to clear them all, so it is never a mystery why a list is short. A chip says its filter in words.
   const itemNames = new Map(base.map((w) => [w.itemId, w.itemName]));
   const chipOf = (key: string, text: string): string => `<button type="button" class="chip" data-action="clear-filter" data-scope="main" data-key="${key}" aria-label="Remove the filter ${esc(text)}">${esc(text)} ${SYM.close}</button>`;
@@ -587,3 +587,10 @@ export function giftsPage(v: View): string {
     ${v.review.length ? `<div class="card"><h2>Held for review</h2><p class="muted">These changed in the CRM after the work order was made. Nothing was changed automatically.</p><table><tbody>${v.review.map((r) => `<tr><td>${esc(r.key)}</td><td>${esc(r.message)}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
 }
 
+
+// The gifts the ticked payments belong to, as assignment keys (DECISIONS 288). A recurring gift is one assignment, so its payments give one key; an excluded payment gives none.
+export function giftKeysOfPayments(v: View, paymentKeys: readonly string[]): string[] {
+  const ticked = new Set(paymentKeys);
+  const keys = giftRows(v.workOrders, v.workOrders, new Set(v.review.map((r) => r.key))).filter((g) => g.kind !== "excluded" && g.payments.some((w) => ticked.has(w.key))).map(giftAllocationKey).filter((k) => k !== "");
+  return [...new Set(keys)];
+}
