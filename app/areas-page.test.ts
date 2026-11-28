@@ -31,7 +31,10 @@ describe("the Dashboard areas card and its fix window", () => {
     expect(html).toContain('data-action="ar-find"');
     expect(html.match(/data-action="ar-find"/g)).toHaveLength(1); // both spellings are one area
     expect(html).toContain("Kasur District, Punjab");
-    expect(html).toContain('class="ar-map"');
+    expect(html).toContain('class="ar-map"'); // the plain layout, kept as the fallback
+    expect(html).toContain('id="ar-leaflet"');
+    expect(html).toMatch(/data-rows="\[\{&quot;id&quot;:&quot;osm:N1&quot;/); // the places the real map draws
+    expect(html).toContain("OpenStreetMap contributors");
   });
   it("shows the matches under the row being looked at, and says so while searching or when none is found", () => {
     const key = "swat valley";

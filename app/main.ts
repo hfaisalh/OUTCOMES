@@ -73,6 +73,7 @@ import { handlePartnerAction, partnerKeys, partnerUi, switchView } from "./partn
 import { csvChange } from "./partner-csv-session";
 import { initPlacePicker } from "./place-picker";
 import { areasCard, areasWindowHtml } from "./areas-page";
+import { mountAreasMap } from "./areas-map";
 import { areasAction, areasUi, areasView } from "./areas-session";
 import { acceptPlace, upsertPlace, type Place } from "../modules/14-locations/locations";
 import { resolveArea } from "../modules/14-locations/areas";
@@ -571,6 +572,7 @@ function draw(): void {
       <div class="who">${gear}${person}</div></header>
     <main class="content">${moduleTabs}${frameLists(body)}</main></div>`;
   void role;
+  void mountAreasMap(); // the real map on the Dashboard card, when it is on the page (DECISIONS 279)
   // Motion (DECISIONS 220): the visual indicators (bars, meters, pies, tile figures) draw in, and the first rows of the Gifts list ease in, when the list itself changes (page, tab, tile, column filter or sort), not on every redraw or keystroke.
   const sig = `${state.page}|${state.filter}|${JSON.stringify(state.giftColFilters)}|${JSON.stringify(state.giftSort ?? "")}`;
   if (sig !== lastListSig) { lastListSig = sig; if (!reducedMotion()) { document.querySelector?.(".giftlist")?.classList.add("rows-in"); document.querySelector?.("main.content")?.classList.add("fx"); } }

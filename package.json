@@ -15,12 +15,14 @@
     "db:reset-records": "node --env-file=.env.local scripts/db-reset-records.mjs"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.23",
     "@types/node": "^26.6.6",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.1"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.2.1"
+    "@neondatabase/serverless": "^1.2.1",
+    "leaflet": "^1.9.4"
   }
 }
