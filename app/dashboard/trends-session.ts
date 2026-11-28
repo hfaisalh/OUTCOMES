@@ -13,4 +13,10 @@ export const trendsView: TrendsView = noTrendsView();
 export function trendsAction(action: string, el: HTMLElement, redraw: () => void): void {
   if (action === "tr-range") { trendsView.months = el.dataset["n"] === "6" ? 6 : 12; redraw(); }
 }
-export function trendsBenefit(value: string, redraw: () => void): void { trendsView.benefit = value; redraw(); }
+// A choice in one of the lists above the charts: the benefit, the partner, or the measure to compare partners on.
+export function trendsChoose(id: string, value: string, redraw: () => void): void {
+  if (id === "tr-benefit") trendsView.benefit = value;
+  else if (id === "tr-partner") trendsView.partner = value;
+  else if (id === "tr-metric") trendsView.metric = (["score", "completed", "onTime", "answer", "complete"].includes(value) ? value : "score") as TrendsView["metric"];
+  redraw();
+}

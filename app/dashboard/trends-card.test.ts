@@ -50,20 +50,34 @@ describe("the trends part of the Dashboard", () => {
   const months = lastMonths("2026-11-30", 6);
   const lives = [{ key: "a", itemId: "I1", paidAt: "2026-08-02", assignedAt: "2026-08-03T00:00:00Z", answeredAt: "2026-08-05T00:00:00Z", confirmedAt: "2026-08-05T00:00:00Z", answerDays: 3, allocatedAt: "2026-08-06T00:00:00Z", completedAt: "2026-11-10T00:00:00Z", deliveredAt: "2026-10-10T00:00:00Z" }];
   const points = monthlyTrends(lives, months);
-  const data: TrendsData = { points, improvements: improvements(points), benefits: [{ id: "I1", name: "Orphan <care>" }], gifts: 1 };
+  const data: TrendsData = { points, improvements: improvements(points), benefits: [{ id: "I1", name: "Orphan <care>" }], partners: [{ id: "p1", name: "Alpha <Trust>" }, { id: "p2", name: "Beta Trust" }], byPartner: [{ id: "p1", name: "Alpha <Trust>", gifts: 5, points, improvements: improvements(points) }, { id: "p2", name: "Beta Trust", gifts: 9, points, improvements: improvements(points) }], gifts: 1 };
   it("leads with the change tiles, each with its words, then the four charts", () => {
     const html = trendsHtml(data, noTrendsView());
     expect(html).toContain("Is delivery improving?");
     expect(html.indexOf("tr-tile")).toBeLessThan(html.indexOf("Fulfilment score</h3>"));
-    expect(html.match(/class="dash-card dash-line"/g)).toHaveLength(4);
+    expect(html.match(/class="dash-card dash-line"/g)).toHaveLength(5); // the four, and the one comparing partners
     expect(html).toMatch(/Better|Worse|No change|No earlier month/);
   });
   it("has a benefit list and a range with names, the chosen ones marked, and escapes names", () => {
-    const html = trendsHtml(data, { benefit: "I1", months: 6 });
+    const html = trendsHtml(data, { ...noTrendsView(), benefit: "I1", months: 6 });
     expect(html).toContain('id="tr-benefit" aria-label="Benefit"');
     expect(html).toContain('<option value="I1" selected>Orphan &lt;care&gt;</option>');
     expect(html).toContain('data-n="6" aria-pressed="true"');
     expect(html).toContain('data-n="12" aria-pressed="false"');
+  });
+  it("compares partners: a list to choose the partner and the measure, one line for each partner, and a table, names escaped", () => {
+    const html = trendsHtml(data, { ...noTrendsView(), metric: "answer" });
+    expect(html).toContain('id="tr-partner" aria-label="Partner"');
+    expect(html).toContain('<option value="p1">Alpha &lt;Trust&gt;</option>');
+    expect(html).toContain('id="tr-metric" aria-label="Measure"');
+    expect(html).toContain('<option value="answer" selected>Time for a partner to answer</option>');
+    expect(html).toContain("Time for a partner to answer, by partner");
+    expect(html).toContain("Fewer days is better.");
+    expect(html).toContain("lc-legend");
+    expect(html.indexOf('scope="row">Beta Trust</th>')).toBeLessThan(html.indexOf('scope="row">Alpha &lt;Trust&gt;</th>')); // the table lists the busiest first
+  });
+  it("says there are no partners yet when no gift is assigned", () => {
+    expect(trendsHtml({ ...data, byPartner: [], partners: [] }, noTrendsView())).toContain("No gift has been assigned to a partner yet");
   });
   it("is calm when there are no gifts yet", () => {
     const html = trendsHtml({ ...data, gifts: 0 }, noTrendsView());

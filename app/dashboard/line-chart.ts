@@ -26,7 +26,7 @@ export function niceMax(v: number): number {
   const f = v / pow;
   return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * pow;
 }
-const fmt = (n: number, unit: string): string => `${Number.isInteger(n) ? n : n.toFixed(1)}${unit}`;
+const fmt = (n: number, unit: string): string => `${Number.isInteger(n) ? n : n.toFixed(1)}${unit === " days" && n === 1 ? " day" : unit}`;
 
 export function lineChartHtml(c: LineChart): string {
   const unit = c.unit ?? "";

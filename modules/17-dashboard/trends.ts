@@ -19,6 +19,7 @@ import { fulfilmentScore, journey } from "./facts.js";
 export interface GiftLife {
   key: string;
   itemId: string;
+  partnerId?: string; // the partner it was assigned to, absent until it is (DECISIONS 305)
   paidAt: string; // YYYY-MM-DD, the first payment
   assignedAt?: string;
   answeredAt?: string; // when the partner answered
@@ -102,9 +103,10 @@ export function monthlyTrends(lives: GiftLife[], months: Month[]): MonthPoint[] 
 
 // --- What improved ---
 export type Direction = "better" | "worse" | "same" | "none";
-export interface Improvement { id: string; label: string; unit: "pts" | "days" | "gifts" | "%"; now: number | null; before: number | null; change: number | null; direction: Direction; higherIsBetter: boolean }
+export interface Improvement { id: MetricId; label: string; unit: "pts" | "days" | "gifts" | "%"; now: number | null; before: number | null; change: number | null; direction: Direction; higherIsBetter: boolean }
 
-const METRICS: { id: string; label: string; unit: Improvement["unit"]; higherIsBetter: boolean; of: (p: MonthPoint) => number | null }[] = [
+export type MetricId = "score" | "completed" | "onTime" | "answer" | "complete";
+export const METRICS: { id: MetricId; label: string; unit: Improvement["unit"]; higherIsBetter: boolean; of: (p: MonthPoint) => number | null }[] = [
   { id: "score", label: "Fulfilment score", unit: "pts", higherIsBetter: true, of: (p) => p.score },
   { id: "completed", label: "Gifts completed", unit: "gifts", higherIsBetter: true, of: (p) => p.completed },
   { id: "onTime", label: "Partner answers on time", unit: "%", higherIsBetter: true, of: (p) => p.onTime },
