@@ -81,6 +81,7 @@ import { initPlacePicker } from "./shared/place-picker";
 import { areasCard, areasWindowHtml } from "./dashboard/areas-page";
 import { mountAreasMap } from "./dashboard/areas-map";
 import { costsCard } from "./dashboard/costs-card";
+import { withSetupCard } from "./dashboard/setup-card";
 import type { PartnerCost } from "../modules/15-partner-costs/costs";
 import { areasAction, areasUi, areasView } from "./dashboard/areas-session";
 import { acceptPlace, upsertPlace, type Place } from "../modules/14-locations/locations";
@@ -558,7 +559,7 @@ function draw(): void {
     : state.page === "progress" ? progressPage(v)
     : state.page === "outcome-list" ? beneficiariesPage(v)
     : state.page === "audit" ? auditPage(v)
-    : state.page === "dashboard" ? dashboardPage(v) + areasCard(v, areasView) + costsCard(v)
+    : state.page === "dashboard" ? withSetupCard(dashboardPage(v), v) + areasCard(v, areasView) + costsCard(v)
     : state.page === "categories" ? categoriesPage(v)
     : state.page === "sources" ? mapping.html()
     : settingsPage(v);
